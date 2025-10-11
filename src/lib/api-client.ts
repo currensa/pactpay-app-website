@@ -778,7 +778,7 @@ export class SafePayrollApiClient {
 
 // Create default API client instance
 export const apiClient = new SafePayrollApiClient({
-  baseUrl: import.meta.env.NODE_ENV === 'production' ? 'https://api.pactpay.app' : 'http://localhost:3000',
+  baseUrl: import.meta.env.PROD ? 'https://api.pactpay.app' : 'http://localhost:3000',
   timeout: 30000,
 });
 
