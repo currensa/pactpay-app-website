@@ -1,13 +1,13 @@
 // API Client for Safe Payroll System
 import {
-    Employee,
-    PaymentFrequency,
-    PaymentRecord,
-    Payroll,
-    PayrollStatus,
-    PayrollType,
-    TokenBalance,
-    Transaction
+  Employee,
+  PaymentFrequency,
+  PaymentRecord,
+  Payroll,
+  PayrollStatus,
+  PayrollType,
+  TokenBalance,
+  Transaction
 } from '../types';
 
 // API Response Types
@@ -778,7 +778,7 @@ export class SafePayrollApiClient {
 
 // Create default API client instance
 export const apiClient = new SafePayrollApiClient({
-  baseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
+  baseUrl: import.meta.env.NODE_ENV === 'production' ? 'https://api.pactpay.app' : 'http://localhost:3000',
   timeout: 30000,
 });
 
