@@ -246,7 +246,7 @@ export interface CreateTransactionResponse {
   threshold: number;
   nonce: number;
   transactionData: {
-    safeTransaction: object; // Safe SDK 创建的完整交易对象
+    safeTransaction: object; // Complete transaction object created by Safe SDK
     safeTxHash: string;
     safeAddress: string;
     chainId: number;
