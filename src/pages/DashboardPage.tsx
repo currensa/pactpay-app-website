@@ -1,14 +1,12 @@
 // Dashboard - Overview page
 import {
   AlertCircle,
-  ArrowRight,
   Clock,
   Plus,
   Receipt,
   RefreshCw,
-  TrendingUp,
   Users,
-  Wallet,
+  Wallet
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -20,20 +18,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { useAuth } from '../contexts/AuthContext';
 import type { DashboardOverview } from '../lib/api-client';
 import { apiClient } from '../lib/api-client';
-import { formatAddress, formatAmount, formatDate } from '../lib/utils';
+import { formatAddress } from '../lib/utils';
 
 export default function DashboardPage() {
-  const { currentOrganization } = useAuth();
+  const { currentOrganization, isLoading: authLoading } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasWaitedForAuth, setHasWaitedForAuth] = useState(false);
+
+  // Wait for auth to be fully loaded before checking organization
+  useEffect(() => {
+    if (!authLoading) {
+      const timer = setTimeout(() => {
+        setHasWaitedForAuth(true);
+      }, 200); // Give auth context time to fully initialize
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading]);
 
   // Load dashboard data
   useEffect(() => {
-    if (currentOrganization) {
-      loadDashboardData();
+    if (hasWaitedForAuth) {
+      if (currentOrganization) {
+        console.log('Dashboard: Organization found, loading data:', currentOrganization.name);
+        loadDashboardData();
+      } else {
+        console.log('Dashboard: No organization found, showing message');
+        // If no organization is selected, show a message
+        setIsLoading(false);
+      }
     }
-  }, [currentOrganization]);
+  }, [currentOrganization, hasWaitedForAuth]);
 
   const loadDashboardData = async (showToast = false) => {
     try {
@@ -43,7 +59,10 @@ export default function DashboardPage() {
         setIsLoading(true);
       }
 
+      console.log('Loading dashboard data...');
+      console.log('API Base URL:', apiClient.getBaseUrl());
       const data = await apiClient.getDashboardOverview();
+      console.log('Dashboard data loaded:', data);
       setDashboardData(data);
 
       if (showToast) {
@@ -52,6 +71,14 @@ export default function DashboardPage() {
     } catch (error: any) {
       console.error('Failed to load dashboard data:', error);
       toast.error(error.message || 'Failed to load dashboard data');
+      // Set a default dashboard data to prevent infinite loading
+      setDashboardData({
+        organization: { id: '', name: 'Unknown Organization' },
+        safeWallets: [],
+        pendingTasks: { count: 0, items: [] },
+        recentActivity: { count: 0, items: [] },
+        statistics: { totalRecipients: 0, totalPayrollsThisMonth: 0, totalAmountThisMonth: {} }
+      });
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -62,8 +89,8 @@ export default function DashboardPage() {
     loadDashboardData(true);
   };
 
-  // Loading state
-  if (isLoading || !dashboardData) {
+  // Loading state - wait for auth to be fully loaded
+  if (authLoading || !hasWaitedForAuth || isLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">
@@ -76,12 +103,51 @@ export default function DashboardPage() {
     );
   }
 
-  const { organization, safeWallet, pendingTasks, recentActivity, statistics } = dashboardData;
+  // No organization selected
+  if (!currentOrganization) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <AlertCircle className="size-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No organization selected</p>
+            <p className="text-muted-foreground">Please select an organization to view the dashboard</p>
+            <Button
+              onClick={() => window.location.href = '/select-organization'}
+              className="mt-4"
+            >
+              Select Organization
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // No dashboard data
+  if (!dashboardData) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <AlertCircle className="size-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Failed to load dashboard data</p>
+            <Button onClick={handleRefresh} className="mt-4">
+              <RefreshCw className="mr-2 size-4" />
+              Retry
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  const { organization, safeWallets, pendingTasks, recentActivity, statistics } = dashboardData;
 
   const stats = [
     {
-      title: 'Total Employees',
-      value: statistics.totalEmployees.toString(),
+      title: 'Total Recipients',
+      value: statistics.totalRecipients?.toString() || '0',
       icon: Users,
       color: 'text-blue-600',
       bgColor: 'bg-blue-100',
@@ -100,24 +166,15 @@ export default function DashboardPage() {
       color: 'text-green-600',
       bgColor: 'bg-green-100',
     },
-    {
-      title: 'Monthly Amount',
-      value: statistics.totalAmountThisMonth
-        ? `${formatAmount(statistics.totalAmountThisMonth.amount, 18)} ${statistics.totalAmountThisMonth.symbol}`
-        : '$0',
-      icon: TrendingUp,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100',
-    },
   ];
 
   return (
     <Layout>
-      <div className="p-8">
+      <div className="p-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1>Dashboard</h1>
+            <h1 className='text-2xl'>Dashboard</h1>
             <p className="text-muted-foreground">Welcome back to {organization.name}</p>
           </div>
           <div className="flex gap-3">
@@ -140,108 +197,136 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {stats.map((stat) => {
             const Icon = stat.icon;
             return (
-              <Card key={stat.title}>
+              <Card key={stat.title} className="group hover:shadow-lg transition-all duration-300 border-0 shadow-sm">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-muted-foreground mb-1">{stat.title}</p>
-                      <p className="text-2xl">{stat.value}</p>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground text-sm font-medium">{stat.title}</p>
+                      <p className="text-3xl font-bold text-slate-900">{stat.value}</p>
                     </div>
-                    <div className={`size-12 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
-                      <Icon className={`size-6 ${stat.color}`} />
+                    <div className={`size-14 rounded-xl ${stat.bgColor} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                      <Icon className={`size-7 ${stat.color}`} />
                     </div>
                   </div>
+                  {/* Subtle gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-transparent to-black/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                 </CardContent>
               </Card>
             );
           })}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Safe Wallet Info */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Safe Wallet</CardTitle>
-                  <CardDescription>Current balances and information</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {safeWallet ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-                    <Wallet className="size-5 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-muted-foreground mb-1">Safe Address</p>
-                      <p className="font-mono truncate">{formatAddress(safeWallet.address)}</p>
-                      <p className="text-muted-foreground mt-1">Chain ID: {safeWallet.chainId}</p>
+        <div className="grid grid-cols-3 gap-6">
+          {/* Safe Wallets Card - Bank Card Style */}
+          <Card className="overflow-hidden col-span-2">
+            {safeWallets && safeWallets.length > 0 ? (
+              <div className="space-y-4">
+                {safeWallets.map((safeWallet, index) => (
+                  <div key={safeWallet.address} className="relative bg-primary text-white rounded-lg overflow-hidden">
+                    {/* Card Background Pattern */}
+                    <div className="absolute inset-0 opacity-10">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full -translate-y-16 translate-x-16"></div>
+                      <div className="absolute bottom-0 left-0 w-24 h-24 bg-white rounded-full translate-y-12 -translate-x-12"></div>
+                      <div className="absolute top-1/2 right-1/4 w-16 h-16 bg-white rounded-full"></div>
                     </div>
-                  </div>
 
-                  <div>
-                    <p className="mb-3">Balances</p>
-                    <div className="space-y-2">
-                      {safeWallet.balances && safeWallet.balances.length > 0 ? (
-                        safeWallet.balances.map((balance, index) => (
-                          <div
-                            key={`${balance.tokenSymbol}-${index}`}
-                            className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                          >
-                            <div>
-                              <p className="font-medium">{balance.tokenSymbol}</p>
-                              {balance.fiatBalance && (
-                                <p className="text-muted-foreground">≈ ${balance.fiatBalance}</p>
-                              )}
-                            </div>
-                            <p className="font-mono">{balance.balance}</p>
+                    {/* Card Content */}
+                    <div className="relative p-6 space-y-6">
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                            <Wallet className="w-5 h-5" />
                           </div>
-                        ))
-                      ) : (
-                        <p className="text-center text-muted-foreground py-4">
-                          No balances found
-                        </p>
-                      )}
+                          <div>
+                            <h3 className="text-lg font-semibold">Safe Wallet #{index + 1}</h3>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Number */}
+                      <div className="space-y-2">
+                        <p className="text-slate-300 text-sm">Wallet Address</p>
+                        <div className="flex items-center gap-2">
+                          <div className="font-mono text-lg tracking-wider">
+                            {formatAddress(safeWallet.address)}
+                          </div>
+                          <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                            <div className="w-3 h-3 bg-white rounded-full"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card Footer */}
+                      <div className="flex items-center justify-between pt-4 border-t border-white/20">
+                        <div>
+                          <p className="text-slate-300 text-xs">Network</p>
+                          <p className="font-semibold">Ethereum (Chain ID: {safeWallet.chainId})</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full animate-pulse ${safeWallet.isActive ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                          <span className="text-sm text-slate-300">{safeWallet.isActive ? 'Active' : 'Inactive'}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-8 h-8 text-slate-400" />
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <AlertCircle className="size-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No Safe wallet linked</p>
-                </div>
-              )}
-            </CardContent>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">No Safe Wallets</h3>
+                <p className="text-slate-500 mb-4">Connect Safe wallets to start managing payrolls</p>
+                <Button variant="outline" className="w-full">
+                  <Wallet className="w-4 h-4 mr-2" />
+                  Connect Wallet
+                </Button>
+              </div>
+            )}
           </Card>
 
           {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Common tasks</CardDescription>
-            </CardHeader>
+          <Card className="h-fit">
+            {/* <CardHeader></CardHeader> */}
             <CardContent className="space-y-3">
+              <h3 className='mt-3'>Quick Actions</h3>
               <Link to="/employees">
-                <Button variant="outline" className="w-full justify-start">
-                  <Users className="mr-2 size-4" />
-                  Manage Employees
+                <Button variant="outline" className="w-full justify-start h-12 group hover:bg-slate-50 transition-colors">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center mr-3 transition-colors">
+                    <Users className="size-4 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Manage Employees</div>
+                    <div className="text-xs text-muted-foreground">Add, edit, and organize team</div>
+                  </div>
                 </Button>
               </Link>
               <Link to="/payrolls/create">
-                <Button variant="outline" className="w-full justify-start">
-                  <Plus className="mr-2 size-4" />
-                  Create Payroll Run
+                <Button variant="outline" className="w-full justify-start h-12 group hover:bg-slate-50 transition-colors">
+                  <div className="w-8 h-8 rounded-lg bg-green-100 group-hover:bg-green-200 flex items-center justify-center mr-3 transition-colors">
+                    <Plus className="size-4 text-green-600" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">Create Payroll Run</div>
+                    <div className="text-xs text-muted-foreground">Start a new payroll process</div>
+                  </div>
                 </Button>
               </Link>
               <Link to="/payrolls">
-                <Button variant="outline" className="w-full justify-start">
-                  <Receipt className="mr-2 size-4" />
-                  View All Payrolls
+                <Button variant="outline" className="w-full justify-start h-12 group hover:bg-slate-50 transition-colors">
+                  <div className="w-8 h-8 rounded-lg bg-purple-100 group-hover:bg-purple-200 flex items-center justify-center mr-3 transition-colors">
+                    <Receipt className="size-4 text-purple-600" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium">View All Payrolls</div>
+                    <div className="text-xs text-muted-foreground">Review past and current runs</div>
+                  </div>
                 </Button>
               </Link>
             </CardContent>
@@ -264,10 +349,10 @@ export default function DashboardPage() {
               <div className="flex flex-col gap-3">
                 {pendingTasks.items.map((task) => (
                   <Link key={task.payrollId} to={`/payrolls/${task.payrollId}`}>
-                    <div className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900 hover:bg-orange-100 dark:hover:bg-orange-950/30 rounded-lg transition-colors">
+                    <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg transition-colors">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <Clock className="size-4 text-orange-600" />
+                          <Clock className="size-4" />
                           <p className="font-medium">{task.title}</p>
                         </div>
                         <p className="text-muted-foreground mt-1">
@@ -284,7 +369,7 @@ export default function DashboardPage() {
         )}
 
         {/* Recent Activity */}
-        <Card className="mt-6">
+        {/* <Card className="mt-6">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -308,7 +393,9 @@ export default function DashboardPage() {
                       <div className="flex-1">
                         <p className="font-medium">{activity.title}</p>
                         <p className="text-muted-foreground mt-1">
-                          {activity.totalAmount.amount} {activity.totalAmount.symbol} • {formatDate(activity.createdAt)}
+                          {Object.entries(activity.totalAmount)
+                            .map(([symbol, amount]) => `${parseFloat(amount).toLocaleString()} ${symbol}`)
+                            .join(', ')} • {formatDate(activity.createdAt)}
                         </p>
                       </div>
                       <Badge
@@ -339,7 +426,7 @@ export default function DashboardPage() {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </Layout>
   );

@@ -42,6 +42,8 @@ export interface SafeWallet {
   updatedAt: string;
 }
 
+// Legacy Employee interface - deprecated, use PaymentRecipient instead
+// @deprecated Use PaymentRecipient instead
 export interface Employee {
   id: string;
   organizationId: string;
@@ -55,6 +57,37 @@ export interface Employee {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PaymentRecipient {
+  id: string;
+  organizationId: string;
+  name: string;
+  walletAddress: string;
+  ensDomain?: string;
+  defaultAmount: string;
+  tokenId: string;
+  chainId: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  // Related data
+  token?: {
+    id: string;
+    symbol: string;
+    name: string;
+    decimals: number;
+    logoUrl?: string;
+  };
+  recentPayments?: Array<{
+    id: string;
+    amount: string;
+    status: string;
+    payrollId: string;
+    payrollTitle: string;
+    payrollStatus: string;
+    createdAt: string;
+  }>;
 }
 
 export enum PaymentFrequency {
@@ -92,13 +125,12 @@ export enum PayrollStatus {
 export interface PaymentRecord {
   id: string;
   payrollId: string;
-  employeeId: string;
-  employeeName: string;
+  recipientId: string;
+  recipientName: string;
   recipientAddress: string;
   amount: string;
-  tokenAddress: string;
-  tokenSymbol: string;
   status: PaymentStatus;
+  notes?: string;
   createdAt: string;
 }
 

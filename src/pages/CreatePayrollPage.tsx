@@ -16,21 +16,21 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { usePayrollProposal } from '@/hooks/usePayrollProposal';
 import { apiClient } from '@/lib/api-client';
-import type { Employee } from '@/types';
-import { PayrollType } from '@/types';
+import { parseAmount } from '@/lib/utils';
+import type { PaymentRecipient } from '@/types';
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Loader2, Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-interface SelectedEmployee extends Employee {
+interface SelectedRecipient extends PaymentRecipient {
   selected: boolean;
   customAmount: string;
 }
 
 const STEPS = [
-  { number: 1, title: 'Basic Information', description: 'Set payroll title and type' },
-  { number: 2, title: 'Select Employees', description: 'Choose who to pay' },
+  { number: 1, title: 'Basic Information', description: 'Set payroll title' },
+  { number: 2, title: 'Select Recipients', description: 'Choose who to pay' },
   { number: 3, title: 'Review Amounts', description: 'Adjust payment amounts' },
   { number: 4, title: 'Review & Submit', description: 'Confirm and create transaction' },
 ];
@@ -45,13 +45,12 @@ export default function CreatePayrollPage() {
 
   // Form data
   const [title, setTitle] = useState('');
-  const [type, setType] = useState<PayrollType>(PayrollType.MONTHLY);
   const [safeWalletId, setSafeWalletId] = useState('');
   const [safeWallets, setSafeWallets] = useState<any[]>([]);
 
-  // Employees
-  const [employees, setEmployees] = useState<SelectedEmployee[]>([]);
-  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+  // Payment Recipients
+  const [recipients, setRecipients] = useState<SelectedRecipient[]>([]);
+  const [isLoadingRecipients, setIsLoadingRecipients] = useState(false);
 
   // Payroll draft
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -62,16 +61,12 @@ export default function CreatePayrollPage() {
 
   // Load organization safe wallets
   useEffect(() => {
-    if (currentOrganization) {
-      loadOrganizationData();
-    }
+    if (currentOrganization) loadOrganizationData();
   }, [currentOrganization]);
 
-  // Load employees when step changes to 2
+  // Load recipients when step changes to 2
   useEffect(() => {
-    if (step === 2 && employees.length === 0) {
-      loadEmployees();
-    }
+    if (step === 2 && recipients.length === 0) loadRecipients();
   }, [step]);
 
   const loadOrganizationData = async () => {
@@ -94,54 +89,54 @@ export default function CreatePayrollPage() {
     }
   };
 
-  const loadEmployees = async () => {
-    setIsLoadingEmployees(true);
+  const loadRecipients = async () => {
+    setIsLoadingRecipients(true);
     try {
-      const response = await apiClient.getEmployees({ isActive: true, limit: 100 });
-      setEmployees(
-        response.data.map((emp) => ({
-          ...emp,
+      const response = await apiClient.getPaymentRecipients({ isActive: true, limit: 100 });
+      setRecipients(
+        response.data.map((recipient) => ({
+          ...recipient,
           selected: false,
-          customAmount: emp.defaultSalary,
+          customAmount: recipient.defaultAmount,
         }))
       );
     } catch (error: any) {
-      console.error('Failed to load employees:', error);
-      toast.error('Failed to load employees');
+      console.error('Failed to load recipients:', error);
+      toast.error('Failed to load recipients');
     } finally {
-      setIsLoadingEmployees(false);
+      setIsLoadingRecipients(false);
     }
   };
 
-  // Employee selection
-  const toggleEmployee = (id: string) => {
-    setEmployees((prev) =>
-      prev.map((emp) => (emp.id === id ? { ...emp, selected: !emp.selected } : emp))
+  // Recipient selection
+  const toggleRecipient = (id: string) => {
+    setRecipients((prev) =>
+      prev.map((recipient) => (recipient.id === id ? { ...recipient, selected: !recipient.selected } : recipient))
     );
   };
 
   const toggleAll = () => {
-    const allSelected = employees.every((e) => e.selected);
-    setEmployees((prev) => prev.map((emp) => ({ ...emp, selected: !allSelected })));
+    const allSelected = recipients.every((r) => r.selected);
+    setRecipients((prev) => prev.map((recipient) => ({ ...recipient, selected: !allSelected })));
   };
 
-  const updateEmployeeAmount = (id: string, amount: string) => {
-    setEmployees((prev) =>
-      prev.map((emp) => (emp.id === id ? { ...emp, customAmount: amount } : emp))
+  const updateRecipientAmount = (id: string, amount: string) => {
+    setRecipients((prev) =>
+      prev.map((recipient) => (recipient.id === id ? { ...recipient, customAmount: amount } : recipient))
     );
   };
 
   // Calculations
-  const selectedEmployees = employees.filter((e) => e.selected);
+  const selectedRecipients = recipients.filter((r) => r.selected);
 
   const calculateTotals = () => {
     const totals: Record<string, { amount: number; symbol: string }> = {};
-    selectedEmployees.forEach((emp) => {
-      const symbol = emp.defaultTokenSymbol || 'ETH';
+    selectedRecipients.forEach((recipient) => {
+      const symbol = recipient.token?.symbol || 'ETH';
       if (!totals[symbol]) {
         totals[symbol] = { amount: 0, symbol };
       }
-      totals[symbol].amount += parseFloat(emp.customAmount || '0');
+      totals[symbol].amount += parseFloat(recipient.customAmount || '0');
     });
     return Object.values(totals);
   };
@@ -162,9 +157,9 @@ export default function CreatePayrollPage() {
       }
       setStep(2);
     } else if (step === 2) {
-      // Validate employee selection
-      if (selectedEmployees.length === 0) {
-        setError('Please select at least one employee');
+      // Validate recipient selection
+      if (selectedRecipients.length === 0) {
+        setError('Please select at least one recipient');
         return;
       }
 
@@ -174,8 +169,10 @@ export default function CreatePayrollPage() {
         const draft = await apiClient.createPayrollDraft({
           safeWalletId,
           title,
-          type,
-          employeeIds: selectedEmployees.map((e) => e.id),
+          paymentRecords: selectedRecipients.map((r) => ({
+            recipientId: r.id,
+            amount: r.customAmount ? parseAmount(r.customAmount, r.token?.decimals || 18).toString() : r.defaultAmount,
+          })),
         });
         setDraftId(draft.id);
         toast.success('Payroll draft created');
@@ -193,10 +190,9 @@ export default function CreatePayrollPage() {
 
       setIsSubmitting(true);
       try {
-        const paymentRecords = selectedEmployees.map((emp) => ({
-          employeeId: emp.id,
-          amount: emp.customAmount,
-          tokenAddress: emp.defaultToken,
+        const paymentRecords = selectedRecipients.map((recipient) => ({
+          recipientId: recipient.id,
+          amount: recipient.customAmount ? parseAmount(recipient.customAmount, recipient.token?.decimals || 18).toString() : recipient.defaultAmount,
         }));
 
         await apiClient.updatePayrollDraft(draftId, { paymentRecords });
@@ -354,7 +350,7 @@ export default function CreatePayrollPage() {
                   <h3 className="mb-4">Payroll Details</h3>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="title">Payroll Title *</Label>
+                      <Label htmlFor="title" className='mb-2'>Payroll Title *</Label>
                       <Input
                         id="title"
                         value={title}
@@ -363,21 +359,9 @@ export default function CreatePayrollPage() {
                       />
                     </div>
 
-                    <div>
-                      <Label htmlFor="type">Payment Type</Label>
-                      <Select value={type} onValueChange={(v: PayrollType) => setType(v)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={PayrollType.MONTHLY}>Monthly Payroll</SelectItem>
-                          <SelectItem value={PayrollType.ONE_OFF}>One-time Payment</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
 
                     <div>
-                      <Label htmlFor="safeWallet">Safe Wallet *</Label>
+                      <Label htmlFor="safeWallet" className='mb-2'>Safe Wallet *</Label>
                       <Select value={safeWalletId} onValueChange={setSafeWalletId}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select Safe wallet" />
@@ -397,51 +381,51 @@ export default function CreatePayrollPage() {
               </div>
             )}
 
-            {/* Step 2: Select Employees */}
+            {/* Step 2: Select Recipients */}
             {step === 2 && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
-                  <h3>Select Employees to Pay</h3>
+                  <h3>Select Recipients to Pay</h3>
                   <Button variant="outline" size="sm" onClick={toggleAll}>
-                    {employees.every((e) => e.selected) ? 'Deselect All' : 'Select All'}
+                    {recipients.every((r) => r.selected) ? 'Deselect All' : 'Select All'}
                   </Button>
                 </div>
 
-                {isLoadingEmployees ? (
+                {isLoadingRecipients ? (
                   <div className="text-center py-12">
                     <Loader2 className="size-12 text-muted-foreground mx-auto mb-4 animate-spin" />
-                    <p className="text-muted-foreground">Loading employees...</p>
+                    <p className="text-muted-foreground">Loading recipients...</p>
                   </div>
-                ) : employees.length > 0 ? (
+                ) : recipients.length > 0 ? (
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {employees.map((employee) => (
+                    {recipients.map((recipient) => (
                       <div
-                        key={employee.id}
-                        className={`flex items-center justify-between p-4 rounded-lg border transition-colors cursor-pointer ${employee.selected
+                        key={recipient.id}
+                        className={`flex items-center justify-between p-4 rounded-lg border transition-colors cursor-pointer ${recipient.selected
                           ? 'border-primary bg-primary/5'
                           : 'border-border hover:bg-muted'
                           }`}
-                        onClick={() => toggleEmployee(employee.id)}
+                        onClick={() => toggleRecipient(recipient.id)}
                       >
                         <div className="flex items-center gap-3">
                           <Checkbox
-                            checked={employee.selected}
-                            onCheckedChange={() => toggleEmployee(employee.id)}
+                            checked={recipient.selected}
+                            onCheckedChange={() => toggleRecipient(recipient.id)}
                           />
                           <div>
-                            <p className="font-medium">{employee.name}</p>
+                            <p className="font-medium">{recipient.name}</p>
                             <p className="text-muted-foreground font-mono">
-                              {employee.walletAddress.slice(0, 6)}...
-                              {employee.walletAddress.slice(-4)}
+                              {recipient.walletAddress.slice(0, 6)}...
+                              {recipient.walletAddress.slice(-4)}
                             </p>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className="font-medium">
-                            {employee.defaultSalary} {employee.defaultTokenSymbol || 'ETH'}
+                            {recipient.defaultAmount} {recipient.token?.symbol || 'ETH'}
                           </p>
                           <Badge variant="outline">
-                            {employee.paymentFrequency === 'MONTHLY' ? 'Monthly' : 'One-off'}
+                            {recipient.ensDomain || 'Address'}
                           </Badge>
                         </div>
                       </div>
@@ -449,17 +433,17 @@ export default function CreatePayrollPage() {
                   </div>
                 ) : (
                   <div className="text-center py-12">
-                    <p className="text-muted-foreground mb-4">No active employees found</p>
+                    <p className="text-muted-foreground mb-4">No active recipients found</p>
                     <Button variant="outline" onClick={() => navigate('/employees')}>
-                      Add Employees
+                      Add Recipients
                     </Button>
                   </div>
                 )}
 
-                {selectedEmployees.length > 0 && (
+                {selectedRecipients.length > 0 && (
                   <div className="p-4 bg-muted rounded-lg">
                     <p className="font-medium">
-                      {selectedEmployees.length} employee{selectedEmployees.length !== 1 ? 's' : ''}{' '}
+                      {selectedRecipients.length} recipient{selectedRecipients.length !== 1 ? 's' : ''}{' '}
                       selected
                     </p>
                   </div>
@@ -473,31 +457,31 @@ export default function CreatePayrollPage() {
                 <div>
                   <h3 className="mb-4">Adjust Payment Amounts</h3>
                   <p className="text-muted-foreground mb-4">
-                    Review and adjust the payment amount for each employee
+                    Review and adjust the payment amount for each recipient
                   </p>
                 </div>
 
                 <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                  {selectedEmployees.map((employee) => (
-                    <div key={employee.id} className="flex items-center gap-4 p-4 border rounded-lg">
+                  {selectedRecipients.map((recipient) => (
+                    <div key={recipient.id} className="flex items-center gap-4 p-4 border rounded-lg">
                       <div className="flex-1">
-                        <p className="font-medium">{employee.name}</p>
+                        <p className="font-medium">{recipient.name}</p>
                         <p className="text-muted-foreground font-mono">
-                          {employee.walletAddress.slice(0, 6)}...{employee.walletAddress.slice(-4)}
+                          {recipient.walletAddress.slice(0, 6)}...{recipient.walletAddress.slice(-4)}
                         </p>
                       </div>
                       <div className="w-48">
                         <Input
                           type="number"
-                          value={employee.customAmount}
-                          onChange={(e) => updateEmployeeAmount(employee.id, e.target.value)}
+                          value={recipient.customAmount}
+                          onChange={(e) => updateRecipientAmount(recipient.id, e.target.value)}
                           placeholder="Amount"
                           step="0.01"
                         />
                       </div>
                       <div className="w-16 text-right">
                         <p className="text-muted-foreground">
-                          {employee.defaultTokenSymbol || 'ETH'}
+                          {recipient.token?.symbol || 'ETH'}
                         </p>
                       </div>
                     </div>
@@ -517,7 +501,7 @@ export default function CreatePayrollPage() {
                   ))}
                   <div className="flex justify-between pt-2 border-t">
                     <span className="text-muted-foreground">Recipients:</span>
-                    <span className="font-medium">{selectedEmployees.length}</span>
+                    <span className="font-medium">{selectedRecipients.length}</span>
                   </div>
                 </div>
               </div>
@@ -535,14 +519,10 @@ export default function CreatePayrollPage() {
 
                 {/* Payroll Info */}
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
                       <p className="text-muted-foreground mb-1">Title</p>
                       <p className="font-medium">{title}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground mb-1">Type</p>
-                      <Badge>{type === PayrollType.MONTHLY ? 'Monthly' : 'One-time'}</Badge>
                     </div>
                   </div>
 
@@ -560,23 +540,23 @@ export default function CreatePayrollPage() {
                       ))}
                       <div className="flex justify-between pt-2 border-t">
                         <span className="text-muted-foreground">Total Recipients:</span>
-                        <span className="font-medium">{selectedEmployees.length}</span>
+                        <span className="font-medium">{selectedRecipients.length}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Employees List */}
+                  {/* Recipients List */}
                   <div>
                     <p className="font-medium mb-2">Recipients</p>
                     <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                      {selectedEmployees.map((employee) => (
+                      {selectedRecipients.map((recipient) => (
                         <div
-                          key={employee.id}
+                          key={recipient.id}
                           className="flex items-center justify-between p-3 bg-muted rounded-lg"
                         >
-                          <span>{employee.name}</span>
+                          <span>{recipient.name}</span>
                           <span className="font-mono">
-                            {employee.customAmount} {employee.defaultTokenSymbol || 'ETH'}
+                            {recipient.customAmount} {recipient.token?.symbol || 'ETH'}
                           </span>
                         </div>
                       ))}
@@ -585,7 +565,7 @@ export default function CreatePayrollPage() {
                 </div>
 
                 {/* Warning */}
-                <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+                {/* <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
                   <CardContent className="p-4 flex items-start gap-3">
                     <AlertCircle className="size-5 text-orange-600 flex-shrink-0 mt-0.5" />
                     <div>
@@ -598,7 +578,7 @@ export default function CreatePayrollPage() {
                       </p>
                     </div>
                   </CardContent>
-                </Card>
+                </Card> */}
               </div>
             )}
           </CardContent>

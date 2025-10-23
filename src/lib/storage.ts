@@ -1,15 +1,15 @@
 // LocalStorage Data Management Layer
 import {
-  User,
+  AuthState,
+  Employee,
   Organization,
   OrganizationMember,
-  SafeWallet,
-  Employee,
-  Payroll,
   PaymentRecord,
+  Payroll,
+  SafeWallet,
   Transaction,
   TransactionSignature,
-  AuthState,
+  User,
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -162,7 +162,46 @@ export const safeWalletStorage = {
   },
 };
 
-// Employee Storage
+// PaymentRecipient Storage (updated from Employee)
+export const paymentRecipientStorage = {
+  getAll: (): PaymentRecipient[] => get(STORAGE_KEYS.EMPLOYEES, []), // Keep same storage key for backward compatibility
+  getById: (id: string): PaymentRecipient | undefined => {
+    const recipients = paymentRecipientStorage.getAll();
+    return recipients.find((r) => r.id === id);
+  },
+  getByOrganization: (organizationId: string): PaymentRecipient[] => {
+    const recipients = paymentRecipientStorage.getAll();
+    return recipients.filter((r) => r.organizationId === organizationId && r.isActive);
+  },
+  create: (recipient: PaymentRecipient): PaymentRecipient => {
+    const recipients = paymentRecipientStorage.getAll();
+    recipients.push(recipient);
+    set(STORAGE_KEYS.EMPLOYEES, recipients);
+    return recipient;
+  },
+  update: (id: string, updates: Partial<PaymentRecipient>): PaymentRecipient | undefined => {
+    const recipients = paymentRecipientStorage.getAll();
+    const index = recipients.findIndex((r) => r.id === id);
+    if (index !== -1) {
+      recipients[index] = { ...recipients[index], ...updates, updatedAt: new Date().toISOString() };
+      set(STORAGE_KEYS.EMPLOYEES, recipients);
+      return recipients[index];
+    }
+    return undefined;
+  },
+  delete: (id: string): boolean => {
+    const recipients = paymentRecipientStorage.getAll();
+    const filtered = recipients.filter((r) => r.id !== id);
+    if (filtered.length !== recipients.length) {
+      set(STORAGE_KEYS.EMPLOYEES, filtered);
+      return true;
+    }
+    return false;
+  },
+};
+
+// Legacy Employee Storage - deprecated, use paymentRecipientStorage instead
+// @deprecated Use paymentRecipientStorage instead
 export const employeeStorage = {
   getAll: (): Employee[] => get(STORAGE_KEYS.EMPLOYEES, []),
   getById: (id: string): Employee | undefined => {

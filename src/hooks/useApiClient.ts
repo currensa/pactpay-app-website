@@ -1,38 +1,11 @@
 // React Hook for API Client
-import { useState, useCallback, useEffect } from 'react';
-import { apiClient, SafePayrollApiClient } from '../lib/api-client';
+import { useCallback, useEffect, useState } from 'react';
+import { apiClient, UserInfo } from '../lib/api-client';
 import {
-  User,
-  Organization,
-  Employee,
-  Payroll,
-  Transaction,
-  SafeWallet,
-  TokenBalance,
-  PaymentRecord,
-  ImportResult,
-  PayrollStatus,
-  PayrollType,
   PaymentFrequency,
-  TransactionStatus,
-  OrganizationRole,
+  PayrollStatus,
+  PayrollType
 } from '../types';
-import {
-  ApiResponse,
-  PaginatedResponse,
-  AuthResponse,
-  NonceResponse,
-  UserInfo,
-  OrganizationListResponse,
-  OrganizationDetail,
-  DashboardOverview,
-  SafeInfo,
-  SafeBalances,
-  SafeOwnerVerification,
-  PayrollDraft,
-  PayrollDetail,
-  TransactionDetail,
-} from '../lib/api-client';
 
 // Generic API State Hook
 interface UseApiState<T> {
@@ -171,14 +144,14 @@ export function useSwitchOrganization() {
   };
 }
 
-// Employee Hooks
-export function useEmployees(params: {
+// Payment Recipient Hooks (formerly Employee)
+export function usePaymentRecipients(params: {
   page?: number;
   limit?: number;
   search?: string;
   isActive?: boolean;
 } = {}) {
-  return useApiState(() => apiClient.getEmployees(params), [
+  return useApiState(() => apiClient.getPaymentRecipients(params), [
     params.page,
     params.limit,
     params.search,
@@ -186,23 +159,90 @@ export function useEmployees(params: {
   ]);
 }
 
+// Legacy Employee hooks for backward compatibility
+export function useEmployees(params: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  isActive?: boolean;
+} = {}) {
+  return useApiState(() => apiClient.getPaymentRecipients(params), [
+    params.page,
+    params.limit,
+    params.search,
+    params.isActive,
+  ]);
+}
+
+export function usePaymentRecipient(recipientId: string) {
+  return useApiState(() => apiClient.getPaymentRecipients().then(result =>
+    result.data.find(recipient => recipient.id === recipientId) || null
+  ), [recipientId]);
+}
+
+// Legacy Employee hook for backward compatibility
 export function useEmployee(employeeId: string) {
-  return useApiState(() => apiClient.getEmployees().then(result => 
-    result.data.find(emp => emp.id === employeeId) || null
+  return useApiState(() => apiClient.getPaymentRecipients().then(result =>
+    result.data.find(recipient => recipient.id === employeeId) || null
   ), [employeeId]);
 }
 
+export function usePaymentRecipientHistory(recipientId: string, params: {
+  page?: number;
+  limit?: number;
+} = {}) {
+  return useApiState(() => apiClient.getPaymentRecipientHistory(recipientId, params), [
+    recipientId,
+    params.page,
+    params.limit,
+  ]);
+}
+
+// Legacy Employee payment history hook for backward compatibility
 export function useEmployeePaymentHistory(employeeId: string, params: {
   page?: number;
   limit?: number;
 } = {}) {
-  return useApiState(() => apiClient.getEmployeePaymentHistory(employeeId, params), [
+  return useApiState(() => apiClient.getPaymentRecipientHistory(employeeId, params), [
     employeeId,
     params.page,
     params.limit,
   ]);
 }
 
+export function useCreatePaymentRecipient() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const createPaymentRecipient = useCallback(async (data: {
+    name: string;
+    walletAddress: string;
+    defaultAmount: string;
+    tokenId: string;
+    chainId: number;
+    ensDomain?: string;
+  }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await apiClient.createPaymentRecipient(data);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return {
+    createPaymentRecipient,
+    loading,
+    error,
+  };
+}
+
+// Legacy Employee creation hook for backward compatibility
 export function useCreateEmployee() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -217,7 +257,15 @@ export function useCreateEmployee() {
     setLoading(true);
     setError(null);
     try {
-      const result = await apiClient.createEmployee(data);
+      // Convert legacy Employee data to PaymentRecipient format
+      const recipientData = {
+        name: data.name,
+        walletAddress: data.walletAddress,
+        defaultAmount: data.defaultSalary,
+        tokenId: data.defaultToken,
+        chainId: 1, // Default to Ethereum mainnet
+      };
+      const result = await apiClient.createPaymentRecipient(recipientData);
       return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -234,6 +282,43 @@ export function useCreateEmployee() {
   };
 }
 
+export function useUpdatePaymentRecipient() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const updatePaymentRecipient = useCallback(async (
+    recipientId: string,
+    data: Partial<{
+      name: string;
+      walletAddress: string;
+      defaultAmount: string;
+      tokenId: string;
+      chainId: number;
+      ensDomain?: string;
+      isActive: boolean;
+    }>
+  ) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await apiClient.updatePaymentRecipient(recipientId, data);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return {
+    updatePaymentRecipient,
+    loading,
+    error,
+  };
+}
+
+// Legacy Employee update hook for backward compatibility
 export function useUpdateEmployee() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -252,7 +337,15 @@ export function useUpdateEmployee() {
     setLoading(true);
     setError(null);
     try {
-      const result = await apiClient.updateEmployee(employeeId, data);
+      // Convert legacy Employee data to PaymentRecipient format
+      const recipientData: any = {};
+      if (data.name) recipientData.name = data.name;
+      if (data.walletAddress) recipientData.walletAddress = data.walletAddress;
+      if (data.defaultSalary) recipientData.defaultAmount = data.defaultSalary;
+      if (data.defaultToken) recipientData.tokenId = data.defaultToken;
+      if (data.isActive !== undefined) recipientData.isActive = data.isActive;
+
+      const result = await apiClient.updatePaymentRecipient(employeeId, recipientData);
       return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -269,6 +362,32 @@ export function useUpdateEmployee() {
   };
 }
 
+export function useDeletePaymentRecipient() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const deletePaymentRecipient = useCallback(async (recipientId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await apiClient.deletePaymentRecipient(recipientId);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return {
+    deletePaymentRecipient,
+    loading,
+    error,
+  };
+}
+
+// Legacy Employee delete hook for backward compatibility
 export function useDeleteEmployee() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -277,7 +396,7 @@ export function useDeleteEmployee() {
     setLoading(true);
     setError(null);
     try {
-      const result = await apiClient.deleteEmployee(employeeId);
+      const result = await apiClient.deletePaymentRecipient(employeeId);
       return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -294,6 +413,32 @@ export function useDeleteEmployee() {
   };
 }
 
+export function useImportPaymentRecipients() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const importPaymentRecipients = useCallback(async (file: File) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await apiClient.importPaymentRecipients(file);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return {
+    importPaymentRecipients,
+    loading,
+    error,
+  };
+}
+
+// Legacy Employee import hook for backward compatibility
 export function useImportEmployees() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -302,7 +447,7 @@ export function useImportEmployees() {
     setLoading(true);
     setError(null);
     try {
-      const result = await apiClient.importEmployees(file);
+      const result = await apiClient.importPaymentRecipients(file);
       return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -345,8 +490,11 @@ export function useCreatePayrollDraft() {
   const createDraft = useCallback(async (data: {
     safeWalletId: string;
     title: string;
-    type: PayrollType;
-    employeeIds: string[];
+    paymentRecords: Array<{
+      recipientId: string;
+      amount?: string;
+      notes?: string;
+    }>;
   }) => {
     setLoading(true);
     setError(null);
@@ -376,9 +524,9 @@ export function useUpdatePayrollDraft() {
     payrollId: string,
     data: {
       paymentRecords: Array<{
-        employeeId: string;
-        amount: string;
-        tokenAddress: string;
+        recipientId: string;
+        amount?: string;
+        notes?: string;
       }>;
     }
   ) => {
@@ -538,5 +686,6 @@ export function useApiError() {
 
 // Export all hooks
 export {
-  useApiState,
+  useApiState
 };
+

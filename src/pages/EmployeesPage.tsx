@@ -37,8 +37,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { apiClient } from '@/lib/api-client';
 import { formatAddress } from '@/lib/utils';
-import type { Employee } from '@/types';
-import { PaymentFrequency } from '@/types';
+import type { PaymentRecipient } from '@/types';
 import {
   Download,
   Edit,
@@ -53,17 +52,13 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-const PAYMENT_FREQUENCIES = {
-  MONTHLY: 'Monthly',
-  ONE_OFF: 'One-off',
-};
 
 export default function EmployeesPage() {
   const { currentOrganization } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // State
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [recipients, setRecipients] = useState<PaymentRecipient[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pagination, setPagination] = useState({
@@ -73,6 +68,21 @@ export default function EmployeesPage() {
     totalPages: 0,
   });
 
+  // Token and chain data
+  const [tokens, setTokens] = useState<Array<{
+    id: string;
+    chainId: number;
+    chainName: string;
+    symbol: string;
+    name: string;
+    address: string;
+    decimals: number;
+    logoUrl?: string;
+    isActive: boolean;
+    isNative: boolean;
+  }>>([]);
+  const [isLoadingTokens, setIsLoadingTokens] = useState(false);
+
   // Search and filters
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('active');
@@ -81,32 +91,52 @@ export default function EmployeesPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedRecipient, setSelectedRecipient] = useState<PaymentRecipient | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState<{
     name: string;
     walletAddress: string;
-    defaultSalary: string;
-    defaultToken: string;
-    paymentFrequency: PaymentFrequency;
+    defaultAmount: string;
+    tokenId: string;
+    chainId: number;
+    ensDomain?: string;
   }>({
     name: '',
     walletAddress: '',
-    defaultSalary: '',
-    defaultToken: '0x0000000000000000000000000000000000000000', // ETH
-    paymentFrequency: PaymentFrequency.MONTHLY,
+    defaultAmount: '',
+    tokenId: '', // Will be set when token is selected
+    chainId: 1, // Ethereum mainnet
+    ensDomain: '',
   });
 
-  // Load employees
+  // Load recipients
   useEffect(() => {
     if (currentOrganization) {
-      loadEmployees();
+      loadRecipients();
     }
   }, [currentOrganization, pagination.page, activeFilter, searchQuery]);
 
-  const loadEmployees = async (showToast = false) => {
+  // Load tokens and chains
+  useEffect(() => {
+    loadTokensAndChains();
+  }, []);
+
+  const loadTokensAndChains = async () => {
+    setIsLoadingTokens(true);
+    try {
+      const tokensData = await apiClient.getTokens();
+      setTokens(tokensData);
+    } catch (error) {
+      console.error('Failed to load tokens:', error);
+      toast.error('Failed to load token information');
+    } finally {
+      setIsLoadingTokens(false);
+    }
+  };
+
+  const loadRecipients = async (showToast = false) => {
     try {
       if (showToast) {
         setIsRefreshing(true);
@@ -114,22 +144,22 @@ export default function EmployeesPage() {
         setIsLoading(true);
       }
 
-      const response = await apiClient.getEmployees({
+      const response = await apiClient.getPaymentRecipients({
         page: pagination.page,
         limit: pagination.limit,
         search: searchQuery || undefined,
         isActive: activeFilter === 'all' ? undefined : activeFilter === 'active',
       });
 
-      setEmployees(response.data);
+      setRecipients(response.data);
       setPagination(response.pagination);
 
       if (showToast) {
-        toast.success('Employees refreshed');
+        toast.success('Recipients refreshed');
       }
     } catch (error: any) {
-      console.error('Failed to load employees:', error);
-      toast.error(error.message || 'Failed to load employees');
+      console.error('Failed to load recipients:', error);
+      toast.error(error.message || 'Failed to load recipients');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -137,7 +167,7 @@ export default function EmployeesPage() {
   };
 
   const handleRefresh = () => {
-    loadEmployees(true);
+    loadRecipients(true);
   };
 
   const handleSearch = (query: string) => {
@@ -150,118 +180,122 @@ export default function EmployeesPage() {
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
-  // Create employee
+  // Create recipient
   const handleOpenCreateDialog = () => {
     setFormData({
       name: '',
       walletAddress: '',
-      defaultSalary: '',
-      defaultToken: '0x0000000000000000000000000000000000000000',
-      paymentFrequency: PaymentFrequency.MONTHLY,
+      defaultAmount: '',
+      tokenId: '',
+      chainId: 1,
+      ensDomain: '',
     });
     setIsCreateDialogOpen(true);
   };
 
-  const handleCreateEmployee = async () => {
-    if (!formData.name || !formData.walletAddress || !formData.defaultSalary) {
+  const handleCreateRecipient = async () => {
+    if (!formData.name || !formData.walletAddress || !formData.defaultAmount || !formData.tokenId) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await apiClient.createEmployee({
+      await apiClient.createPaymentRecipient({
         name: formData.name,
         walletAddress: formData.walletAddress,
-        defaultSalary: formData.defaultSalary,
-        defaultToken: formData.defaultToken,
-        paymentFrequency: formData.paymentFrequency,
+        defaultAmount: formData.defaultAmount,
+        tokenId: formData.tokenId,
+        chainId: formData.chainId,
+        ensDomain: formData.ensDomain || undefined,
       });
 
-      toast.success('Employee created successfully');
+      toast.success('Recipient created successfully');
       setIsCreateDialogOpen(false);
-      loadEmployees();
+      loadRecipients();
     } catch (error: any) {
-      console.error('Failed to create employee:', error);
-      toast.error(error.message || 'Failed to create employee');
+      console.error('Failed to create recipient:', error);
+      toast.error(error.message || 'Failed to create recipient');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Edit employee
-  const handleOpenEditDialog = (employee: Employee) => {
-    setSelectedEmployee(employee);
+  // Edit recipient
+  const handleOpenEditDialog = (recipient: PaymentRecipient) => {
+    setSelectedRecipient(recipient);
     setFormData({
-      name: employee.name,
-      walletAddress: employee.walletAddress,
-      defaultSalary: employee.defaultSalary,
-      defaultToken: employee.defaultToken,
-      paymentFrequency: employee.paymentFrequency,
+      name: recipient.name,
+      walletAddress: recipient.walletAddress,
+      defaultAmount: recipient.defaultAmount,
+      tokenId: recipient.tokenId,
+      chainId: recipient.chainId,
+      ensDomain: recipient.ensDomain || '',
     });
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdateEmployee = async () => {
-    if (!selectedEmployee) return;
+  const handleUpdateRecipient = async () => {
+    if (!selectedRecipient) return;
 
     setIsSubmitting(true);
     try {
-      await apiClient.updateEmployee(selectedEmployee.id, {
+      await apiClient.updatePaymentRecipient(selectedRecipient.id, {
         name: formData.name,
         walletAddress: formData.walletAddress,
-        defaultSalary: formData.defaultSalary,
-        defaultToken: formData.defaultToken,
-        paymentFrequency: formData.paymentFrequency,
+        defaultAmount: formData.defaultAmount,
+        tokenId: formData.tokenId,
+        chainId: formData.chainId,
+        ensDomain: formData.ensDomain || undefined,
       });
 
-      toast.success('Employee updated successfully');
+      toast.success('Recipient updated successfully');
       setIsEditDialogOpen(false);
-      setSelectedEmployee(null);
-      loadEmployees();
+      setSelectedRecipient(null);
+      loadRecipients();
     } catch (error: any) {
-      console.error('Failed to update employee:', error);
-      toast.error(error.message || 'Failed to update employee');
+      console.error('Failed to update recipient:', error);
+      toast.error(error.message || 'Failed to update recipient');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Delete employee
-  const handleOpenDeleteDialog = (employee: Employee) => {
-    setSelectedEmployee(employee);
+  // Delete recipient
+  const handleOpenDeleteDialog = (recipient: PaymentRecipient) => {
+    setSelectedRecipient(recipient);
     setIsDeleteDialogOpen(true);
   };
 
-  const handleDeleteEmployee = async () => {
-    if (!selectedEmployee) return;
+  const handleDeleteRecipient = async () => {
+    if (!selectedRecipient) return;
 
     setIsSubmitting(true);
     try {
-      await apiClient.deleteEmployee(selectedEmployee.id);
-      toast.success('Employee deleted successfully');
+      await apiClient.deletePaymentRecipient(selectedRecipient.id);
+      toast.success('Recipient deleted successfully');
       setIsDeleteDialogOpen(false);
-      setSelectedEmployee(null);
-      loadEmployees();
+      setSelectedRecipient(null);
+      loadRecipients();
     } catch (error: any) {
-      console.error('Failed to delete employee:', error);
-      toast.error(error.message || 'Failed to delete employee');
+      console.error('Failed to delete recipient:', error);
+      toast.error(error.message || 'Failed to delete recipient');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   // Toggle active status
-  const handleToggleActive = async (employee: Employee) => {
+  const handleToggleActive = async (recipient: PaymentRecipient) => {
     try {
-      await apiClient.updateEmployee(employee.id, {
-        isActive: !employee.isActive,
+      await apiClient.updatePaymentRecipient(recipient.id, {
+        isActive: !recipient.isActive,
       });
-      toast.success(`Employee ${employee.isActive ? 'deactivated' : 'activated'}`);
-      loadEmployees();
+      toast.success(`Recipient ${recipient.isActive ? 'deactivated' : 'activated'}`);
+      loadRecipients();
     } catch (error: any) {
-      console.error('Failed to toggle employee status:', error);
-      toast.error(error.message || 'Failed to update employee status');
+      console.error('Failed to toggle recipient status:', error);
+      toast.error(error.message || 'Failed to update recipient status');
     }
   };
 
@@ -271,8 +305,8 @@ export default function EmployeesPage() {
     if (!file) return;
 
     try {
-      toast.loading('Importing employees...', { id: 'import' });
-      const result = await apiClient.importEmployees(file);
+      toast.loading('Importing recipients...', { id: 'import' });
+      const result = await apiClient.importPaymentRecipients(file);
 
       toast.success(
         `Import complete: ${result.success} succeeded, ${result.failed} failed`,
@@ -283,10 +317,10 @@ export default function EmployeesPage() {
         console.log('Import errors:', result.errors);
       }
 
-      loadEmployees();
+      loadRecipients();
     } catch (error: any) {
-      console.error('Failed to import employees:', error);
-      toast.error(error.message || 'Failed to import employees', { id: 'import' });
+      console.error('Failed to import recipients:', error);
+      toast.error(error.message || 'Failed to import recipients', { id: 'import' });
     }
 
     // Reset file input
@@ -298,23 +332,23 @@ export default function EmployeesPage() {
   // CSV Export
   const handleExport = async () => {
     try {
-      toast.loading('Exporting employees...', { id: 'export' });
-      const blob = await apiClient.exportEmployees();
+      toast.loading('Exporting recipients...', { id: 'export' });
+      const blob = await apiClient.exportPaymentRecipients();
 
       // Create download link
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `employees-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `recipients-${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      toast.success('Employees exported successfully', { id: 'export' });
+      toast.success('Recipients exported successfully', { id: 'export' });
     } catch (error: any) {
-      console.error('Failed to export employees:', error);
-      toast.error(error.message || 'Failed to export employees', { id: 'export' });
+      console.error('Failed to export recipients:', error);
+      toast.error(error.message || 'Failed to export recipients', { id: 'export' });
     }
   };
 
@@ -357,7 +391,7 @@ export default function EmployeesPage() {
               <Upload className="mr-2 size-4" />
               Import CSV
             </Button>
-            <Button variant="outline" onClick={handleExport} disabled={employees.length === 0}>
+            <Button variant="outline" onClick={handleExport} disabled={recipients.length === 0}>
               <Download className="mr-2 size-4" />
               Export CSV
             </Button>
@@ -415,7 +449,7 @@ export default function EmployeesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {employees.length > 0 ? (
+            {recipients.length > 0 ? (
               <>
                 <div className="rounded-md border">
                   <Table>
@@ -423,30 +457,30 @@ export default function EmployeesPage() {
                       <TableRow>
                         <TableHead>Name</TableHead>
                         <TableHead>Wallet Address</TableHead>
-                        <TableHead>Default Salary</TableHead>
-                        <TableHead>Payment Frequency</TableHead>
+                        <TableHead>Default Amount</TableHead>
+                        <TableHead>Chain</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {employees.map((employee) => (
-                        <TableRow key={employee.id}>
-                          <TableCell className="font-medium">{employee.name}</TableCell>
+                      {recipients.map((recipient) => (
+                        <TableRow key={recipient.id}>
+                          <TableCell className="font-medium">{recipient.name}</TableCell>
                           <TableCell className="font-mono">
-                            {employee.ensName || formatAddress(employee.walletAddress)}
+                            {recipient.ensDomain || formatAddress(recipient.walletAddress)}
                           </TableCell>
                           <TableCell>
-                            {employee.defaultSalary} {employee.defaultTokenSymbol || 'ETH'}
+                            {recipient.defaultAmount} {recipient.token?.symbol || 'ETH'}
                           </TableCell>
                           <TableCell>
                             <Badge variant="outline">
-                              {PAYMENT_FREQUENCIES[employee.paymentFrequency]}
+                              {recipient.chainId === 1 ? 'Ethereum' : `Chain ${recipient.chainId}`}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={employee.isActive ? 'default' : 'secondary'}>
-                              {employee.isActive ? 'Active' : 'Inactive'}
+                            <Badge variant={recipient.isActive ? 'default' : 'secondary'}>
+                              {recipient.isActive ? 'Active' : 'Inactive'}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
@@ -457,15 +491,15 @@ export default function EmployeesPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenEditDialog(employee)}>
+                                <DropdownMenuItem onClick={() => handleOpenEditDialog(recipient)}>
                                   <Edit className="mr-2 size-4" />
                                   Edit
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleToggleActive(employee)}>
-                                  {employee.isActive ? 'Deactivate' : 'Activate'}
+                                <DropdownMenuItem onClick={() => handleToggleActive(recipient)}>
+                                  {recipient.isActive ? 'Deactivate' : 'Activate'}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
-                                  onClick={() => handleOpenDeleteDialog(employee)}
+                                  onClick={() => handleOpenDeleteDialog(recipient)}
                                   className="text-destructive"
                                 >
                                   <Trash2 className="mr-2 size-4" />
@@ -529,7 +563,7 @@ export default function EmployeesPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="name">Name *</Label>
+              <Label htmlFor="name" className='mb-2'>Name *</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -538,7 +572,7 @@ export default function EmployeesPage() {
               />
             </div>
             <div>
-              <Label htmlFor="walletAddress">Wallet Address *</Label>
+              <Label htmlFor="walletAddress" className='mb-2'>Wallet Address *</Label>
               <Input
                 id="walletAddress"
                 value={formData.walletAddress}
@@ -548,38 +582,65 @@ export default function EmployeesPage() {
               />
             </div>
             <div>
-              <Label htmlFor="defaultSalary">Default Salary *</Label>
+              <Label htmlFor="defaultAmount" className='mb-2'>Default Amount *</Label>
               <Input
-                id="defaultSalary"
+                id="defaultAmount"
                 type="number"
-                value={formData.defaultSalary}
-                onChange={(e) => setFormData({ ...formData, defaultSalary: e.target.value })}
+                value={formData.defaultAmount}
+                onChange={(e) => setFormData({ ...formData, defaultAmount: e.target.value })}
                 placeholder="1000"
               />
             </div>
             <div>
-              <Label htmlFor="paymentFrequency">Payment Frequency</Label>
+              <Label htmlFor="tokenId" className='mb-2'>Token *</Label>
               <Select
-                value={formData.paymentFrequency}
-                onValueChange={(v: PaymentFrequency) =>
-                  setFormData({ ...formData, paymentFrequency: v })
-                }
+                value={formData.tokenId}
+                onValueChange={(v: string) => {
+                  const selectedToken = tokens.find(token => token.id === v);
+                  setFormData({
+                    ...formData,
+                    tokenId: v,
+                    chainId: selectedToken?.chainId || formData.chainId
+                  });
+                }}
+                disabled={isLoadingTokens}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder={isLoadingTokens ? "Loading tokens..." : "Select a token"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MONTHLY">Monthly</SelectItem>
-                  <SelectItem value="ONE_OFF">One-off</SelectItem>
+                  {tokens
+                    .filter(token => token.isActive)
+                    .map((token) => (
+                      <SelectItem key={token.id} value={token.id}>
+                        <div className="flex items-center gap-2">
+                          {token.logoUrl && (
+                            <img src={token.logoUrl} alt={token.symbol} className="w-4 h-4" />
+                          )}
+                          <span>{token.symbol}</span>
+                          <span className="text-muted-foreground">({token.name})</span>
+                          <span className="text-xs text-muted-foreground">- {token.chainName}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
+            {/* <div>
+              <Label htmlFor="ensDomain">ENS Domain (Optional)</Label>
+              <Input
+                id="ensDomain"
+                value={formData.ensDomain || ''}
+                onChange={(e) => setFormData({ ...formData, ensDomain: e.target.value })}
+                placeholder="john.eth"
+              />
+            </div> */}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateEmployee} disabled={isSubmitting}>
+            <Button onClick={handleCreateRecipient} disabled={isSubmitting}>
               {isSubmitting ? 'Creating...' : 'Create Employee'}
             </Button>
           </DialogFooter>
@@ -614,37 +675,64 @@ export default function EmployeesPage() {
               />
             </div>
             <div>
-              <Label htmlFor="edit-defaultSalary">Default Salary</Label>
+              <Label htmlFor="edit-defaultAmount">Default Amount</Label>
               <Input
-                id="edit-defaultSalary"
+                id="edit-defaultAmount"
                 type="number"
-                value={formData.defaultSalary}
-                onChange={(e) => setFormData({ ...formData, defaultSalary: e.target.value })}
+                value={formData.defaultAmount}
+                onChange={(e) => setFormData({ ...formData, defaultAmount: e.target.value })}
               />
             </div>
             <div>
-              <Label htmlFor="edit-paymentFrequency">Payment Frequency</Label>
+              <Label htmlFor="edit-tokenId">Token</Label>
               <Select
-                value={formData.paymentFrequency}
-                onValueChange={(v: PaymentFrequency) =>
-                  setFormData({ ...formData, paymentFrequency: v })
-                }
+                value={formData.tokenId}
+                onValueChange={(v: string) => {
+                  const selectedToken = tokens.find(token => token.id === v);
+                  setFormData({
+                    ...formData,
+                    tokenId: v,
+                    chainId: selectedToken?.chainId || formData.chainId
+                  });
+                }}
+                disabled={isLoadingTokens}
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder={isLoadingTokens ? "Loading tokens..." : "Select a token"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="MONTHLY">Monthly</SelectItem>
-                  <SelectItem value="ONE_OFF">One-off</SelectItem>
+                  {tokens
+                    .filter(token => token.isActive)
+                    .map((token) => (
+                      <SelectItem key={token.id} value={token.id}>
+                        <div className="flex items-center gap-2">
+                          {token.logoUrl && (
+                            <img src={token.logoUrl} alt={token.symbol} className="w-4 h-4" />
+                          )}
+                          <span>{token.symbol}</span>
+                          <span className="text-muted-foreground">({token.name})</span>
+                          <span className="text-xs text-muted-foreground">- {token.chainName}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-ensDomain">ENS Domain (Optional)</Label>
+              <Input
+                id="edit-ensDomain"
+                value={formData.ensDomain || ''}
+                onChange={(e) => setFormData({ ...formData, ensDomain: e.target.value })}
+                placeholder="john.eth"
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateEmployee} disabled={isSubmitting}>
+            <Button onClick={handleUpdateRecipient} disabled={isSubmitting}>
               {isSubmitting ? 'Updating...' : 'Update Employee'}
             </Button>
           </DialogFooter>
@@ -657,14 +745,14 @@ export default function EmployeesPage() {
           <DialogHeader>
             <DialogTitle>Delete Employee</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete {selectedEmployee?.name}? This action cannot be undone.
+              Are you sure you want to delete {selectedRecipient?.name}? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteEmployee} disabled={isSubmitting}>
+            <Button variant="destructive" onClick={handleDeleteRecipient} disabled={isSubmitting}>
               {isSubmitting ? 'Deleting...' : 'Delete Employee'}
             </Button>
           </DialogFooter>

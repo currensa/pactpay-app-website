@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 export default function OrganizationSelectorPage() {
-  const { user, getAvailableCompanies, selectCompany } = useAuth();
+  const { user, getAvailableCompanies, switchOrganization } = useAuth();
   const navigate = useNavigate();
   const [switching, setSwitching] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
@@ -43,11 +43,18 @@ export default function OrganizationSelectorPage() {
     }
   };
 
-  const handleSelectOrganization = async (companyId: string) => {
+  const handleswitchOrganization = async (companyId: string) => {
     setSwitching(true);
     setSelectedOrgId(companyId);
     try {
-      await selectCompany(companyId);
+      console.log('Starting organization selection for:', companyId);
+      await switchOrganization(companyId);
+      console.log('Organization selection completed, waiting for state update...');
+
+      // Wait a bit for state to update
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      console.log('Navigating to dashboard');
       toast.success('Organization selected successfully');
       navigate('/dashboard', { replace: true });
     } catch (error: any) {
@@ -114,9 +121,9 @@ export default function OrganizationSelectorPage() {
                   {companies.map((company) => (
                     <button
                       key={company.id}
-                      onClick={() => handleSelectOrganization(company.id)}
+                      onClick={() => handleswitchOrganization(company.id)}
                       disabled={switching}
-                      className="w-full p-4 bg-muted hover:bg-muted/80 rounded-lg transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full p-4 bg-black/5 hover:bg-muted/80 rounded-lg transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1 min-w-0">

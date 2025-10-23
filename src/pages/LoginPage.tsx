@@ -1,15 +1,15 @@
 // Login Page with RainbowKit and SIWE
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
 import { Shield, Users, Wallet, Zap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAccount } from 'wagmi';
-import { Button } from '../components/ui/button';
-import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginPage() {
-  const { isAuthenticated, isLoading, login, needsCompanySelection, getAvailableCompanies, selectCompany } = useAuth();
+  const { isAuthenticated, isLoading, login, getAvailableCompanies } = useAuth();
   const { isConnected, address } = useAccount();
   const { openConnectModal } = useConnectModal();
   const navigate = useNavigate();
@@ -27,6 +27,7 @@ export default function LoginPage() {
     try {
       await login();
       toast.success('Successfully signed in!');
+      navigate('/select-organization')
 
       // After successful login, handle company selection flow
       // This will be handled by the useEffect below
@@ -47,33 +48,22 @@ export default function LoginPage() {
     }
   }, [isConnected, address, login]);
 
-  // Handle company selection after login
-  useEffect(() => {
-    if (isAuthenticated && needsCompanySelection) {
-      // User just logged in and needs to select a company
-      handleCompanySelection();
-    } else if (isAuthenticated && !needsCompanySelection) {
-      // User already has company context, go to dashboard
-      navigate('/dashboard', { replace: true });
-    }
-  }, [isAuthenticated, needsCompanySelection]);
+  // const handleCompanySelection = async () => {
+  //   try {
+  //     const { companies } = await getAvailableCompanies();
 
-  const handleCompanySelection = async () => {
-    try {
-      const { companies } = await getAvailableCompanies();
-
-      if (companies.length === 0) {
-        // No companies, redirect to onboarding
-        navigate('/onboarding', { replace: true });
-      } else {
-        // Has companies (one or more), show selection page
-        navigate('/select-organization', { replace: true });
-      }
-    } catch (error: any) {
-      console.error('Failed to handle company selection:', error);
-      toast.error('Failed to load organizations');
-    }
-  };
+  //     if (companies.length === 0) {
+  //       // No companies, redirect to onboarding
+  //       navigate('/onboarding', { replace: true });
+  //     } else {
+  //       // Has companies (one or more), show selection page
+  //       navigate('/select-organization', { replace: true });
+  //     }
+  //   } catch (error: any) {
+  //     console.error('Failed to handle company selection:', error);
+  //     toast.error('Failed to load organizations');
+  //   }
+  // };
 
   // Auto sign after wallet connection (only when user initiated login)
   useEffect(() => {
@@ -144,7 +134,7 @@ export default function LoginPage() {
               <Button
                 onClick={handleLogin}
                 disabled={isLoading || signing}
-                className="w-full h-14 text-lg"
+                className="w-full h-14 text-lg bg-black text-white"
                 size="lg"
               >
                 {signing ? (

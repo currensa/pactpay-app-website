@@ -1,6 +1,6 @@
 // Hook for Safe SDK operations
-import SafeApiKit from '@safe-global/api-kit';
 import Safe from '@safe-global/protocol-kit';
+import SafeTransaction from 'node_modules/@safe-global/protocol-kit/dist/src/utils/transactions/SafeTransaction';
 import { useState } from 'react';
 import { useAccount, useWalletClient } from 'wagmi';
 
@@ -12,14 +12,15 @@ export function useSafeSDK() {
   const createAndProposeTransaction = async (transactionData: {
     safeAddress: string;
     chainId: number;
-    transactions: Array<{
+    rawTransactions: Array<{
       to: string;
       value: string;
       data: string;
     }>;
   }): Promise<{
+    safeTransaction: SafeTransaction['data'];
     safeTxHash: string;
-    nonce: number;
+    signature: string;
   }> => {
     if (!isConnected || !address) {
       throw new Error('Wallet not connected. Please connect your wallet first.');
@@ -56,40 +57,11 @@ export function useSafeSDK() {
         currentChainId: chain?.id,
       });
 
-      // Get the appropriate Transaction Service URL for the chain
-      const getTxServiceUrl = (chainId: number): string => {
-        const txServiceUrls: Record<number, string> = {
-          1: 'https://safe-transaction-mainnet.safe.global',      // Ethereum Mainnet
-          11155111: 'https://safe-transaction-sepolia.safe.global', // Sepolia
-          137: 'https://safe-transaction-polygon.safe.global',    // Polygon
-          100: 'https://safe-transaction-gnosis-chain.safe.global', // Gnosis Chain
-        };
-        return txServiceUrls[chainId] || '';
-      };
-
-      const txServiceUrl = getTxServiceUrl(transactionData.chainId);
-      if (!txServiceUrl) {
-        throw new Error(
-          `Unsupported network: Chain ID ${transactionData.chainId}. ` +
-          `Supported networks: Ethereum Mainnet (1), Sepolia (11155111), Polygon (137), Gnosis Chain (100)`
-        );
-      }
-
-      console.log('Using Safe Transaction Service:', txServiceUrl);
-
-      // Use Wagmi's chain information (more reliable than querying window.ethereum directly)
       const currentChainId = chain?.id;
 
       if (!currentChainId) {
         throw new Error('Unable to detect current network. Please ensure your wallet is connected.');
       }
-
-      console.log('Network verification:', {
-        walletChain: chain?.name,
-        walletChainId: currentChainId,
-        requiredChain: transactionData.chainId,
-        match: currentChainId === transactionData.chainId,
-      });
 
       // Verify network matches
       if (currentChainId !== transactionData.chainId) {
@@ -115,15 +87,10 @@ export function useSafeSDK() {
       // This is more reliable than window.ethereum and integrates better with Wagmi
       const provider = walletClient.transport;
 
-      console.log('Provider info:', {
-        type: walletClient.transport.type,
-        chain: walletClient.chain.name,
-      });
-
       // Initialize Safe Protocol Kit with Wagmi's transport as provider
       // The transport acts as an EIP-1193 compatible provider
       const protocolKit = await Safe.init({
-        provider: provider as any,
+        provider: provider,
         signer: signerAddress,
         safeAddress: transactionData.safeAddress,
       });
@@ -152,18 +119,10 @@ export function useSafeSDK() {
           `Only Safe owners can create transactions.`
         );
       }
-
-      // Initialize Safe API Kit with the correct Transaction Service URL
-      console.log("transactionData.chainId", transactionData.chainId)
-      const apiKit = new SafeApiKit({
-        chainId: BigInt(transactionData.chainId),
-        txServiceUrl,
-      });
-
       // Create Safe transaction
       console.log('Creating Safe transaction');
       const safeTransaction = await protocolKit.createTransaction({
-        transactions: transactionData.transactions,
+        transactions: transactionData.rawTransactions,
       });
 
       // Get transaction hash
@@ -174,22 +133,13 @@ export function useSafeSDK() {
       console.log('Signing transaction');
       const senderSignature = await protocolKit.signHash(safeTxHash);
 
-      // Propose transaction to Safe Transaction Service
-      console.log('Proposing transaction to Safe Transaction Service');
-      await apiKit.proposeTransaction({
-        safeAddress: transactionData.safeAddress,
-        safeTransactionData: safeTransaction.data,
-        safeTxHash,
-        senderAddress: signerAddress,
-        senderSignature: senderSignature.data,
-      });
+      console.log('Sender signature:', senderSignature.data);
 
-      // Get transaction nonce
-      const nonce = Number(safeTransaction.data.nonce);
 
       return {
         safeTxHash,
-        nonce,
+        safeTransaction: safeTransaction.data,
+        signature: senderSignature.data,
       };
     } catch (error: any) {
       console.error('Failed to propose transaction:', error);

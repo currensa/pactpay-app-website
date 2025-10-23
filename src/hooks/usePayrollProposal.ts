@@ -3,12 +3,11 @@ import { apiClient } from '@/lib/api-client';
 import Safe from '@safe-global/protocol-kit';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
+import { useAccount, useWalletClient } from 'wagmi';
 
 export function usePayrollProposal() {
   const { isConnected, address, chain } = useAccount();
   const { data: walletClient } = useWalletClient();
-  const publicClient = usePublicClient();
   const [isProposing, setIsProposing] = useState(false);
 
   const proposePayroll = async (payrollId: string): Promise<{
@@ -33,114 +32,118 @@ export function usePayrollProposal() {
     setIsProposing(true);
 
     try {
-      // Step 1: Backend creates Safe transaction and returns safeTxHash
-      console.log('📋 Step 1: Creating Safe transaction on backend for payroll:', payrollId);
-      toast.loading('Creating Safe transaction...', { id: 'propose' });
+      // Step 1: Backend returns draft info and raw transaction data
+      console.log('📋 Step 1: Getting draft info and raw transaction data for payroll:', payrollId);
+      toast.loading('Getting draft information...', { id: 'propose' });
 
-      const txData = await apiClient.createPayrollTransaction(payrollId);
+      const draftInfo = await apiClient.getPayrollTransactionData(payrollId);
 
       // Debug: Log the full response to help troubleshoot
-      console.log('🔍 Full API response:', txData);
+      console.log('🔍 Full API response:', draftInfo);
 
-      console.log('✅ Safe transaction created:', {
-        safeTxHash: txData.safeTxHash,
-        safeAddress: txData.safeAddress,
-        chainId: txData.chainId,
-        nonce: txData.nonce,
-        threshold: txData.threshold,
+      console.log('✅ Draft info retrieved:', {
+        safeAddress: draftInfo.safeAddress,
+        chainId: draftInfo.chainId,
+        nonce: draftInfo.nonce,
+        threshold: draftInfo.threshold,
+        rawTransactionsCount: draftInfo.rawTransactions.length,
       });
 
       // Check if wallet is connected to the correct network
-      if (chain && chain.id !== txData.chainId) {
+      if (chain && chain.id !== draftInfo.chainId) {
         throw new Error(
           `Network mismatch! Your wallet is connected to ${chain.name} (Chain ID: ${chain.id}), ` +
-          `but the Safe wallet is deployed on Chain ID: ${txData.chainId}. ` +
+          `but the Safe wallet is deployed on Chain ID: ${draftInfo.chainId}. ` +
           `Please switch your wallet to the correct network.`
         );
       }
 
-      // Step 2: User signs the safeTxHash with their wallet
-      console.log('🔐 Step 2: Requesting user signature...');
-      toast.loading('Please sign the transaction in your wallet...', { id: 'propose' });
+      // Step 2: Use Safe SDK to create transaction and get hash
+      console.log('🔧 Step 2: Creating Safe transaction with SDK...');
+      toast.loading('Creating Safe transaction...', { id: 'propose' });
 
-      // Use RainbowKit's walletClient instead of window.ethereum
+      // Debug: Log the full response to understand the structure
+      console.log('🔍 Full draftInfo response:', draftInfo);
+      console.log('🔍 rawTransactions:', draftInfo.rawTransactions);
+
+      // Check if rawTransactions exists and has required fields
+      if (!draftInfo.rawTransactions || draftInfo.rawTransactions.length === 0) {
+        throw new Error('Invalid transaction data received from backend');
+      }
+
+      // Use rawTransactions directly (already in array format)
+      const transactions = draftInfo.rawTransactions.map(tx => ({
+        to: tx.to,
+        value: tx.value,
+        data: tx.data,
+      }));
+
+      // Get provider from connected wallet (RainbowKit best practice)
       if (!walletClient) {
         throw new Error('Wallet not connected. Please connect your wallet first.');
       }
 
-      // Get signer from walletClient
-      const signer = await walletClient.getAddresses();
-      if (signer.length === 0) {
-        throw new Error('No accounts found. Please connect your wallet.');
+      // Use walletClient.transport as provider for Safe SDK
+      const provider = walletClient.transport;
+      if (!provider) {
+        throw new Error('No wallet provider available');
       }
 
-      const signerAddress = signer[0];
+      // Get signer address for Safe SDK initialization
+      const signerAddresses = await walletClient.getAddresses();
+      if (signerAddresses.length === 0) {
+        throw new Error('No accounts found. Please connect your wallet.');
+      }
+      const signerAddress = signerAddresses[0];
 
-      // Sign the safeTxHash using walletClient
-      const signature = await walletClient.signMessage({
-        message: { raw: txData.safeTxHash as `0x${string}` },
-        account: signerAddress,
+      // Validate signer address format
+      if (!signerAddress || !signerAddress.startsWith('0x') || signerAddress.length !== 42) {
+        throw new Error('Invalid signer address format');
+      }
+
+      // Initialize Safe SDK with wallet provider and signer
+      const safe = await Safe.init({
+        provider: provider as any, // Type assertion for compatibility
+        signer: signerAddress, // Use signer address instead of private key
+        safeAddress: draftInfo.safeAddress
       });
+
+      // Create Safe transaction using the new API format
+      const safeTransaction = await safe.createTransaction({
+        transactions: transactions,
+      });
+
+      console.log('safeTransaction', safeTransaction);
+
+      // Get transaction hash
+      const safeTxHash = await safe.getTransactionHash(safeTransaction);
+
+      console.log('safeTxHash', safeTxHash);
+
+      // Step 3: User signs the safeTxHash with their wallet using Safe SDK
+      console.log('🔐 Step 3: Requesting user signature...');
+      toast.loading('Please sign the transaction in your wallet...', { id: 'propose' });
+
+      // Use Safe SDK's signHash method for proper signature format
+      const signature = await safe.signHash(safeTxHash);
 
       console.log('✅ User signed transaction:', {
         signerAddress,
-        signature: signature.slice(0, 10) + '...',
+        signature: signature.data.slice(0, 10) + '...',
       });
-
-      // Step 3: Create Safe transaction using Safe SDK (as per design.md)
-      console.log('🔧 Step 3: Creating Safe transaction with SDK...');
-      toast.loading('Creating Safe transaction...', { id: 'propose' });
-
-      // Debug: Log the full response to understand the structure
-      console.log('🔍 Full txData response:', txData);
-      console.log('🔍 transactionData:', txData.transactionData);
-
-      // Check if transactionData exists and has required fields
-      if (!txData.transactionData || !txData.transactionData.transactions) {
-        throw new Error('Invalid transaction data received from backend');
-      }
-
-      // Get provider from wagmi publicClient (as per design.md)
-      const provider = publicClient?.transport?.value || publicClient;
-      if (!provider) {
-        throw new Error('No provider available');
-      }
-
-      // Initialize Safe SDK
-      const safe = await Safe.init({
-        provider,
-        safeAddress: txData.safeAddress
-      });
-
-      // Create Safe transaction
-      const safeTransaction = await safe.createTransaction({
-        transactions: txData.transactionData.transactions,
-      });
-
-      // Use Safe SDK generated data as base, then ensure all required fields are present
-      const safeTransactionData = {
-        ...safeTransaction.data,
-        safeAddress: txData.safeAddress,
-        chainId: txData.chainId,
-        transactions: txData.transactionData.transactions,
-        nonce: txData.nonce,
-        safeTxHash: txData.safeTxHash,
-        threshold: txData.threshold,
-        owners: txData.transactionData.owners,
-      };
 
       // Debug: Log the complete safeTransactionData structure
-      console.log('🔍 Complete safeTransactionData:', safeTransactionData);
+      console.log('🔍 Complete safeTransactionData:', safeTransaction.data);
 
-      // Step 4: Backend verifies signature and proposes to Safe Transaction Service
-      console.log('📤 Step 4: Submitting signature to backend...');
+      // Step 5: Backend verifies signature and proposes to Safe Transaction Service
+      console.log('📤 Step 5: Submitting signature to backend...');
       toast.loading('Submitting signature and proposing transaction...', { id: 'propose' });
 
       const result = await apiClient.submitPayrollSignature(payrollId, {
-        safeTxHash: txData.safeTxHash,
-        signature,
+        safeTxHash,
+        signature: signature.data, // Extract signature data from SafeSignature object
         signerAddress,
-        safeTransactionData,
+        safeTransactionData: safeTransaction.data
       });
 
       console.log('✅ Transaction proposed successfully:', {
@@ -184,4 +187,5 @@ export function usePayrollProposal() {
     isProposing,
   };
 }
+
 

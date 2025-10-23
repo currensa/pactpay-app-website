@@ -156,7 +156,7 @@ export default function PayrollsPage() {
             </Button>
           </div>
 
-          <div className="flex gap-2">
+          {/* <div className="flex gap-2">
             <span className="text-sm text-muted-foreground mr-2 flex items-center">Type:</span>
             <Button
               variant={typeFilter === 'all' ? 'default' : 'outline'}
@@ -188,7 +188,7 @@ export default function PayrollsPage() {
             >
               One-Time
             </Button>
-          </div>
+          </div> */}
         </div>
 
         {/* Loading State */}
@@ -211,24 +211,24 @@ export default function PayrollsPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <h3>{payroll.title}</h3>
-                            <Badge variant={getStatusVariant(payroll.status)}>
-                              {payroll.status}
+                            <h3>{payroll.title || 'Untitled'}</h3>
+                            <Badge variant={getStatusVariant(payroll.status || PayrollStatus.DRAFT)}>
+                              {payroll.status || 'Unknown'}
                             </Badge>
                           </div>
                           <div className="flex items-center gap-4 text-muted-foreground">
-                            <span>{payroll.employeeCount} employees</span>
+                            <span>{payroll.employeeCount || 0} employees</span>
                             <span>•</span>
-                            <span>{formatDate(payroll.createdAt)}</span>
+                            <span>{formatDate(payroll.createdAt || new Date().toISOString())}</span>
                             <span>•</span>
-                            <span className="capitalize">{payroll.type.toLowerCase()}</span>
+                            <span className="capitalize">{payroll.type?.toLowerCase() || 'Unknown'}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
                             <p className="text-muted-foreground mb-1">Total Amount</p>
                             <div className="space-y-1">
-                              {Object.entries(payroll.totalAmount).map(([token, amount]) => (
+                              {Object.entries(payroll.totalAmount || {}).map(([token, amount]) => (
                                 <p key={token}>{amount} {token}</p>
                               ))}
                             </div>

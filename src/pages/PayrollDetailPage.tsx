@@ -36,7 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
-import { useSafeSDK } from '../hooks/useSafeSDK';
+import { usePayrollProposal } from '../hooks/usePayrollProposal';
 import { apiClient, PayrollDetail as PayrollDetailType } from '../lib/api-client';
 import { formatAddress, formatDate } from '../lib/utils';
 import { PayrollStatus } from '../types';
@@ -44,7 +44,7 @@ import { PayrollStatus } from '../types';
 export default function PayrollDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { createAndProposeTransaction, isProposing } = useSafeSDK();
+  const { proposePayroll, isProposing } = usePayrollProposal();
 
   const [payrollDetail, setPayrollDetail] = useState<PayrollDetailType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,15 +85,12 @@ export default function PayrollDetailPage() {
   };
 
   const refreshStatus = async () => {
-    if (!id) return;
-    if (!payrollDetail?.transaction) return;
+    if (!id || !payrollDetail?.transaction) return;
 
     setIsRefreshing(true);
     try {
       await apiClient.syncTransaction(payrollDetail.transaction.id);
       toast.success('Status updated');
-
-      // Reload payroll detail to get updated info
       await loadPayrollDetail();
     } catch (error: any) {
       console.error('Failed to refresh status:', error);
@@ -113,7 +110,7 @@ export default function PayrollDetailPage() {
       navigate('/payrolls');
     } catch (error: any) {
       console.error('Failed to cancel payroll:', error);
-      toast.error(error.message || 'Failed to cancel payroll');
+      toast.error('Failed to cancel payroll');
     } finally {
       setIsCanceling(false);
     }
@@ -129,7 +126,7 @@ export default function PayrollDetailPage() {
       navigate(`/payrolls/${duplicated.id}`);
     } catch (error: any) {
       console.error('Failed to duplicate payroll:', error);
-      toast.error(error.message || 'Failed to duplicate payroll');
+      toast.error('Failed to duplicate payroll');
     } finally {
       setIsDuplicating(false);
     }
@@ -140,57 +137,18 @@ export default function PayrollDetailPage() {
 
     setIsProposingToSafe(true);
     try {
-      // Step 1: Get transaction data from backend
-      console.log('📋 Step 1: Getting transaction data for payroll:', id);
-      toast.loading('Preparing transaction data...', { id: 'propose' });
-      const transactionData = await apiClient.getPayrollTransactionData(id);
-      console.log('✅ Transaction data received:', {
-        safeAddress: transactionData.safeAddress,
-        chainId: transactionData.chainId,
-        transactionCount: transactionData.transactions.length,
-      });
-
-      // Step 2: Use Safe SDK to create and propose transaction (frontend only)
-      console.log('🔐 Step 2: Creating Safe transaction...');
-      toast.loading('Creating Safe transaction...', { id: 'propose' });
-      const { safeTxHash, nonce } = await createAndProposeTransaction(transactionData);
-      console.log('✅ Safe transaction created:', { safeTxHash, nonce });
-
-      // Step 3: Record transaction hash back to backend
-      console.log('💾 Step 3: Recording transaction to backend...');
-      toast.loading('Recording transaction...', { id: 'propose' });
-      const result = await apiClient.recordPayrollTransaction(id, {
-        safeTxHash,
-        nonce,
-      });
-      console.log('✅ Transaction recorded:', {
-        payrollId: result.id,
-        status: result.status,
-        transactionInfo: result.transaction,
-      });
-
-      toast.success('Payroll transaction proposed successfully!', { id: 'propose' });
+      const result = await proposePayroll(id);
 
       // Open Safe App in new tab for other signers
       if (result.transaction?.safeAppUrl) {
-        console.log('🔗 Opening Safe App:', result.transaction.safeAppUrl);
         window.open(result.transaction.safeAppUrl, '_blank');
-      } else {
-        console.warn('⚠️ No Safe App URL in response');
       }
 
       // Reload payroll detail to show updated status
-      console.log('🔄 Reloading payroll detail...');
       await loadPayrollDetail();
-      console.log('✅ Payroll detail reloaded');
     } catch (error: any) {
-      console.error('❌ Failed to propose payroll:', error);
-      console.error('Error details:', {
-        message: error.message,
-        response: error.response,
-        stack: error.stack,
-      });
-      toast.error(error.message || 'Failed to create transaction', { id: 'propose' });
+      console.error('Failed to propose payroll:', error);
+      // Error handling is already done in the usePayrollProposal hook
     } finally {
       setIsProposingToSafe(false);
     }
@@ -265,7 +223,7 @@ export default function PayrollDetailPage() {
             <ArrowLeft className="size-4" />
           </Button>
           <div className="flex-1">
-            <h1>{payrollDetail.title}</h1>
+            <h1 className="text-2xl font-bold">{payrollDetail.title}</h1>
             <p className="text-muted-foreground">Created on {formatDate(payrollDetail.createdAt)}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -281,32 +239,61 @@ export default function PayrollDetailPage() {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Payroll Overview</CardTitle>
+              <CardDescription>Details about this payroll run</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <p className="text-muted-foreground mb-1">Payment Type</p>
-                  <p className="capitalize">{payrollDetail.type}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground mb-1">Employees</p>
-                  <p>{payrollDetail.employeeCount}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground mb-1">Created By</p>
-                  <p>{formatAddress(payrollDetail.createdBy)}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground mb-1">Total Amount</p>
-                  <div className="space-y-1">
-                    {Object.entries(payrollDetail.totalAmount).map(([token, amount]) => (
-                      <p key={token}>
-                        {amount} {token}
-                      </p>
-                    ))}
+              {payrollDetail ? (
+                <div className="space-y-6">
+                  {/* Basic Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Payment Type</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="capitalize">
+                          {payrollDetail.type || 'Unknown'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Recipients</p>
+                      <p className="text-lg font-semibold">{payrollDetail.employeeCount || 0}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Created By</p>
+                      <p className="font-mono text-sm">{formatAddress(payrollDetail.createdBy || '')}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Created At</p>
+                      <p className="text-sm">{formatDate(payrollDetail.createdAt)}</p>
+                    </div>
+                  </div>
+
+                  {/* Total Amount */}
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-3">Total Amount</p>
+                    <div className="space-y-2">
+                      {payrollDetail.totalAmount && Object.entries(payrollDetail.totalAmount).length > 0 ? (
+                        Object.entries(payrollDetail.totalAmount).map(([token, amount]) => (
+                          <div key={token} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary">{token}</Badge>
+                            </div>
+                            <span className="font-mono text-lg font-semibold">
+                              {parseFloat(amount).toLocaleString()} {token}
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-muted-foreground text-center py-2">No amount data</p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No payroll data available</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -314,13 +301,14 @@ export default function PayrollDetailPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>Transaction</CardTitle>
+                <CardTitle>Transaction Status</CardTitle>
                 {payrollDetail.transaction && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={refreshStatus}
                     disabled={isRefreshing}
+                    title="Refresh status"
                   >
                     <RefreshCw className={`size-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                   </Button>
@@ -330,19 +318,38 @@ export default function PayrollDetailPage() {
             <CardContent>
               {payrollDetail.transaction ? (
                 <div className="space-y-4">
+                  {/* Status */}
                   <div>
-                    <p className="text-muted-foreground mb-2">Signatures</p>
+                    <p className="text-sm text-muted-foreground mb-2">Status</p>
+                    <Badge
+                      variant={
+                        payrollDetail.transaction.status === 'EXECUTED'
+                          ? 'default'
+                          : payrollDetail.transaction.status === 'FAILED'
+                            ? 'destructive'
+                            : 'secondary'
+                      }
+                      className="text-sm"
+                    >
+                      {payrollDetail.transaction.status}
+                    </Badge>
+                  </div>
+
+                  {/* Signatures Progress */}
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Signatures</p>
                     <div className="space-y-2">
                       <Progress value={confirmationProgress} className="h-2" />
-                      <p className="text-sm">
-                        {payrollDetail.transaction.confirmations} of {payrollDetail.transaction.confirmationsRequired} required
-                      </p>
+                      <div className="flex justify-between text-sm">
+                        <span>{payrollDetail.transaction.confirmations}</span>
+                        <span className="text-muted-foreground">
+                          of {payrollDetail.transaction.confirmationsRequired}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Status</p>
-                    <Badge variant="outline">{payrollDetail.transaction.status}</Badge>
-                  </div>
+
+                  {/* Safe App Link */}
                   {payrollDetail.transaction.safeAppUrl && (
                     <a
                       href={payrollDetail.transaction.safeAppUrl}
@@ -351,27 +358,33 @@ export default function PayrollDetailPage() {
                     >
                       <Button variant="outline" className="w-full">
                         <ExternalLink className="mr-2 size-4" />
-                        Sign in Safe App
+                        Open Safe App
                       </Button>
                     </a>
                   )}
+
+                  {/* Transaction Hash */}
                   {payrollDetail.transaction.ethereumTxHash && (
                     <div>
-                      <p className="text-muted-foreground mb-1">Transaction Hash</p>
+                      <p className="text-sm text-muted-foreground mb-2">Transaction Hash</p>
                       <a
                         href={`https://etherscan.io/tx/${payrollDetail.transaction.ethereumTxHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline text-sm break-all"
+                        className="text-blue-600 hover:underline text-sm break-all font-mono"
                       >
-                        {formatAddress(payrollDetail.transaction.ethereumTxHash)} <ExternalLink className="inline size-3 ml-1" />
+                        {formatAddress(payrollDetail.transaction.ethereumTxHash)}
+                        <ExternalLink className="inline size-3 ml-1" />
                       </a>
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="text-center py-4">
-                  <p className="text-muted-foreground">No transaction data</p>
+                  <p className="text-muted-foreground text-sm">No transaction data</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Transaction will appear after proposing to Safe
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -382,13 +395,13 @@ export default function PayrollDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle>Payment Details</CardTitle>
-            <CardDescription>Individual payment records for this payroll run</CardDescription>
+            <CardDescription>Individual payment records for each recipient</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Employee</TableHead>
+                  <TableHead>Recipient</TableHead>
                   <TableHead>Wallet Address</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Token</TableHead>
@@ -398,11 +411,24 @@ export default function PayrollDetailPage() {
               <TableBody>
                 {payrollDetail.paymentRecords.map((record) => (
                   <TableRow key={record.id}>
-                    <TableCell>{record.employeeName}</TableCell>
-                    <TableCell>{formatAddress(record.recipientAddress)}</TableCell>
-                    <TableCell>{record.amount}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{record.tokenSymbol}</Badge>
+                      <div>
+                        <p className="font-medium">{record.recipientName}</p>
+                        {record.notes && (
+                          <p className="text-xs text-muted-foreground mt-1">{record.notes}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-mono text-sm">{formatAddress(record.recipientAddress)}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-mono">
+                        {parseFloat(record.amount).toLocaleString()}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">ETH</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge

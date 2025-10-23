@@ -1,17 +1,18 @@
 // Main Layout with Sidebar
+import { formatAddress } from '@/lib/utils';
+import {
+  Building2,
+  ChevronDown,
+  LayoutDashboard,
+  LogOut,
+  Receipt,
+  Shield,
+  Users,
+} from 'lucide-react';
 import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './ui/button';
-import {
-  LayoutDashboard,
-  Users,
-  Receipt,
-  Shield,
-  LogOut,
-  ChevronDown,
-  Building2,
-} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,7 +21,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { formatAddress } from '../lib/utils';
 
 interface LayoutProps {
   children: ReactNode;
@@ -93,10 +93,10 @@ export default function Layout({ children }: LayoutProps) {
             const Icon = item.icon;
             const isActive = location.pathname === item.href || location.pathname.startsWith(item.href + '/');
             return (
-              <Link key={item.name} to={item.href}>
+              <Link key={item.name} to={item.href} className='block'>
                 <Button
                   variant={isActive ? 'secondary' : 'ghost'}
-                  className="w-full justify-start"
+                  className="w-full justify-start cursor-pointer"
                 >
                   <Icon className="mr-2 size-4" />
                   {item.name}
@@ -122,7 +122,7 @@ export default function Layout({ children }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="h-screen flex-1 overflow-auto">
         {children}
       </main>
     </div>

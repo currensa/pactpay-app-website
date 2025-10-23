@@ -1,7 +1,6 @@
 // API Client for Safe Payroll System
 import {
-  Employee,
-  PaymentFrequency,
+  PaymentRecipient,
   PaymentRecord,
   Payroll,
   PayrollStatus,
@@ -9,6 +8,10 @@ import {
   TokenBalance,
   Transaction
 } from '../types';
+
+import { SafeTransaction } from '@safe-global/types-kit';
+
+
 
 // API Response Types
 export interface ApiResponse<T = any> {
@@ -56,21 +59,26 @@ export interface UserInfo {
     name: string;
     role: string;
   };
+  needsCompanySelection?: boolean;
+}
+
+export interface SafeWallet {
+  address: string;
+  chainId: number;
+  isActive: boolean;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  isCurrent: boolean;
+  safeWallets: SafeWallet[];
 }
 
 export interface OrganizationListResponse {
-  data: Array<{
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    isCurrent: boolean;
-    safeWallets: Array<{
-      address: string;
-      chainId: number;
-      isActive: boolean;
-    }>;
-  }>;
+  data: Organization[];
 }
 
 export interface AvailableCompaniesResponse {
@@ -142,15 +150,7 @@ export interface DashboardOverview {
     id: string;
     name: string;
   };
-  safeWallet: {
-    address: string;
-    chainId: number;
-    balances: Array<{
-      tokenSymbol: string;
-      balance: string;
-      fiatBalance?: string;
-    }>;
-  };
+  safeWallets: SafeWallet[];
   pendingTasks: {
     count: number;
     items: Array<{
@@ -161,19 +161,19 @@ export interface DashboardOverview {
       confirmationsRequired: number;
     }>;
   };
-  recentActivity: {
-    count: number;
-    items: Array<{
-      payrollId: string;
-      title: string;
-      status: string;
-      totalAmount: Record<string, string>;
-      createdAt: string;
-      executedAt?: string;
-    }>;
-  };
+  // recentActivity: {
+  //   count: number;
+  //   items: Array<{
+  //     payrollId: string;
+  //     title: string;
+  //     status: string;
+  //     totalAmount: Record<string, string>;
+  //     createdAt: string;
+  //     executedAt?: string;
+  //   }>;
+  // };
   statistics: {
-    totalEmployees: number;
+    totalRecipients: number;
     totalPayrollsThisMonth: number;
     totalAmountThisMonth: Record<string, string>;
   };
@@ -200,15 +200,14 @@ export interface SafeOwnerVerification {
 export interface PayrollDraft {
   id: string;
   title: string;
-  type: string;
   status: 'DRAFT';
   paymentRecords: Array<{
-    employeeId: string;
-    employeeName: string;
+    recipientId: string;
+    recipientName: string;
     recipientAddress: string;
     amount: string;
-    tokenAddress: string;
-    tokenSymbol: string;
+    status: string;
+    notes?: string;
   }>;
   totalAmount: Record<string, string>;
 }
@@ -238,21 +237,31 @@ export interface TransactionDetail extends Transaction {
   safeAppUrl: string;
 }
 
+export interface RawTransactionData {
+  to: string;
+  value: string;
+  data: string;
+}
+
 export interface CreateTransactionResponse {
-  payrollId: string;
-  safeTxHash: string;
+  // Safe 信息
   safeAddress: string;
   chainId: number;
   threshold: number;
+  owners: string[];
   nonce: number;
-  transactionData: {
-    safeTransaction: object; // Complete transaction object created by Safe SDK
-    safeTxHash: string;
-    safeAddress: string;
-    chainId: number;
-    threshold: number;
-    nonce: number;
-  };
+
+  // 原始交易数据（供前端构造 Safe 交易）
+  rawTransactions: Array<{
+    to: string;
+    value: string;
+    data: string;
+  }>;
+
+  // 薪资单信息
+  payrollId: string;
+  totalAmount: number;
+  paymentCount: number;
 }
 
 // API Client Configuration
@@ -279,6 +288,10 @@ export class SafePayrollApiClient {
 
   getAccessToken(): string | null {
     return this.accessToken;
+  }
+
+  getBaseUrl(): string {
+    return this.baseUrl;
   }
 
   // HTTP Request Helper
@@ -401,29 +414,14 @@ export class SafePayrollApiClient {
     return this.request<AvailableCompaniesResponse>('/api/enterprise/companies/available');
   }
 
-  // Select company (first time, after login with no company context)
-  async selectCompany(companyId: string): Promise<SelectCompanyResponse> {
-    const response = await this.request<SelectCompanyResponse>('/api/enterprise/session/select-company', {
-      method: 'POST',
-      body: JSON.stringify({ companyId }),
-    });
-
-    // Update token after company selection
-    if (response.accessToken) {
-      this.setAccessToken(response.accessToken);
-    }
-
-    return response;
-  }
-
-  // Switch to different company (when already has company context)
+  // Select organization (unified method for both first-time selection and switching)
   async switchOrganization(organizationId: string): Promise<SelectCompanyResponse> {
-    const response = await this.request<SelectCompanyResponse>('/api/enterprise/session/switch-company', {
+    const response = await this.request<SelectCompanyResponse>('/api/enterprise/session/switch-organization', {
       method: 'POST',
-      body: JSON.stringify({ companyId: organizationId }),
+      body: JSON.stringify({ organizationId }),
     });
 
-    // Update token after organization switch
+    // Update token after organization selection
     if (response.accessToken) {
       this.setAccessToken(response.accessToken);
     }
@@ -489,13 +487,13 @@ export class SafePayrollApiClient {
     });
   }
 
-  // Employee API Methods
-  async getEmployees(params: {
+  // Payment Recipient API Methods (formerly Employee)
+  async getPaymentRecipients(params: {
     page?: number;
     limit?: number;
     search?: string;
     isActive?: boolean;
-  } = {}): Promise<PaginatedResponse<Employee>> {
+  } = {}): Promise<PaginatedResponse<PaymentRecipient>> {
     const searchParams = new URLSearchParams();
     if (params.page) searchParams.set('page', params.page.toString());
     if (params.limit) searchParams.set('limit', params.limit.toString());
@@ -503,43 +501,45 @@ export class SafePayrollApiClient {
     if (params.isActive !== undefined) searchParams.set('isActive', params.isActive.toString());
 
     const query = searchParams.toString();
-    return this.request<PaginatedResponse<Employee>>(`/api/enterprise/employees${query ? `?${query}` : ''}`);
+    return this.request<PaginatedResponse<PaymentRecipient>>(`/api/enterprise/employees${query ? `?${query}` : ''}`);
   }
 
-  async createEmployee(data: {
+  async createPaymentRecipient(data: {
     name: string;
     walletAddress: string;
-    defaultSalary: string;
-    defaultToken: string;
-    paymentFrequency: PaymentFrequency;
-  }): Promise<Employee> {
-    return this.request<Employee>('/api/enterprise/employees', {
+    defaultAmount: string;
+    tokenId: string;
+    chainId: number;
+    ensDomain?: string;
+  }): Promise<PaymentRecipient> {
+    return this.request<PaymentRecipient>('/api/enterprise/employees', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateEmployee(employeeId: string, data: Partial<{
+  async updatePaymentRecipient(recipientId: string, data: Partial<{
     name: string;
     walletAddress: string;
-    defaultSalary: string;
-    defaultToken: string;
-    paymentFrequency: PaymentFrequency;
+    defaultAmount: string;
+    tokenId: string;
+    chainId: number;
+    ensDomain?: string;
     isActive: boolean;
-  }>): Promise<Employee> {
-    return this.request<Employee>(`/api/enterprise/employees/${employeeId}`, {
+  }>): Promise<PaymentRecipient> {
+    return this.request<PaymentRecipient>(`/api/enterprise/employees/${recipientId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
   }
 
-  async deleteEmployee(employeeId: string): Promise<{ success: boolean }> {
-    return this.request<{ success: boolean }>(`/api/enterprise/employees/${employeeId}`, {
+  async deletePaymentRecipient(recipientId: string): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/api/enterprise/employees/${recipientId}`, {
       method: 'DELETE',
     });
   }
 
-  async getEmployeePaymentHistory(employeeId: string, params: {
+  async getPaymentRecipientHistory(recipientId: string, params: {
     page?: number;
     limit?: number;
   } = {}): Promise<PaginatedResponse<{
@@ -547,8 +547,8 @@ export class SafePayrollApiClient {
     payrollId: string;
     payrollTitle: string;
     amount: string;
-    tokenSymbol: string;
     status: string;
+    notes?: string;
     createdAt: string;
   }>> {
     const searchParams = new URLSearchParams();
@@ -561,13 +561,13 @@ export class SafePayrollApiClient {
       payrollId: string;
       payrollTitle: string;
       amount: string;
-      tokenSymbol: string;
       status: string;
+      notes?: string;
       createdAt: string;
-    }>>(`/api/enterprise/employees/${employeeId}/payment-history${query ? `?${query}` : ''}`);
+    }>>(`/api/enterprise/employees/${recipientId}/payment-history${query ? `?${query}` : ''}`);
   }
 
-  async importEmployees(file: File): Promise<{
+  async importPaymentRecipients(file: File): Promise<{
     success: number;
     failed: number;
     errors: Array<{
@@ -592,7 +592,7 @@ export class SafePayrollApiClient {
     });
   }
 
-  async exportEmployees(): Promise<Blob> {
+  async exportPaymentRecipients(): Promise<Blob> {
     const response = await fetch(`${this.baseUrl}/api/enterprise/employees/export`, {
       headers: this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {},
     });
@@ -624,12 +624,10 @@ export class SafePayrollApiClient {
   async createPayrollDraft(data: {
     safeWalletId: string;
     title: string;
-    type: PayrollType;
-    employeeIds: string[];
-    paymentRecords?: Array<{
-      employeeId: string;
-      amount: string;
-      tokenAddress: string;
+    paymentRecords: Array<{
+      recipientId: string;
+      amount: string;  // Required: string representation of bigint amount
+      notes?: string;   // Optional: notes
     }>;
   }): Promise<PayrollDraft> {
     return this.request<PayrollDraft>('/api/enterprise/payrolls/draft', {
@@ -640,9 +638,9 @@ export class SafePayrollApiClient {
 
   async updatePayrollDraft(payrollId: string, data: {
     paymentRecords: Array<{
-      employeeId: string;
-      amount: string;
-      tokenAddress: string;
+      recipientId: string;
+      amount: string;  // Required: string representation of bigint amount
+      notes?: string;
     }>;
   }): Promise<PayrollDraft> {
     return this.request<PayrollDraft>(`/api/enterprise/payrolls/${payrollId}/draft`, {
@@ -652,15 +650,14 @@ export class SafePayrollApiClient {
   }
 
   /**
-   * Create Safe transaction (backend creates transaction and returns safeTxHash)
-   * Frontend will sign the safeTxHash and submit via submitPayrollSignature
+   * Get transaction data for frontend to construct Safe transaction
+   * Backend returns raw transaction data, frontend uses Safe SDK to construct
    * @param payrollId - The payroll ID
    * @param walletAddress - The wallet address for signing (must be Safe owner)
    */
-  async createPayrollTransaction(payrollId: string, walletAddress: string): Promise<CreateTransactionResponse> {
-    return this.request<CreateTransactionResponse>(`/api/enterprise/payrolls/${payrollId}/create-transaction`, {
-      method: 'POST',
-      body: JSON.stringify({ walletAddress }),
+  async getPayrollTransactionData(payrollId: string): Promise<CreateTransactionResponse> {
+    return this.request<CreateTransactionResponse>(`/api/enterprise/payrolls/${payrollId}/transaction-data`, {
+      method: 'GET',
     });
   }
 
@@ -671,19 +668,7 @@ export class SafePayrollApiClient {
     safeTxHash: string;
     signature: string;
     signerAddress: string;
-    safeTransactionData: {
-      safeAddress: string;
-      chainId: number;
-      transactions: Array<{
-        to: string;
-        value: string;
-        data: string;
-      }>;
-      nonce: number;
-      safeTxHash: string;
-      threshold: number;
-      owners: string[];
-    };
+    safeTransactionData: SafeTransaction['data'];
   }): Promise<{
     id: string;
     status: 'PROPOSED';
@@ -773,6 +758,77 @@ export class SafePayrollApiClient {
   // Dashboard API Methods
   async getDashboardOverview(): Promise<DashboardOverview> {
     return this.request<DashboardOverview>('/api/enterprise/dashboard/overview');
+  }
+
+  // Token API Methods
+  async getTokens(): Promise<Array<{
+    id: string;
+    chainId: number;
+    chainName: string;
+    symbol: string;
+    name: string;
+    address: string;
+    decimals: number;
+    logoUrl?: string;
+    isActive: boolean;
+    isNative: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }>> {
+    return this.request<Array<{
+      id: string;
+      chainId: number;
+      chainName: string;
+      symbol: string;
+      name: string;
+      address: string;
+      decimals: number;
+      logoUrl?: string;
+      isActive: boolean;
+      isNative: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>>('/api/tokens');
+  }
+
+  async getTokensByChain(chainId: number): Promise<Array<{
+    id: string;
+    chainId: number;
+    chainName: string;
+    symbol: string;
+    name: string;
+    address: string;
+    decimals: number;
+    logoUrl?: string;
+    isActive: boolean;
+    isNative: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }>> {
+    return this.request<Array<{
+      id: string;
+      chainId: number;
+      chainName: string;
+      symbol: string;
+      name: string;
+      address: string;
+      decimals: number;
+      logoUrl?: string;
+      isActive: boolean;
+      isNative: boolean;
+      createdAt: string;
+      updatedAt: string;
+    }>>(`/api/tokens/by-chain?chainId=${chainId}`);
+  }
+
+  async getSupportedChains(): Promise<Array<{
+    chainId: number;
+    chainName: string;
+  }>> {
+    return this.request<Array<{
+      chainId: number;
+      chainName: string;
+    }>>('/api/tokens/chains');
   }
 }
 

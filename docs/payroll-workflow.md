@@ -102,7 +102,7 @@ PATCH /api/enterprise/payrolls/{id}/draft
 - 支持选择不同的代币（USDC、USDT 等）
 - 实时计算总金额
 
-### 3. 创建 Safe 交易
+### 3. 获取草稿信息（用于前端构造交易）
 
 **前端操作**：
 
@@ -116,69 +116,105 @@ POST /api/enterprise/payrolls/{id}/create-transaction
 **后端处理**：
 
 - 验证 walletAddress 是 Safe 的 owner
-- 使用 Safe SDK 创建完整的 Safe 交易
-- 计算 safeTxHash
-- 保存交易草稿到数据库
+- 返回草稿信息和原始交易数据
+- 不构造 Safe 交易，只提供必要信息
 
 **后端响应**：
 
 ```json
 {
-  "payrollId": "payroll-uuid",
-  "safeTxHash": "0x1234...",
+  // Safe 信息
   "safeAddress": "0x...",
   "chainId": 1,
   "threshold": 2,
+  "owners": ["0x...", "0x..."],
   "nonce": 0,
-  "transactionData": {
-    "safeTransaction": {
-      /* Safe SDK 创建的完整交易对象 */
-    },
-    "safeTxHash": "0x1234...",
-    "safeAddress": "0x...",
-    "chainId": 1,
-    "threshold": 2,
-    "nonce": 0
-  }
+
+  // 原始交易数据（供前端构造 Safe 交易）
+  "rawTransactions": [
+    {
+      "to": "0x...",
+      "value": "1000000000000000000",
+      "data": "0x"
+    }
+  ],
+
+  // 薪资单信息
+  "payrollId": "payroll-uuid",
+  "totalAmount": 1000000000000000000,
+  "paymentCount": 1
 }
 ```
 
-### 4. 前端签名交易哈希
+### 4. 前端使用 Safe SDK 构造交易并签名
 
 **前端代码示例**：
 
 ```typescript
-import { ethers } from 'ethers';
+import { Safe } from '@safe-global/protocol-kit';
+import { usePublicClient } from 'wagmi';
 
-// 创建交易（需要提供钱包地址）
-const { safeTxHash, safeAddress, chainId, transactionData } = await fetch(
-  `/api/enterprise/payrolls/${payrollId}/create-transaction`,
-  {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      walletAddress: userWalletAddress, // 用户的钱包地址
-    }),
-  },
-).then((r) => r.json());
+// 1. 获取草稿信息
+const draftInfo = await fetch(`/api/enterprise/payrolls/${payrollId}/create-transaction`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    walletAddress: userWalletAddress, // 用户的钱包地址
+  }),
+}).then((r) => r.json());
 
-// 使用钱包签名 safeTxHash
-const provider = new ethers.BrowserProvider(window.ethereum);
-const signer = await provider.getSigner();
-const signerAddress = await signer.getAddress();
+// 2. 使用 Safe SDK 构造交易
+const publicClient = usePublicClient();
+const provider = publicClient?.transport?.value || publicClient;
 
-// 签名 hash
-const signature = await signer.signMessage(ethers.getBytes(safeTxHash));
+// 创建 Safe 实例
+const safe = await Safe.init({
+  provider,
+  safeAddress: draftInfo.safeAddress,
+});
 
-// 提交签名到后端
+// 构造 Safe 交易
+const safeTransaction = await safe.createTransaction({
+  transactions: draftInfo.rawTransactions.map((tx) => ({
+    to: tx.to,
+    value: tx.value,
+    data: tx.data,
+    operation: 0, // Call operation
+  })),
+});
+
+// 计算交易哈希
+const safeTxHash = await safe.getTransactionHash(safeTransaction);
+
+// 3. 用户钱包签名
+const { signMessageAsync } = useSignMessage();
+const signature = await signMessageAsync({
+  message: safeTxHash,
+});
+
+// 4. 构造完整的 SafeTransactionData
+const safeTransactionData = {
+  to: draftInfo.rawTransactions[0].to, // 对于批量交易，使用第一个交易的 to
+  value: draftInfo.rawTransactions[0].value,
+  data: draftInfo.rawTransactions[0].data,
+  operation: 0,
+  safeTxGas: '0',
+  baseGas: '0',
+  gasPrice: '0',
+  gasToken: '0x0000000000000000000000000000000000000000',
+  refundReceiver: '0x0000000000000000000000000000000000000000',
+  nonce: draftInfo.nonce,
+};
+
+// 5. 提交签名到后端
 const result = await fetch(`/api/enterprise/payrolls/${payrollId}/submit-signature`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     safeTxHash,
     signature,
-    signerAddress,
-    safeTransactionData: transactionData, // 使用后端返回的完整交易数据
+    signerAddress: userWalletAddress,
+    safeTransactionData,
   }),
 }).then((r) => r.json());
 ```
@@ -192,13 +228,26 @@ POST /api/enterprise/payrolls/{id}/submit-signature
 {
   "safeTxHash": "0x1234...",
   "signature": "0xabcd...",
-  "signerAddress": "0x..."
+  "signerAddress": "0x...",
+  "safeTransactionData": {
+    "to": "0x...",
+    "value": "1000000000000000000",
+    "data": "0x",
+    "operation": 0,
+    "safeTxGas": "0",
+    "baseGas": "0",
+    "gasPrice": "0",
+    "gasToken": "0x0000000000000000000000000000000000000000",
+    "refundReceiver": "0x0000000000000000000000000000000000000000",
+    "nonce": 0
+  }
 }
 ```
 
 **后端处理**：
 
 - 验证签名有效性
+- 验证 safeTxHash 与 safeTransactionData 的一致性
 - 调用 Safe Transaction Service API 提案交易
 - 记录交易状态到数据库
 - 更新薪资单状态为 PROPOSED
@@ -323,8 +372,8 @@ POST / api / enterprise / transactions / { id } / sync;
 
 ### 1. 职责分离
 
-- ✅ 后端负责创建交易、RPC 调用、状态同步
-- ✅ 前端只负责签名操作（不持有私钥）
+- ✅ 后端负责提供草稿信息、验证签名、调用 Safe API
+- ✅ 前端负责使用 Safe SDK 构造交易、签名操作（不持有私钥）
 - ✅ 所有与 Safe Transaction Service 的交互由后端完成
 
 ### 2. Gas 费用 💰
@@ -349,9 +398,10 @@ POST / api / enterprise / transactions / { id } / sync;
 
 ### 3. 签名流程
 
-- 后端使用 Safe SDK 创建交易并计算 safeTxHash
+- 后端提供草稿信息和原始交易数据
+- 前端使用 Safe SDK 构造交易并计算 safeTxHash
 - 前端用户钱包签名 safeTxHash（EIP-712 或 eth_sign）
-- 后端接收签名后提交到 Safe Transaction Service
+- 后端接收签名和完整交易数据后提交到 Safe Transaction Service
 
 ### 4. 使用正确的 token 地址
 
@@ -360,11 +410,12 @@ POST / api / enterprise / transactions / { id } / sync;
 
 ### 5. 处理多签流程
 
-- **步骤 1**：第一个签名者通过前端提交签名，后端提案交易
-- **步骤 2**：其他签名者在 Safe App 中签名
-- **步骤 3**：达到阈值后，状态变为 `EXECUTABLE`
-- **步骤 4**：任何 Safe owner 在 Safe App 中执行交易（支付 gas 费）
-- **步骤 5**：交易上链，状态变为 `EXECUTED`
+- **步骤 1**：前端使用 Safe SDK 构造交易，第一个签名者签名并提交
+- **步骤 2**：后端验证签名和交易数据后提案到 Safe Transaction Service
+- **步骤 3**：其他签名者在 Safe App 中签名
+- **步骤 4**：达到阈值后，状态变为 `EXECUTABLE`
+- **步骤 5**：任何 Safe owner 在 Safe App 中执行交易（支付 gas 费）
+- **步骤 6**：交易上链，状态变为 `EXECUTED`
 
 ### 6. 错误处理
 
@@ -412,22 +463,62 @@ const payroll = await fetch('/api/enterprise/payrolls/draft', {
 
 console.log('薪资单创建成功:', payroll.id);
 
-// ========== 2. 创建 Safe 交易 ==========
-const txData = await fetch(`/api/enterprise/payrolls/${payroll.id}/create-transaction`, {
+// ========== 2. 获取草稿信息 ==========
+const draftInfo = await fetch(`/api/enterprise/payrolls/${payroll.id}/create-transaction`, {
   method: 'POST',
-  headers: { Authorization: `Bearer ${token}` },
+  headers: {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    walletAddress: userWalletAddress,
+  }),
 }).then((r) => r.json());
 
-console.log('Safe 交易已创建，safeTxHash:', txData.safeTxHash);
+console.log('草稿信息已获取，Safe地址:', draftInfo.safeAddress);
 
-// ========== 3. 用户签名 ==========
+// ========== 3. 使用 Safe SDK 构造交易 ==========
+import { Safe } from '@safe-global/protocol-kit';
+
+const safe = await Safe.init({
+  provider: window.ethereum,
+  safeAddress: draftInfo.safeAddress,
+});
+
+const safeTransaction = await safe.createTransaction({
+  transactions: draftInfo.rawTransactions.map((tx) => ({
+    to: tx.to,
+    value: tx.value,
+    data: tx.data,
+    operation: 0,
+  })),
+});
+
+const safeTxHash = await safe.getTransactionHash(safeTransaction);
+console.log('Safe 交易已构造，safeTxHash:', safeTxHash);
+
+// ========== 4. 用户签名 ==========
 const provider = new ethers.BrowserProvider(window.ethereum);
 const signer = await provider.getSigner();
-const signature = await signer.signMessage(ethers.getBytes(txData.safeTxHash));
+const signature = await signer.signMessage(ethers.getBytes(safeTxHash));
 
 console.log('用户已签名');
 
-// ========== 4. 提交签名到后端 ==========
+// ========== 5. 构造 SafeTransactionData ==========
+const safeTransactionData = {
+  to: draftInfo.rawTransactions[0].to,
+  value: draftInfo.rawTransactions[0].value,
+  data: draftInfo.rawTransactions[0].data,
+  operation: 0,
+  safeTxGas: '0',
+  baseGas: '0',
+  gasPrice: '0',
+  gasToken: '0x0000000000000000000000000000000000000000',
+  refundReceiver: '0x0000000000000000000000000000000000000000',
+  nonce: draftInfo.nonce,
+};
+
+// ========== 6. 提交签名到后端 ==========
 const result = await fetch(`/api/enterprise/payrolls/${payroll.id}/submit-signature`, {
   method: 'POST',
   headers: {
@@ -435,16 +526,15 @@ const result = await fetch(`/api/enterprise/payrolls/${payroll.id}/submit-signat
     'Content-Type': 'application/json',
   },
   body: JSON.stringify({
-    safeTxHash: txData.safeTxHash,
+    safeTxHash,
     signature,
     signerAddress: await signer.getAddress(),
+    safeTransactionData,
   }),
 }).then((r) => r.json());
 
 console.log('交易已提案到 Safe');
-console.log(
-  `当前签名: ${result.transaction.confirmations}/${result.transaction.confirmationsRequired}`,
-);
+console.log(`当前签名: ${result.transaction.confirmations}/${result.transaction.confirmationsRequired}`);
 
 // ========== 5. 引导用户到 Safe App ==========
 if (result.transaction.confirmations < result.transaction.confirmationsRequired) {

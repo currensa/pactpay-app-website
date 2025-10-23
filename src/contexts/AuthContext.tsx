@@ -1,34 +1,25 @@
-// Real Authentication Context with RainbowKit and SIWE
+// Simplified Authentication Context with RainbowKit and SIWE
+import type { AvailableCompaniesResponse, Organization, UserInfo } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
+import { siweAuthService } from '@/lib/siwe-auth';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
-import type { AvailableCompaniesResponse, OrganizationListResponse, UserInfo } from '../lib/api-client';
-import { apiClient } from '../lib/api-client';
-import { siweAuthService } from '../lib/siwe-auth';
-
-// User type that can be either full UserInfo or partial from login
-type AuthUser = UserInfo | {
-  id: string;
-  walletAddress: string;
-  hasOrganization?: boolean;
-};
 
 interface AuthContextType {
   // User state
-  user: AuthUser | null;
-  currentOrganization: OrganizationListResponse['data'][0] | null;
-  organizations: OrganizationListResponse['data'];
+  user: UserInfo | null;
+  currentOrganization: Organization | null;
+  organizations: Organization[];
 
   // Auth state
   isAuthenticated: boolean;
   isLoading: boolean;
   walletAddress: string | undefined;
-  needsCompanySelection: boolean; // Indicates if user needs to select a company
 
   // Auth methods
   login: () => Promise<void>;
   logout: () => void;
   getAvailableCompanies: () => Promise<AvailableCompaniesResponse>;
-  selectCompany: (companyId: string) => Promise<void>;
   switchOrganization: (organizationId: string) => Promise<void>;
   refreshUser: () => Promise<void>;
   refreshOrganizations: () => Promise<void>;
@@ -36,15 +27,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_TOKEN_KEY = 'safe_payroll_auth_token';
-const WALLET_ADDRESS_KEY = 'safe_payroll_wallet_address';
+const AUTH_TOKEN_KEY = 'pp_auth_token';
+const WALLET_ADDRESS_KEY = 'pp_wallet_address';
+const CURRENT_ORGANIZATION_KEY = 'pp_current_organization';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [currentOrganization, setCurrentOrganization] = useState<OrganizationListResponse['data'][0] | null>(null);
-  const [organizations, setOrganizations] = useState<OrganizationListResponse['data']>([]);
+  const [user, setUser] = useState<UserInfo | null>(null);
+  const [currentOrganization, setCurrentOrganization] = useState<Organization | null>(null);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [needsCompanySelection, setNeedsCompanySelection] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Wagmi hooks
@@ -61,8 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (storedToken && storedWalletAddress) {
         apiClient.setAccessToken(storedToken);
 
-        // Verify token is still valid
         try {
+          // Get user info and check if token is valid
           const userInfo = await apiClient.getCurrentUser();
 
           // Check if wallet address matches
@@ -70,15 +61,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(userInfo);
             setIsAuthenticated(true);
 
-            if (userInfo.currentOrganization) {
-              await loadOrganizations();
-            }
+            // Load organizations and current organization
+            await loadOrganizations();
           } else {
             // Wallet mismatch, clear auth
             clearAuth();
           }
         } catch (error) {
-          // Token invalid, clear auth
+          // Token invalid or API error, clear auth
           console.error('Token validation failed:', error);
           clearAuth();
         }
@@ -116,12 +106,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearAuth = useCallback(() => {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(WALLET_ADDRESS_KEY);
+    localStorage.removeItem(CURRENT_ORGANIZATION_KEY);
     apiClient.setAccessToken(null);
     setUser(null);
     setCurrentOrganization(null);
     setOrganizations([]);
     setIsAuthenticated(false);
-    setNeedsCompanySelection(false);
   }, []);
 
   const loadOrganizations = async () => {
@@ -129,46 +119,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const orgsResponse = await apiClient.getOrganizations();
       setOrganizations(orgsResponse.data);
 
-      // Set current organization
-      const currentOrg = orgsResponse.data.find(org => org.isCurrent);
-      setCurrentOrganization(currentOrg || null);
+      // Check if user has currentOrganization from me endpoint
+      if (user?.currentOrganization) {
+        // Find the organization that matches the current one from user info
+        const currentOrg = orgsResponse.data.find(org => org.id === user.currentOrganization!.id);
+        if (currentOrg) {
+          setCurrentOrganization(currentOrg);
+          localStorage.setItem(CURRENT_ORGANIZATION_KEY, currentOrg.id);
+        } else {
+          setCurrentOrganization(null);
+        }
+      } else {
+        // No current organization from backend, try to restore from localStorage
+        const storedOrgId = localStorage.getItem(CURRENT_ORGANIZATION_KEY);
+        if (storedOrgId) {
+          const storedOrg = orgsResponse.data.find(org => org.id === storedOrgId);
+          if (storedOrg) {
+            setCurrentOrganization(storedOrg);
+          } else {
+            setCurrentOrganization(null);
+            localStorage.removeItem(CURRENT_ORGANIZATION_KEY);
+          }
+        } else {
+          setCurrentOrganization(null);
+        }
+      }
     } catch (error) {
       console.error('Failed to load organizations:', error);
+      setOrganizations([]);
+      setCurrentOrganization(null);
     }
   };
 
   const login = async () => {
-    if (!walletAddress || !isConnected) {
-      throw new Error('Please connect your wallet first');
-    }
-
-    if (!chainId) {
-      throw new Error('Unable to detect chain ID');
-    }
+    if (!walletAddress || !isConnected) throw new Error('Please connect your wallet first');
+    if (!chainId) throw new Error('Unable to detect chain ID');
 
     setIsLoading(true);
 
     try {
       // Step 1: Get nonce from backend
-      const { nonce } = await siweAuthService.getNonce(walletAddress);
+      const { nonce } = await apiClient.getNonce(walletAddress);
 
       // Step 2: Create SIWE message
-      const siweMessage = siweAuthService.createSiweMessage(
-        walletAddress,
-        nonce,
-        chainId
-      );
+      const siweMessage = siweAuthService.createSiweMessage(walletAddress, nonce, chainId);
 
       // Step 3: Format message and sign it
       const message = siweMessage.prepareMessage();
       const signature = await signMessageAsync({ message });
 
-      // Step 4: Verify signature and get JWT token (Stage 1: no company context)
-      const authResponse = await siweAuthService.verifySignature(
-        walletAddress,
-        signature,
-        message
-      );
+      // Step 4: Verify signature and get JWT token
+      const authResponse = await apiClient.login(walletAddress, signature, message);
 
       // Step 5: Store token and wallet address
       localStorage.setItem(AUTH_TOKEN_KEY, authResponse.accessToken);
@@ -176,13 +177,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       apiClient.setAccessToken(authResponse.accessToken);
 
       // Step 6: Set authenticated state
-      setUser(authResponse.user);
+      // Convert auth response user to UserInfo format
+      const userInfo: UserInfo = {
+        id: authResponse.user.id,
+        walletAddress: authResponse.user.address,
+        email: undefined,
+        currentOrganization: undefined,
+        needsCompanySelection: authResponse.user.needsCompanySelection
+      };
+      setUser(userInfo);
       setIsAuthenticated(true);
 
-      // Step 7: Set needsCompanySelection flag
-      // At this stage, user has Stage 1 token (no company context)
-      // User needs to select a company to get Stage 2 token
-      setNeedsCompanySelection(true);
+      // Step 7: Load organizations (this will determine if user needs to select organization)
+      await loadOrganizations();
 
     } catch (error: any) {
       console.error('Login failed:', error);
@@ -198,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     disconnect();
   }, [clearAuth, disconnect]);
 
-  // Get available companies (Stage 1: after login, before company selection)
+  // Get available companies (for first-time selection after login)
   const getAvailableCompanies = async (): Promise<AvailableCompaniesResponse> => {
     try {
       const response = await apiClient.getAvailableCompanies();
@@ -209,47 +216,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Select company (Stage 1 -> Stage 2: first-time selection)
-  const selectCompany = async (companyId: string) => {
-    setIsLoading(true);
-    try {
-      const response = await apiClient.selectCompany(companyId);
-
-      // Update to Stage 2 token (with company context)
-      localStorage.setItem(AUTH_TOKEN_KEY, response.accessToken);
-      apiClient.setAccessToken(response.accessToken);
-
-      // Clear needsCompanySelection flag
-      setNeedsCompanySelection(false);
-
-      // Refresh user info (now includes currentOrganization)
-      await refreshUser();
-
-      // Load organizations list
-      await loadOrganizations();
-    } catch (error) {
-      console.error('Failed to select company:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Switch organization (Stage 2 -> Stage 2: switching between companies)
+  // Select organization (unified method for both first-time selection and switching)
   const switchOrganization = async (organizationId: string) => {
     setIsLoading(true);
     try {
+      // Use select-organization API to get new token
       const response = await apiClient.switchOrganization(organizationId);
 
-      // Update token with new company context
+      // Update token
       localStorage.setItem(AUTH_TOKEN_KEY, response.accessToken);
       apiClient.setAccessToken(response.accessToken);
 
-      // Refresh user and organizations
+      // Remember the selected organization
+      localStorage.setItem(CURRENT_ORGANIZATION_KEY, organizationId);
+
+      // Refresh user info and organizations
       await refreshUser();
       await loadOrganizations();
+
     } catch (error) {
-      console.error('Failed to switch organization:', error);
+      console.error('Failed to select organization:', error);
       throw error;
     } finally {
       setIsLoading(false);
@@ -279,11 +265,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated,
         isLoading,
         walletAddress,
-        needsCompanySelection,
         login,
         logout,
         getAvailableCompanies,
-        selectCompany,
         switchOrganization,
         refreshUser,
         refreshOrganizations,
@@ -296,8 +280,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

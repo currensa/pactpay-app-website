@@ -1,8 +1,9 @@
-
+import "@/styles/tailwind.css";
+import '@rainbow-me/rainbowkit/styles.css';
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
-// import "./styles/globals.css";
-import "./styles/index.css";
-import "./styles/tailwind.css";
 
-createRoot(document.getElementById("root")!).render(<App />);
+const rootEle = document.getElementById("root")
+if (!rootEle) throw new Error("Root element not found")
+const root = createRoot(rootEle)
+root.render(<App />)
