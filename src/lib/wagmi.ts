@@ -7,8 +7,8 @@ import { mainnet, polygon, sepolia } from 'wagmi/chains';
 
 // Configure Wagmi and RainbowKit
 export const config = getDefaultConfig({
-  appName: 'Safe Payroll',
-  projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID',
+  appName: 'PactPay',
+  projectId: '703b5eec3f3f1a6df2c7eb6e052963ac',
   chains: [mainnet, sepolia, polygon],
   transports: {
     [mainnet.id]: http(),
