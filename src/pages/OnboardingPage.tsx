@@ -15,11 +15,11 @@ import { apiClient } from '../lib/api-client';
 const SUPPORTED_CHAINS = [
   { id: 1, name: 'Ethereum Mainnet' },
   { id: 11155111, name: 'Sepolia Testnet' },
-  { id: 137, name: 'Polygon' },
+  // { id: 137, name: 'Polygon' },
 ];
 
 export default function OnboardingPage() {
-  const { user, walletAddress, selectCompany, logout } = useAuth();
+  const { user, walletAddress, switchOrganization, logout } = useAuth();
   const { address } = useAccount();
   const navigate = useNavigate();
 
@@ -124,7 +124,7 @@ export default function OnboardingPage() {
       toast.success('Organization created successfully!');
 
       // Select the newly created organization to get Stage 2 token
-      await selectCompany(newOrg.id);
+      await switchOrganization(newOrg.id);
 
       toast.success('Organization activated!');
 

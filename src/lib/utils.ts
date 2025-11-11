@@ -28,12 +28,6 @@ export function parseAmount(amount: string, decimals: number = 18) {
   return BigInt(weiAmount);
 }
 
-// Test cases for parseAmount function:
-// parseAmount("0.01", 18) -> BigInt("10000000000000000")
-// parseAmount("1.5", 18) -> BigInt("1500000000000000000")
-// parseAmount("100", 18) -> BigInt("100000000000000000000")
-// parseAmount("0.001", 6) -> BigInt("1000")
-
 export function formatDate(date: string) {
   return new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
