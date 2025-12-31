@@ -6,16 +6,12 @@ import { defineConfig } from 'vite';
 
   export default defineConfig({
     plugins: [react(), tailwindcss()],
-    build: {
-      outDir: 'build',
-    },
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
       },
     },
     server: {
-      open: true,
       proxy: {
         '/api': {
           target: 'http://localhost:3000',

@@ -12,7 +12,7 @@ export class OrgnizationApi {
   constructor(private readonly request: AxiosInstance) {}
 
   async createOrganization(name: string, description: string) {
-
+    
   }
 
 }

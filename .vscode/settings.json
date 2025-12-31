@@ -1,98 +1,21 @@
 {
-  // 编辑器配置
   "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit",
-    "source.organizeImports": "explicit"
+    "source.fixAll.eslint": "explicit"
   },
-
-  // Prettier 配置
-  "prettier.enable": true,
-  "prettier.requireConfig": true,
-
-  // TypeScript 配置
-  "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
-  },
-
-  // JavaScript 配置
   "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-
-  // JSON 配置
-  "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-
-  // JSONC 配置
-  "[jsonc]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-
-  // Markdown 配置
-  "[markdown]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-
-  // HTML 配置
-  "[html]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
-  },
-
-  // CSS 配置
   "[css]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
-  },
-
-  // SCSS 配置
-  "[scss]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.formatOnSave": true
-  },
-
-  // ESLint 配置
-  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
-
-  // 文件关联
-  "files.associations": {
-    "*.js": "javascript",
-    "*.ts": "typescript",
-    "*.json": "jsonc"
-  },
-
-  // 排除文件
-  "files.exclude": {
-    "**/.git": true,
-    "**/.DS_Store": true,
-    "**/node_modules": true,
-    "**/dist": true
-  },
-
-  // 搜索排除
-  "search.exclude": {
-    "**/node_modules": true,
-    "**/dist": true,
-    "**/.git": true,
-    "**/package-lock.json": true
-  },
-
-  // TypeScript 设置
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.enablePromptUseWorkspaceTsdk": true,
-
-  // 其他设置
-  "editor.tabSize": 2,
-  "editor.insertSpaces": true,
-  "files.eol": "\n",
-  "files.trimTrailingWhitespace": true,
-  "files.insertFinalNewline": true
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }
