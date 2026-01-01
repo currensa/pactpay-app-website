@@ -1,7 +1,7 @@
 import Layout from '@/layouts/app-layout'
 import Login from '@/views/login'
 import { lazy } from 'react'
-import { createBrowserRouter, RouteObject } from 'react-router-dom'
+import { createBrowserRouter, Navigate, RouteObject } from 'react-router-dom'
 
 const Dashboard = lazy(() => import('@/views/orgs/dashboard'))
 const Organization = lazy(() => import('@/views/orgs/organization'))
@@ -21,6 +21,7 @@ const routes: RouteItem[] = [
     path: '/',
     element: <Layout />,
     children: [
+      { index: true, element: <Navigate to="/dashboard" /> },
       { path: 'dashboard', element: <Dashboard />, meta: { title: 'Dashboard' } },
       { path: 'organization', element: <Organization />, meta: { title: 'Organization' } },
       { path: 'transaction', element: <Transaction />, meta: { title: 'Transaction' } },
@@ -33,7 +34,7 @@ const routes: RouteItem[] = [
 export const router = createBrowserRouter(routes)
 
 export function getRouteMeta(path: string) {
-  return routes.find((route) => route.path === path)?.meta
+  return routes.find(route => route.path === path)?.meta
 }
 
 /**
@@ -84,7 +85,7 @@ export function getRouteBreadcrumb(path: string): (string | undefined)[] {
   const segments = path.replace(/^\//, '').split('/').filter(Boolean)
 
   if (path === '/' || segments.length === 0) {
-    const rootRoute = routes.find((r) => r.path === '/')
+    const rootRoute = routes.find(r => r.path === '/')
     return rootRoute?.meta?.title ? [rootRoute.meta.title as string] : []
   }
 

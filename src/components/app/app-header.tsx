@@ -1,9 +1,9 @@
-import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList } from '@/components/ui/breadcrumb'
 import { Separator } from '@/components/ui/separator'
-import { useLocation } from 'react-router-dom'
-import { useMemo } from 'react'
+import { SidebarTrigger } from '@/components/ui/sidebar'
 import { getRouteMeta } from '@/router'
+import { useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 
 export default function AppHeader() {
   const location = useLocation()

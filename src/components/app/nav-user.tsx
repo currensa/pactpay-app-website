@@ -1,6 +1,6 @@
 'use client'
 
-import { IconBadgeCc, IconBell, IconChevronDown, IconCreditCard, IconLogout, IconSparkles } from '@tabler/icons-react'
+import { IconBadgeCc, IconBell, IconCreditCard, IconDotsVertical, IconLogout, IconSparkles } from '@tabler/icons-react'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -13,6 +13,8 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
+import { useDisconnect } from '@reown/appkit/react'
+import { useNavigate } from 'react-router-dom'
 
 export function NavUser({
   user
@@ -24,6 +26,15 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const navigate = useNavigate()
+  const { disconnect } = useDisconnect()
+
+  async function handleLogout() {
+    await disconnect()
+    localStorage.removeItem('token')
+    navigate('/account/login')
+    window.location.reload()
+  }
 
   return (
     <SidebarMenu>
@@ -34,7 +45,7 @@ export function NavUser({
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
+              <Avatar className="h-8 w-8 rounded-full">
                 <AvatarImage src={user.avatar} alt={user.name} />
                 <AvatarFallback className="rounded-lg">CN</AvatarFallback>
               </Avatar>
@@ -42,7 +53,7 @@ export function NavUser({
                 <span className="truncate font-medium">{user.name}</span>
                 <span className="truncate text-xs">{user.email}</span>
               </div>
-              <IconChevronDown className="ml-auto size-4" />
+              <IconDotsVertical className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -86,7 +97,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>
               <IconLogout />
               Log out
             </DropdownMenuItem>
