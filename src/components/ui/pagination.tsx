@@ -1,4 +1,3 @@
-import * as React from 'react'
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 
 import { cn } from '@/lib/utils'
@@ -70,13 +69,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
 
   return (
     <div className={cn('flex items-center justify-center gap-2', className)}>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handlePrevious}
-        disabled={currentPage === 1}
-        className="h-9 w-9 p-0"
-      >
+      <Button variant="outline" size="sm" onClick={handlePrevious} disabled={currentPage === 1} className="h-9 w-9 p-0">
         <IconChevronLeft className="size-4" />
         <span className="sr-only">Previous page</span>
       </Button>
@@ -85,7 +78,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
         {getPageNumbers().map((page, index) => {
           if (page === 'ellipsis') {
             return (
-              <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground">
+              <span key={`ellipsis-${index}`} className="text-muted-foreground px-2">
                 ...
               </span>
             )
@@ -119,4 +112,3 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
     </div>
   )
 }
-

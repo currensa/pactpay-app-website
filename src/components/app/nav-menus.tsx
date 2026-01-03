@@ -1,8 +1,10 @@
 import { cn } from '@/lib/utils'
 import {
   IconAnalyze,
+  IconBook,
   IconBuildingSkyscraper,
   IconCashMove,
+  IconHelpCircle,
   IconLayoutDashboard,
   IconSettings
 } from '@tabler/icons-react'
@@ -58,10 +60,16 @@ const NavMainItems: MenuItem[] = [
 
 const NavSecondaryItems: MenuItem[] = [
   {
-    title: 'Overview',
-    key: 'dashboard',
-    url: '/dashboard',
-    icon: IconLayoutDashboard
+    title: 'Document',
+    key: 'documentation',
+    url: 'https://docs.pactpay.com',
+    icon: IconBook
+  },
+  {
+    title: 'Help',
+    key: 'help',
+    url: '/help',
+    icon: IconHelpCircle
   }
 ]
 

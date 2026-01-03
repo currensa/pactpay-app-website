@@ -1,6 +1,6 @@
-import * as React from 'react'
-import { IconChevronDown, IconCheck } from '@tabler/icons-react'
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
+import { IconCheck, IconChevronDown } from '@tabler/icons-react'
+import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 import { Button } from './button'
@@ -55,31 +55,26 @@ interface SelectTriggerProps extends React.ComponentPropsWithoutRef<typeof Butto
   placeholder?: string
 }
 
-const SelectTrigger = React.forwardRef<
-  React.ElementRef<typeof Button>,
-  SelectTriggerProps
->(({ className, children, placeholder, ...props }, ref) => {
-  const context = React.useContext(SelectContext)
-  if (!context) throw new Error('SelectTrigger must be used within Select')
+const SelectTrigger = React.forwardRef<React.ElementRef<typeof Button>, SelectTriggerProps>(
+  ({ className, children, placeholder, ...props }, ref) => {
+    const context = React.useContext(SelectContext)
+    if (!context) throw new Error('SelectTrigger must be used within Select')
 
-  return (
-    <DropdownMenuPrimitive.Trigger asChild>
-      <Button
-        ref={ref}
-        variant="outline"
-        className={cn(
-          'w-full justify-between font-normal',
-          !context.value && 'text-muted-foreground',
-          className
-        )}
-        {...props}
-      >
-        <span>{children || placeholder || 'Select...'}</span>
-        <IconChevronDown className="ml-2 size-4 opacity-50" />
-      </Button>
-    </DropdownMenuPrimitive.Trigger>
-  )
-})
+    return (
+      <DropdownMenuPrimitive.Trigger asChild>
+        <Button
+          ref={ref}
+          variant="outline"
+          className={cn('w-full justify-between font-normal', !context.value && 'text-muted-foreground', className)}
+          {...props}
+        >
+          <span>{children || placeholder || 'Select...'}</span>
+          <IconChevronDown className="ml-2 size-4 opacity-50" />
+        </Button>
+      </DropdownMenuPrimitive.Trigger>
+    )
+  }
+)
 SelectTrigger.displayName = 'SelectTrigger'
 
 const SelectContent = React.forwardRef<
@@ -91,7 +86,7 @@ const SelectContent = React.forwardRef<
       <DropdownMenuPrimitive.Content
         ref={ref}
         className={cn(
-          'z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
+          'bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-[8rem] overflow-hidden rounded-md border p-1 shadow-md',
           className
         )}
         {...props}
@@ -107,31 +102,29 @@ interface SelectItemProps extends React.ComponentPropsWithoutRef<typeof Dropdown
   value: string
 }
 
-const SelectItem = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.Item>,
-  SelectItemProps
->(({ className, children, value, ...props }, ref) => {
-  const context = React.useContext(SelectContext)
-  if (!context) throw new Error('SelectItem must be used within Select')
+const SelectItem = React.forwardRef<React.ElementRef<typeof DropdownMenuPrimitive.Item>, SelectItemProps>(
+  ({ className, children, value, ...props }, ref) => {
+    const context = React.useContext(SelectContext)
+    if (!context) throw new Error('SelectItem must be used within Select')
 
-  const isSelected = context.value === value
+    const isSelected = context.value === value
 
-  return (
-    <DropdownMenuPrimitive.Item
-      ref={ref}
-      className={cn(
-        'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-        className
-      )}
-      onSelect={() => context.onValueChange(value)}
-      {...props}
-    >
-      {isSelected && <IconCheck className="mr-2 size-4" />}
-      <span className={cn(!isSelected && 'ml-6')}>{children}</span>
-    </DropdownMenuPrimitive.Item>
-  )
-})
+    return (
+      <DropdownMenuPrimitive.Item
+        ref={ref}
+        className={cn(
+          'focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center rounded-sm px-2 py-1.5 text-sm transition-colors outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+          className
+        )}
+        onSelect={() => context.onValueChange(value)}
+        {...props}
+      >
+        {isSelected && <IconCheck className="mr-2 size-4" />}
+        <span className={cn(!isSelected && 'ml-6')}>{children}</span>
+      </DropdownMenuPrimitive.Item>
+    )
+  }
+)
 SelectItem.displayName = 'SelectItem'
 
-export { Select, SelectTrigger, SelectContent, SelectItem }
-
+export { Select, SelectContent, SelectItem, SelectTrigger }

@@ -142,7 +142,7 @@ function WalletButton() {
 
       const { token } = await api.auth.login({ type: 'wallet', address: address, message, signature })
       localStorage.setItem('token', token)
-      navigate('/')
+      navigate('/account/identity')
     } catch (error) {
       console.error('Failed to sign in:', error)
     }
