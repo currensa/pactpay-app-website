@@ -17,3 +17,4 @@ alwaysApply: true
 
 - Always use **absolute imports** instead of relative imports
 - Use the `@/` path alias for imports from the `src/` directory
+- File names should use only lowercase letters. Use hyphens (“-”) to separate words in file names.

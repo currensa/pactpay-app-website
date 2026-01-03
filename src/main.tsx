@@ -1,9 +1,17 @@
-import "@/styles/tailwind.css";
-import '@rainbow-me/rainbowkit/styles.css';
-import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
+import '@/index.css';
+import ReownAppKitProvider from '@/providers/app-kit-provider';
+import { router } from '@/router';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { RouterProvider } from 'react-router-dom';
+import { Toaster } from '@/components/ui/toaster';
 
-const rootEle = document.getElementById("root")
-if (!rootEle) throw new Error("Root element not found")
-const root = createRoot(rootEle)
-root.render(<App />)
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <ReownAppKitProvider>
+      <RouterProvider router={router} />
+      <Toaster />
+    </ReownAppKitProvider>
+  </StrictMode>
+);
+
