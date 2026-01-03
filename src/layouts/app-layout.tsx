@@ -16,7 +16,7 @@ export default function AppLayout() {
               {/* Header content */}
               <AppHeader />
             </header>
-            <main className="flex-1 overflow-auto px-3 py-4">
+            <main className="flex-1 overflow-auto bg-[#f3f4f6] px-3 py-4">
               <Outlet />
             </main>
           </div>

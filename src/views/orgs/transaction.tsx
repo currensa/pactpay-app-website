@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { IconAlertTriangle, IconFlame, IconPlus, IconTrash } from '@tabler/icons-react'
+import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface Transaction {
@@ -148,12 +149,13 @@ export default function Transaction() {
       <div className="mb-4 space-y-4">
         {/* Search and Filters */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="max-w-md flex-1">
+          <div className="relative max-w-md flex-1">
+            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
             <Input
               placeholder="Search transactions..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full"
+              className="w-full pl-10"
             />
           </div>
 
