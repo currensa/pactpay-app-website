@@ -30,7 +30,7 @@ export default function CreateOrganization() {
         desc: description.trim() || undefined
       })
 
-      localStorage.setItem('organizationId', org.id)
+      localStorage.setItem('organizationId', org.orgId)
 
       // Navigate to connect Safe Wallet page with organization ID
       navigate('/account/organization/connect-safe')

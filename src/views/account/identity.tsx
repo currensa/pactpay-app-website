@@ -33,20 +33,24 @@ export default function Identity() {
     try {
       setLoading(true)
       const data = await api.organization.getOrganizations()
-      setOrganizations(data)
+      console.log('Loaded organizations:', data)
+      console.log('Organizations count:', data?.length)
+      setOrganizations(data || [])
     } catch (error) {
       console.error('Failed to load organizations:', error)
+      setOrganizations([])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSelectOrganization = (item: OrganizationResponseItem) => {
+  // Step 2: Check payment accounts and navigate
+  const checkPaymentAccountAndNavigate = (item: OrganizationResponseItem) => {
     // Update localStorage with organization ID
     localStorage.setItem('organizationId', item.organization.orgId)
 
     // Check if organization has payment accounts
-    const hasPaymentAccount = item.member.receivingAccounts && item.member.receivingAccounts.length > 0
+    const hasPaymentAccount = item.organization?.paymentAccounts && item.organization.paymentAccounts.length > 0
 
     if (!hasPaymentAccount) {
       // Navigate to connect-safe page if no payment account
@@ -55,6 +59,11 @@ export default function Identity() {
       // Navigate to dashboard if payment account exists
       navigate('/dashboard', { replace: true })
     }
+  }
+
+  const handleSelectOrganization = (item: OrganizationResponseItem) => {
+    // User selected an organization, proceed to step 2
+    checkPaymentAccountAndNavigate(item)
   }
 
   const handleCreateOrganization = () => {
@@ -70,23 +79,11 @@ export default function Identity() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
-  // If user has exactly one organization, select it automatically
+  // Step 1: If user has exactly one organization, automatically proceed to step 2
   useEffect(() => {
     if (organizations.length === 1 && !loading) {
       const item = organizations[0]
-      // Update localStorage with organization ID
-      localStorage.setItem('organizationId', item.organization.id)
-
-      // Check if organization has payment accounts
-      const hasPaymentAccount = item.member.receivingAccounts && item.member.receivingAccounts.length > 0
-
-      if (!hasPaymentAccount) {
-        // Navigate to connect-safe page if no payment account
-        navigate('/account/organization/connect-safe')
-      } else {
-        // Navigate to dashboard if payment account exists
-        navigate('/dashboard', { replace: true })
-      }
+      checkPaymentAccountAndNavigate(item)
     }
   }, [organizations, loading, navigate])
 
@@ -128,7 +125,7 @@ export default function Identity() {
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {organizations.map(item => (
               <Card
-                key={item.organization.id}
+                key={item.organization.orgId}
                 className="group hover:border-primary cursor-pointer transition-all hover:shadow-md"
                 onClick={() => handleSelectOrganization(item)}
               >

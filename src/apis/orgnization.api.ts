@@ -76,6 +76,21 @@ export interface EmailInvitationResponse {
   }
 }
 
+export interface SafeWalletAccount {
+  nonce: number
+  owners: string[]
+  address: string
+  network: string
+  version: string
+  threshold: number
+}
+
+export interface PaymentAccount {
+  orgId: string
+  type: 'safe'
+  config: SafeWalletAccount
+}
+
 export interface Organization {
   orgId: string
   orgName: string
@@ -83,6 +98,7 @@ export interface Organization {
   createdAt?: string
   updatedAt?: string
   getOrganizations: Organization[]
+  paymentAccounts: PaymentAccount[]
 }
 export interface BindSafeWalletPayload {
   address: string
@@ -137,14 +153,13 @@ export class OrgnizationApi {
   }
   // 发送邮箱邀请
   async sendEmailInvitation(email: string) {
-    const res = await this.request.post<EmailInvitationResponse>(`/orgs/${this.orgId}/invite-code`, { email })
+    const res = await this.request.post<EmailInvitationResponse>(`/orgs/${this.orgId}/invites`, { email })
     return res.data
   }
   // 更新成员的收款账户地址
-  async updateMemberAccountAddress(memberId: string, address: string, network: string) {
-    const res = await this.request.post<string>(`/orgs/${this.orgId}/members/${memberId}/receiving-account`, {
-      address,
-      network
+  async updateMemberAccountAddress(memberId: string, address: string) {
+    const res = await this.request.patch<string>(`/orgs/${this.orgId}/members/${memberId}/wallet`, {
+      address
     })
     return res.data
   }
