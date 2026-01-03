@@ -43,7 +43,7 @@ export default function Identity() {
 
   const handleSelectOrganization = (item: OrganizationResponseItem) => {
     // Update localStorage with organization ID
-    localStorage.setItem('organizationId', item.organization.id)
+    localStorage.setItem('organizationId', item.organization.orgId)
 
     // Check if organization has payment accounts
     const hasPaymentAccount = item.member.receivingAccounts && item.member.receivingAccounts.length > 0

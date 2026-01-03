@@ -10,7 +10,6 @@ const Dashboard = lazy(() => import('@/views/orgs/dashboard'))
 const Organization = lazy(() => import('@/views/orgs/organization'))
 const CreateOrganization = lazy(() => import('@/views/orgs/create-organization'))
 const Transaction = lazy(() => import('@/views/orgs/transaction'))
-const Member = lazy(() => import('@/views/orgs/member'))
 const Analytics = lazy(() => import('@/views/orgs/analytics'))
 const Settings = lazy(() => import('@/views/orgs/settings'))
 
@@ -38,7 +37,6 @@ const routes: RouteItem[] = [
       { path: 'dashboard', element: <Dashboard />, meta: { title: 'Dashboard' } },
       { path: 'organization', element: <Organization />, meta: { title: 'Organization' } },
       { path: 'transaction', element: <Transaction />, meta: { title: 'Transaction' } },
-      { path: 'member', element: <Member />, meta: { title: 'Member' } },
       { path: 'analytics', element: <Analytics />, meta: { title: 'Analytics' } },
       { path: 'settings', element: <Settings />, meta: { title: 'Settings' } }
     ] as RouteItem[]

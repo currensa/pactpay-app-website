@@ -20,9 +20,13 @@ export interface MemberRole {
 
 export interface ReceivingAccount {
   id: string
-  address: string
-  network: string
+  type: string
+  status: string
+  config: {
+    address: string
+  }
   createdAt: string
+  updatedAt: string
 }
 
 export interface PayoutIntent {
@@ -73,72 +77,90 @@ export interface EmailInvitationResponse {
 }
 
 export interface Organization {
-  id: string
-  name: string
+  orgId: string
+  orgName: string
   description?: string
   createdAt?: string
   updatedAt?: string
+  getOrganizations: Organization[]
+}
+export interface BindSafeWalletPayload {
+  address: string
+  chainId: string
 }
 
 export class OrgnizationApi {
   constructor(private readonly request: AxiosInstance) {}
 
+  // 统一获取 organizationId（作为 getter，更简洁）
+  private get orgId(): string {
+    const orgId = localStorage.getItem('organizationId')
+    return orgId || ''
+  }
+
   // 创建公司
-  async createOrganization(name: string, description: string) {
-    const res = await this.request.post<string>('/orgs/create', { name, description })
+  async createOrganization(data: { orgName: string; website?: string; desc?: string }) {
+    const res = await this.request.post<Organization>('/orgs/create', data)
     return res.data
   }
-  // 获取我的公司
-  async getMyOrganizations() {
-    const res = await this.request.get<Organization[]>('/orgs')
+  // 获取我加入的公司列表
+  async getOrganizations() {
+    const res = await this.request.get<{ organization: Organization; member: OrganizationMember }[]>('/orgs')
+    return res.data
+  }
+  // 绑定支付账户
+  async bindPaymentAccount(params: BindSafeWalletPayload) {
+    const res = await this.request.post<Organization>(`/orgs/${this.orgId}/payment-account/bind`, params)
     return res.data
   }
   // 获取公司详情
-  async getOrganizationDetail(organizationId: string) {
-    const res = await this.request.get<string>(`/orgs/${organizationId}`)
+  async getOrganizationDetail() {
+    const res = await this.request.get<string>(`/orgs/${this.orgId}`)
     return res.data
   }
   // 获取公司成员列表
-  async getOrganizationMembers(organizationId: string, page: number = 1, pageSize: number = 20) {
-    const res = await this.request.get<MembersResponse>(`/orgs/${organizationId}/members`, {
+  async getOrganizationMembers(page: number = 1, pageSize: number = 20) {
+    const res = await this.request.get<MembersResponse>(`/orgs/${this.orgId}/members`, {
       params: { page, pageSize }
     })
     return res.data
   }
   // 获取当前公司的邀请码
-  async getOrganizationInviteCode(organizationId: string) {
-    const res = await this.request.get<InviteCode>(`/orgs/${organizationId}/invite-code`)
+  async getOrganizationInviteCode() {
+    const res = await this.request.get<InviteCode>(`/orgs/${this.orgId}/invite-code`)
     return res.data
   }
   // 重新生成邀请码
-  async regenerateOrganizationInviteCode(organizationId: string) {
-    const res = await this.request.post<InviteCode>(`/orgs/${organizationId}/invite-code`)
+  async regenerateOrganizationInviteCode() {
+    const res = await this.request.post<InviteCode>(`/orgs/${this.orgId}/invite-code`)
     return res.data
   }
   // 发送邮箱邀请
-  async sendEmailInvitation(organizationId: string, email: string) {
-    const res = await this.request.post<EmailInvitationResponse>(`/orgs/${organizationId}/invite-code`, { email })
+  async sendEmailInvitation(email: string) {
+    const res = await this.request.post<EmailInvitationResponse>(`/orgs/${this.orgId}/invite-code`, { email })
     return res.data
   }
   // 更新成员的收款账户地址
-  async updateMemberAccountAddress(organizationId: string, memberId: string, address: string, network: string) {
-    const res = await this.request.post<string>(`/orgs/${organizationId}/members/${memberId}/receiving-account`, {
+  async updateMemberAccountAddress(memberId: string, address: string, network: string) {
+    const res = await this.request.post<string>(`/orgs/${this.orgId}/members/${memberId}/receiving-account`, {
       address,
       network
     })
     return res.data
   }
   // 更新成员的支付意向
-  async updateMemberPayoutIntent(organizationId: string, memberId: string, amount: string, network: string) {
-    const res = await this.request.patch<PayoutIntent>(`/orgs/${organizationId}/members/${memberId}/payout-intent`, {
+  async updateMemberPayoutIntent(memberId: string, amount: string, network: string) {
+    const res = await this.request.patch<PayoutIntent>(`/orgs/${this.orgId}/members/${memberId}/payout-intent`, {
       amount,
       network
     })
     return res.data
   }
   // 删除成员
-  async deleteMember(organizationId: string, memberId: string) {
-    const res = await this.request.delete<string>(`/orgs/${organizationId}/members/${memberId}`)
+  async deleteMember(memberId: string) {
+    const res = await this.request.delete<string>(`/orgs/${this.orgId}/members/${memberId}`)
     return res.data
   }
+
+  // 更新成员信息(修改收款账户地址、支付意向、角色，接口待开发)
 }

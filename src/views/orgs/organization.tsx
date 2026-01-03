@@ -78,7 +78,6 @@ export default function MemberPage() {
 
   const pageSize = 20
   const currentUserRole: MemberRole = 'Admin' // TODO: 从 context 获取
-  const [organizationId, setOrganizationId] = useState<string>('')
 
   // 将 API 返回的成员数据转换为组件使用的格式
   const transformMember = (apiMember: any): Member => {
@@ -91,8 +90,8 @@ export default function MemberPage() {
       memberId: apiMember.memberId,
       name: apiMember.showName || apiMember.memberId,
       email: apiMember.showName?.includes('@') ? apiMember.showName : '',
-      receivingWallet: receivingAccount?.address || null,
-      network: receivingAccount?.network || payoutIntent?.network || 'Ethereum Mainnet',
+      receivingWallet: receivingAccount?.config?.address || null,
+      network: payoutIntent?.network || 'Ethereum Mainnet',
       role: primaryRole as MemberRole,
       serviceFee: payoutIntent ? parseFloat(payoutIntent.amount) : 0,
       status: apiMember.status === 'active' ? 'Active' : apiMember.status === 'pending' ? 'Pending' : 'Inactive',
@@ -102,16 +101,28 @@ export default function MemberPage() {
     }
   }
 
-  // 获取组织列表
+  // 获取组织列表并设置到 localStorage
   useEffect(() => {
     const fetchOrganizations = async () => {
       try {
         setLoading(true)
-        const organizations = await apis.org.getMyOrganizations()
+        const organizations = await apis.organization.getOrganizations()
 
         if (organizations && Array.isArray(organizations) && organizations.length > 0) {
-          // 使用第一个组织作为当前组织
-          setOrganizationId(organizations[0].id)
+          // 使用第一个组织的 orgId 作为当前组织，并保存到 localStorage
+          const orgId = organizations[0].organization?.orgId
+          if (orgId) {
+            localStorage.setItem('organizationId', orgId)
+            // 触发数据获取
+            window.dispatchEvent(new Event('organizationIdChanged'))
+          } else {
+            toast({
+              title: 'Warning',
+              description: 'Organization ID not found',
+              variant: 'destructive'
+            })
+            setLoading(false)
+          }
         } else {
           // 没有组织，显示提示信息
           toast({
@@ -132,39 +143,74 @@ export default function MemberPage() {
       }
     }
 
-    fetchOrganizations()
-  }, [])
+    // 如果 localStorage 中已有 organizationId，直接获取数据
+    const existingOrgId = localStorage.getItem('organizationId')
+    if (existingOrgId) {
+      // 直接获取数据
+      const fetchData = async () => {
+        try {
+          setLoading(true)
+          // 获取成员列表
+          const membersResponse = await apis.organization.getOrganizationMembers(currentPage, pageSize)
+          const transformedMembers = membersResponse.data.map(transformMember)
+          setMembers(transformedMembers)
 
-  // 获取成员列表和邀请码
-  useEffect(() => {
-    if (!organizationId) return
-
-    const fetchData = async () => {
-      try {
-        setLoading(true)
-        // 获取成员列表
-        const membersResponse = await apis.org.getOrganizationMembers(organizationId, currentPage, pageSize)
-        const transformedMembers = membersResponse.data.map(transformMember)
-        setMembers(transformedMembers)
-
-        // 获取邀请码
-        const inviteCodeData = await apis.org.getOrganizationInviteCode(organizationId)
-        setInviteCode(inviteCodeData.code)
-        // 根据邀请码生成邀请链接
-        setInviteLink(`${window.location.origin}/join/${inviteCodeData.code}`)
-      } catch (error: any) {
-        toast({
-          title: 'Error',
-          description: error?.response?.data?.message || 'Failed to load data',
-          variant: 'destructive'
-        })
-      } finally {
-        setLoading(false)
+          // 获取邀请码
+          const inviteCodeData = await apis.organization.getOrganizationInviteCode()
+          setInviteCode(inviteCodeData.code)
+          // 根据邀请码生成邀请链接
+          setInviteLink(`${window.location.origin}/join/${inviteCodeData.code}`)
+        } catch (error: any) {
+          toast({
+            title: 'Error',
+            description: error?.response?.data?.message || 'Failed to load data',
+            variant: 'destructive'
+          })
+        } finally {
+          setLoading(false)
+        }
       }
+      fetchData()
+    } else {
+      // 没有 organizationId，先获取组织列表
+      fetchOrganizations()
+    }
+  }, [currentPage])
+
+  // 监听 organizationId 变化事件
+  useEffect(() => {
+    const handleOrganizationIdChange = () => {
+      const fetchData = async () => {
+        try {
+          setLoading(true)
+          // 获取成员列表
+          const membersResponse = await apis.organization.getOrganizationMembers(currentPage, pageSize)
+          const transformedMembers = membersResponse.data.map(transformMember)
+          setMembers(transformedMembers)
+
+          // 获取邀请码
+          const inviteCodeData = await apis.organization.getOrganizationInviteCode()
+          setInviteCode(inviteCodeData.code)
+          // 根据邀请码生成邀请链接
+          setInviteLink(`${window.location.origin}/join/${inviteCodeData.code}`)
+        } catch (error: any) {
+          toast({
+            title: 'Error',
+            description: error?.response?.data?.message || 'Failed to load data',
+            variant: 'destructive'
+          })
+        } finally {
+          setLoading(false)
+        }
+      }
+      fetchData()
     }
 
-    fetchData()
-  }, [currentPage, organizationId])
+    window.addEventListener('organizationIdChanged', handleOrganizationIdChange)
+    return () => {
+      window.removeEventListener('organizationIdChanged', handleOrganizationIdChange)
+    }
+  }, [currentPage])
 
   // 搜索防抖
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -290,7 +336,7 @@ export default function MemberPage() {
       const member = members.find(m => m.id === memberId)
       if (!member) return
 
-      await apis.org.deleteMember(organizationId, member.memberId)
+      await apis.organization.deleteMember(member.memberId)
       setMembers(prev => prev.filter(m => m.id !== memberId))
       setDrawerOpen(false)
       toast({
@@ -333,8 +379,7 @@ export default function MemberPage() {
         drawerChanges.receivingWallet !== undefined &&
         drawerChanges.receivingWallet !== selectedMember.receivingWallet
       ) {
-        await apis.org.updateMemberAccountAddress(
-          organizationId,
+        await apis.organization.updateMemberAccountAddress(
           selectedMember.memberId,
           drawerChanges.receivingWallet,
           selectedMember.network
@@ -343,15 +388,14 @@ export default function MemberPage() {
 
       // 更新支付意向（Service Fee）
       if (drawerChanges.serviceFee !== undefined && drawerChanges.serviceFee !== selectedMember.serviceFee) {
-        await apis.org.updateMemberPayoutIntent(
-          organizationId,
+        await apis.organization.updateMemberPayoutIntent(
           selectedMember.memberId,
           drawerChanges.serviceFee.toString(),
           selectedMember.network
         )
       }
 
-      // 更新本地状态
+      // 更新本地状态(体现立即更新的效果，这里应该重新请求成员列表，暂时这样写)
       setMembers(prev =>
         prev.map(m =>
           m.id === selectedMember.id
@@ -445,9 +489,7 @@ export default function MemberPage() {
 
     try {
       // 逐个发送邀请邮件
-      const results = await Promise.allSettled(
-        pendingEmails.map(email => apis.org.sendEmailInvitation(organizationId, email))
-      )
+      const results = await Promise.allSettled(pendingEmails.map(email => apis.organization.sendEmailInvitation(email)))
 
       const successCount = results.filter(r => r.status === 'fulfilled').length
       const failCount = results.filter(r => r.status === 'rejected').length
@@ -461,7 +503,7 @@ export default function MemberPage() {
         setEmailInviteDialogOpen(false)
         setPendingEmails([])
         // 刷新成员列表
-        const membersResponse = await apis.org.getOrganizationMembers(organizationId, currentPage, pageSize)
+        const membersResponse = await apis.organization.getOrganizationMembers(currentPage, pageSize)
         const transformedMembers = membersResponse.data.map(transformMember)
         setMembers(transformedMembers)
       } else {
@@ -486,7 +528,7 @@ export default function MemberPage() {
   // 确认重新生成邀请码
   const handleConfirmRegenerate = async () => {
     try {
-      const newInviteCode = await apis.org.regenerateOrganizationInviteCode(organizationId)
+      const newInviteCode = await apis.organization.regenerateOrganizationInviteCode()
       setInviteCode(newInviteCode.code)
       setInviteLink(`${window.location.origin}/join/${newInviteCode.code}`)
       setRegenerateDialogOpen(false)
@@ -525,7 +567,7 @@ export default function MemberPage() {
     }
 
     try {
-      await apis.org.updateMemberPayoutIntent(organizationId, member.memberId, numValue.toString(), member.network)
+      await apis.organization.updateMemberPayoutIntent(member.memberId, numValue.toString(), member.network)
       setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, serviceFee: numValue } : m)))
       toast({
         title: 'Success',
@@ -542,627 +584,621 @@ export default function MemberPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-1 text-2xl font-bold">Organization Management</div>
-      <div className="text-muted-foreground mb-4">Manage your team members, permissions, and invitations</div>
-      <div className="rounded-lg bg-white p-4">
-        {/* 工具栏 */}
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <div className="max-w-md flex-1 space-y-4">
-            <div className="relative">
-              <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
-              <Input
-                placeholder="Search by name, email, or wallet..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+      {/* 工具栏 */}
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="max-w-md flex-1 space-y-4">
+          <div className="relative">
+            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
+            <Input
+              placeholder="Search by name, email, or wallet..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
-          <div className="flex items-center gap-2">
-            {/* 导出按钮 */}
-            <Button variant="outline" onClick={handleExport}>
-              <Download className="mr-2 h-4 w-4" />
-              Export List
-            </Button>
-            {/* 邀请按钮 */}
-            <Button onClick={() => setInviteSectionOpen(!inviteSectionOpen)} className="w-[160px] justify-center">
-              {inviteSectionOpen ? (
-                <>
-                  <X className="mr-2 h-4 w-4" />
-                  Hide
-                </>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* 导出按钮 */}
+          <Button variant="outline" onClick={handleExport}>
+            <Download className="mr-2 h-4 w-4" />
+            Export List
+          </Button>
+          {/* 邀请按钮 */}
+          <Button onClick={() => setInviteSectionOpen(!inviteSectionOpen)} className="w-[160px] justify-center">
+            {inviteSectionOpen ? (
+              <>
+                <X className="mr-2 h-4 w-4" />
+                Hide
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Invite Members
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* 邀请模块 */}
+      {inviteSectionOpen && (
+        <Card className="mb-4">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Invite Members</CardTitle>
+              <Button variant="ghost" size="icon" onClick={() => setInviteSectionOpen(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* 组织邀请 */}
+              <div className="space-y-4">
+                <Label className="text-muted-foreground text-xs uppercase">ORGANIZATION INVITATION</Label>
+                <div className="space-y-2">
+                  <Input
+                    value={inviteCode}
+                    readOnly
+                    className="select-all"
+                    onClick={e => (e.target as HTMLInputElement).select()}
+                  />
+                  <Input
+                    value={inviteLink}
+                    readOnly
+                    className="select-all"
+                    onClick={e => (e.target as HTMLInputElement).select()}
+                  />
+                </div>
+                <Button variant="outline" onClick={handleRegenerateInvite}>
+                  Regenerate
+                </Button>
+              </div>
+
+              {/* 邮箱邀请 */}
+              <div className="space-y-4">
+                <Label className="text-muted-foreground text-xs uppercase">EMAIL INVITATION</Label>
+                <textarea
+                  className="border-input ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Enter emails (comma-separated)"
+                  value={emailInvites}
+                  onChange={e => setEmailInvites(e.target.value)}
+                />
+                <Button onClick={handleSendEmailInvites}>Send Invitations</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 成员列表表格 */}
+      <Card className="mb-4">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="hover:bg-muted/50 cursor-pointer" onClick={() => handleSort('name')}>
+                  <div className="flex items-center gap-2">
+                    Name
+                    {sortField === 'name' &&
+                      (sortDirection === 'asc' ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      ))}
+                    {sortField !== 'name' && <ChevronsUpDown className="h-4 w-4 opacity-50" />}
+                  </div>
+                </TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Receiving Wallet</TableHead>
+                <TableHead>Network</TableHead>
+                <TableHead>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 px-2">
+                        Role
+                        {roleFilter !== 'All' && <span className="ml-2 text-xs">✓</span>}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => setRoleFilter('All')}>All Roles</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setRoleFilter('Admin')}>Admin</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setRoleFilter('Operator')}>Operator</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setRoleFilter('Member')}>Member</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableHead>
+                <TableHead className="hover:bg-muted/50 cursor-pointer" onClick={() => handleSort('serviceFee')}>
+                  <div className="flex items-center gap-2">
+                    Service Fee
+                    {sortField === 'serviceFee' &&
+                      (sortDirection === 'asc' ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      ))}
+                    {sortField !== 'serviceFee' && <ChevronsUpDown className="h-4 w-4 opacity-50" />}
+                  </div>
+                </TableHead>
+                <TableHead>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 px-2">
+                        Status
+                        {statusFilter !== 'All' && <span className="ml-2 text-xs">✓</span>}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => setStatusFilter('All')}>All Statuses</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter('Active')}>Active</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter('Pending')}>Pending</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter('Inactive')}>Inactive</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableHead>
+                <TableHead className="hover:bg-muted/50 cursor-pointer" onClick={() => handleSort('lastPayment')}>
+                  <div className="flex items-center gap-2">
+                    Last Payment
+                    {sortField === 'lastPayment' &&
+                      (sortDirection === 'asc' ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      ))}
+                    {sortField !== 'lastPayment' && <ChevronsUpDown className="h-4 w-4 opacity-50" />}
+                  </div>
+                </TableHead>
+                <TableHead>Approval</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-8 text-center">
+                    Loading...
+                  </TableCell>
+                </TableRow>
+              ) : paginatedMembers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-8 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <Search className="text-muted-foreground h-12 w-12" />
+                      <p className="font-medium">No members found</p>
+                      <p className="text-muted-foreground text-sm">Try adjusting your search or filters.</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ) : (
-                <>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Invite Members
-                </>
+                paginatedMembers.map(member => (
+                  <TableRow key={member.id} className="cursor-pointer" onClick={() => openMemberDrawer(member)}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full">
+                          <span className="text-sm font-medium">{member.name[0].toUpperCase()}</span>
+                        </div>
+                        <span className="font-medium">{member.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{member.email}</TableCell>
+                    <TableCell>
+                      {member.receivingWallet ? (
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono text-sm">{formatAddress(member.receivingWallet)}</span>
+                          <Check className="h-3 w-3 text-green-500" />
+                        </div>
+                      ) : (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0"
+                          onClick={e => {
+                            e.stopPropagation()
+                            handleRequestAddress(member.id)
+                          }}
+                        >
+                          Request Address
+                        </Button>
+                      )}
+                    </TableCell>
+                    <TableCell>{member.network}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          member.role === 'Admin' ? 'default' : member.role === 'Operator' ? 'secondary' : 'outline'
+                        }
+                      >
+                        {member.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="group relative" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <span>{member.serviceFee.toLocaleString()} USDC</span>
+                        <Edit2
+                          className="h-3 w-3 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
+                          onClick={() => {
+                            setEditingField(member.id)
+                            setEditingValue(member.serviceFee.toString())
+                          }}
+                        />
+                      </div>
+                      {editingField === member.id && (
+                        <Input
+                          type="number"
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onBlur={() => {
+                            handleEditServiceFee(member, editingValue)
+                            setEditingField(null)
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              handleEditServiceFee(member, editingValue)
+                              setEditingField(null)
+                            } else if (e.key === 'Escape') {
+                              setEditingField(null)
+                            }
+                          }}
+                          className="h-8 w-24"
+                          autoFocus
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          member.status === 'Active' ? 'default' : member.status === 'Pending' ? 'secondary' : 'outline'
+                        }
+                      >
+                        {member.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{member.lastPayment || '-'}</TableCell>
+                    <TableCell onClick={e => e.stopPropagation()} className="space-x-2">
+                      {member.status === 'Pending' &&
+                        (currentUserRole === 'Admin' || currentUserRole === 'Operator') && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleApprove(member.id)}
+                            >
+                              <Check className="h-4 w-4 text-green-500" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleReject(member.id)}
+                            >
+                              <XCircle className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </>
+                        )}
+                    </TableCell>
+                  </TableRow>
+                ))
               )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* 分页 */}
+      {!loading && filteredAndSortedMembers.length > 0 && (
+        <div className="flex items-center justify-between">
+          <p className="text-muted-foreground text-sm">
+            Showing {(currentPage - 1) * pageSize + 1}-
+            {Math.min(currentPage * pageSize, filteredAndSortedMembers.length)} of {filteredAndSortedMembers.length}{' '}
+            members
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
             </Button>
           </div>
         </div>
+      )}
 
-        {/* 邀请模块 */}
-        {inviteSectionOpen && (
-          <Card className="mb-4">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Invite Members</CardTitle>
-                <Button variant="ghost" size="icon" onClick={() => setInviteSectionOpen(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {/* 组织邀请 */}
-                <div className="space-y-4">
-                  <Label className="text-muted-foreground text-xs uppercase">ORGANIZATION INVITATION</Label>
-                  <div className="space-y-2">
-                    <Input
-                      value={inviteCode}
-                      readOnly
-                      className="select-all"
-                      onClick={e => (e.target as HTMLInputElement).select()}
-                    />
-                    <Input
-                      value={inviteLink}
-                      readOnly
-                      className="select-all"
-                      onClick={e => (e.target as HTMLInputElement).select()}
-                    />
-                  </div>
-                  <Button variant="outline" onClick={handleRegenerateInvite}>
-                    Regenerate
-                  </Button>
-                </div>
-
-                {/* 邮箱邀请 */}
-                <div className="space-y-4">
-                  <Label className="text-muted-foreground text-xs uppercase">EMAIL INVITATION</Label>
-                  <textarea
-                    className="border-input ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                    placeholder="Enter emails (comma-separated)"
-                    value={emailInvites}
-                    onChange={e => setEmailInvites(e.target.value)}
-                  />
-                  <Button onClick={handleSendEmailInvites}>Send Invitations</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 成员列表表格 */}
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="hover:bg-muted/50 cursor-pointer" onClick={() => handleSort('name')}>
-                    <div className="flex items-center gap-2">
-                      Name
-                      {sortField === 'name' &&
-                        (sortDirection === 'asc' ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        ))}
-                      {sortField !== 'name' && <ChevronsUpDown className="h-4 w-4 opacity-50" />}
-                    </div>
-                  </TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Receiving Wallet</TableHead>
-                  <TableHead>Network</TableHead>
-                  <TableHead>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 px-2">
-                          Role
-                          {roleFilter !== 'All' && <span className="ml-2 text-xs">✓</span>}
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => setRoleFilter('All')}>All Roles</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setRoleFilter('Admin')}>Admin</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setRoleFilter('Operator')}>Operator</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setRoleFilter('Member')}>Member</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableHead>
-                  <TableHead className="hover:bg-muted/50 cursor-pointer" onClick={() => handleSort('serviceFee')}>
-                    <div className="flex items-center gap-2">
-                      Service Fee
-                      {sortField === 'serviceFee' &&
-                        (sortDirection === 'asc' ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        ))}
-                      {sortField !== 'serviceFee' && <ChevronsUpDown className="h-4 w-4 opacity-50" />}
-                    </div>
-                  </TableHead>
-                  <TableHead>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 px-2">
-                          Status
-                          {statusFilter !== 'All' && <span className="ml-2 text-xs">✓</span>}
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => setStatusFilter('All')}>All Statuses</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setStatusFilter('Active')}>Active</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setStatusFilter('Pending')}>Pending</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setStatusFilter('Inactive')}>Inactive</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableHead>
-                  <TableHead className="hover:bg-muted/50 cursor-pointer" onClick={() => handleSort('lastPayment')}>
-                    <div className="flex items-center gap-2">
-                      Last Payment
-                      {sortField === 'lastPayment' &&
-                        (sortDirection === 'asc' ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        ))}
-                      {sortField !== 'lastPayment' && <ChevronsUpDown className="h-4 w-4 opacity-50" />}
-                    </div>
-                  </TableHead>
-                  <TableHead>Approval</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="py-8 text-center">
-                      Loading...
-                    </TableCell>
-                  </TableRow>
-                ) : paginatedMembers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="py-8 text-center">
-                      <div className="flex flex-col items-center gap-2">
-                        <Search className="text-muted-foreground h-12 w-12" />
-                        <p className="font-medium">No members found</p>
-                        <p className="text-muted-foreground text-sm">Try adjusting your search or filters.</p>
+      {/* 成员详情 Drawer */}
+      <Drawer open={drawerOpen} onOpenChange={handleDrawerClose}>
+        <DrawerContent className="max-h-[100vh]">
+          <div className="overflow-y-auto p-4">
+            {selectedMember && (
+              <>
+                <DrawerHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full">
+                        <span className="text-lg font-medium">{selectedMember.name[0].toUpperCase()}</span>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedMembers.map(member => (
-                    <TableRow key={member.id} className="cursor-pointer" onClick={() => openMemberDrawer(member)}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full">
-                            <span className="text-sm font-medium">{member.name[0].toUpperCase()}</span>
-                          </div>
-                          <span className="font-medium">{member.name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>{member.email}</TableCell>
-                      <TableCell>
-                        {member.receivingWallet ? (
-                          <div className="flex items-center gap-1">
-                            <span className="font-mono text-sm">{formatAddress(member.receivingWallet)}</span>
-                            <Check className="h-3 w-3 text-green-500" />
-                          </div>
-                        ) : (
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0"
-                            onClick={e => {
-                              e.stopPropagation()
-                              handleRequestAddress(member.id)
-                            }}
-                          >
-                            Request Address
-                          </Button>
-                        )}
-                      </TableCell>
-                      <TableCell>{member.network}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            member.role === 'Admin' ? 'default' : member.role === 'Operator' ? 'secondary' : 'outline'
+                      <div>
+                        <DrawerTitle>{selectedMember.name}</DrawerTitle>
+                        <Badge className="mt-1">{selectedMember.role}</Badge>
+                      </div>
+                    </div>
+                  </div>
+                </DrawerHeader>
+
+                <div className="space-y-6 px-4 pb-4">
+                  {/* Basic Information */}
+                  <div>
+                    <h3 className="text-muted-foreground mb-4 text-xs uppercase">BASIC INFORMATION</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-muted-foreground text-xs">Email</Label>
+                        <p className="mt-1">{selectedMember.email}</p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-xs">Receiving Wallet Address</Label>
+                        <Input
+                          value={
+                            drawerChanges.receivingWallet !== undefined
+                              ? drawerChanges.receivingWallet
+                              : selectedMember.receivingWallet || ''
                           }
-                        >
-                          {member.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="group relative" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center gap-2">
-                          <span>{member.serviceFee.toLocaleString()} USDC</span>
-                          <Edit2
-                            className="h-3 w-3 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
-                            onClick={() => {
-                              setEditingField(member.id)
-                              setEditingValue(member.serviceFee.toString())
-                            }}
-                          />
-                        </div>
-                        {editingField === member.id && (
-                          <Input
-                            type="number"
-                            value={editingValue}
-                            onChange={e => setEditingValue(e.target.value)}
-                            onBlur={() => {
-                              handleEditServiceFee(member, editingValue)
-                              setEditingField(null)
-                            }}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                handleEditServiceFee(member, editingValue)
-                                setEditingField(null)
-                              } else if (e.key === 'Escape') {
-                                setEditingField(null)
+                          onChange={e =>
+                            setDrawerChanges({
+                              ...drawerChanges,
+                              receivingWallet: e.target.value
+                            })
+                          }
+                          placeholder="0x..."
+                          className="mt-1 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground text-xs">Service Fee</Label>
+                        <Input
+                          type="number"
+                          value={
+                            drawerChanges.serviceFee !== undefined
+                              ? drawerChanges.serviceFee
+                              : selectedMember.serviceFee
+                          }
+                          onChange={e =>
+                            setDrawerChanges({
+                              ...drawerChanges,
+                              serviceFee: parseFloat(e.target.value) || 0
+                            })
+                          }
+                          className="mt-1"
+                        />
+                      </div>
+                      {selectedMember.status === 'Active' &&
+                        selectedMember.role !== 'Admin' &&
+                        currentUserRole === 'Admin' && (
+                          <div>
+                            <Label className="text-muted-foreground text-xs">Role</Label>
+                            <Select
+                              value={drawerChanges.role || selectedMember.role}
+                              onValueChange={(value: string) =>
+                                setDrawerChanges({ ...drawerChanges, role: value as MemberRole })
                               }
-                            }}
-                            className="h-8 w-24"
-                            autoFocus
-                          />
+                            >
+                              <SelectTrigger className="mt-1">
+                                {drawerChanges.role || selectedMember.role}
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Member">Member</SelectItem>
+                                <SelectItem value="Operator">Operator</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            member.status === 'Active'
-                              ? 'default'
-                              : member.status === 'Pending'
-                                ? 'secondary'
-                                : 'outline'
-                          }
-                        >
-                          {member.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{member.lastPayment || '-'}</TableCell>
-                      <TableCell onClick={e => e.stopPropagation()} className="space-x-2">
-                        {member.status === 'Pending' &&
-                          (currentUserRole === 'Admin' || currentUserRole === 'Operator') && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={() => handleApprove(member.id)}
-                              >
-                                <Check className="h-4 w-4 text-green-500" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={() => handleReject(member.id)}
-                              >
-                                <XCircle className="h-4 w-4 text-red-500" />
-                              </Button>
-                            </>
-                          )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* 分页 */}
-        {!loading && filteredAndSortedMembers.length > 0 && (
-          <div className="flex items-center justify-between">
-            <p className="text-muted-foreground text-sm">
-              Showing {(currentPage - 1) * pageSize + 1}-
-              {Math.min(currentPage * pageSize, filteredAndSortedMembers.length)} of {filteredAndSortedMembers.length}{' '}
-              members
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <span className="text-sm">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* 成员详情 Drawer */}
-        <Drawer open={drawerOpen} onOpenChange={handleDrawerClose}>
-          <DrawerContent className="max-h-[96vh]">
-            <div className="overflow-y-auto">
-              {selectedMember && (
-                <>
-                  <DrawerHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full">
-                          <span className="text-lg font-medium">{selectedMember.name[0].toUpperCase()}</span>
-                        </div>
-                        <div>
-                          <DrawerTitle>{selectedMember.name}</DrawerTitle>
-                          <Badge className="mt-1">{selectedMember.role}</Badge>
-                        </div>
+                      <div>
+                        <Label className="text-muted-foreground text-xs">Network</Label>
+                        <p className="mt-1">{selectedMember.network}</p>
                       </div>
-                    </div>
-                  </DrawerHeader>
-
-                  <div className="space-y-6 px-4 pb-4">
-                    {/* Basic Information */}
-                    <div>
-                      <h3 className="text-muted-foreground mb-4 text-xs uppercase">BASIC INFORMATION</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <Label className="text-muted-foreground text-xs">Email</Label>
-                          <p className="mt-1">{selectedMember.email}</p>
-                        </div>
-                        <div>
-                          <Label className="text-muted-foreground text-xs">Receiving Wallet Address</Label>
-                          <Input
-                            value={
-                              drawerChanges.receivingWallet !== undefined
-                                ? drawerChanges.receivingWallet
-                                : selectedMember.receivingWallet || ''
-                            }
-                            onChange={e =>
-                              setDrawerChanges({
-                                ...drawerChanges,
-                                receivingWallet: e.target.value
-                              })
-                            }
-                            placeholder="0x..."
-                            className="mt-1 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-muted-foreground text-xs">Service Fee</Label>
-                          <Input
-                            type="number"
-                            value={
-                              drawerChanges.serviceFee !== undefined
-                                ? drawerChanges.serviceFee
-                                : selectedMember.serviceFee
-                            }
-                            onChange={e =>
-                              setDrawerChanges({
-                                ...drawerChanges,
-                                serviceFee: parseFloat(e.target.value) || 0
-                              })
-                            }
-                            className="mt-1"
-                          />
-                        </div>
-                        {selectedMember.status === 'Active' &&
-                          selectedMember.role !== 'Admin' &&
-                          currentUserRole === 'Admin' && (
-                            <div>
-                              <Label className="text-muted-foreground text-xs">Role</Label>
-                              <Select
-                                value={drawerChanges.role || selectedMember.role}
-                                onValueChange={(value: string) =>
-                                  setDrawerChanges({ ...drawerChanges, role: value as MemberRole })
-                                }
-                              >
-                                <SelectTrigger className="mt-1">{/* <SelectValue /> */}</SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Member">Member</SelectItem>
-                                  <SelectItem value="Operator">Operator</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                        <div>
-                          <Label className="text-muted-foreground text-xs">Network</Label>
-                          <p className="mt-1">{selectedMember.network}</p>
-                        </div>
-                        <div>
-                          <Label className="text-muted-foreground text-xs">Status</Label>
-                          <Badge className="mt-1">{selectedMember.status}</Badge>
-                        </div>
-                        {selectedMember.status === 'Active' &&
-                          selectedMember.role !== 'Admin' &&
-                          (currentUserRole === 'Admin' ||
-                            (currentUserRole === 'Operator' && selectedMember.role === 'Member')) && (
-                            <div>
-                              <Button
-                                variant="link"
-                                className="text-destructive h-auto p-0"
-                                onClick={() => {
-                                  setMemberToRemove(selectedMember)
-                                  setRemoveMemberDialogOpen(true)
-                                }}
-                              >
-                                Remove Member
-                              </Button>
-                            </div>
-                          )}
-                        <div>
-                          <Label className="text-muted-foreground text-xs">Join Date</Label>
-                          <p className="mt-1">{selectedMember.joinDate}</p>
-                        </div>
+                      <div>
+                        <Label className="text-muted-foreground text-xs">Status</Label>
+                        <Badge className="mt-1">{selectedMember.status}</Badge>
                       </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Payment Statistics */}
-                    <div>
-                      <h3 className="text-muted-foreground mb-4 text-xs uppercase">PAYMENT STATISTICS</h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground text-sm">Total Received</span>
-                          <span className="font-medium">$25,000 USDC</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground text-sm">Last Payment Date</span>
-                          <span className="font-medium">{selectedMember.lastPayment || '-'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground text-sm">Payment Count</span>
-                          <span className="font-medium">5 payments</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    {/* Activity Log */}
-                    <div>
-                      <h3 className="text-muted-foreground mb-4 text-xs uppercase">ACTIVITY LOG</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <p className="text-muted-foreground text-xs">2024-01-15 10:30</p>
-                          <p className="text-sm">Received payment: 5000 USDC</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground text-xs">2024-01-01 09:00</p>
-                          <p className="text-sm">Joined organization</p>
-                        </div>
+                      {selectedMember.status === 'Active' &&
+                        selectedMember.role !== 'Admin' &&
+                        (currentUserRole === 'Admin' ||
+                          (currentUserRole === 'Operator' && selectedMember.role === 'Member')) && (
+                          <div>
+                            <Button
+                              variant="link"
+                              className="text-destructive h-auto p-0"
+                              onClick={() => {
+                                setMemberToRemove(selectedMember)
+                                setRemoveMemberDialogOpen(true)
+                              }}
+                            >
+                              Remove Member
+                            </Button>
+                          </div>
+                        )}
+                      <div>
+                        <Label className="text-muted-foreground text-xs">Join Date</Label>
+                        <p className="mt-1">{selectedMember.joinDate}</p>
                       </div>
                     </div>
                   </div>
 
-                  <DrawerFooter>
-                    <Button onClick={handleSaveChanges} disabled={!hasUnsavedChanges} className="w-full">
-                      Confirm Changes
-                    </Button>
-                  </DrawerFooter>
-                </>
-              )}
-            </div>
-          </DrawerContent>
-        </Drawer>
+                  <Separator />
 
-        {/* 重新生成邀请码确认对话框 */}
-        <Dialog open={regenerateDialogOpen} onOpenChange={setRegenerateDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Regenerate Organization Invitation</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to regenerate the organization invitation? The old code and link will no longer
-                work.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={handleConfirmRegenerate}>
-                Regenerate
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* 邮箱邀请确认对话框 */}
-        <Dialog
-          open={emailInviteDialogOpen}
-          onOpenChange={open => {
-            if (!sendingInvites) {
-              setEmailInviteDialogOpen(open)
-              if (!open) {
-                setPendingEmails([])
-              }
-            }
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Send Email Invitations</DialogTitle>
-              <DialogDescription>
-                {sendingInvites ? (
-                  <span>Sending invitations...</span>
-                ) : (
-                  <span>The following email addresses will receive invitation emails:</span>
-                )}
-              </DialogDescription>
-            </DialogHeader>
-            {!sendingInvites && (
-              <div className="max-h-60 overflow-y-auto">
-                <div className="space-y-2">
-                  {pendingEmails.map((email, index) => (
-                    <div key={index} className="bg-muted/50 flex items-center gap-2 rounded-md px-3 py-2">
-                      <span className="text-sm">{email}</span>
+                  {/* Payment Statistics */}
+                  <div>
+                    <h3 className="text-muted-foreground mb-4 text-xs uppercase">PAYMENT STATISTICS</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-sm">Total Received</span>
+                        <span className="font-medium">$25,000 USDC</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-sm">Last Payment Date</span>
+                        <span className="font-medium">{selectedMember.lastPayment || '-'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-sm">Payment Count</span>
+                        <span className="font-medium">5 payments</span>
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {sendingInvites && (
-              <div className="flex items-center justify-center py-8">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
-                  <p className="text-muted-foreground text-sm">Sending invitations...</p>
-                </div>
-              </div>
-            )}
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setEmailInviteDialogOpen(false)
-                  setPendingEmails([])
-                }}
-                disabled={sendingInvites}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleConfirmSendInvites} disabled={sendingInvites}>
-                {sendingInvites ? 'Sending...' : 'Send Invitations'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+                  </div>
 
-        {/* 删除成员确认对话框 */}
-        <Dialog
-          open={removeMemberDialogOpen}
-          onOpenChange={open => {
-            setRemoveMemberDialogOpen(open)
+                  <Separator />
+
+                  {/* Activity Log */}
+                  <div>
+                    <h3 className="text-muted-foreground mb-4 text-xs uppercase">ACTIVITY LOG</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-muted-foreground text-xs">2024-01-15 10:30</p>
+                        <p className="text-sm">Received payment: 5000 USDC</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs">2024-01-01 09:00</p>
+                        <p className="text-sm">Joined organization</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <DrawerFooter>
+                  <Button onClick={handleSaveChanges} disabled={!hasUnsavedChanges} className="w-full">
+                    Confirm Changes
+                  </Button>
+                </DrawerFooter>
+              </>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* 重新生成邀请码确认对话框 */}
+      <Dialog open={regenerateDialogOpen} onOpenChange={setRegenerateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Regenerate Organization Invitation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to regenerate the organization invitation? The old code and link will no longer
+              work.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmRegenerate}>
+              Regenerate
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 邮箱邀请确认对话框 */}
+      <Dialog
+        open={emailInviteDialogOpen}
+        onOpenChange={open => {
+          if (!sendingInvites) {
+            setEmailInviteDialogOpen(open)
             if (!open) {
-              setMemberToRemove(null)
+              setPendingEmails([])
             }
-          }}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Remove Member</DialogTitle>
-              <DialogDescription>
-                {memberToRemove &&
-                  `Are you sure you want to remove ${memberToRemove.name}? They will no longer receive payments from this organization.`}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setRemoveMemberDialogOpen(false)
-                  setMemberToRemove(null)
-                }}
-              >
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={handleConfirmRemove}>
-                Remove Member
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Email Invitations</DialogTitle>
+            <DialogDescription>
+              {sendingInvites ? (
+                <span>Sending invitations...</span>
+              ) : (
+                <span>The following email addresses will receive invitation emails:</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {!sendingInvites && (
+            <div className="max-h-60 overflow-y-auto">
+              <div className="space-y-2">
+                {pendingEmails.map((email, index) => (
+                  <div key={index} className="bg-muted/50 flex items-center gap-2 rounded-md px-3 py-2">
+                    <span className="text-sm">{email}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {sendingInvites && (
+            <div className="flex items-center justify-center py-8">
+              <div className="flex flex-col items-center gap-2">
+                <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+                <p className="text-muted-foreground text-sm">Sending invitations...</p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEmailInviteDialogOpen(false)
+                setPendingEmails([])
+              }}
+              disabled={sendingInvites}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmSendInvites} disabled={sendingInvites}>
+              {sendingInvites ? 'Sending...' : 'Send Invitations'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除成员确认对话框 */}
+      <Dialog
+        open={removeMemberDialogOpen}
+        onOpenChange={open => {
+          setRemoveMemberDialogOpen(open)
+          if (!open) {
+            setMemberToRemove(null)
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Member</DialogTitle>
+            <DialogDescription>
+              {memberToRemove &&
+                `Are you sure you want to remove ${memberToRemove.name}? They will no longer receive payments from this organization.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRemoveMemberDialogOpen(false)
+                setMemberToRemove(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmRemove}>
+              Remove Member
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
