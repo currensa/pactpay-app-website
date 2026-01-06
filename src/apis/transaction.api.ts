@@ -48,7 +48,14 @@ export interface TransactionPlan {
   orgId: string
   transactionName: string
   transactionType: string
-  transactionStatus: 'pending' | 'ready' | 'complete'
+  transactionStatus:
+    | 'draft' // 1️⃣ 仅创建了发薪计划，还没 propose
+    | 'proposed' // 2️⃣ 已 propose（有 safeTxHash）
+    | 'confirming' // 3️⃣ 收集中（未达到 threshold）
+    | 'ready' // 4️⃣ 签名满足，可执行
+    | 'executing' // 5️⃣ 已提交执行，等链上结果
+    | 'success' // 6️⃣ 执行成功
+    | 'failed' // ❌ 执行失败（最终态）
   payPeriod: string
   createdBy: string
   createdAt: string
@@ -76,6 +83,11 @@ export interface TransactionPlansResponse {
 
 export interface CreateTransactionPlanResponse {
   batchId: string
+}
+
+export interface ProposeTransaction {
+  signature:string,
+  signerAddress:string,
 }
 
 export class TransactionApi {
@@ -113,6 +125,18 @@ export class TransactionApi {
   // 删除交易计划
   async deleteTransactionPlan(transaction_id: string) {
     const res = await this.request.delete<string>(`/transaction/${this.orgId}/${transaction_id}`)
+    return res.data
+  }
+
+  // 获取交易哈希
+  async getTransactionHash(transaction_id: string) {
+    const res = await this.request.get<{txHash:string}>(`/transaction/${this.orgId}/${transaction_id}/getTxHash`)
+    return res.data
+  }
+
+  // 发起交易
+  async proposeTransaction(transaction_id: string,ProposeTransaction: ProposeTransaction ) {
+    const res = await this.request.post<{success:boolean, safeTxHash:string}>(`/transaction/${this.orgId}/${transaction_id}/propose`, ProposeTransaction)
     return res.data
   }
 }

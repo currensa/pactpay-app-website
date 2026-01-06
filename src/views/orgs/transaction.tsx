@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
+import { Provider, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import Safe from '@safe-global/protocol-kit'
 import { IconAlertTriangle, IconCalendar, IconFlame, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -18,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react'
 interface Transaction {
   id: string
   name: string
+  type: string
   status: 'ready' | 'pending' | 'complete'
   executionDate: string
   daysRemaining: number | null
@@ -26,7 +29,19 @@ interface Transaction {
   currency: string
   members: number
   network: string
-  isComplete: boolean
+  isComplete: boolean,
+  paymentAccount?:{
+    id: string
+    type: string
+    config: {
+      nonce: number
+      owners: string[]
+      address: string
+      network: string
+      version: string
+      threshold: number
+    }
+  }
 }
 
 interface TransactionMember {
@@ -108,6 +123,37 @@ function getTodayDate(): string {
   return new Date().toISOString().split('T')[0]
 }
 
+
+
+async function signSafeTxHash(safeTxHash: string, walletProvider: Provider) {
+
+  walletProvider.request({
+    "method": "wallet_switchEthereumChain",
+    "params": [
+      {
+        chainId: '0xaa36a7'
+      }
+    ]
+  })
+  const protocolKit = await Safe.init({
+    provider: walletProvider,
+    safeAddress: '0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3'
+  })
+
+
+  const signature = await protocolKit.signHash(
+    safeTxHash
+  )
+
+  // const recoveredAddress = ethers.verifyMessage(getBytes(safeTxHash), signature)
+  // console.log('recoveredAddress:',recoveredAddress);
+  
+
+  return {
+    signature:signature.data
+  }
+}
+
 export default function Transaction() {
   const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState('')
@@ -154,6 +200,9 @@ export default function Transaction() {
 
   const itemsPerPage = 10
 
+  const {address } =  useAppKitAccount()
+  const { walletProvider } = useAppKitProvider<Provider>("eip155");
+
   // 获取组织成员列表
   const fetchOrganizationMembers = async () => {
     try {
@@ -188,14 +237,14 @@ export default function Transaction() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
     const totalAmount = plan.items.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0)
-    const isComplete = plan.transactionStatus === 'complete'
+    const isComplete = plan.transactionStatus === 'success'
     const isDueToday = diffDays === 0 && !isComplete
 
     // 映射状态
     let status: 'ready' | 'pending' | 'complete' = 'pending'
-    if (plan.transactionStatus === 'complete') {
+    if (plan.transactionStatus === 'success') {
       status = 'complete'
-    } else if (plan.transactionStatus === 'ready') {
+    } else if (plan.transactionStatus === 'draft') {
       status = 'ready'
     } else {
       status = 'pending'
@@ -204,6 +253,7 @@ export default function Transaction() {
     return {
       id: plan.id,
       name: plan.transactionName,
+      type:plan.transactionType,
       status,
       executionDate: payPeriodDate
         .toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -214,7 +264,8 @@ export default function Transaction() {
       currency: plan.items[0]?.currency || 'USDC',
       members: plan.items.length,
       network: plan.paymentAccount?.config?.network === '11155111' ? 'Ethereum' : 'Ethereum',
-      isComplete
+      isComplete,
+      paymentAccount: plan.paymentAccount
     }
   }
 
@@ -416,8 +467,16 @@ export default function Transaction() {
 
   // 处理 Execute Now 点击
   const handleExecuteNow = (transaction: Transaction) => {
-    setExecutingTransaction(transaction)
-    setExecuteConfirmDialogOpen(true)
+    console.log(transaction);
+    if (transaction.status === "ready") {
+      setExecutingTransaction(transaction)
+      setExecuteConfirmDialogOpen(true)
+    }else if(transaction.status === "pending") {
+      handleGoToSafeWallet(transaction)
+    }else{
+
+    }
+    
   }
 
   // 处理 View Details 点击
@@ -547,12 +606,13 @@ export default function Transaction() {
       // - 客户自己支付 gas 费用
       // - Safe Wallet 创建对应的 transaction
       // const transactionId = await safeWalletApi.proposeTransaction(...)
+      if(executingTransaction.type === "safe_wallet"){
+        await proposeSafeTransaction(executingTransaction)
+      }
 
-      // 模拟 API 调用
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      const mockTransactionId = `safe-tx-${Date.now()}`
 
-      setCreatedTransactionId(mockTransactionId)
+      //
+
       setIsExecuting(false)
       setExecuteSuccessDialogOpen(true)
     } catch (error) {
@@ -565,8 +625,53 @@ export default function Transaction() {
     }
   }
 
+  const proposeSafeTransaction = async (transaction: Transaction) => {
+      try {        
+        // 1. 获取完整的交易详情
+        if (!transaction?.paymentAccount) {
+          throw new Error('Payment account not found')
+        }
+
+        // 2. 调用 API 执行 获取safeTxHash
+        const {txHash} = await apis.transaction.getTransactionHash(transaction.id)
+        console.log('Transaction hash:', txHash)
+
+        // 3. 使用 MetaMask 对 Safe 交易哈希进行签名
+        const { signature } = await signSafeTxHash(txHash,walletProvider)
+        console.log('Signer address:', address)
+        console.log('Signature:', signature)
+        // 4. 将签名提交给后端 (TODO: 需要添加 API)
+        await apis.transaction.proposeTransaction(transaction.id, {
+          signature:signature,
+          signerAddress:address || '',
+        })
+
+        setCreatedTransactionId(txHash)
+
+        toast({
+          description: 'Transaction signed successfully!',
+          variant: 'default'
+        })
+
+      } catch (error: any) {
+        console.error('Failed to sign transaction:', error)
+
+        if (error.name === 'UserRejectedRequestError') {
+          toast({
+            description: 'Transaction signing was cancelled.',
+            variant: 'destructive'
+          })
+        } else {
+          toast({
+            description: `Failed to sign transaction: ${error.message}`,
+            variant: 'destructive'
+          })
+        }
+      }
+  }
+
   // 跳转到 Safe Wallet
-  const handleGoToSafeWallet = () => {
+  const handleGoToSafeWallet = (transaction: Transaction) => {
     // TODO: 步骤 4: 跳转 Safe Wallet（手动）
     // - 用户点击 "Go to Safe Wallet"
     // - 浏览器打开新标签页，跳转到 Safe Wallet
