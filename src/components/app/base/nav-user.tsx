@@ -1,3 +1,4 @@
+// 左下角用户名称、邮箱及对应menu
 'use client'
 
 import { IconBadgeCc, IconBell, IconCreditCard, IconDotsVertical, IconLogout, IconSparkles } from '@tabler/icons-react'

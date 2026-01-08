@@ -1,6 +1,6 @@
-import AppHeader from '@/components/app/app-header'
-import OrgSidebar from '@/components/app/org-sidebar'
-import AuthChecker from '@/components/app/auth-checker'
+import AppHeader from '@/components/app/base/app-header'
+import AuthChecker from '@/components/app/base/auth-checker'
+import OrgSidebar from '@/components/app/orgs/sidebar'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet } from 'react-router-dom'
 
@@ -25,4 +25,3 @@ export default function OrgLayout() {
     </AuthChecker>
   )
 }
-

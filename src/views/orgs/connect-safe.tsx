@@ -206,7 +206,7 @@ export default function ConnectSafeWallet() {
       })
 
       // Navigate to dashboard after successful connection
-      navigate('/dashboard', { replace: true })
+      navigate('/orgs/dashboard', { replace: true })
     } catch (error) {
       console.error('Failed to connect Safe wallet:', error)
       // TODO: Show error message to user

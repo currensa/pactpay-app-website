@@ -1,4 +1,10 @@
-import { cn } from '@/lib/utils'
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem
+} from '@/components/ui/sidebar'
 import {
   IconAnalyze,
   IconBook,
@@ -9,14 +15,6 @@ import {
   IconSettings
 } from '@tabler/icons-react'
 import { useNavigate } from 'react-router-dom'
-import {
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem
-} from '../ui/sidebar'
 
 interface MenuItem {
   title: string
@@ -83,7 +81,7 @@ export default function OrgNavMenus() {
   return (
     <>
       <SidebarGroup>
-        <SidebarGroupLabel className="text-muted-foreground/60">Menu</SidebarGroupLabel>
+        {/* <SidebarGroupLabel className="text-muted-foreground/60">Menu</SidebarGroupLabel> */}
         <SidebarGroupContent>
           <SidebarMenu>
             {NavMainItems.map(item => {
@@ -104,7 +102,7 @@ export default function OrgNavMenus() {
         </SidebarGroupContent>
       </SidebarGroup>
       <SidebarGroup className="mt-auto">
-        <SidebarGroupLabel className="text-muted-foreground/60">Menu</SidebarGroupLabel>
+        {/* <SidebarGroupLabel className="text-muted-foreground/60">Menu</SidebarGroupLabel> */}
         <SidebarGroupContent>
           <SidebarMenu>
             {NavSecondaryItems.map(item => (
@@ -112,7 +110,7 @@ export default function OrgNavMenus() {
                 <SidebarMenuButton
                   tooltip={item.title}
                   onClick={() => handleSidebarMenuClick(item)}
-                  className={cn('transition-all')}
+                  className="transition-all"
                 >
                   {item.icon && <item.icon />}
                   <span>{item.title}</span>
@@ -125,4 +123,3 @@ export default function OrgNavMenus() {
     </>
   )
 }
-

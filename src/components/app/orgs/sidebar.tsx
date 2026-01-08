@@ -1,13 +1,11 @@
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, useSidebar } from '@/components/ui/sidebar'
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 import { IconBuildingSkyscraper } from '@tabler/icons-react'
-import OrgNavMenus from './org-nav-menus'
-import { NavUser } from './nav-user'
-import { OrganizationSwitcher } from './org-switcher'
+import { NavUser } from '../base/nav-user'
+import { OrganizationSwitcher } from '../base/switcher'
+import OrgNavMenus from './nav-menus'
 
 export default function OrgSidebar() {
-  const { state } = useSidebar()
-
   return (
     <div>
       <Sidebar collapsible="icon">
@@ -36,4 +34,3 @@ export default function OrgSidebar() {
     </div>
   )
 }
-
