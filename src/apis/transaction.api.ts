@@ -46,6 +46,7 @@ export interface TransactionItem {
 export interface TransactionPlan {
   id: string
   orgId: string
+  transactionId: string
   transactionName: string
   transactionType: string
   transactionStatus:
@@ -59,8 +60,7 @@ export interface TransactionPlan {
   payPeriod: string
   createdBy: string
   createdAt: string
-  items: TransactionItem[]
-  paymentAccount?: {
+  paymentAccount: {
     id: string
     type: string
     config: {
@@ -72,6 +72,31 @@ export interface TransactionPlan {
       threshold: number
     }
   }
+  items: Array<{
+    id: string
+    memberId: string
+    receivingAccountId: string
+    receivingType: string
+    receivingConfig: {
+      address: string
+    }
+    amount: string
+    currency: string
+    createdAt: string
+    updatedAt: string
+    member: {
+      showName: string
+      status: string
+      userAuths: any[]
+    }
+    receivingAccount: {
+      type: string
+      config: {
+        address: string
+      }
+      status: string
+    }
+  }>
 }
 
 export interface TransactionPlansResponse {
@@ -124,7 +149,7 @@ export class TransactionApi {
 
   // 删除交易计划
   async deleteTransactionPlan(transaction_id: string) {
-    const res = await this.request.delete<string>(`/transaction/${this.orgId}/${transaction_id}`)
+    const res = await this.request.delete<string>(`/transaction/${this.orgId}/batch/${transaction_id}`)
     return res.data
   }
 

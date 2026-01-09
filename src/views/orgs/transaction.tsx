@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react'
 interface Transaction {
   id: string
   name: string
+  transactionId:string
   type: string
   status: 'ready' | 'pending' | 'complete'
   executionDate: string
@@ -177,6 +178,7 @@ export default function Transaction() {
   const [transactionDetailDialogOpen, setTransactionDetailDialogOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
   const [selectedTransactionMembers, setSelectedTransactionMembers] = useState<TransactionMember[]>([])
+  const [transactionDetailMembers, setTransactionDetailMembers] = useState<TransactionItem[]>([])
 
   // 删除 Transaction 相关状态
   const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false)
@@ -253,6 +255,7 @@ export default function Transaction() {
     return {
       id: plan.id,
       name: plan.transactionName,
+      transactionId:plan.transactionId,
       type:plan.transactionType,
       status,
       executionDate: payPeriodDate
@@ -305,7 +308,13 @@ export default function Transaction() {
   useEffect(() => {
     fetchTransactionPlans()
   }, [currentPage])
-
+  
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchTransactionPlans()
+    }, 2000)
+    return () => clearInterval(intervalId)
+  }, [])
   // 当搜索或筛选变化时，重置到第一页
   useEffect(() => {
     setCurrentPage(1)
@@ -474,15 +483,30 @@ export default function Transaction() {
     }else if(transaction.status === "pending") {
       handleGoToSafeWallet(transaction)
     }else{
-
+      handleGoToSafeWallet(transaction)
     }
     
   }
 
   // 处理 View Details 点击
-  const handleViewDetails = (transaction: Transaction) => {
-    setSelectedTransaction(transaction)
-    setTransactionDetailDialogOpen(true)
+  const handleViewDetails = async (transaction: Transaction) => {
+    try {
+      // 获取完整的交易详情
+      const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
+      console.log('Transaction plan detail:', transactionPlanDetail)
+
+      // 设置交易和成员信息
+      setSelectedTransaction(transaction)
+      setTransactionDetailMembers(transactionPlanDetail.items)
+      setSelectedTransactionMembers(transactionPlanDetail.items.map(transformTransactionItem))
+      setTransactionDetailDialogOpen(true)
+    } catch (error: any) {
+      console.error('Failed to get transaction detail:', error)
+      toast({
+        description: `Failed to get transaction detail: ${error.message}`,
+        variant: 'destructive'
+      })
+    }
   }
 
   // 处理删除按钮点击
@@ -626,9 +650,12 @@ export default function Transaction() {
   }
 
   const proposeSafeTransaction = async (transaction: Transaction) => {
-      try {        
+      try {
         // 1. 获取完整的交易详情
-        if (!transaction?.paymentAccount) {
+        const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
+        console.log('Transaction plan detail:', transactionPlanDetail)
+
+        if (!transactionPlanDetail?.paymentAccount) {
           throw new Error('Payment account not found')
         }
 
@@ -641,10 +668,13 @@ export default function Transaction() {
         console.log('Signer address:', address)
         console.log('Signature:', signature)
         // 4. 将签名提交给后端 (TODO: 需要添加 API)
-        await apis.transaction.proposeTransaction(transaction.id, {
+        const {safeTxHash} = await apis.transaction.proposeTransaction(transaction.id, {
           signature:signature,
           signerAddress:address || '',
         })
+        transaction.transactionId = safeTxHash
+        // 5. 更新列表
+        await fetchTransactionPlans()
 
         setCreatedTransactionId(txHash)
 
@@ -670,18 +700,54 @@ export default function Transaction() {
       }
   }
 
-  // 跳转到 Safe Wallet
-  const handleGoToSafeWallet = (transaction: Transaction) => {
-    // TODO: 步骤 4: 跳转 Safe Wallet（手动）
-    // - 用户点击 "Go to Safe Wallet"
-    // - 浏览器打开新标签页，跳转到 Safe Wallet
-    // - Safe Wallet URL 直接定位到对应的 transaction
-    // const safeWalletUrl = `https://app.safe.global/transactions/tx?id=${createdTransactionId}`
-    // window.open(safeWalletUrl, '_blank')
+  const networkMap = new Map()
+  networkMap.set('11155111', 'sep')
 
-    setExecuteSuccessDialogOpen(false)
-    setExecutingTransaction(null)
-    setCreatedTransactionId('')
+  // 跳转到 Safe Wallet
+  const handleGoToSafeWallet = async (transaction: Transaction) => {
+    try {
+      // 获取完整的交易详情
+      const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
+      console.log('Transaction plan detail:', transactionPlanDetail)
+
+      if (!transactionPlanDetail?.paymentAccount) {
+        throw new Error('Payment account not found')
+      }
+
+      // https://app.safe.global/transactions/tx?
+      // safe=sep:0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3
+      // &id=multisig_0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3
+      // _0x0de0df9bbe5893a294c8ed1d0cdc6c732a1dbb9a7257d43f418c8e5ec59b0181
+      // https://app.safe.global/transactions/tx?safe=sep:sendAddress&id=multisig_0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3_0x0de0df9bbe5893a294c8ed1d0cdc6c732a1dbb9a7257d43f418c8e5ec59b0181
+      // https://app.safe.global/transactions/tx?safe=sep:0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3&id=multisig_0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3_0x0de0df9bbe5893a294c8ed1d0cdc6c732a1dbb9a7257d43f418c8e5ec59b0181
+      const safeBaseUrl = 'https://app.safe.global/transactions/tx'
+      const typeAddress = 'safe'
+      const network = networkMap.get(transactionPlanDetail.paymentAccount.config.network)
+      const sendAddress = transactionPlanDetail.paymentAccount.config.address
+      const txHash = transactionPlanDetail.transactionId
+
+    // 创建URL对象
+    const safeWalletUrl = new URL(safeBaseUrl);
+    safeWalletUrl.searchParams.append(typeAddress, `${network}:${sendAddress}`)
+    safeWalletUrl.searchParams.append('id', `multisig_${sendAddress}_${txHash}`)
+      // TODO: 步骤 4: 跳转 Safe Wallet（手动）
+      // - 用户点击 "Go to Safe Wallet"
+      // - 浏览器打开新标签页，跳转到 Safe Wallet
+      // - Safe Wallet URL 直接定位到对应的 transaction
+      // const safeWalletUrl = `https://app.safe.global/transactions/tx?id=${createdTransactionId}`
+
+      window.open(decodeURIComponent(safeWalletUrl.toString()), '_blank')
+
+      setExecuteSuccessDialogOpen(false)
+      setExecutingTransaction(null)
+      setCreatedTransactionId('')
+    } catch (error: any) {
+      console.error('Failed to get transaction detail:', error)
+      toast({
+        description: `Failed to get transaction detail: ${error.message}`,
+        variant: 'destructive'
+      })
+    }
   }
 
   // 稍后处理
@@ -727,7 +793,7 @@ export default function Transaction() {
 
           <div className="flex items-center gap-3">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]" placeholder="All Statuses">
+              <SelectTrigger className="w-[180px]">
                 {statusFilter === 'all' && 'All Statuses'}
                 {statusFilter === 'ready' && 'Ready'}
                 {statusFilter === 'pending' && 'Pending'}
@@ -1059,15 +1125,15 @@ export default function Transaction() {
               <div className="space-y-3">
                 <h3 className="text-muted-foreground text-sm font-medium uppercase">Member Details</h3>
                 <div className="space-y-2">
-                  {selectedMembersList.map(member => {
-                    const fee = memberServiceFees[member.id] || '0'
+                  {transactionDetailMembers.map(item => {
+                    const amount = parseFloat(item.amount)
                     // Charlie Brown 显示 "Original"，其他显示 "Service Fee"
-                    const label = member.name === 'Charlie Brown' ? 'Original' : 'Service Fee'
+                    const label = item.member.showName === 'Charlie Brown' ? 'Original' : 'Service Fee'
                     return (
-                      <div key={member.id} className="flex items-center justify-between rounded-lg border p-3">
-                        <span className="font-medium">{member.name}</span>
+                      <div key={item.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <span className="font-medium">{item.member.showName}</span>
                         <span className="text-muted-foreground text-sm">
-                          {label}: {parseFloat(fee).toLocaleString()} USDC
+                          {label}: {amount.toLocaleString()} {item.currency}
                         </span>
                       </div>
                     )
@@ -1214,7 +1280,7 @@ export default function Transaction() {
             <Button variant="outline" onClick={handleDoItLater}>
               I'll do it later
             </Button>
-            <Button onClick={handleGoToSafeWallet}>Go to Safe Wallet</Button>
+            <Button onClick={() => executingTransaction && handleGoToSafeWallet(executingTransaction)}>Go to Safe Wallet</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1283,21 +1349,21 @@ export default function Transaction() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {selectedTransactionMembers.length > 0 ? (
-                          selectedTransactionMembers.map(member => (
-                            <TableRow key={member.id}>
-                              <TableCell className="font-medium">{member.name}</TableCell>
-                              <TableCell className="text-muted-foreground">{member.email}</TableCell>
+                        {transactionDetailMembers.length > 0 ? (
+                          transactionDetailMembers.map(item => (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">{item.member.showName}</TableCell>
+                              <TableCell className="text-muted-foreground">-</TableCell>
                               <TableCell>
                                 <Badge variant="outline" className="capitalize">
-                                  {member.role}
+                                  Member
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-muted-foreground font-mono text-sm">
-                                {formatWalletAddress(member.walletAddress)}
+                                {formatWalletAddress(item.receivingConfig.address)}
                               </TableCell>
                               <TableCell className="text-right font-medium">
-                                {parseFloat(member.serviceFee).toLocaleString()} {selectedTransaction.currency}
+                                {parseFloat(item.amount).toLocaleString()} {item.currency}
                               </TableCell>
                             </TableRow>
                           ))
