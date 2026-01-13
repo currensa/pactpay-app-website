@@ -379,11 +379,7 @@ export default function MemberPage() {
         drawerChanges.receivingWallet !== undefined &&
         drawerChanges.receivingWallet !== selectedMember.receivingWallet
       ) {
-        await apis.organization.updateMemberAccountAddress(
-          selectedMember.memberId,
-          drawerChanges.receivingWallet,
-          selectedMember.network
-        )
+        await apis.organization.updateMemberAccountAddress(selectedMember.memberId, drawerChanges.receivingWallet)
       }
 
       // 更新支付意向（Service Fee）

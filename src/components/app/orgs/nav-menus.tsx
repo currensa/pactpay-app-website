@@ -1,4 +1,10 @@
-import { cn } from '@/lib/utils'
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem
+} from '@/components/ui/sidebar'
 import {
   IconAnalyze,
   IconBook,
@@ -9,14 +15,6 @@ import {
   IconSettings
 } from '@tabler/icons-react'
 import { useNavigate } from 'react-router-dom'
-import {
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem
-} from '../ui/sidebar'
 
 interface MenuItem {
   title: string
@@ -27,33 +25,33 @@ interface MenuItem {
 
 const NavMainItems: MenuItem[] = [
   {
-    title: 'Overview',
+    title: 'Dashboard',
     key: 'dashboard',
-    url: '/dashboard',
+    url: '/orgs/dashboard',
     icon: IconLayoutDashboard
   },
   {
     title: 'Organization',
     key: 'organization',
-    url: '/organization',
+    url: '/orgs/organization',
     icon: IconBuildingSkyscraper
   },
   {
     title: 'Transactions',
     key: 'transaction',
-    url: '/transaction',
+    url: '/orgs/transaction',
     icon: IconCashMove
   },
   {
     title: 'Analytics',
     key: 'analytics',
-    url: '/analytics',
+    url: '/orgs/analytics',
     icon: IconAnalyze
   },
   {
     title: 'Payment Settings',
     key: 'settings',
-    url: '/settings',
+    url: '/orgs/settings',
     icon: IconSettings
   }
 ]
@@ -73,49 +71,38 @@ const NavSecondaryItems: MenuItem[] = [
   }
 ]
 
-export default function NavMenus() {
-  // const [activeKey, setActiveKey] = useState<string>()
-  // const location = useLocation()
+export default function OrgNavMenus() {
   const navigate = useNavigate()
 
-  // useEffect(() => {
-  //   const activeItem = menuItems.find(item => item.url === location.pathname)
-  //   if (activeItem) {
-  //     setActiveKey(activeItem.key)
-  //   }
-  // }, [location])
-
   function handleSidebarMenuClick(menu: MenuItem) {
-    // setActiveKey(menu.key)
     navigate(menu.url)
   }
 
   return (
     <>
       <SidebarGroup>
-        <SidebarGroupLabel className="text-muted-foreground/60">Menu</SidebarGroupLabel>
+        {/* <SidebarGroupLabel className="text-muted-foreground/60">Menu</SidebarGroupLabel> */}
         <SidebarGroupContent>
           <SidebarMenu>
-            {NavMainItems.map(item => (
-              <SidebarMenuItem key={item.key}>
-                <SidebarMenuButton
-                  tooltip={item.title}
-                  onClick={() => handleSidebarMenuClick(item)}
-                  className={cn(
-                    'transition-all'
-                    // activeKey === item.key ? 'bg-primary! text-primary-foreground!' : 'text-foreground bg-transparent'
-                  )}
-                >
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {NavMainItems.map(item => {
+              return (
+                <SidebarMenuItem key={item.key}>
+                  <SidebarMenuButton
+                    tooltip={item.title}
+                    onClick={() => handleSidebarMenuClick(item)}
+                    className="transition-all"
+                  >
+                    {item.icon && <item.icon />}
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
       <SidebarGroup className="mt-auto">
-        <SidebarGroupLabel className="text-muted-foreground/60">Menu</SidebarGroupLabel>
+        {/* <SidebarGroupLabel className="text-muted-foreground/60">Menu</SidebarGroupLabel> */}
         <SidebarGroupContent>
           <SidebarMenu>
             {NavSecondaryItems.map(item => (
@@ -123,10 +110,7 @@ export default function NavMenus() {
                 <SidebarMenuButton
                   tooltip={item.title}
                   onClick={() => handleSidebarMenuClick(item)}
-                  className={cn(
-                    'transition-all'
-                    // activeKey === item.key ? 'bg-primary! text-primary-foreground!' : 'text-foreground bg-transparent'
-                  )}
+                  className="transition-all"
                 >
                   {item.icon && <item.icon />}
                   <span>{item.title}</span>

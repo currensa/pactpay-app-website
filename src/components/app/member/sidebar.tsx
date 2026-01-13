@@ -1,11 +1,11 @@
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, useSidebar } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
 import { IconBuildingSkyscraper } from '@tabler/icons-react'
-import NavMenus from './nav-menus'
-import { NavUser } from './nav-user'
-import { OrganizationSwitcher } from './org-switcher'
+import { NavUser } from '../base/nav-user'
+import { OrganizationSwitcher } from '../base/switcher'
+import MemberNavMenus from './nav-menus'
 
-export default function AppSidebar() {
+export default function MemberSidebar() {
   const { state } = useSidebar()
 
   return (
@@ -19,13 +19,17 @@ export default function AppSidebar() {
                   name: 'PactPay',
                   logo: IconBuildingSkyscraper,
                   plan: 'Free'
+                },
+                {
+                  name: 'PactPay2',
+                  logo: IconBuildingSkyscraper,
+                  plan: 'Free'
                 }
               ]}
             />
           </SidebarHeader>
           <SidebarContent>
-            {/* <CreateTransactionButton /> */}
-            <NavMenus />
+            <MemberNavMenus />
           </SidebarContent>
           <SidebarFooter>
             <NavUser

@@ -57,7 +57,7 @@ export default function Identity() {
       navigate('/account/organization/connect-safe')
     } else {
       // Navigate to dashboard if payment account exists
-      navigate('/dashboard', { replace: true })
+      navigate('/orgs/dashboard', { replace: true })
     }
   }
 
