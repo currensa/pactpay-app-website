@@ -932,7 +932,7 @@ export default function MemberPage() {
                   </div>
                 </DrawerHeader>
 
-                <div className="space-y-6 px-4 pb-4">
+                <div className="space-y-6 px-4 pb-4 max-h-[calc(100vh-200px)] overflow-y-auto">
                   {/* Basic Information */}
                   <div>
                     <h3 className="text-muted-foreground mb-4 text-xs uppercase">BASIC INFORMATION</h3>
