@@ -102,7 +102,7 @@ export interface Organization {
 }
 export interface BindSafeWalletPayload {
   address: string
-  chainId: string
+  caipChainId: string
 }
 
 export class OrgnizationApi {

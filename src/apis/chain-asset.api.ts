@@ -7,6 +7,8 @@ interface Chain {
   iconUrl: string
   chainId: string
   ecosystem: string
+  caipChainId: string
+
 }
 
 export class ChainAssetApi {

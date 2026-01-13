@@ -17,6 +17,7 @@ interface Chain {
   iconUrl: string
   chainId: string
   ecosystem: string
+  caipChainId: string
 }
 
 interface SafeInfo {
@@ -202,7 +203,7 @@ export default function ConnectSafeWallet() {
       // Call bindPaymentAccount API
       await api.organization.bindPaymentAccount({
         address: selectedSafeAddress,
-        chainId: selectedChain.chainId
+        caipChainId: selectedChain.caipChainId    
       })
 
       // Navigate to dashboard after successful connection
