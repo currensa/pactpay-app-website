@@ -17,4 +17,14 @@ export class SafeWalletApi {
   getSafesByOwner(ownerAddress: string) {
     return this.client.getSafesByOwner(ownerAddress)
   }
+
+  getTransaction(safeTxHash: string) {
+    return this.client.getTransaction(safeTxHash)
+  }
+
+  confirmTransaction(safeTxHash: string, signature: string) {
+    return this.client.confirmTransaction(safeTxHash, signature)
+  }
+
+
 }

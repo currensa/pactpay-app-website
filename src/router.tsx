@@ -19,9 +19,10 @@ const PrivacySettings = lazy(() => import('@/views/member/settings-pages/privacy
 const Dashboard = lazy(() => import('@/views/orgs/dashboard'))
 const Organization = lazy(() => import('@/views/orgs/organization'))
 const CreateOrganization = lazy(() => import('@/views/orgs/create-organization'))
-const Transaction = lazy(() => import('@/views/orgs/transaction'))
+const Transaction = lazy(() => import('@/views/transaction/transaction'))
 const Analytics = lazy(() => import('@/views/orgs/analytics'))
 const Settings = lazy(() => import('@/views/orgs/settings'))
+const TransactionDetail = lazy(() => import('@/views/transaction/transaction-detail'))
 
 type RouteItem = RouteObject & {
   meta?: {
@@ -51,6 +52,7 @@ const routes: RouteItem[] = [
       { path: 'settings', element: <Settings />, meta: { title: 'Settings' } }
     ] as RouteItem[]
   },
+  { path: 'transaction/:chainId/:safeTxHash', element: <TransactionDetail />, meta: { title: 'Transaction Detail' } },
   {
     path: 'member',
     children: [

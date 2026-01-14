@@ -115,6 +115,14 @@ export interface ProposeTransaction {
   signerAddress:string,
 }
 
+export interface ConfirmTransactionDto {
+  signature: string
+}
+
+export interface ExecuteTransactionDto {
+  signer?: string
+}
+
 export class TransactionApi {
   constructor(private readonly request: AxiosInstance) {}
   // 统一获取 organizationId（作为 getter，更简洁）
@@ -162,6 +170,18 @@ export class TransactionApi {
   // 发起交易
   async proposeTransaction(transaction_id: string,ProposeTransaction: ProposeTransaction ) {
     const res = await this.request.post<{success:boolean, safeTxHash:string}>(`/transaction/${this.orgId}/${transaction_id}/propose`, ProposeTransaction)
+    return res.data
+  }
+
+  // 确认交易
+  async confirmTransaction(safeTxHash: string, confirmData: ConfirmTransactionDto) {
+    const res = await this.request.post<{ success: boolean }>(`/transaction/confirm/${safeTxHash}`, confirmData)
+    return res.data
+  }
+
+  // 执行交易
+  async executeTransaction(safeTxHash: string, executeData: ExecuteTransactionDto) {
+    const res = await this.request.post<{ success: boolean; transactionHash: string }>(`/transaction/execute/${safeTxHash}`, executeData)
     return res.data
   }
 }

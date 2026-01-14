@@ -62,6 +62,45 @@ export interface MembersResponse {
   page: number
 }
 
+export interface Asset {
+  id: string
+  symbol: string
+  name: string
+  iconUrl: string
+  isStable: boolean
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Chain {
+  id: string
+  caipChainId: string
+  name: string
+  chainId: string
+  ecosystem: string
+  iconUrl: string
+  rpcUrls: string[]
+  explorerUrls: string[]
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AssetChain {
+  id: string
+  caipChainId: string
+  assetId: string
+  contractAddress: string
+  decimals: number
+  isNative: boolean
+  status: string
+  createdAt: string
+  updatedAt: string
+  asset: Asset
+  chain: Chain
+}
+
 export interface EmailInvitationResponse {
   invite: InviteCode
   member: OrganizationMember
@@ -164,16 +203,23 @@ export class OrgnizationApi {
     return res.data
   }
   // 更新成员的支付意向
-  async updateMemberPayoutIntent(memberId: string, amount: string, network: string) {
+  async updateMemberPayoutIntent(memberId: string, amount: string, network: string, currency: string) {
     const res = await this.request.patch<PayoutIntent>(`/orgs/${this.orgId}/members/${memberId}/payout-intent`, {
       amount,
-      network
+      network,
+      currency
     })
     return res.data
   }
   // 删除成员
   async deleteMember(memberId: string) {
     const res = await this.request.delete<string>(`/orgs/${this.orgId}/members/${memberId}`)
+    return res.data
+  }
+
+  // 获取组织的资产链信息
+  async getAssetsChains(): Promise<AssetChain[]> {
+    const res = await this.request.get<AssetChain[]>(`/orgs/${this.orgId}/assets-chains`)
     return res.data
   }
 

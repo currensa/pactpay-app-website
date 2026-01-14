@@ -15,6 +15,7 @@ import Safe from '@safe-global/protocol-kit'
 import { IconAlertTriangle, IconFlame, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   CreateTransactionDialogContent,
   DeleteConfirmDialogContent,
@@ -129,6 +130,7 @@ async function signSafeTxHash(safeTxHash: string, walletProvider: Provider) {
 
 export default function Transaction() {
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
@@ -560,48 +562,29 @@ export default function Transaction() {
   const networkMap = new Map()
   networkMap.set('11155111', 'sep')
 
-  // 跳转到 Safe Wallet
+  // 跳转到应用内的 Transaction Detail 页面
   const handleGoToSafeWalletPagePage = async (transaction: Transaction) => {
     try {
-      // 获取完整的交易详情
+      // 获取完整的交易详情以获取 chainId 与 transactionId
       const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
-      console.log('Transaction plan detail:', transactionPlanDetail)
-
       if (!transactionPlanDetail?.paymentAccount) {
         throw new Error('Payment account not found')
       }
 
-      // https://app.safe.global/transactions/tx?
-      // safe=sep:0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3
-      // &id=multisig_0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3
-      // _0x0de0df9bbe5893a294c8ed1d0cdc6c732a1dbb9a7257d43f418c8e5ec59b0181
-      // https://app.safe.global/transactions/tx?safe=sep:sendAddress&id=multisig_0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3_0x0de0df9bbe5893a294c8ed1d0cdc6c732a1dbb9a7257d43f418c8e5ec59b0181
-      // https://app.safe.global/transactions/tx?safe=sep:0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3&id=multisig_0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3_0x0de0df9bbe5893a294c8ed1d0cdc6c732a1dbb9a7257d43f418c8e5ec59b0181
-      const safeBaseUrl = 'https://app.safe.global/transactions/tx'
-      const typeAddress = 'safe'
-      const network = networkMap.get(transactionPlanDetail.paymentAccount.config.chainId)
-      const sendAddress = transactionPlanDetail.paymentAccount.config.address
+      const chainId = transactionPlanDetail.paymentAccount.config.chainId
       const txHash = transactionPlanDetail.transactionId
 
-    // 创建URL对象
-    const safeWalletUrl = new URL(safeBaseUrl);
-    safeWalletUrl.searchParams.append(typeAddress, `${network}:${sendAddress}`)
-    safeWalletUrl.searchParams.append('id', `multisig_${sendAddress}_${txHash}`)
-      // TODO: 步骤 4: 跳转 Safe Wallet（手动）
-      // - 用户点击 "Go to Safe Wallet"
-      // - 浏览器打开新标签页，跳转到 Safe Wallet
-      // - Safe Wallet URL 直接定位到对应的 transaction
-      // const safeWalletUrl = `https://app.safe.global/transactions/tx?id=${createdTransactionId}`
+      // 使用内部路由跳转到刚创建的页面，URL 格式：/orgs/transaction/detail/:chainId/:safeTxHash
+      navigate(`/transaction/${encodeURIComponent(String(chainId))}/${encodeURIComponent(String(txHash))}`)
 
-      window.open(decodeURIComponent(safeWalletUrl.toString()), '_blank')
-
+      // 关闭/重置当前弹窗/状态
       setExecuteSuccessDialogOpen(false)
       setExecutingTransaction(null)
       setCreatedTransactionId('')
     } catch (error: any) {
       console.error('Failed to get transaction detail:', error)
       toast({
-        description: `Failed to get transaction detail: ${error.message}`,
+        description: `Failed to get transaction detail: ${error?.message || error}`,
         variant: 'destructive'
       })
     }
