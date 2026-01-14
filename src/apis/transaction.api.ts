@@ -54,7 +54,6 @@ export interface TransactionPlan {
     | 'proposed' // 2️⃣ 已 propose（有 safeTxHash）
     | 'confirming' // 3️⃣ 收集中（未达到 threshold）
     | 'ready' // 4️⃣ 签名满足，可执行
-    | 'executing' // 5️⃣ 已提交执行，等链上结果
     | 'success' // 6️⃣ 执行成功
     | 'failed' // ❌ 执行失败（最终态）
   payPeriod: string
@@ -67,6 +66,7 @@ export interface TransactionPlan {
       nonce: number
       owners: string[]
       address: string
+      chainId: string
       network: string
       version: string
       threshold: number

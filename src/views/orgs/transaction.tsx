@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -13,37 +12,18 @@ import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 import { Provider, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import Safe from '@safe-global/protocol-kit'
-import { IconAlertTriangle, IconCalendar, IconFlame, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconAlertTriangle, IconFlame, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Search } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
+import {
+  CreateTransactionDialogContent,
+  DeleteConfirmDialogContent,
+  ExecuteConfirmDialogContent,
+  ExecuteSuccessDialogContent,
+  TransactionDetailDialogContent,
+} from './components'
+import type { Transaction } from './components/transaction/types'
 
-interface Transaction {
-  id: string
-  name: string
-  transactionId:string
-  type: string
-  status: 'ready' | 'pending' | 'complete'
-  executionDate: string
-  daysRemaining: number | null
-  isDueToday: boolean
-  totalAmount: string
-  currency: string
-  members: number
-  network: string
-  isComplete: boolean,
-  paymentAccount?:{
-    id: string
-    type: string
-    config: {
-      nonce: number
-      owners: string[]
-      address: string
-      network: string
-      version: string
-      threshold: number
-    }
-  }
-}
 
 interface TransactionMember {
   id: string
@@ -62,8 +42,10 @@ function getStatusBadge(status: Transaction['status']) {
       return <Badge variant="warning">Pending</Badge>
     case 'complete':
       return <Badge variant="success">Complete</Badge>
+    case 'failed':
+      return <Badge variant="destructive">Failed</Badge>
     default:
-      return <Badge>{status}</Badge>
+      return <Badge variant="secondary">{status}</Badge>
   }
 }
 
@@ -113,16 +95,6 @@ function transformOrganizationMemberToTransactionMember(member: OrganizationMemb
   }
 }
 
-function formatWalletAddress(address: string): string {
-  if (address.length <= 10) return address
-  // 格式: 0x1234...7890 (前6个字符 + ... + 后4个字符)
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
-}
-
-// 获取今天的日期（YYYY-MM-DD 格式）
-function getTodayDate(): string {
-  return new Date().toISOString().split('T')[0]
-}
 
 
 
@@ -161,11 +133,6 @@ export default function Transaction() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [addTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false)
-  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
-  const [memberServiceFees, setMemberServiceFees] = useState<Record<string, string>>({})
-  const [currentStep, setCurrentStep] = useState(1)
-  const [transactionName, setTransactionName] = useState('')
-  const [executionDate, setExecutionDate] = useState('')
 
   // Execute Now 相关状态
   const [executeConfirmDialogOpen, setExecuteConfirmDialogOpen] = useState(false)
@@ -177,7 +144,6 @@ export default function Transaction() {
   // Transaction 详情弹窗状态
   const [transactionDetailDialogOpen, setTransactionDetailDialogOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
-  const [selectedTransactionMembers, setSelectedTransactionMembers] = useState<TransactionMember[]>([])
   const [transactionDetailMembers, setTransactionDetailMembers] = useState<TransactionItem[]>([])
 
   // 删除 Transaction 相关状态
@@ -243,14 +209,16 @@ export default function Transaction() {
     const isDueToday = diffDays === 0 && !isComplete
 
     // 映射状态
-    let status: 'ready' | 'pending' | 'complete' = 'pending'
-    if (plan.transactionStatus === 'success') {
-      status = 'complete'
-    } else if (plan.transactionStatus === 'draft') {
-      status = 'ready'
-    } else {
+    let status: Transaction['status'] = 'draft'
+     if (plan.transactionStatus === 'draft') {
+      status = 'draft'
+    } else if( [ 'proposed','confirming'].includes(plan.transactionStatus)){
       status = 'pending'
-    }
+    } else if (plan.transactionStatus === 'ready') {
+      status = 'ready'
+    } else if (plan.transactionStatus === 'success') {
+      status = 'complete'
+    } 
 
     return {
       id: plan.id,
@@ -344,146 +312,35 @@ export default function Transaction() {
     }
   }
 
-  // 计算总金额
-  const totalAmount = useMemo(() => {
-    let total = 0
-    selectedMembers.forEach(memberId => {
-      const fee = memberServiceFees[memberId] || '0'
-      total += parseFloat(fee) || 0
-    })
-    return total
-  }, [selectedMembers, memberServiceFees])
 
-  // 获取选中的成员列表
-  const selectedMembersList = useMemo(() => {
-    return organizationMembers.filter(member => selectedMembers.has(member.id))
-  }, [selectedMembers, organizationMembers])
 
-  // 初始化服务费数据
+  // 处理对话框打开时的初始化
   useEffect(() => {
-    if (addTransactionDialogOpen) {
-      // 如果是 Re-action，预填充数据
-      if (isCreatingFromReaction && transactionToReaction) {
-        // 异步加载成员数据
-        getTransactionMembers(transactionToReaction.id).then(transactionMembers => {
-          const memberIds = new Set<string>(transactionMembers.map(m => m.id))
-
-          // 预填充选中的成员
-          setSelectedMembers(memberIds)
-
-          // 预填充服务费（使用原 Transaction 的金额）
-          const initialFees: Record<string, string> = {}
-          transactionMembers.forEach(member => {
-            // 如果原 Transaction 的金额与成员默认 Service Fee 不同，使用原金额
-            // 这里简化处理，使用成员的 serviceFee
-            initialFees[member.id] = member.serviceFee
-          })
-          setMemberServiceFees(initialFees)
-        })
-
-        // 预填充 Transaction Name
-        setTransactionName(`${transactionToReaction.name} (Re-action)`)
-
-        // 从 Step 2 开始
-        setCurrentStep(2)
-        setExecutionDate('')
-      } else {
-        // 正常创建流程
-        const initialFees: Record<string, string> = {}
-        organizationMembers.forEach(member => {
-          initialFees[member.id] = member.serviceFee
-        })
-        setMemberServiceFees(initialFees)
-        setSelectedMembers(new Set())
-        setCurrentStep(1)
-        setTransactionName('')
-        setExecutionDate('')
-      }
+    if (!addTransactionDialogOpen) {
+      // 对话框关闭时重置状态
+      setIsCreatingFromReaction(false)
+      setTransactionToReaction(null)
     }
-  }, [addTransactionDialogOpen, isCreatingFromReaction, transactionToReaction])
-
-  // 处理成员选择
-  const handleMemberToggle = (memberId: string) => {
-    const newSelected = new Set(selectedMembers)
-    if (newSelected.has(memberId)) {
-      newSelected.delete(memberId)
-    } else {
-      newSelected.add(memberId)
-    }
-    setSelectedMembers(newSelected)
-  }
-
-  // 全选
-  const handleSelectAll = () => {
-    if (selectedMembers.size === organizationMembers.length) {
-      setSelectedMembers(new Set())
-    } else {
-      setSelectedMembers(new Set(organizationMembers.map(m => m.id)))
-    }
-  }
-
-  // 反选
-  const handleInvertSelection = () => {
-    const newSelected = new Set<string>()
-    organizationMembers.forEach(member => {
-      if (!selectedMembers.has(member.id)) {
-        newSelected.add(member.id)
-      }
-    })
-    setSelectedMembers(newSelected)
-  }
-
-  // 更新服务费
-  const handleServiceFeeChange = (memberId: string, value: string) => {
-    setMemberServiceFees(prev => ({
-      ...prev,
-      [memberId]: value
-    }))
-  }
-
-  // 处理下一步
-  const handleNext = () => {
-    if (currentStep === 1) {
-      setCurrentStep(2)
-    }
-  }
+  }, [addTransactionDialogOpen])
 
   // 处理取消
   const handleCancel = () => {
     setAddTransactionDialogOpen(false)
-    setCurrentStep(1)
-    setSelectedMembers(new Set())
-    setTransactionName('')
-    setExecutionDate('')
+    setIsCreatingFromReaction(false)
+    setTransactionToReaction(null)
   }
 
-  // 处理上一步
-  const handlePrevious = () => {
-    if (currentStep === 2) {
-      setCurrentStep(1)
-    }
-  }
-
-  // 格式化日期显示
-  const formatDateForDisplay = (dateString: string): string => {
-    if (!dateString) return ''
-    const date = new Date(dateString)
-    const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const day = String(date.getDate()).padStart(2, '0')
-    return `${year} / ${month} / ${day}`
-  }
 
   // 处理 Execute Now 点击
   const handleExecuteNow = (transaction: Transaction) => {
     console.log(transaction);
-    if (transaction.status === "ready") {
+    if (transaction.status === "draft") {
       setExecutingTransaction(transaction)
       setExecuteConfirmDialogOpen(true)
-    }else if(transaction.status === "pending") {
-      handleGoToSafeWallet(transaction)
+    }else if(["pending","ready"].includes(transaction.status)) {
+      handleGoToSafeWalletPagePage(transaction)
     }else{
-      handleGoToSafeWallet(transaction)
+      // handleGoToSafeWalletPagePage(transaction)
     }
     
   }
@@ -498,7 +355,6 @@ export default function Transaction() {
       // 设置交易和成员信息
       setSelectedTransaction(transaction)
       setTransactionDetailMembers(transactionPlanDetail.items)
-      setSelectedTransactionMembers(transactionPlanDetail.items.map(transformTransactionItem))
       setTransactionDetailDialogOpen(true)
     } catch (error: any) {
       console.error('Failed to get transaction detail:', error)
@@ -562,11 +418,16 @@ export default function Transaction() {
   }
 
   // 处理创建 Transaction（包括 Re-action）
-  const handleCreateTransaction = async () => {
+  const handleCreateTransaction = async (params: {
+    selectedMembers: Set<string>
+    memberServiceFees: Record<string, string>
+    transactionName: string
+    executionDate: string
+  }) => {
     try {
       // 构建成员数据
-      const members = Array.from(selectedMembers).map(memberId => {
-        const fee = memberServiceFees[memberId] || '0'
+      const members = Array.from(params.selectedMembers).map(memberId => {
+        const fee = params.memberServiceFees[memberId] || '0'
         // TODO: 需要从组织成员 API 获取 receivingAccountId
         // 这里暂时使用模拟数据
         return {
@@ -579,9 +440,9 @@ export default function Transaction() {
 
       // 构建创建请求
       const payload = {
-        payPeriod: executionDate ? new Date(executionDate).toISOString() : new Date().toISOString(),
+        payPeriod: params.executionDate ? new Date(params.executionDate).toISOString() : new Date().toISOString(),
         paymentAccountId: 1, // TODO: 需要从组织配置中获取
-        transactionName: transactionName || 'New Transaction',
+        transactionName: params.transactionName || 'New Transaction',
         members
       }
 
@@ -600,10 +461,6 @@ export default function Transaction() {
       setAddTransactionDialogOpen(false)
       setIsCreatingFromReaction(false)
       setTransactionToReaction(null)
-      setCurrentStep(1)
-      setSelectedMembers(new Set())
-      setTransactionName('')
-      setExecutionDate('')
 
       // 刷新列表
       await fetchTransactionPlans()
@@ -704,7 +561,7 @@ export default function Transaction() {
   networkMap.set('11155111', 'sep')
 
   // 跳转到 Safe Wallet
-  const handleGoToSafeWallet = async (transaction: Transaction) => {
+  const handleGoToSafeWalletPagePage = async (transaction: Transaction) => {
     try {
       // 获取完整的交易详情
       const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
@@ -722,7 +579,7 @@ export default function Transaction() {
       // https://app.safe.global/transactions/tx?safe=sep:0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3&id=multisig_0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3_0x0de0df9bbe5893a294c8ed1d0cdc6c732a1dbb9a7257d43f418c8e5ec59b0181
       const safeBaseUrl = 'https://app.safe.global/transactions/tx'
       const typeAddress = 'safe'
-      const network = networkMap.get(transactionPlanDetail.paymentAccount.config.network)
+      const network = networkMap.get(transactionPlanDetail.paymentAccount.config.chainId)
       const sendAddress = transactionPlanDetail.paymentAccount.config.address
       const txHash = transactionPlanDetail.transactionId
 
@@ -929,294 +786,25 @@ export default function Transaction() {
       {/* 新增交易对话框 */}
       <Dialog open={addTransactionDialogOpen} onOpenChange={setAddTransactionDialogOpen}>
         <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
-          <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-            <DialogTitle>Create New Transaction</DialogTitle>
-          </DialogHeader>
-
-          {/* 步骤指示器 */}
-          <div className="flex items-center gap-4 pb-6">
-            <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium',
-                  currentStep === 1
-                    ? 'bg-primary text-primary-foreground'
-                    : isCreatingFromReaction
-                      ? 'bg-green-500 text-white'
-                      : 'bg-muted text-muted-foreground'
-                )}
-              >
-                {isCreatingFromReaction && currentStep === 2 ? '✓' : '1'}
-              </div>
-              <span
-                className={cn(
-                  'text-sm font-medium',
-                  currentStep === 1 || isCreatingFromReaction ? 'text-foreground' : 'text-muted-foreground'
-                )}
-              >
-                Select Members & Set Amounts
-              </span>
-            </div>
-            <div className="bg-border h-px flex-1" />
-            <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium',
-                  currentStep === 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                )}
-              >
-                2
-              </div>
-              <span
-                className={cn('text-sm font-medium', currentStep === 2 ? 'text-foreground' : 'text-muted-foreground')}
-              >
-                Choose Date & Preview
-              </span>
-            </div>
-          </div>
-
-          {/* 第一步：选择成员和设置金额 */}
-          {currentStep === 1 && (
-            <div className="space-y-4">
-              {/* 选择控制按钮 */}
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleSelectAll}>
-                  Select All
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleInvertSelection}>
-                  Invert Selection
-                </Button>
-              </div>
-
-              {/* 成员表格 */}
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12"></TableHead>
-                      <TableHead>MEMBER</TableHead>
-                      <TableHead>EMAIL</TableHead>
-                      <TableHead>ROLE</TableHead>
-                      <TableHead>SERVICE FEE</TableHead>
-                      <TableHead>WALLET ADDRESS</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {membersLoading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-muted-foreground h-24 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <IconLoader2 className="h-4 w-4 animate-spin" />
-                            Loading members...
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : organizationMembers.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-muted-foreground h-24 text-center">
-                          No members found.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      organizationMembers.map(member => (
-                        <TableRow key={member.id}>
-                          <TableCell>
-                            <input
-                              type="checkbox"
-                              checked={selectedMembers.has(member.id)}
-                              onChange={() => handleMemberToggle(member.id)}
-                              className="border-input accent-primary h-4 w-4 cursor-pointer rounded"
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{member.name}</TableCell>
-                          <TableCell className="text-muted-foreground">{member.email}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="capitalize">
-                              {member.role}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                value={memberServiceFees[member.id] || ''}
-                                onChange={e => handleServiceFeeChange(member.id, e.target.value)}
-                                className="w-24"
-                                placeholder="0"
-                              />
-                              <span className="text-muted-foreground text-sm">USDC</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground font-mono text-sm">
-                            {formatWalletAddress(member.walletAddress)}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-
-          {/* 第二步：选择日期和预览 */}
-          {currentStep === 2 && (
-            <div className="space-y-6">
-              {/* 输入字段 */}
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {/* Transaction Name */}
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-name">Transaction Name</Label>
-                  <Input
-                    id="transaction-name"
-                    placeholder="Enter transaction name."
-                    value={transactionName}
-                    onChange={e => setTransactionName(e.target.value)}
-                  />
-                  <p className="text-muted-foreground text-xs">
-                    Give this transaction a descriptive name for easy identification.
-                  </p>
-                </div>
-
-                {/* Execution Date */}
-                <div className="space-y-2">
-                  <Label htmlFor="execution-date">Execution Date</Label>
-                  <div className="relative">
-                    <Input
-                      id="execution-date"
-                      type="date"
-                      placeholder="年 / 月 / 日"
-                      value={executionDate}
-                      onChange={e => setExecutionDate(e.target.value)}
-                      min={getTodayDate()}
-                      className="pr-10"
-                    />
-                    <IconCalendar className="text-muted-foreground absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2" />
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    Select the date when this transaction should be executed. Cannot select past dates.
-                  </p>
-                </div>
-              </div>
-
-              {/* 摘要面板 */}
-              <div className="bg-muted space-y-2 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Transaction Name:</span>
-                  <span className="text-sm font-medium">{transactionName || '-'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Selected Members:</span>
-                  <span className="text-sm font-medium">{selectedMembers.size}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Execution Date:</span>
-                  <span className="text-sm font-medium">
-                    {executionDate ? formatDateForDisplay(executionDate) : '-'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Total Amount:</span>
-                  <span className="text-sm font-medium">{totalAmount.toLocaleString()} USDC</span>
-                </div>
-              </div>
-
-              {/* 成员详情 */}
-              <div className="space-y-3">
-                <h3 className="text-muted-foreground text-sm font-medium uppercase">Member Details</h3>
-                <div className="space-y-2">
-                  {transactionDetailMembers.map(item => {
-                    const amount = parseFloat(item.amount)
-                    // Charlie Brown 显示 "Original"，其他显示 "Service Fee"
-                    const label = item.member.showName === 'Charlie Brown' ? 'Original' : 'Service Fee'
-                    return (
-                      <div key={item.id} className="flex items-center justify-between rounded-lg border p-3">
-                        <span className="font-medium">{item.member.showName}</span>
-                        <span className="text-muted-foreground text-sm">
-                          {label}: {amount.toLocaleString()} {item.currency}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 底部按钮 */}
-          <div className="flex items-center justify-end gap-3 border-t pt-4">
-            <Button variant="outline" onClick={handleCancel}>
-              Cancel
-            </Button>
-            {currentStep === 1 && (
-              <Button onClick={handleNext} disabled={selectedMembers.size === 0}>
-                Next
-              </Button>
-            )}
-            {currentStep === 2 && (
-              <>
-                <Button variant="outline" onClick={handlePrevious}>
-                  Previous
-                </Button>
-                <Button onClick={handleCreateTransaction} disabled={!transactionName || !executionDate}>
-                  Create Transaction
-                </Button>
-              </>
-            )}
-          </div>
+          <CreateTransactionDialogContent
+            isCreatingFromReaction={isCreatingFromReaction}
+            organizationMembers={organizationMembers}
+            membersLoading={membersLoading}
+            transactionDetailMembers={transactionDetailMembers}
+            onCancel={handleCancel}
+            onCreateTransaction={handleCreateTransaction}
+          />
         </DialogContent>
       </Dialog>
 
       {/* Execute Now - 确认弹窗 */}
       <Dialog open={executeConfirmDialogOpen} onOpenChange={setExecuteConfirmDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Execute Transaction</DialogTitle>
-            <DialogDescription>
-              Please confirm that you want to execute this transaction on Safe Wallet.
-            </DialogDescription>
-          </DialogHeader>
-
-          {executingTransaction && (
-            <div className="space-y-4 py-4">
-              {/* Transaction 摘要 */}
-              <div className="bg-muted space-y-2 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Transaction Name:</span>
-                  <span className="text-sm font-medium">{executingTransaction.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Members:</span>
-                  <span className="text-sm font-medium">{executingTransaction.members}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Total Amount:</span>
-                  <span className="text-sm font-medium">
-                    ${executingTransaction.totalAmount} {executingTransaction.currency}
-                  </span>
-                </div>
-              </div>
-
-              {/* 警告提示 */}
-              <div className="flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
-                <IconAlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-orange-900">Important Notice</p>
-                  <p className="text-xs text-orange-800">
-                    You will need to pay gas fees when executing this transaction on Safe Wallet. Make sure you have
-                    sufficient funds in your wallet.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-end gap-3">
-            <Button variant="outline" onClick={() => setExecuteConfirmDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmExecute}>Execute</Button>
-          </div>
+          <ExecuteConfirmDialogContent
+            executingTransaction={executingTransaction}
+            onCancel={() => setExecuteConfirmDialogOpen(false)}
+            onConfirm={handleConfirmExecute}
+          />
         </DialogContent>
       </Dialog>
 
@@ -1240,210 +828,38 @@ export default function Transaction() {
       {/* Execute Now - 成功提示弹窗 */}
       <Dialog open={executeSuccessDialogOpen} onOpenChange={setExecuteSuccessDialogOpen}>
         <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Transaction Created on Safe Wallet</DialogTitle>
-            <DialogDescription>Your transaction has been successfully created on Safe Wallet.</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            {/* 成功提示 */}
-            <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-3">
-              <div className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600">✓</div>
-              <div className="space-y-1 min-w-0 flex-1">
-                <p className="text-sm font-medium text-green-900">Transaction Created Successfully</p>
-                <p className="text-xs text-green-800 break-words">
-                  The transaction has been proposed on Safe Wallet. You can now review and execute it.
-                </p>
-              </div>
-            </div>
-
-            {/* Transaction ID */}
-            <div className="bg-muted rounded-lg p-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-muted-foreground text-sm">Transaction ID:</span>
-                <span className="font-mono text-sm font-medium break-all sm:break-normal">{createdTransactionId}</span>
-              </div>
-            </div>
-
-            {/* 下一步操作提示 */}
-            <div className="text-muted-foreground text-sm">
-              <p className="mb-1 font-medium">Next Steps:</p>
-              <ul className="list-disc space-y-1 pl-5 break-words">
-                <li>Go to Safe Wallet to review the transaction</li>
-                <li>Sign and execute the transaction</li>
-                <li>Wait for the transaction to be confirmed on the blockchain</li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={handleDoItLater} className="w-full sm:w-auto">
-              I'll do it later
-            </Button>
-            <Button onClick={() => executingTransaction && handleGoToSafeWallet(executingTransaction)} className="w-full sm:w-auto">
-              Go to Safe Wallet
-            </Button>
-          </div>
+          <ExecuteSuccessDialogContent
+            createdTransactionId={createdTransactionId}
+            executingTransaction={executingTransaction}
+            onDoItLater={handleDoItLater}
+            onGoToSafeWallet={handleGoToSafeWalletPagePage}
+          />
         </DialogContent>
       </Dialog>
 
       {/* Transaction 详情弹窗 */}
       <Dialog open={transactionDetailDialogOpen} onOpenChange={setTransactionDetailDialogOpen}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-          {selectedTransaction && (
-            <>
-              <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <DialogTitle>{selectedTransaction.name}</DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-6">
-                {/* 交易信息 */}
-                <div className="flex items-start justify-between">
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{selectedTransaction.executionDate}</span>
-                      {selectedTransaction.isDueToday && (
-                        <Badge variant="warning" className="text-xs">
-                          Due Today
-                        </Badge>
-                      )}
-                    </div>
-                    <div>
-                      <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                        {selectedTransaction.network}
-                      </Badge>
-                    </div>
-                    <div>{getStatusBadge(selectedTransaction.status)}</div>
-                  </div>
-                  {!selectedTransaction.isComplete && (
-                    <Button variant="default" onClick={() => handleExecuteNow(selectedTransaction)}>
-                      Execute Now
-                    </Button>
-                  )}
-                </div>
-
-                {/* 摘要卡片 */}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="bg-muted rounded-lg p-4">
-                    <p className="text-muted-foreground text-sm">Member Count</p>
-                    <p className="mt-1 text-2xl font-semibold">{selectedTransaction.members}</p>
-                  </div>
-                  <div className="bg-muted rounded-lg p-4">
-                    <p className="text-muted-foreground text-sm">Total Amount</p>
-                    <p className="mt-1 text-2xl font-semibold">
-                      ${selectedTransaction.totalAmount} {selectedTransaction.currency}
-                    </p>
-                  </div>
-                </div>
-
-                {/* 成员详情表格 */}
-                <div className="space-y-3">
-                  <h3 className="text-muted-foreground text-sm font-medium uppercase">Member Details</h3>
-                  <div className="rounded-lg border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>MEMBER</TableHead>
-                          <TableHead>EMAIL</TableHead>
-                          <TableHead>ROLE</TableHead>
-                          <TableHead>WALLET ADDRESS</TableHead>
-                          <TableHead className="text-right">AMOUNT</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {transactionDetailMembers.length > 0 ? (
-                          transactionDetailMembers.map(item => (
-                            <TableRow key={item.id}>
-                              <TableCell className="font-medium">{item.member.showName}</TableCell>
-                              <TableCell className="text-muted-foreground">-</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="capitalize">
-                                  Member
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-muted-foreground font-mono text-sm">
-                                {formatWalletAddress(item.receivingConfig.address)}
-                              </TableCell>
-                              <TableCell className="text-right font-medium">
-                                {parseFloat(item.amount).toLocaleString()} {item.currency}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={5} className="text-muted-foreground h-24 text-center">
-                              Loading members...
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
+          <TransactionDetailDialogContent
+            selectedTransaction={selectedTransaction}
+            transactionDetailMembers={transactionDetailMembers}
+            onExecuteNow={handleExecuteNow}
+          />
         </DialogContent>
       </Dialog>
 
       {/* 删除确认弹窗 */}
       <Dialog open={deleteConfirmDialogOpen} onOpenChange={setDeleteConfirmDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Transaction</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this transaction? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-
-          {transactionToDelete && (
-            <div className="space-y-4 py-4">
-              {/* Transaction 摘要 */}
-              <div className="bg-muted space-y-2 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Transaction Name:</span>
-                  <span className="text-sm font-medium">{transactionToDelete.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Transaction ID:</span>
-                  <span className="font-mono text-sm font-medium">{transactionToDelete.id}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Members:</span>
-                  <span className="text-sm font-medium">{transactionToDelete.members}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Total Amount:</span>
-                  <span className="text-sm font-medium">
-                    ${transactionToDelete.totalAmount} {transactionToDelete.currency}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDeleteConfirmDialogOpen(false)
-                setTransactionToDelete(null)
-              }}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
-              {isDeleting ? (
-                <>
-                  <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete'
-              )}
-            </Button>
-          </div>
+          <DeleteConfirmDialogContent
+            transactionToDelete={transactionToDelete}
+            isDeleting={isDeleting}
+            onCancel={() => {
+              setDeleteConfirmDialogOpen(false)
+              setTransactionToDelete(null)
+            }}
+            onConfirm={handleConfirmDelete}
+          />
         </DialogContent>
       </Dialog>
 
