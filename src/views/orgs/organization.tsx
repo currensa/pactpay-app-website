@@ -338,60 +338,6 @@ export default function MemberPage() {
     })
   }
 
-  // 保存 Drawer 修改
-  const handleSaveChanges = async () => {
-    if (!selectedMember) return
-
-    try {
-      // 更新收款账户地址
-      if (
-        drawerChanges.receivingWallet !== undefined &&
-        drawerChanges.receivingWallet !== selectedMember.receivingWallet
-      ) {
-        await apis.organization.updateMemberAccountAddress(selectedMember.memberId, drawerChanges.receivingWallet)
-      }
-
-      // 更新支付意向（Service Fee）
-      if (drawerChanges.serviceFee !== undefined && drawerChanges.serviceFee !== selectedMember.serviceFee) {
-        const currency = drawerChanges.currency || selectedMember.currency || ''
-        await apis.organization.updateMemberPayoutIntent(
-          selectedMember.memberId,
-          drawerChanges.serviceFee.toString(),
-          getChainIdByCurrency(currency),
-          currency
-        )
-      }
-
-      // 更新本地状态(体现立即更新的效果，这里应该重新请求成员列表，暂时这样写)
-      setMembers(prev =>
-        prev.map(m =>
-          m.id === selectedMember.id
-            ? {
-                ...m,
-                receivingWallet: drawerChanges.receivingWallet ?? m.receivingWallet,
-                serviceFee: drawerChanges.serviceFee ?? m.serviceFee,
-                currency: drawerChanges.currency ?? m.currency,
-                role: drawerChanges.role ?? m.role
-              }
-            : m
-        )
-      )
-
-      toast({
-        title: 'Success',
-        description: 'Member information updated successfully!'
-      })
-
-      setDrawerChanges({})
-      setDrawerOpen(false)
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.message || 'Failed to update member information',
-        variant: 'destructive'
-      })
-    }
-  }
 
   // 检查是否有未保存的修改
   const hasUnsavedChanges = Object.keys(drawerChanges).length > 0
@@ -898,7 +844,9 @@ export default function MemberPage() {
                 hasUnsavedChanges={hasUnsavedChanges}
                 onDrawerChanges={setDrawerChanges}
                 onGetAssetNameByCurrency={getAssetNameByCurrency}
-                onSaveChanges={handleSaveChanges}
+                onGetChainIdByCurrency={getChainIdByCurrency}
+                onUpdateMembers={setMembers}
+                onDrawerClose={() => setDrawerOpen(false)}
                 onRemoveMember={(member) => {
                   setMemberToRemove(member)
                   setRemoveMemberDialogOpen(true)

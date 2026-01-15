@@ -1,3 +1,4 @@
+import apis from '@/apis'
 import { AssetChain } from '@/apis/orgnization.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import { useToast } from '@/components/ui/use-toast'
 import { DrawerChanges, Member, MemberRole } from './types'
 
 interface MemberDetailContentProps {
@@ -16,7 +18,9 @@ interface MemberDetailContentProps {
   hasUnsavedChanges: boolean
   onDrawerChanges: (changes: DrawerChanges) => void
   onGetAssetNameByCurrency: (currency: string) => string
-  onSaveChanges: () => void
+  onGetChainIdByCurrency: (currency: string) => string
+  onUpdateMembers: (updater: (prev: Member[]) => Member[]) => void
+  onDrawerClose: () => void
   onRemoveMember: (member: Member) => void
 }
 
@@ -28,9 +32,67 @@ export function MemberDetailContent({
   hasUnsavedChanges,
   onDrawerChanges,
   onGetAssetNameByCurrency,
-  onSaveChanges,
+  onGetChainIdByCurrency,
+  onUpdateMembers,
+  onDrawerClose,
   onRemoveMember
 }: MemberDetailContentProps) {
+  const { toast } = useToast()
+
+  // 保存 Drawer 修改
+  const handleSaveChanges = async () => {
+    if (!selectedMember) return
+
+    try {
+      // 更新收款账户地址
+      if (
+        drawerChanges.receivingWallet !== undefined &&
+        drawerChanges.receivingWallet !== selectedMember.receivingWallet
+      ) {
+        await apis.organization.updateMemberAccountAddress(selectedMember.memberId, drawerChanges.receivingWallet)
+      }
+
+      // 更新支付意向（Service Fee）
+      if (drawerChanges.serviceFee !== undefined && drawerChanges.serviceFee !== selectedMember.serviceFee) {
+        const currency = drawerChanges.currency || selectedMember.currency || ''
+        await apis.organization.updateMemberPayoutIntent(
+          selectedMember.memberId,
+          drawerChanges.serviceFee.toString(),
+          onGetChainIdByCurrency(currency),
+          currency
+        )
+      }
+
+      // 更新本地状态(体现立即更新的效果，这里应该重新请求成员列表，暂时这样写)
+      onUpdateMembers(prev =>
+        prev.map(m =>
+          m.id === selectedMember.id
+            ? {
+                ...m,
+                receivingWallet: drawerChanges.receivingWallet ?? m.receivingWallet,
+                serviceFee: drawerChanges.serviceFee ?? m.serviceFee,
+                currency: drawerChanges.currency ?? m.currency,
+                role: drawerChanges.role ?? m.role
+              }
+            : m
+        )
+      )
+
+      toast({
+        title: 'Success',
+        description: 'Member information updated successfully!'
+      })
+
+      onDrawerChanges({})
+      onDrawerClose()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.message || 'Failed to update member information',
+        variant: 'destructive'
+      })
+    }
+  }
   return (
     <>
       <DrawerHeader>
@@ -44,6 +106,10 @@ export function MemberDetailContent({
               <Badge className="mt-1">{selectedMember.role}</Badge>
             </div>
           </div>
+            <div>
+              <Label className="text-muted-foreground text-xs mr-2">Status</Label>
+              <Badge className="mt-1">{selectedMember.status}</Badge>
+            </div>
         </div>
       </DrawerHeader>
 
@@ -154,24 +220,6 @@ export function MemberDetailContent({
               </p>
             </div>
             <div>
-              <Label className="text-muted-foreground text-xs">Status</Label>
-              <Badge className="mt-1">{selectedMember.status}</Badge>
-            </div>
-            {selectedMember.status === 'Active' &&
-              selectedMember.role !== 'Admin' &&
-              (currentUserRole === 'Admin' ||
-                (currentUserRole === 'Operator' && selectedMember.role === 'Member')) && (
-                <div>
-                  <Button
-                    variant="link"
-                    className="text-destructive h-auto p-0"
-                    onClick={() => onRemoveMember(selectedMember)}
-                  >
-                    Remove Member
-                  </Button>
-                </div>
-              )}
-            <div>
               <Label className="text-muted-foreground text-xs">Join Date</Label>
               <p className="mt-1">{selectedMember.joinDate}</p>
             </div>
@@ -215,10 +263,24 @@ export function MemberDetailContent({
             </div>
           </div>
         </div>
+        {selectedMember.status === 'Active' &&
+          selectedMember.role !== 'Admin' &&
+          (currentUserRole === 'Admin' ||
+          (currentUserRole === 'Operator' && selectedMember.role === 'Member')) && (
+          <div>
+            <Button
+              variant="link"
+              className="text-destructive h-auto p-0"
+              onClick={() => onRemoveMember(selectedMember)}
+            >
+              Remove Member
+            </Button>
+          </div>
+        )}
       </div>
 
       <DrawerFooter>
-        <Button onClick={onSaveChanges} disabled={!hasUnsavedChanges} className="w-full">
+        <Button onClick={handleSaveChanges} disabled={!hasUnsavedChanges} className="w-full">
           Confirm Changes
         </Button>
       </DrawerFooter>
