@@ -17,7 +17,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
-import type { DrawerChanges, Member, MemberRole, MemberStatus, SortDirection, SortField } from '@/views/orgs/components/member-detail'
+import type {
+  DrawerChanges,
+  Member,
+  MemberRole,
+  MemberStatus,
+  SortDirection,
+  SortField
+} from '@/views/orgs/components/member-detail'
 import { MemberDetailContent } from '@/views/orgs/components/member-detail'
 import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Download, Edit2, Plus, Search, X, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -108,7 +115,7 @@ export default function MemberPage() {
 
           // 获取资产链信息
           const assetsChainsData = await apis.organization.getAssetsChains()
-          
+
           setAssetsChains(assetsChainsData)
         } catch (error: any) {
           toast({
@@ -134,7 +141,7 @@ export default function MemberPage() {
     const initializeOrganization = async () => {
       try {
         setLoading(true)
-        const existingOrgId = localStorage.getItem('organizationId')        
+        const existingOrgId = localStorage.getItem('organizationId')
         if (!existingOrgId) {
           // 没有 organizationId，获取组织列表
           const organizations = await apis.organization.getOrganizations()
@@ -338,7 +345,6 @@ export default function MemberPage() {
     })
   }
 
-
   // 检查是否有未保存的修改
   const hasUnsavedChanges = Object.keys(drawerChanges).length > 0
 
@@ -482,7 +488,12 @@ export default function MemberPage() {
 
     try {
       const currency = member.currency || ''
-      await apis.organization.updateMemberPayoutIntent(member.memberId, numValue.toString(), getChainIdByCurrency(currency), currency)
+      await apis.organization.updateMemberPayoutIntent(
+        member.memberId,
+        numValue.toString(),
+        getChainIdByCurrency(currency),
+        currency
+      )
       setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, serviceFee: numValue } : m)))
       toast({
         title: 'Success',
@@ -847,7 +858,7 @@ export default function MemberPage() {
                 onGetChainIdByCurrency={getChainIdByCurrency}
                 onUpdateMembers={setMembers}
                 onDrawerClose={() => setDrawerOpen(false)}
-                onRemoveMember={(member) => {
+                onRemoveMember={member => {
                   setMemberToRemove(member)
                   setRemoveMemberDialogOpen(true)
                 }}
