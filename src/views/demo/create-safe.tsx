@@ -115,13 +115,6 @@ export default function CreateSafeWallet() {
       const predAddr = await protocolKit.getAddress()
       setDeploymentStatus(`准备部署到地址: ${predAddr}`)
 
-      // C. 检查 Safe 是否已部署
-      const isDeployed = await protocolKit.isSafeDeployed()
-      if (isDeployed) {
-        setSafeAddress(predAddr)
-        setDeploymentStatus('Safe 已在链上部署！')
-        return
-      }
 
       // D. Gas 检查
       const deployTx = await protocolKit.createSafeDeploymentTransaction()

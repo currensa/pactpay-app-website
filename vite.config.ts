@@ -15,8 +15,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://pactpay-server.fly.dev',
-        // target: 'http://localhost:3000',
+        // target: 'https://pactpay-server.fly.dev',
+        target: 'http://localhost:3000',
         changeOrigin: true
       }
     }

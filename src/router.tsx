@@ -8,6 +8,7 @@ const Login = lazy(() => import('@/views/account/login'))
 const Identity = lazy(() => import('@/views/account/identity'))
 const ConnectSafeWallet = lazy(() => import('@/views/orgs/connect-safe'))
 const CreateSafe = lazy(() => import('@/views/demo/create-safe'))
+const ExecuteTransaction = lazy(() => import('@/views/demo/executeTransaction'))
 
 const Overview = lazy(() => import('@/views/member/overview'))
 const OrgsDetail = lazy(() => import('@/views/member/orgsdetail'))
@@ -39,7 +40,8 @@ const routes: RouteItem[] = [
       { path: 'identity', element: <Identity />, meta: { title: 'Identity' } },
       { path: 'organization/create', element: <CreateOrganization />, meta: { title: 'Create Organization' } },
       { path: 'organization/connect-safe', element: <ConnectSafeWallet />, meta: { title: 'Connect Safe Wallet' } },
-      { path: 'demo', element: <CreateSafe />, meta: { title: 'Create Safe Demo' } }
+      { path: 'demo', element: <CreateSafe />, meta: { title: 'Create Safe Demo' } },
+      { path: 'execute-transaction', element: <ExecuteTransaction />, meta: { title: 'Execute Transaction Demo' } }
     ] as RouteItem[]
   },
   {
