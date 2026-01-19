@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { IconBuilding, IconCurrencyDollar } from '@tabler/icons-react'
+import { useNavigate } from 'react-router-dom'
 
 interface ActivityItem {
   date: string
@@ -114,6 +115,13 @@ function PieChart({ data }: { data: DistributionData[] }) {
 }
 
 export default function Overview() {
+  const navigate = useNavigate()
+
+  const handleOrganizationClick = (organization: string) => {
+    // 跳转到组织详情页，当前无数据，传参暂时设置为空
+    navigate('/member/orgdetail', { state: { orgName: organization, orgId: '' } })
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -190,7 +198,14 @@ export default function Overview() {
                 {activities.map((activity, index) => (
                   <TableRow key={index}>
                     <TableCell className="font-medium">{activity.date}</TableCell>
-                    <TableCell>{activity.organization}</TableCell>
+                    <TableCell>
+                      <button
+                        onClick={() => handleOrganizationClick(activity.organization)}
+                        className="text-primary hover:underline cursor-pointer"
+                      >
+                        {activity.organization}
+                      </button>
+                    </TableCell>
                     <TableCell>{activity.amount.toLocaleString()}</TableCell>
                     <TableCell>{activity.token}</TableCell>
                     <TableCell>

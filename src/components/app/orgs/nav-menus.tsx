@@ -8,11 +8,12 @@ import {
 import {
   IconAnalyze,
   IconBook,
-  IconBuildingSkyscraper,
   IconCashMove,
   IconHelpCircle,
   IconLayoutDashboard,
-  IconSettings
+  IconSettings,
+  // IconBuildingSkyscraper,
+  IconUsers
 } from '@tabler/icons-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -31,10 +32,10 @@ const NavMainItems: MenuItem[] = [
     icon: IconLayoutDashboard
   },
   {
-    title: 'Organization',
-    key: 'organization',
-    url: '/orgs/organization',
-    icon: IconBuildingSkyscraper
+    title: 'Members',
+    key: 'members',
+    url: '/orgs/members',
+    icon: IconUsers
   },
   {
     title: 'Transactions',

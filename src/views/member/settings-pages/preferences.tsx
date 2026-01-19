@@ -24,7 +24,7 @@ export default function PreferencesSettings() {
           <CardContent className="space-y-8 pt-6">
             <div className="space-y-6">
               <div className="space-y-2">
-                <Label>Language</Label>
+                <Label className="mb-3 block">Language</Label>
                 <Select value={language} onValueChange={setLanguage}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select language" />
@@ -38,7 +38,7 @@ export default function PreferencesSettings() {
               </div>
 
               <div className="space-y-2">
-                <Label>Display Currency</Label>
+                <Label className="mb-3 block">Display Currency</Label>
                 <Select value={currency} onValueChange={setCurrency}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select currency" />

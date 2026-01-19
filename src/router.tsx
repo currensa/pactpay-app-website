@@ -19,7 +19,7 @@ const PreferencesSettings = lazy(() => import('@/views/member/settings-pages/pre
 const PrivacySettings = lazy(() => import('@/views/member/settings-pages/privacy'))
 
 const Dashboard = lazy(() => import('@/views/orgs/dashboard'))
-const Organization = lazy(() => import('@/views/orgs/organization'))
+const Members = lazy(() => import('@/views/orgs/members'))
 const CreateOrganization = lazy(() => import('@/views/orgs/create-organization'))
 const Transaction = lazy(() => import('@/views/transaction/transaction'))
 const Analytics = lazy(() => import('@/views/orgs/analytics'))
@@ -50,7 +50,7 @@ const routes: RouteItem[] = [
     children: [
       { index: true, element: <Navigate to="/orgs/dashboard" /> },
       { path: 'dashboard', element: <Dashboard />, meta: { title: 'Dashboard' } },
-      { path: 'organization', element: <Organization />, meta: { title: 'Organization' } },
+      { path: 'members', element: <Members />, meta: { title: 'Members' } },
       { path: 'transaction', element: <Transaction />, meta: { title: 'Transaction' } },
       { path: 'analytics', element: <Analytics />, meta: { title: 'Analytics' } },
       { path: 'settings', element: <Settings />, meta: { title: 'Settings' } }
