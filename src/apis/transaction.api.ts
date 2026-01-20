@@ -123,6 +123,35 @@ export interface ExecuteTransactionDto {
   signer?: string
 }
 
+export interface SignTransactionDto {
+  safeTxHash: string
+  signature: string
+  signerAddress: string
+}
+
+export interface TransactionCheckResponse {
+  canExecute: boolean
+  transaction: {
+    data: {
+      to: string
+      data: string
+      nonce: number
+      value: string
+      baseGas: string
+      gasPrice: string
+      gasToken: string
+      operation: number
+      safeTxGas: string
+      refundReceiver: string
+    }
+    safeTxHash: string
+    signatures: Record<string, any>
+  }
+  chainId: string
+  safe:string
+  threshold: number
+}
+
 export class TransactionApi {
   constructor(private readonly request: AxiosInstance) {}
   // 统一获取 organizationId（作为 getter，更简洁）
@@ -182,6 +211,18 @@ export class TransactionApi {
   // 执行交易
   async executeTransaction(safeTxHash: string, executeData: ExecuteTransactionDto) {
     const res = await this.request.post<{ success: boolean; transactionHash: string }>(`/transaction/execute/${safeTxHash}`, executeData)
+    return res.data
+  }
+
+  // 检查交易状态
+  async checkTransaction(safeTxHash: string) {
+    const res = await this.request.get<TransactionCheckResponse>(`/transaction/check/${safeTxHash}`)
+    return res.data
+  }
+
+  // 签名交易
+  async signTransaction(signData: SignTransactionDto) {
+    const res = await this.request.post<{ success: boolean }>(`/transaction/sign-transaction`, signData)
     return res.data
   }
 }

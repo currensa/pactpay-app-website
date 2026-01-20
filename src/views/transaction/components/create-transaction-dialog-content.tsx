@@ -1,3 +1,4 @@
+import { OrganizationMember } from '@/apis/orgnization.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -19,7 +20,7 @@ interface TransactionMember {
 
 interface CreateTransactionDialogContentProps {
   isCreatingFromReaction: boolean
-  organizationMembers: TransactionMember[]
+  organizationMembers: OrganizationMember[]
   membersLoading: boolean
   transactionDetailMembers: any[]
   onCreateTransaction: (params: {
@@ -60,7 +61,7 @@ export function CreateTransactionDialogContent({
   useEffect(() => {
     const initialFees: Record<string, string> = {}
     organizationMembers.forEach(member => {
-      initialFees[member.id] = member.serviceFee
+      initialFees[member.id] = member.payoutIntent?.amount || '0'
     })
     setMemberServiceFees(initialFees)
     setSelectedMembers(new Set())
@@ -212,7 +213,7 @@ export function CreateTransactionDialogContent({
                 <TableRow>
                   <TableHead className="w-12"></TableHead>
                   <TableHead>MEMBER</TableHead>
-                  <TableHead>EMAIL</TableHead>
+                  {/* <TableHead>EMAIL</TableHead> */}
                   <TableHead>ROLE</TableHead>
                   <TableHead>SERVICE FEE</TableHead>
                   <TableHead>WALLET ADDRESS</TableHead>
@@ -245,11 +246,11 @@ export function CreateTransactionDialogContent({
                               className="border-input accent-primary h-4 w-4 cursor-pointer rounded"
                             />
                       </TableCell>
-                      <TableCell className="font-medium">{member.name}</TableCell>
-                      <TableCell className="text-muted-foreground">{member.email}</TableCell>
+                      <TableCell className="font-medium">{member.showName}</TableCell>
+                      {/* <TableCell className="text-muted-foreground">{member.email}</TableCell> */}
                       <TableCell>
                         <Badge variant="outline" className="capitalize">
-                          {member.role}
+                          {member.roles[0]?.role}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -265,7 +266,7 @@ export function CreateTransactionDialogContent({
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground font-mono text-sm">
-                        {formatWalletAddress(member.walletAddress)}
+                        {formatWalletAddress(member.receivingAccounts[0]?.config?.address)}
                       </TableCell>
                     </TableRow>
                   ))

@@ -25,6 +25,7 @@ const Transaction = lazy(() => import('@/views/transaction/transaction'))
 const Analytics = lazy(() => import('@/views/orgs/analytics'))
 const Settings = lazy(() => import('@/views/orgs/settings'))
 const TransactionDetail = lazy(() => import('@/views/transaction/transaction-detail'))
+const TransactionDetailCopy = lazy(() => import('@/views/transaction/transaction-detail copy'))
 
 type RouteItem = RouteObject & {
   meta?: {
@@ -56,7 +57,7 @@ const routes: RouteItem[] = [
       { path: 'settings', element: <Settings />, meta: { title: 'Settings' } }
     ] as RouteItem[]
   },
-  { path: 'transaction/:chainId/:safeTxHash', element: <TransactionDetail />, meta: { title: 'Transaction Detail' } },
+  { path: 'transaction/:safeTxHash', element: <TransactionDetailCopy />, meta: { title: 'Transaction Detail' } },
   {
     path: 'member',
     children: [

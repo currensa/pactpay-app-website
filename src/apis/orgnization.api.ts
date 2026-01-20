@@ -144,6 +144,30 @@ export interface BindSafeWalletPayload {
   caipChainId: string
 }
 
+export interface OrganizationPaymentAccount {
+  id: string
+  orgId: string
+  type: string
+  config: {
+    nonce: number
+    owners: string[]
+    address: string
+    chainId: string
+    version: string
+    ecosystem: string
+    threshold: number
+    caipChainId: string
+  }
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PaymentAccountsResponse {
+  list: OrganizationPaymentAccount[]
+  total: number
+}
+
 export class OrgnizationApi {
   constructor(private readonly request: AxiosInstance) {}
 
@@ -220,6 +244,12 @@ export class OrgnizationApi {
   // 获取组织的资产链信息
   async getAssetsChains(): Promise<AssetChain[]> {
     const res = await this.request.get<AssetChain[]>(`/orgs/${this.orgId}/assets-chains`)
+    return res.data
+  }
+
+  // 获取组织支付账户详情
+  async getOrganizationPaymentAccounts(): Promise<PaymentAccountsResponse> {
+    const res = await this.request.get<PaymentAccountsResponse>(`/orgs/${this.orgId}/payment-accounts`)
     return res.data
   }
 

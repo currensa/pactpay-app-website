@@ -1,5 +1,5 @@
 import apis from '@/apis'
-import { OrganizationMember } from '@/apis/orgnization.api'
+import { MembersResponse, OrganizationMember } from '@/apis/orgnization.api'
 import { TransactionItem, TransactionPlan } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -165,7 +165,7 @@ export default function Transaction() {
   const [totalCount, setTotalCount] = useState(0)
 
   // 成员列表状态
-  const [organizationMembers, setOrganizationMembers] = useState<TransactionMember[]>([])
+  const [organizationMembers, setOrganizationMembers] = useState<MembersResponse['data']>([])
   const [membersLoading, setMembersLoading] = useState(false)
 
   const itemsPerPage = 10
@@ -178,8 +178,7 @@ export default function Transaction() {
     try {
       setMembersLoading(true)
       const response = await apis.organization.getOrganizationMembers(1, 100) // 获取所有成员
-      const transformedMembers = response.data.map(transformOrganizationMemberToTransactionMember)
-      setOrganizationMembers(transformedMembers)
+      setOrganizationMembers(response.data)
     } catch (error) {
       toast({
         title: 'Error',
@@ -429,21 +428,25 @@ export default function Transaction() {
     try {
       // 构建成员数据
       const members = Array.from(params.selectedMembers).map(memberId => {
+        const member = organizationMembers.find(m => m.id === memberId)
+        if (!member) {
+          throw new Error(`Member ${memberId} not found`)
+        }
         const fee = params.memberServiceFees[memberId] || '0'
-        // TODO: 需要从组织成员 API 获取 receivingAccountId
-        // 这里暂时使用模拟数据
         return {
-          memberId,
-          receivingAccountId: 1, // 需要从成员数据中获取
+          memberId:member.memberId,
+          receivingAccountId: Number(member.receivingAccounts[0].id), // 需要从成员数据中获取 暂时取成员的第一个收款账户
           amount: fee,
           currency: 'USDC'
         }
       })
 
+      const paymentAccounts = await apis.organization.getOrganizationPaymentAccounts()
+
       // 构建创建请求
       const payload = {
         payPeriod: params.executionDate ? new Date(params.executionDate).toISOString() : new Date().toISOString(),
-        paymentAccountId: 1, // TODO: 需要从组织配置中获取
+        paymentAccountId: Number(paymentAccounts.list[0].id), // TODO: 需要从组织配置中获取
         transactionName: params.transactionName || 'New Transaction',
         members
       }
