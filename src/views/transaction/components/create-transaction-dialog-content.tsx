@@ -9,15 +9,6 @@ import { cn } from '@/lib/utils'
 import { IconCalendar, IconLoader2 } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
 
-interface TransactionMember {
-  id: string
-  name: string
-  email: string
-  role: string
-  serviceFee: string
-  walletAddress: string
-}
-
 interface CreateTransactionDialogContentProps {
   isCreatingFromReaction: boolean
   organizationMembers: OrganizationMember[]
@@ -47,15 +38,21 @@ export function CreateTransactionDialogContent({
   const [transactionName, setTransactionName] = useState('')
   const [executionDate, setExecutionDate] = useState('')
 
-  // 计算总金额
-  const totalAmount = useMemo(() => {
-    let total = 0
+  // 根据 selectedMembers 按币种汇总金额
+  const amountByCurrency = useMemo(() => {
+    const totals: Record<string, number> = {}
+
     selectedMembers.forEach(memberId => {
-      const fee = memberServiceFees[memberId] || '0'
-      total += parseFloat(fee) || 0
+      const member = organizationMembers.find(m => m.id === memberId)
+      const currency = member?.payoutIntent?.currency || 'UNKNOWN'
+      const amount = parseFloat(memberServiceFees[memberId] || '0') || 0
+      totals[currency] = (totals[currency] || 0) + amount
     })
-    return total
-  }, [selectedMembers, memberServiceFees])
+
+    return Object.entries(totals)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([currency, amount]) => ({ currency, amount }))
+  }, [selectedMembers, memberServiceFees, organizationMembers])
 
   // 初始化服务费数据
   useEffect(() => {
@@ -262,7 +259,7 @@ export function CreateTransactionDialogContent({
                                 className="w-24"
                                 placeholder="0"
                               />
-                          <span className="text-muted-foreground text-sm">USDC</span>
+                          <span className="text-muted-foreground text-sm">{member.payoutIntent?.currency}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground font-mono text-sm">
@@ -335,7 +332,15 @@ export function CreateTransactionDialogContent({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground text-sm">Total Amount:</span>
-              <span className="text-sm font-medium">{totalAmount.toLocaleString()} USDC</span>
+              <span className="text-sm font-medium text-right">
+                {amountByCurrency.length === 0
+                  ? '-'
+                  : amountByCurrency.map(({ currency, amount }) => (
+                      <div key={currency}>
+                        {amount} {currency}
+                      </div>
+                    ))}
+              </span>
             </div>
           </div>
 
@@ -351,7 +356,7 @@ export function CreateTransactionDialogContent({
                   <div key={item.id} className="flex items-center justify-between rounded-lg border p-3">
                     <span className="font-medium">{item.member.showName}</span>
                     <span className="text-muted-foreground text-sm">
-                      {label}: {amount.toLocaleString()} {item.currency}
+                      {label}: {amount} {item.currency}
                     </span>
                   </div>
                 )
