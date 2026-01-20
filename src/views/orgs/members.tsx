@@ -726,7 +726,7 @@ export default function MemberPage() {
                         </Button>
                       )}
                     </TableCell>
-                    <TableCell>{member.network}</TableCell>
+                    <TableCell>{getAssetNameByCurrency(member.currency || '')}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
@@ -738,7 +738,7 @@ export default function MemberPage() {
                     </TableCell>
                     <TableCell className="group relative" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
-                        <span>{member.serviceFee.toLocaleString()} USDC</span>
+                        <span>{member.serviceFee} {member.currency}</span>
                         <Edit2
                           className="h-3 w-3 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
                           onClick={() => {
