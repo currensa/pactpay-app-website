@@ -1,5 +1,5 @@
 import apis from '@/apis'
-import { MembersResponse, OrganizationMember } from '@/apis/orgnization.api'
+import { MembersResponse } from '@/apis/orgnization.api'
 import { TransactionItem, TransactionPlan } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
-import { cn } from '@/lib/utils'
+import { cn, formatAmount, sumAmounts } from '@/lib/utils'
 import { Provider, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import Safe from '@safe-global/protocol-kit'
 import { IconAlertTriangle, IconFlame, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
@@ -78,24 +78,6 @@ function getTimeIcon(daysRemaining: number | null, isDueToday: boolean) {
   }
   return null
 }
-
-// 模拟成员数据
-// 将 OrganizationMember 转换为 TransactionMember
-function transformOrganizationMemberToTransactionMember(member: OrganizationMember): TransactionMember {
-  const primaryRole = member.roles?.[0]?.role || 'Member'
-  const receivingAccount = member.receivingAccounts?.[0]
-  const payoutIntent = member.payoutIntent
-
-  return {
-    id: member.memberId,
-    name: member.showName,
-    email: member.showName.includes('@') ? member.showName : '',
-    role: primaryRole.toLowerCase(),
-    serviceFee: payoutIntent ? payoutIntent.amount : '0',
-    walletAddress: receivingAccount?.config?.address || ''
-  }
-}
-
 
 
 
@@ -205,7 +187,8 @@ export default function Transaction() {
     const diffTime = payPeriodDate.getTime() - today.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-    const totalAmount = plan.items.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0)
+    const currency = plan.items[0]?.currency || 'USDC'
+    const totalAmount = sumAmounts(plan.items.map(item => item.amount || '0'), currency)
     const isComplete = plan.transactionStatus === 'success'
     const isDueToday = diffDays === 0 && !isComplete
 
@@ -232,24 +215,12 @@ export default function Transaction() {
         .replace(/\//g, '/'),
       daysRemaining: isComplete ? null : diffDays,
       isDueToday,
-      totalAmount: totalAmount.toLocaleString(),
-      currency: plan.items[0]?.currency || 'USDC',
+      totalAmount: formatAmount(totalAmount, currency),
+      currency,
       members: plan.items.length,
       network: plan.paymentAccount?.config?.network === '11155111' ? 'Ethereum' : 'Ethereum',
       isComplete,
       paymentAccount: plan.paymentAccount
-    }
-  }
-
-  // 将 TransactionItem 转换为 TransactionMember
-  const transformTransactionItem = (item: TransactionItem): TransactionMember => {
-    return {
-      id: item.memberId,
-      name: item.member.showName,
-      email: item.member.showName.includes('@') ? item.member.showName : '',
-      role: 'member', // 需要从其他地方获取角色信息
-      serviceFee: item.amount,
-      walletAddress: item.receivingConfig?.address || item.receivingAccount?.config?.address || ''
     }
   }
 
@@ -491,19 +462,11 @@ export default function Transaction() {
 
   const proposeSafeTransaction = async (transaction: Transaction) => {
     try {
-      // 1. 获取完整的交易详情
-      const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
-      console.log('Transaction plan detail:', transactionPlanDetail)
-
-      if (!transactionPlanDetail?.paymentAccount) {
-        throw new Error('Payment account not found')
-      }
-
-      // 2. 调用后端接口创建交易并获取 safeTxHash
+      // 1. 调用后端接口创建交易并获取 safeTxHash
       const { safeTxHash } = await apis.transaction.createTransactionFromBatch(transaction.id)
-      console.log('Safe transaction hash:', safeTxHash)
+
       transaction.transactionId = safeTxHash
-      // 5. 更新列表
+      // 2. 更新列表
       await fetchTransactionPlans()
 
       setCreatedTransactionId(safeTxHash)
@@ -536,13 +499,13 @@ export default function Transaction() {
   // 跳转到应用内的 Transaction Detail 页面
   const handleGoToSafeWalletPagePage = async (transaction: Transaction) => {
     try {
-      // 获取完整的交易详情以获取 chainId 与 transactionId
-      const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
-      if (!transactionPlanDetail?.paymentAccount) {
-        throw new Error('Payment account not found')
-      }
+      // // 获取完整的交易详情以获取 chainId 与 transactionId
+      // const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
+      // if (!transactionPlanDetail?.paymentAccount) {
+      //   throw new Error('Payment account not found')
+      // }
 
-      const txHash = transactionPlanDetail.transactionId
+      const txHash = transaction.transactionId
 
       // 使用内部路由跳转到刚创建的页面，URL 格式：/transaction/:safeTxHash
       navigate(`/transaction/${encodeURIComponent(String(txHash))}`)

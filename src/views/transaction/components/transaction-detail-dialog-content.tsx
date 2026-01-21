@@ -115,7 +115,7 @@ export function TransactionDetailDialogContent({
                         {formatWalletAddress(item.receivingConfig.address)}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {parseFloat(item.amount).toLocaleString()} {item.currency}
+                        {parseFloat(item.amount)} {item.currency}
                       </TableCell>
                     </TableRow>
                   ))
