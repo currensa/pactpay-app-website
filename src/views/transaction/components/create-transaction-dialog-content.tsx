@@ -115,6 +115,10 @@ export function CreateTransactionDialogContent({
   }
 
   const handleServiceFeeChange = (memberId: string, value: string) => {
+    // 限制不能为负数
+    if (value !== '' && parseFloat(value) < 0) {
+      return
+    }
     setMemberServiceFees((prev: Record<string, string>) => ({
       ...prev,
       [memberId]: value
@@ -254,6 +258,7 @@ export function CreateTransactionDialogContent({
                         <div className="flex items-center gap-2">
                               <Input
                                 type="number"
+                                min="0"
                                 value={memberServiceFees[member.id] || ''}
                                 onChange={e => handleServiceFeeChange(member.id, e.target.value)}
                                 className="w-24"

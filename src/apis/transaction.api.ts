@@ -129,6 +129,13 @@ export interface SignTransactionDto {
   signerAddress: string
 }
 
+export interface RejectTransactionDto {
+  safeTxHash: string
+  signature: string
+  ownerAddress: string
+  reason?: string
+}
+
 export interface StoredSafeTx {
   safeTxHash: string
   data: Record<string, any>
@@ -140,27 +147,41 @@ export interface CreateTransactionResult {
   safeTransaction: StoredSafeTx
 }
 
+export interface TransactionConfirmation {
+  owner?: string
+  signature: string
+  contractTransactionHash?: string
+  submissionDate?: string
+}
+
 export interface TransactionCheckResponse {
   canExecute: boolean
   transaction: {
-    data: {
-      to: string
-      data: string
-      nonce: number
-      value: string
-      baseGas: string
-      gasPrice: string
-      gasToken: string
-      operation: number
-      safeTxGas: string
-      refundReceiver: string
-    }
+    to: string
+    data: string
+    safe: string
+    nonce: number | string
+    value: string
+    baseGas: string
+    gasPrice: string
+    gasToken: string
+    operation: number
+    safeTxGas: string
     safeTxHash: string
-    signatures: Record<string, any>
+    confirmations: TransactionConfirmation[]
+    refundReceiver: string
+    signatures?: Record<string, any>
+    isExecuted?: boolean
+    isSuccessful?: boolean
+    transactionHash?: string // 链上交易哈希
+    executionDate?: string // 执行时间
+    fee?: string // 交易费用
+    gasUsed?: number // 使用的 gas
   }
   chainId: string
-  safe:string
+  safe: string
   threshold: number
+  rejections?: TransactionConfirmation[]
 }
 
 export class TransactionApi {
@@ -248,6 +269,12 @@ export class TransactionApi {
   // 签名交易
   async signTransaction(signData: SignTransactionDto) {
     const res = await this.request.post<{ success: boolean }>(`/transaction/sign-transaction`, signData)
+    return res.data
+  }
+
+  // 拒绝交易
+  async rejectTransaction(rejectData: RejectTransactionDto) {
+    const res = await this.request.post<{ success: boolean }>(`/transaction/reject-transaction`, rejectData)
     return res.data
   }
 }
