@@ -91,6 +91,11 @@ export default function TransactionDetail() {
 		const updated = await apis.transaction.checkTransaction(safeTxHash)
 		setChainId(updated.chainId)
 		setTx(updated)
+		if (updated.canExecute) {
+			console.log('updated.safe',updated)
+			// 通知服务器更新交易状态
+			await apis.transaction.getSyncStatus(updated.safe)
+		}
 	}, [safeTxHash])
 
 	useEffect(() => {
@@ -202,6 +207,10 @@ export default function TransactionDetail() {
 			const safeTransaction = convertToSafeTransaction(tx)
 
 			await protocolKit.executeTransaction(safeTransaction)
+
+			// 通知服务器更新交易状态
+			await apis.transaction.getSyncStatus(tx.safe)
+			
 
 			toast({ description: 'Transaction execution sent', variant: 'default' })
 			await refreshTx()

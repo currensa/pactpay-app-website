@@ -129,6 +129,17 @@ export interface SignTransactionDto {
   signerAddress: string
 }
 
+export interface StoredSafeTx {
+  safeTxHash: string
+  data: Record<string, any>
+  signatures: Record<string, any>
+}
+
+export interface CreateTransactionResult {
+  safeTxHash: string
+  safeTransaction: StoredSafeTx
+}
+
 export interface TransactionCheckResponse {
   canExecute: boolean
   transaction: {
@@ -193,6 +204,20 @@ export class TransactionApi {
   // 获取交易哈希
   async getTransactionHash(transaction_id: string) {
     const res = await this.request.get<{txHash:string}>(`/transaction/${this.orgId}/${transaction_id}/getTxHash`)
+    return res.data
+  }
+
+  // 创建交易并返回 safeTxHash
+  async createTransactionFromBatch(batchId: string) {
+    const res = await this.request.post<CreateTransactionResult>(
+      `/transaction/${this.orgId}/batch/${batchId}/create-transaction`
+    )
+    return res.data
+  }
+
+  // 同步交易状态
+  async getSyncStatus(safeAddress: string) {
+    const res = await this.request.get<{ status: string }>(`/transaction/sync-status/${safeAddress}`)
     return res.data
   }
 

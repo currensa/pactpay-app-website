@@ -23,7 +23,7 @@ import {
   ExecuteSuccessDialogContent,
   TransactionDetailDialogContent,
 } from './components'
-import type { Transaction } from './components/transaction/types'
+import type { Transaction } from './components/types'
 
 
 interface TransactionMember {
