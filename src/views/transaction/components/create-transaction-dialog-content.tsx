@@ -17,6 +17,7 @@ interface CreateTransactionDialogContentProps {
   onCreateTransaction: (params: {
     selectedMembers: Set<string>
     memberServiceFees: Record<string, string>
+    memberCurrencies: Record<string, string>
     transactionName: string
     executionDate: string
   }) => void
@@ -35,6 +36,7 @@ export function CreateTransactionDialogContent({
   const [currentStep, setCurrentStep] = useState(1)
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
   const [memberServiceFees, setMemberServiceFees] = useState<Record<string, string>>({})
+  const [memberCurrencies, setMemberCurrencies] = useState<Record<string, string>>({})
   const [transactionName, setTransactionName] = useState('')
   const [executionDate, setExecutionDate] = useState('')
 
@@ -57,10 +59,13 @@ export function CreateTransactionDialogContent({
   // 初始化服务费数据
   useEffect(() => {
     const initialFees: Record<string, string> = {}
+    const initialCurrency: Record<string, string> = {}
     organizationMembers.forEach(member => {
       initialFees[member.id] = member.payoutIntent?.amount || '0'
+      initialCurrency[member.id] = member.payoutIntent?.currency || 'USDC'
     })
     setMemberServiceFees(initialFees)
+    setMemberCurrencies(initialCurrency)
     setSelectedMembers(new Set())
     setCurrentStep(isCreatingFromReaction ? 2 : 1)
     setTransactionName(isCreatingFromReaction ? 'New Transaction (Re-action)' : '')
@@ -140,6 +145,7 @@ export function CreateTransactionDialogContent({
   const handleCreateTransaction = () => {
     onCreateTransaction({
       selectedMembers,
+      memberCurrencies,
       memberServiceFees,
       transactionName,
       executionDate,
@@ -240,12 +246,12 @@ export function CreateTransactionDialogContent({
                   organizationMembers.map(member => (
                     <TableRow key={member.id}>
                       <TableCell>
-                            <input
-                              type="checkbox"
-                              checked={selectedMembers.has(member.id)}
-                              onChange={() => handleMemberToggle(member.id)}
-                              className="border-input accent-primary h-4 w-4 cursor-pointer rounded"
-                            />
+                        <input
+                          type="checkbox"
+                          checked={selectedMembers.has(member.id)}
+                          onChange={() => handleMemberToggle(member.id)}
+                          className="border-input accent-primary h-4 w-4 cursor-pointer rounded"
+                        />
                       </TableCell>
                       <TableCell className="font-medium">{member.showName}</TableCell>
                       {/* <TableCell className="text-muted-foreground">{member.email}</TableCell> */}
@@ -256,15 +262,15 @@ export function CreateTransactionDialogContent({
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                min="0"
-                                value={memberServiceFees[member.id] || ''}
-                                onChange={e => handleServiceFeeChange(member.id, e.target.value)}
-                                className="w-24"
-                                placeholder="0"
-                              />
-                          <span className="text-muted-foreground text-sm">{member.payoutIntent?.currency}</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={memberServiceFees[member.id] || ''}
+                            onChange={e => handleServiceFeeChange(member.id, e.target.value)}
+                            className="w-24"
+                            placeholder="0"
+                          />
+                          <span className="text-muted-foreground text-sm">{memberCurrencies[member.id]}</span>
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground font-mono text-sm">
@@ -287,12 +293,12 @@ export function CreateTransactionDialogContent({
             {/* Transaction Name */}
             <div className="space-y-2">
               <Label htmlFor="transaction-name">Transaction Name</Label>
-                  <Input
-                    id="transaction-name"
-                    placeholder="Enter transaction name."
-                    value={transactionName}
-                    onChange={e => setTransactionName(e.target.value)}
-                  />
+              <Input
+                id="transaction-name"
+                placeholder="Enter transaction name."
+                value={transactionName}
+                onChange={e => setTransactionName(e.target.value)}
+              />
               <p className="text-muted-foreground text-xs">
                 Give this transaction a descriptive name for easy identification.
               </p>
@@ -302,15 +308,15 @@ export function CreateTransactionDialogContent({
             <div className="space-y-2">
               <Label htmlFor="execution-date">Execution Date</Label>
               <div className="relative">
-                    <Input
-                      id="execution-date"
-                      type="date"
-                      placeholder="年 / 月 / 日"
-                      value={executionDate}
-                      onChange={e => setExecutionDate(e.target.value)}
-                      min={getTodayDate()}
-                      className="pr-10"
-                    />
+                <Input
+                  id="execution-date"
+                  type="date"
+                  placeholder="年 / 月 / 日"
+                  value={executionDate}
+                  onChange={e => setExecutionDate(e.target.value)}
+                  min={getTodayDate()}
+                  className="pr-10"
+                />
                 <IconCalendar className="text-muted-foreground absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2" />
               </div>
               <p className="text-muted-foreground text-xs">
@@ -341,10 +347,10 @@ export function CreateTransactionDialogContent({
                 {amountByCurrency.length === 0
                   ? '-'
                   : amountByCurrency.map(({ currency, amount }) => (
-                      <div key={currency}>
-                        {amount} {currency}
-                      </div>
-                    ))}
+                    <div key={currency}>
+                      {amount} {currency}
+                    </div>
+                  ))}
               </span>
             </div>
           </div>
