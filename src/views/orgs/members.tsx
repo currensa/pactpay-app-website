@@ -1,4 +1,5 @@
 import apis from '@/apis'
+import type { AssetChain } from '@/apis/orgnization.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,43 +11,22 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
+import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
+import type {
+  Member,
+  MemberRole,
+  MemberStatus,
+  SortDirection,
+  SortField
+} from '@/views/orgs/components/member-detail'
+import { MemberDetailContent } from '@/views/orgs/components/member-detail'
 import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Download, Edit2, Plus, Search, X, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-
-// 类型定义
-type MemberRole = 'Admin' | 'Operator' | 'Member'
-type MemberStatus = 'Active' | 'Pending' | 'Inactive'
-type SortField = 'name' | 'serviceFee' | 'lastPayment' | null
-type SortDirection = 'asc' | 'desc' | null
-
-interface Member {
-  id: string
-  memberId: string
-  name: string
-  email: string
-  receivingWallet: string | null
-  network: string
-  role: MemberRole
-  serviceFee: number
-  status: MemberStatus
-  lastPayment: string | null
-  joinDate: string
-  avatar?: string
-}
-
-interface DrawerChanges {
-  receivingWallet?: string
-  serviceFee?: number
-  role?: MemberRole
-}
 
 export default function MemberPage() {
   const { toast } = useToast()
@@ -62,7 +42,7 @@ export default function MemberPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [drawerChanges, setDrawerChanges] = useState<DrawerChanges>({})
+  const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
   const [inviteSectionOpen, setInviteSectionOpen] = useState(false)
   const [inviteCode, setInviteCode] = useState('ORG-A3K9-7B2M')
   const [inviteLink, setInviteLink] = useState('https://pactpay.com/join/eng-team/inv-x9k2...')
@@ -81,7 +61,8 @@ export default function MemberPage() {
 
   // 将 API 返回的成员数据转换为组件使用的格式
   const transformMember = (apiMember: any): Member => {
-    const primaryRole = apiMember.roles?.[0]?.role || 'Member'
+    const roles = apiMember.roles?.map((r: any) => r.role as MemberRole) || []
+    const primaryRole = roles[0] || 'Member'
     const receivingAccount = apiMember.receivingAccounts?.[0]
     const payoutIntent = apiMember.payoutIntent
 
@@ -91,9 +72,11 @@ export default function MemberPage() {
       name: apiMember.showName || apiMember.memberId,
       email: apiMember.showName?.includes('@') ? apiMember.showName : '',
       receivingWallet: receivingAccount?.config?.address || null,
-      network: payoutIntent?.network || 'Ethereum Mainnet',
+      network: payoutIntent?.network,
       role: primaryRole as MemberRole,
+      roles: roles.length > 0 ? roles : undefined,
       serviceFee: payoutIntent ? parseFloat(payoutIntent.amount) : 0,
+      currency: payoutIntent?.currency,
       status: apiMember.status === 'active' ? 'Active' : apiMember.status === 'pending' ? 'Pending' : 'Inactive',
       lastPayment: apiMember.lastPayment || null,
       joinDate: apiMember.createdAt ? new Date(apiMember.createdAt).toISOString().split('T')[0] : '',
@@ -101,81 +84,17 @@ export default function MemberPage() {
     }
   }
 
-  // 获取组织列表并设置到 localStorage
-  useEffect(() => {
-    const fetchOrganizations = async () => {
-      try {
-        setLoading(true)
-        const organizations = await apis.organization.getOrganizations()
+  // 根据货币符号获取对应的链ID
+  const getChainIdByCurrency = (currency: string): string => {
+    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
+    return assetChain?.chain.chainId || ''
+  }
 
-        if (organizations && Array.isArray(organizations) && organizations.length > 0) {
-          // 使用第一个组织的 orgId 作为当前组织，并保存到 localStorage
-          const orgId = organizations[0].organization?.orgId
-          if (orgId) {
-            localStorage.setItem('organizationId', orgId)
-            // 触发数据获取
-            window.dispatchEvent(new Event('organizationIdChanged'))
-          } else {
-            toast({
-              title: 'Warning',
-              description: 'Organization ID not found',
-              variant: 'destructive'
-            })
-            setLoading(false)
-          }
-        } else {
-          // 没有组织，显示提示信息
-          toast({
-            title: 'No Organizations',
-            description: 'You do not have any organizations. Please create one first.',
-            variant: 'destructive'
-          })
-          setLoading(false)
-        }
-      } catch (error: any) {
-        console.error('Failed to load organizations:', error)
-        toast({
-          title: 'Error',
-          description: error?.response?.data?.message || error?.message || 'Failed to load organizations',
-          variant: 'destructive'
-        })
-        setLoading(false)
-      }
-    }
-
-    // 如果 localStorage 中已有 organizationId，直接获取数据
-    const existingOrgId = localStorage.getItem('organizationId')
-    if (existingOrgId) {
-      // 直接获取数据
-      const fetchData = async () => {
-        try {
-          setLoading(true)
-          // 获取成员列表
-          const membersResponse = await apis.organization.getOrganizationMembers(currentPage, pageSize)
-          const transformedMembers = membersResponse.data.map(transformMember)
-          setMembers(transformedMembers)
-
-          // 获取邀请码
-          const inviteCodeData = await apis.organization.getOrganizationInviteCode()
-          setInviteCode(inviteCodeData.code)
-          // 根据邀请码生成邀请链接
-          setInviteLink(`${window.location.origin}/join/${inviteCodeData.code}`)
-        } catch (error: any) {
-          toast({
-            title: 'Error',
-            description: error?.response?.data?.message || 'Failed to load data',
-            variant: 'destructive'
-          })
-        } finally {
-          setLoading(false)
-        }
-      }
-      fetchData()
-    } else {
-      // 没有 organizationId，先获取组织列表
-      fetchOrganizations()
-    }
-  }, [currentPage])
+  // 根据货币符号获取对应的资产名称
+  const getAssetNameByCurrency = (currency: string): string => {
+    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
+    return assetChain?.chain.name || ''
+  }
 
   // 监听 organizationId 变化事件
   useEffect(() => {
@@ -193,6 +112,11 @@ export default function MemberPage() {
           setInviteCode(inviteCodeData.code)
           // 根据邀请码生成邀请链接
           setInviteLink(`${window.location.origin}/join/${inviteCodeData.code}`)
+
+          // 获取资产链信息
+          const assetsChainsData = await apis.organization.getAssetsChains()
+
+          setAssetsChains(assetsChainsData)
         } catch (error: any) {
           toast({
             title: 'Error',
@@ -211,6 +135,58 @@ export default function MemberPage() {
       window.removeEventListener('organizationIdChanged', handleOrganizationIdChange)
     }
   }, [currentPage])
+
+  // 组织初始化：只在组件挂载时执行一次
+  useEffect(() => {
+    const initializeOrganization = async () => {
+      try {
+        setLoading(true)
+        const existingOrgId = localStorage.getItem('organizationId')
+        if (!existingOrgId) {
+          // 没有 organizationId，获取组织列表
+          const organizations = await apis.organization.getOrganizations()
+
+          if (organizations && Array.isArray(organizations) && organizations.length > 0) {
+            // 使用第一个组织的 orgId 作为当前组织，并保存到 localStorage
+            const orgId = organizations[0].organization?.orgId
+            if (orgId) {
+              localStorage.setItem('organizationId', orgId)
+              // 触发数据获取事件
+              window.dispatchEvent(new Event('organizationIdChanged'))
+            } else {
+              toast({
+                title: 'Warning',
+                description: 'Organization ID not found',
+                variant: 'destructive'
+              })
+              setLoading(false)
+            }
+          } else {
+            // 没有组织，显示提示信息
+            toast({
+              title: 'No Organizations',
+              description: 'You do not have any organizations. Please create one first.',
+              variant: 'destructive'
+            })
+            setLoading(false)
+          }
+        } else {
+          // 有 organizationId，直接触发数据获取事件
+          window.dispatchEvent(new Event('organizationIdChanged'))
+        }
+      } catch (error: any) {
+        console.error('Failed to initialize organization:', error)
+        toast({
+          title: 'Error',
+          description: error?.response?.data?.message || error?.message || 'Failed to initialize organization',
+          variant: 'destructive'
+        })
+        setLoading(false)
+      }
+    }
+
+    initializeOrganization()
+  }, []) // 只在组件挂载时执行一次
 
   // 搜索防抖
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -306,7 +282,6 @@ export default function MemberPage() {
   // 打开详情 Drawer
   const openMemberDrawer = (member: Member) => {
     setSelectedMember(member)
-    setDrawerChanges({})
     setDrawerOpen(true)
   }
 
@@ -369,72 +344,9 @@ export default function MemberPage() {
     })
   }
 
-  // 保存 Drawer 修改
-  const handleSaveChanges = async () => {
-    if (!selectedMember) return
-
-    try {
-      // 更新收款账户地址
-      if (
-        drawerChanges.receivingWallet !== undefined &&
-        drawerChanges.receivingWallet !== selectedMember.receivingWallet
-      ) {
-        await apis.organization.updateMemberAccountAddress(selectedMember.memberId, drawerChanges.receivingWallet)
-      }
-
-      // 更新支付意向（Service Fee）
-      if (drawerChanges.serviceFee !== undefined && drawerChanges.serviceFee !== selectedMember.serviceFee) {
-        await apis.organization.updateMemberPayoutIntent(
-          selectedMember.memberId,
-          drawerChanges.serviceFee.toString(),
-          selectedMember.network
-        )
-      }
-
-      // 更新本地状态(体现立即更新的效果，这里应该重新请求成员列表，暂时这样写)
-      setMembers(prev =>
-        prev.map(m =>
-          m.id === selectedMember.id
-            ? {
-                ...m,
-                receivingWallet: drawerChanges.receivingWallet ?? m.receivingWallet,
-                serviceFee: drawerChanges.serviceFee ?? m.serviceFee,
-                role: drawerChanges.role ?? m.role
-              }
-            : m
-        )
-      )
-
-      toast({
-        title: 'Success',
-        description: 'Member information updated successfully!'
-      })
-
-      setDrawerChanges({})
-      setDrawerOpen(false)
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.message || 'Failed to update member information',
-        variant: 'destructive'
-      })
-    }
-  }
-
-  // 检查是否有未保存的修改
-  const hasUnsavedChanges = Object.keys(drawerChanges).length > 0
-
-  // 关闭 Drawer 前检查
+  // 关闭 Drawer
   const handleDrawerClose = (open: boolean) => {
-    if (!open && hasUnsavedChanges) {
-      // TODO: 显示确认对话框
-      if (window.confirm('You have unsaved changes. Do you want to discard them?')) {
-        setDrawerOpen(false)
-        setDrawerChanges({})
-      }
-    } else {
-      setDrawerOpen(open)
-    }
+    setDrawerOpen(open)
   }
 
   // 邮箱格式校验
@@ -563,7 +475,13 @@ export default function MemberPage() {
     }
 
     try {
-      await apis.organization.updateMemberPayoutIntent(member.memberId, numValue.toString(), member.network)
+      const currency = member.currency || ''
+      await apis.organization.updateMemberPayoutIntent(
+        member.memberId,
+        numValue.toString(),
+        getChainIdByCurrency(currency),
+        currency
+      )
       setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, serviceFee: numValue } : m)))
       toast({
         title: 'Success',
@@ -796,7 +714,7 @@ export default function MemberPage() {
                         </Button>
                       )}
                     </TableCell>
-                    <TableCell>{member.network}</TableCell>
+                    <TableCell>{getAssetNameByCurrency(member.currency || '')}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
@@ -808,7 +726,7 @@ export default function MemberPage() {
                     </TableCell>
                     <TableCell className="group relative" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
-                        <span>{member.serviceFee.toLocaleString()} USDC</span>
+                        <span>{member.serviceFee} {member.currency}</span>
                         <Edit2
                           className="h-3 w-3 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
                           onClick={() => {
@@ -917,164 +835,20 @@ export default function MemberPage() {
         <DrawerContent className="max-h-[100vh]">
           <div className="overflow-y-auto p-4">
             {selectedMember && (
-              <>
-                <DrawerHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full">
-                        <span className="text-lg font-medium">{selectedMember.name[0].toUpperCase()}</span>
-                      </div>
-                      <div>
-                        <DrawerTitle>{selectedMember.name}</DrawerTitle>
-                        <Badge className="mt-1">{selectedMember.role}</Badge>
-                      </div>
-                    </div>
-                  </div>
-                </DrawerHeader>
-
-                <div className="space-y-6 px-4 pb-4 max-h-[calc(100vh-200px)] overflow-y-auto">
-                  {/* Basic Information */}
-                  <div>
-                    <h3 className="text-muted-foreground mb-4 text-xs uppercase">BASIC INFORMATION</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <Label className="text-muted-foreground text-xs">Email</Label>
-                        <p className="mt-1">{selectedMember.email}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-xs">Receiving Wallet Address</Label>
-                        <Input
-                          value={
-                            drawerChanges.receivingWallet !== undefined
-                              ? drawerChanges.receivingWallet
-                              : selectedMember.receivingWallet || ''
-                          }
-                          onChange={e =>
-                            setDrawerChanges({
-                              ...drawerChanges,
-                              receivingWallet: e.target.value
-                            })
-                          }
-                          placeholder="0x..."
-                          className="mt-1 font-mono"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-xs">Service Fee</Label>
-                        <Input
-                          type="number"
-                          value={
-                            drawerChanges.serviceFee !== undefined
-                              ? drawerChanges.serviceFee
-                              : selectedMember.serviceFee
-                          }
-                          onChange={e =>
-                            setDrawerChanges({
-                              ...drawerChanges,
-                              serviceFee: parseFloat(e.target.value) || 0
-                            })
-                          }
-                          className="mt-1"
-                        />
-                      </div>
-                      {selectedMember.status === 'Active' &&
-                        selectedMember.role !== 'Admin' &&
-                        currentUserRole === 'Admin' && (
-                          <div>
-                            <Label className="text-muted-foreground text-xs">Role</Label>
-                            <Select
-                              value={drawerChanges.role || selectedMember.role}
-                              onValueChange={(value: string) =>
-                                setDrawerChanges({ ...drawerChanges, role: value as MemberRole })
-                              }
-                            >
-                              <SelectTrigger className="mt-1">
-                                {drawerChanges.role || selectedMember.role}
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Member">Member</SelectItem>
-                                <SelectItem value="Operator">Operator</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-                      <div>
-                        <Label className="text-muted-foreground text-xs">Network</Label>
-                        <p className="mt-1">{selectedMember.network}</p>
-                      </div>
-                      <div>
-                        <Label className="text-muted-foreground text-xs">Status</Label>
-                        <Badge className="mt-1">{selectedMember.status}</Badge>
-                      </div>
-                      {selectedMember.status === 'Active' &&
-                        selectedMember.role !== 'Admin' &&
-                        (currentUserRole === 'Admin' ||
-                          (currentUserRole === 'Operator' && selectedMember.role === 'Member')) && (
-                          <div>
-                            <Button
-                              variant="link"
-                              className="text-destructive h-auto p-0"
-                              onClick={() => {
-                                setMemberToRemove(selectedMember)
-                                setRemoveMemberDialogOpen(true)
-                              }}
-                            >
-                              Remove Member
-                            </Button>
-                          </div>
-                        )}
-                      <div>
-                        <Label className="text-muted-foreground text-xs">Join Date</Label>
-                        <p className="mt-1">{selectedMember.joinDate}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Payment Statistics */}
-                  <div>
-                    <h3 className="text-muted-foreground mb-4 text-xs uppercase">PAYMENT STATISTICS</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground text-sm">Total Received</span>
-                        <span className="font-medium">$25,000 USDC</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground text-sm">Last Payment Date</span>
-                        <span className="font-medium">{selectedMember.lastPayment || '-'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground text-sm">Payment Count</span>
-                        <span className="font-medium">5 payments</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Activity Log */}
-                  <div>
-                    <h3 className="text-muted-foreground mb-4 text-xs uppercase">ACTIVITY LOG</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-muted-foreground text-xs">2024-01-15 10:30</p>
-                        <p className="text-sm">Received payment: 5000 USDC</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground text-xs">2024-01-01 09:00</p>
-                        <p className="text-sm">Joined organization</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <DrawerFooter>
-                  <Button onClick={handleSaveChanges} disabled={!hasUnsavedChanges} className="w-full">
-                    Confirm Changes
-                  </Button>
-                </DrawerFooter>
-              </>
+              <MemberDetailContent
+                selectedMember={selectedMember}
+                currentUserRole={currentUserRole}
+                onDrawerClose={() => setDrawerOpen(false)}
+                onRemoveMember={member => {
+                  setMemberToRemove(member)
+                  setRemoveMemberDialogOpen(true)
+                }}
+                onSaveSuccess={updatedMember => {
+                  setMembers(prev =>
+                    prev.map(m => (m.id === updatedMember.id ? updatedMember : m))
+                  )
+                }}
+              />
             )}
           </div>
         </DrawerContent>

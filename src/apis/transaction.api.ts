@@ -54,7 +54,6 @@ export interface TransactionPlan {
     | 'proposed' // 2️⃣ 已 propose（有 safeTxHash）
     | 'confirming' // 3️⃣ 收集中（未达到 threshold）
     | 'ready' // 4️⃣ 签名满足，可执行
-    | 'executing' // 5️⃣ 已提交执行，等链上结果
     | 'success' // 6️⃣ 执行成功
     | 'failed' // ❌ 执行失败（最终态）
   payPeriod: string
@@ -67,6 +66,7 @@ export interface TransactionPlan {
       nonce: number
       owners: string[]
       address: string
+      chainId: string
       network: string
       version: string
       threshold: number
@@ -115,6 +115,75 @@ export interface ProposeTransaction {
   signerAddress:string,
 }
 
+export interface ConfirmTransactionDto {
+  signature: string
+}
+
+export interface ExecuteTransactionDto {
+  signer?: string
+}
+
+export interface SignTransactionDto {
+  safeTxHash: string
+  signature: string
+  signerAddress: string
+}
+
+export interface RejectTransactionDto {
+  safeTxHash: string
+  signature: string
+  ownerAddress: string
+  reason?: string
+}
+
+export interface StoredSafeTx {
+  safeTxHash: string
+  data: Record<string, any>
+  signatures: Record<string, any>
+}
+
+export interface CreateTransactionResult {
+  safeTxHash: string
+  safeTransaction: StoredSafeTx
+}
+
+export interface TransactionConfirmation {
+  owner?: string
+  signature: string
+  contractTransactionHash?: string
+  submissionDate?: string
+}
+
+export interface TransactionCheckResponse {
+  canExecute: boolean
+  transaction: {
+    to: string
+    data: string
+    safe: string
+    nonce: number | string
+    value: string
+    baseGas: string
+    gasPrice: string
+    gasToken: string
+    operation: number
+    safeTxGas: string
+    safeTxHash: string
+    confirmations: TransactionConfirmation[]
+    refundReceiver: string
+    signatures?: Record<string, any>
+    isExecuted?: boolean
+    isSuccessful?: boolean
+    transactionHash?: string // 链上交易哈希
+    executionDate?: string // 执行时间
+    fee?: string // 交易费用
+    gasUsed?: number // 使用的 gas
+  }
+  chainId: string
+  safe: string
+  threshold: number
+  rejections?: TransactionConfirmation[]
+}
+
 export class TransactionApi {
   constructor(private readonly request: AxiosInstance) {}
   // 统一获取 organizationId（作为 getter，更简洁）
@@ -159,9 +228,53 @@ export class TransactionApi {
     return res.data
   }
 
+  // 创建交易并返回 safeTxHash
+  async createTransactionFromBatch(batchId: string) {
+    const res = await this.request.post<CreateTransactionResult>(
+      `/transaction/${this.orgId}/batch/${batchId}/create-transaction`
+    )
+    return res.data
+  }
+
+  // 同步交易状态
+  async getSyncStatus(safeAddress: string) {
+    const res = await this.request.get<{ status: string }>(`/transaction/sync-status/${safeAddress}`)
+    return res.data
+  }
+
   // 发起交易
   async proposeTransaction(transaction_id: string,ProposeTransaction: ProposeTransaction ) {
     const res = await this.request.post<{success:boolean, safeTxHash:string}>(`/transaction/${this.orgId}/${transaction_id}/propose`, ProposeTransaction)
+    return res.data
+  }
+
+  // 确认交易
+  async confirmTransaction(safeTxHash: string, confirmData: ConfirmTransactionDto) {
+    const res = await this.request.post<{ success: boolean }>(`/transaction/confirm/${safeTxHash}`, confirmData)
+    return res.data
+  }
+
+  // 执行交易
+  async executeTransaction(safeTxHash: string, executeData: ExecuteTransactionDto) {
+    const res = await this.request.post<{ success: boolean; transactionHash: string }>(`/transaction/execute/${safeTxHash}`, executeData)
+    return res.data
+  }
+
+  // 检查交易状态
+  async checkTransaction(safeTxHash: string) {
+    const res = await this.request.get<TransactionCheckResponse>(`/transaction/check/${safeTxHash}`)
+    return res.data
+  }
+
+  // 签名交易
+  async signTransaction(signData: SignTransactionDto) {
+    const res = await this.request.post<{ success: boolean }>(`/transaction/sign-transaction`, signData)
+    return res.data
+  }
+
+  // 拒绝交易
+  async rejectTransaction(rejectData: RejectTransactionDto) {
+    const res = await this.request.post<{ success: boolean }>(`/transaction/reject-transaction`, rejectData)
     return res.data
   }
 }

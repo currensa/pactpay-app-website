@@ -33,7 +33,8 @@ export default function CreateOrganization() {
       localStorage.setItem('organizationId', org.orgId)
 
       // Navigate to connect Safe Wallet page with organization ID
-      navigate('/account/organization/connect-safe')
+      // navigate('/account/organization/connect-safe')
+      navigate('/orgs/dashboard')
     } catch (error) {
       console.error('Failed to create organization:', error)
     } finally {

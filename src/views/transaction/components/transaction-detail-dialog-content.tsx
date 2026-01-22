@@ -1,0 +1,166 @@
+import apis from '@/apis'
+import type { AssetChain } from '@/apis/orgnization.api'
+import { TransactionItem } from '@/apis/transaction.api'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useToast } from '@/components/ui/use-toast'
+import { useEffect, useState } from 'react'
+import { Transaction } from './types'
+
+function getStatusBadge(status: Transaction['status']) {
+  switch (status) {
+    case 'ready':
+      return <Badge variant="default">Ready</Badge>
+    case 'pending':
+      return <Badge variant="warning">Pending</Badge>
+    case 'complete':
+      return <Badge variant="success">Complete</Badge>
+    case 'failed':
+      return <Badge variant="destructive">Failed</Badge>
+    default:
+      return <Badge variant="secondary">{status}</Badge>
+  }
+}
+
+function formatWalletAddress(address: string): string {
+  if (address.length <= 10) return address
+  return `${address.slice(0, 6)}...${address.slice(-4)}`
+}
+
+interface TransactionDetailDialogContentProps {
+  selectedTransaction: Transaction | null
+  transactionDetailMembers: TransactionItem[]
+  onExecuteNow: (transaction: Transaction) => void
+}
+
+export function TransactionDetailDialogContent({
+  selectedTransaction,
+  transactionDetailMembers,
+  onExecuteNow,
+}: TransactionDetailDialogContentProps) {
+  const { toast } = useToast()
+  const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
+
+  // 获取资产链信息
+  useEffect(() => {
+    const fetchAssetsChains = async () => {
+      try {
+        const data = await apis.organization.getAssetsChains()
+        setAssetsChains(data)
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error?.response?.data?.message || 'Failed to load assets chains',
+          variant: 'destructive'
+        })
+      }
+    }
+    fetchAssetsChains()
+  }, [])
+
+  // 根据货币符号获取对应的资产名称
+  const getAssetNameByCurrency = (currency: string): string => {
+    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
+    return assetChain?.chain.name || ''
+  }
+
+  if (!selectedTransaction) {
+    return null
+  }
+
+  return (
+    <div className="flex flex-col space-y-6">
+      <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <DialogTitle>{selectedTransaction.name}</DialogTitle>
+      </DialogHeader>
+
+      <div className="space-y-6">
+        {/* 交易信息 */}
+        <div className="flex items-start justify-between">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{selectedTransaction.executionDate}</span>
+              {selectedTransaction.isDueToday && (
+                <Badge variant="warning" className="text-xs">
+                  Due Today
+                </Badge>
+              )}
+            </div>
+            <div>
+              <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                {getAssetNameByCurrency(selectedTransaction.currency) || selectedTransaction.currency}
+              </Badge>
+            </div>
+            <div>{getStatusBadge(selectedTransaction.status)}</div>
+          </div>
+          {!selectedTransaction.isComplete && (
+            <Button variant="default" onClick={() => onExecuteNow(selectedTransaction)}>
+              Execute Now
+            </Button>
+          )}
+        </div>
+
+        {/* 摘要卡片 */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="bg-muted rounded-lg p-4">
+            <p className="text-muted-foreground text-sm">Member Count</p>
+            <p className="mt-1 text-2xl font-semibold">{selectedTransaction.members}</p>
+          </div>
+          <div className="bg-muted rounded-lg p-4">
+            <p className="text-muted-foreground text-sm">Total Amount</p>
+            <p className="mt-1 text-2xl font-semibold">
+              ${selectedTransaction.totalAmount} {selectedTransaction.currency}
+            </p>
+          </div>
+        </div>
+
+        {/* 成员详情表格 */}
+        <div className="space-y-3">
+          <h3 className="text-muted-foreground text-sm font-medium uppercase">Member Details</h3>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>MEMBER</TableHead>
+                  <TableHead>EMAIL</TableHead>
+                  <TableHead>ROLE</TableHead>
+                  <TableHead>WALLET ADDRESS</TableHead>
+                  <TableHead className="text-right">AMOUNT</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {transactionDetailMembers.length > 0 ? (
+                  transactionDetailMembers.map(item => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.member.showName}</TableCell>
+                      <TableCell className="text-muted-foreground">-</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          Member
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground font-mono text-sm">
+                        {formatWalletAddress(item.receivingConfig.address)}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {parseFloat(item.amount)} {item.currency}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-muted-foreground h-24 text-center">
+                      Loading members...
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -62,6 +62,45 @@ export interface MembersResponse {
   page: number
 }
 
+export interface Asset {
+  id: string
+  symbol: string
+  name: string
+  iconUrl: string
+  isStable: boolean
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Chain {
+  id: string
+  caipChainId: string
+  name: string
+  chainId: string
+  ecosystem: string
+  iconUrl: string
+  rpcUrls: string[]
+  explorerUrls: string[]
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AssetChain {
+  id: string
+  caipChainId: string
+  assetId: string
+  contractAddress: string
+  decimals: number
+  isNative: boolean
+  status: string
+  createdAt: string
+  updatedAt: string
+  asset: Asset
+  chain: Chain
+}
+
 export interface EmailInvitationResponse {
   invite: InviteCode
   member: OrganizationMember
@@ -102,7 +141,31 @@ export interface Organization {
 }
 export interface BindSafeWalletPayload {
   address: string
-  chainId: string
+  caipChainId: string
+}
+
+export interface OrganizationPaymentAccount {
+  id: string
+  orgId: string
+  type: string
+  config: {
+    nonce: number
+    owners: string[]
+    address: string
+    chainId: string
+    version: string
+    ecosystem: string
+    threshold: number
+    caipChainId: string
+  }
+  status: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PaymentAccountsResponse {
+  list: OrganizationPaymentAccount[]
+  total: number
 }
 
 export class OrgnizationApi {
@@ -164,10 +227,11 @@ export class OrgnizationApi {
     return res.data
   }
   // 更新成员的支付意向
-  async updateMemberPayoutIntent(memberId: string, amount: string, network: string) {
+  async updateMemberPayoutIntent(memberId: string, amount: string, network: string, currency: string) {
     const res = await this.request.patch<PayoutIntent>(`/orgs/${this.orgId}/members/${memberId}/payout-intent`, {
       amount,
-      network
+      network,
+      currency
     })
     return res.data
   }
@@ -177,5 +241,23 @@ export class OrgnizationApi {
     return res.data
   }
 
-  // 更新成员信息(修改收款账户地址、支付意向、角色，接口待开发)
+  // 获取组织的资产链信息
+  async getAssetsChains(): Promise<AssetChain[]> {
+    const res = await this.request.get<AssetChain[]>(`/orgs/${this.orgId}/assets-chains`)
+    return res.data
+  }
+
+  // 获取组织支付账户详情
+  async getOrganizationPaymentAccounts(): Promise<PaymentAccountsResponse> {
+    const res = await this.request.get<PaymentAccountsResponse>(`/orgs/${this.orgId}/payment-accounts`)
+    return res.data
+  }
+
+  // 更新成员角色
+  async updateMemberRoles(memberId: string, roles: string[]) {
+    const res = await this.request.patch<string>(`/orgs/${this.orgId}/${memberId}/roles`, {
+      roles
+    })
+    return res.data
+  }
 }

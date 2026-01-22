@@ -7,14 +7,18 @@ alwaysApply: true
 ## Tech Stack & Best Practices
 
 - When multiple valid approaches exist, choose based on the following priority:
-  1. **Testability** - Prefer approaches that are easier to test and mock
-  2. **Readability** - Code should be clear and easy to understand
-  3. **Consistency** - Maintain consistent patterns throughout the codebase
-  4. **Simplicity** - Favor simpler solutions over complex ones
-  5. **Reversibility** - Choose approaches that are easier to change or roll back
+ 1. **Testability** - Prefer approaches that are easier to test and mock
+ 2. **Readability** - Code should be clear and easy to understand
+ 3. **Consistency** - Maintain consistent patterns throughout the codebase
+ 4. **Simplicity** - Favor simpler solutions over complex ones
+ 5. **Reversibility** - Choose approaches that are easier to change or roll back
 
 ## Import Conventions
 
 - Always use **absolute imports** instead of relative imports
 - Use the `@/` path alias for imports from the `src/` directory
-- File names should use only lowercase letters. Use hyphens (“-”) to separate words in file names.
+- File names should use only lowercase letters. Use hyphens ("-") to separate words in file names.
+
+## Code Organization
+
+- Complex logic in JSX/HTML should be extracted into separate functions or components for better readability and maintainability
