@@ -44,26 +44,16 @@ export default function Identity() {
     }
   }
 
-  // Step 2: Check payment accounts and navigate
-  const checkPaymentAccountAndNavigate = (item: OrganizationResponseItem) => {
+  // Step 2: Navigate to org dashboard (no wallet gating)
+  const navigateToOrgDashboard = (item: OrganizationResponseItem) => {
     // Update localStorage with organization ID
     localStorage.setItem('organizationId', item.organization.orgId)
-
-    // Check if organization has payment accounts
-    const hasPaymentAccount = item.organization?.paymentAccounts && item.organization.paymentAccounts.length > 0
-
-    if (!hasPaymentAccount) {
-      // Navigate to connect-safe page if no payment account
-      navigate('/account/organization/connect-safe')
-    } else {
-      // Navigate to dashboard if payment account exists
-      navigate('/orgs/dashboard', { replace: true })
-    }
+    navigate('/orgs/dashboard', { replace: true })
   }
 
   const handleSelectOrganization = (item: OrganizationResponseItem) => {
     // User selected an organization, proceed to step 2
-    checkPaymentAccountAndNavigate(item)
+    navigateToOrgDashboard(item)
   }
 
   const handleCreateOrganization = () => {
@@ -83,7 +73,7 @@ export default function Identity() {
   useEffect(() => {
     if (organizations.length === 1 && !loading) {
       const item = organizations[0]
-      checkPaymentAccountAndNavigate(item)
+      navigateToOrgDashboard(item)
     }
   }, [organizations, loading, navigate])
 

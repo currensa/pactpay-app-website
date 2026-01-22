@@ -1,10 +1,12 @@
 import api from '@/apis'
+import type { Chain } from '@/apis/orgnization.api'
 import { Organization, PaymentAccount } from '@/apis/orgnization.api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { SafeWalletSetupDialog, type SafeWalletSetupMode } from '@/views/orgs/components/safe-wallet/safe-wallet-setup-dialog'
 import { IconAlertTriangle, IconExternalLink, IconFileText, IconShield, IconUpload } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -25,6 +27,10 @@ export default function Settings() {
   // Safe Wallet info
   const [safeWallet, setSafeWallet] = useState<PaymentAccount | null>(null)
   const [networkName, setNetworkName] = useState<string>('')
+  const [chains, setChains] = useState<Chain[]>([])
+  const [canManageSafeWallet, setCanManageSafeWallet] = useState(false)
+  const [safeWalletDialogOpen, setSafeWalletDialogOpen] = useState(false)
+  const [safeWalletDialogMode, setSafeWalletDialogMode] = useState<SafeWalletSetupMode>('bind')
 
   const organizationId = localStorage.getItem('organizationId')
 
@@ -39,9 +45,10 @@ export default function Settings() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [orgData, chainsData] = await Promise.all([
+      const [orgData, chainsData, orgsData] = await Promise.all([
         api.organization.getOrganizationDetail(),
-        api.chainAsset.getChains()
+        api.chainAsset.getChains(),
+        api.organization.getOrganizations()
       ])
 
       // Parse organization data (API returns string, need to parse)
@@ -50,6 +57,7 @@ export default function Settings() {
       setOrgName(org.orgName || '')
       setDescription(org.description || '')
       setWebsite((org as any).website || '')
+      setChains(chainsData || [])
 
       // Find Safe Wallet
       const safeAccount = org.paymentAccounts?.find(account => account.type === 'safe')
@@ -57,10 +65,23 @@ export default function Settings() {
         setSafeWallet(safeAccount)
         // Find network name from chains
         const network = chainsData.find(
-          chain => chain.chainId === safeAccount.config.network || chain.id === safeAccount.config.network
+          chain =>
+            chain.caipChainId === safeAccount.config.network ||
+            chain.chainId === safeAccount.config.network ||
+            chain.id === safeAccount.config.network
         )
         setNetworkName(network?.name || safeAccount.config.network || 'Unknown Network')
+      } else {
+        setSafeWallet(null)
+        setNetworkName('')
       }
+
+      // Determine permission (Owner / Pay Admin) based on current organization membership
+      const currentOrgId = org.orgId || organizationId
+      const currentItem = (orgsData || []).find((item: any) => item?.organization?.orgId === currentOrgId)
+      const roles: string[] = currentItem?.member?.roles?.map((r: any) => r.role) || []
+      // Map: Admin = Owner, Operator = Pay Admin
+      setCanManageSafeWallet(roles.includes('Admin') || roles.includes('Operator'))
     } catch (error) {
       console.error('Failed to load organization data:', error)
     } finally {
@@ -116,7 +137,8 @@ export default function Settings() {
   }
 
   const handleChangeSafeWallet = () => {
-    navigate('/orgs/connect-safe')
+    setSafeWalletDialogMode('bind')
+    setSafeWalletDialogOpen(true)
   }
 
   if (loading) {
@@ -261,12 +283,46 @@ export default function Settings() {
               </div>
             </>
           ) : (
-            <div className="text-muted-foreground py-8 text-center">
-              No Safe Wallet connected. Please connect a Safe Wallet first.
+            <div className="py-8 text-center">
+              <div className="text-muted-foreground">No Safe Wallet connected. Please connect a Safe Wallet first.</div>
+              <div className="mt-4 flex justify-center gap-2">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setSafeWalletDialogMode('create')
+                    setSafeWalletDialogOpen(true)
+                  }}
+                >
+                  Create Safe Wallet
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setSafeWalletDialogMode('bind')
+                    setSafeWalletDialogOpen(true)
+                  }}
+                >
+                  Verify & Connect
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
+
+      {organizationId && (
+        <SafeWalletSetupDialog
+          open={safeWalletDialogOpen}
+          mode={safeWalletDialogMode}
+          onModeChange={setSafeWalletDialogMode}
+          onOpenChange={setSafeWalletDialogOpen}
+          organizationId={organizationId}
+          chains={chains}
+          canManage={canManageSafeWallet}
+          onSuccess={loadData}
+        />
+      )}
 
       {/* Legal Documents Section */}
       <Card>
