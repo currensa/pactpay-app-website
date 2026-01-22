@@ -255,8 +255,7 @@ export class OrgnizationApi {
 
   // 更新成员角色
   async updateMemberRoles(memberId: string, roles: string[]) {
-    const res = await this.request.patch<string>(`/orgs/${this.orgId}/members/roles`, {
-      memberId,
+    const res = await this.request.patch<string>(`/orgs/${this.orgId}/${memberId}/roles`, {
       roles
     })
     return res.data
