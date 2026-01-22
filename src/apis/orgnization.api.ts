@@ -253,5 +253,12 @@ export class OrgnizationApi {
     return res.data
   }
 
-  // 更新成员信息(修改收款账户地址、支付意向、角色，接口待开发)
+  // 更新成员角色
+  async updateMemberRoles(memberId: string, roles: string[]) {
+    const res = await this.request.patch<string>(`/orgs/${this.orgId}/members/roles`, {
+      memberId,
+      roles
+    })
+    return res.data
+  }
 }

@@ -12,6 +12,7 @@ export interface Member {
   receivingWallet: string | null
   network: string
   role: MemberRole
+  roles?: MemberRole[]
   serviceFee: number
   currency?: string
   status: MemberStatus
@@ -25,4 +26,5 @@ export interface DrawerChanges {
   serviceFee?: number
   currency?: string
   role?: MemberRole
+  roles?: MemberRole[]
 }

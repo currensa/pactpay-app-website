@@ -1,4 +1,5 @@
 import apis from '@/apis'
+import type { AssetChain } from '@/apis/orgnization.api'
 import { MembersResponse } from '@/apis/orgnization.api'
 import { TransactionItem, TransactionPlan } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
@@ -10,8 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { cn, formatAmount, sumAmounts } from '@/lib/utils'
-import { Provider, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
-import Safe from '@safe-global/protocol-kit'
 import { IconAlertTriangle, IconFlame, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -24,17 +23,6 @@ import {
   TransactionDetailDialogContent,
 } from './components'
 import type { Transaction } from './components/types'
-
-
-interface TransactionMember {
-  id: string
-  name: string
-  email: string
-  role: string
-  serviceFee: string
-  walletAddress: string
-}
-
 function getStatusBadge(status: Transaction['status']) {
   switch (status) {
     case 'ready':
@@ -79,37 +67,6 @@ function getTimeIcon(daysRemaining: number | null, isDueToday: boolean) {
   return null
 }
 
-
-
-async function signSafeTxHash(safeTxHash: string, walletProvider: Provider) {
-
-  walletProvider.request({
-    "method": "wallet_switchEthereumChain",
-    "params": [
-      {
-        chainId: '0xaa36a7'
-      }
-    ]
-  })
-  const protocolKit = await Safe.init({
-    provider: walletProvider,
-    safeAddress: '0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3'
-  })
-
-
-  const signature = await protocolKit.signHash(
-    safeTxHash
-  )
-
-  // const recoveredAddress = ethers.verifyMessage(getBytes(safeTxHash), signature)
-  // console.log('recoveredAddress:',recoveredAddress);
-
-
-  return {
-    signature: signature.data
-  }
-}
-
 export default function Transaction() {
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -142,7 +99,6 @@ export default function Transaction() {
 
   // 使用 state 管理 transactions，以便删除后可以更新
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
@@ -150,11 +106,10 @@ export default function Transaction() {
   const [organizationMembers, setOrganizationMembers] = useState<MembersResponse['data']>([])
   const [membersLoading, setMembersLoading] = useState(false)
 
+  // 资产链信息状态
+  const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
+
   const itemsPerPage = 10
-
-  const { address } = useAppKitAccount()
-  const { walletProvider } = useAppKitProvider<Provider>("eip155");
-
   // 获取组织成员列表
   const fetchOrganizationMembers = async () => {
     try {
@@ -176,6 +131,29 @@ export default function Transaction() {
   useEffect(() => {
     fetchOrganizationMembers()
   }, [])
+
+  // 获取资产链信息
+  useEffect(() => {
+    const fetchAssetsChains = async () => {
+      try {
+        const data = await apis.organization.getAssetsChains()
+        setAssetsChains(data)
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error?.response?.data?.message || 'Failed to load assets chains',
+          variant: 'destructive'
+        })
+      }
+    }
+    fetchAssetsChains()
+  }, [])
+
+  // 根据货币符号获取对应的资产名称
+  const getAssetNameByCurrency = (currency: string): string => {
+    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
+    return assetChain?.chain.name || ''
+  }
 
   // 将 API 返回的 TransactionPlan 转换为组件需要的 Transaction 格式
   const transformTransactionPlan = (plan: TransactionPlan): Transaction => {
@@ -218,7 +196,7 @@ export default function Transaction() {
       totalAmount: formatAmount(totalAmount, currency),
       currency,
       members: plan.items.length,
-      network: plan.paymentAccount?.config?.network === '11155111' ? 'Ethereum' : 'Ethereum',
+      network: plan.paymentAccount?.config?.chainId || '',
       isComplete,
       paymentAccount: plan.paymentAccount
     }
@@ -227,7 +205,6 @@ export default function Transaction() {
   // 获取交易计划列表
   const fetchTransactionPlans = async () => {
     try {
-      setLoading(true)
       const response = await apis.transaction.getTransactionPlans()
       const transformedTransactions = response.data.map(transformTransactionPlan)
       setTransactions(transformedTransactions)
@@ -239,8 +216,6 @@ export default function Transaction() {
         description: 'Failed to load transactions. Please try again.',
         variant: 'destructive'
       })
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -297,8 +272,6 @@ export default function Transaction() {
     try {
       // 获取完整的交易详情
       const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
-      console.log('Transaction plan detail:', transaction)
-      console.log('items:', transactionPlanDetail.items);
 
 
       // 设置交易和成员信息
@@ -654,7 +627,7 @@ export default function Transaction() {
                     <span className="text-sm">{transaction.members}</span>
                   </TableCell>
                   <TableCell>
-                    <span className="text-muted-foreground text-sm">{transaction.network}</span>
+                    <span className="text-muted-foreground text-sm">{getAssetNameByCurrency(transaction.currency) || transaction.currency}</span>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">

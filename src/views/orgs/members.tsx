@@ -18,7 +18,6 @@ import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import type {
-  DrawerChanges,
   Member,
   MemberRole,
   MemberStatus,
@@ -43,7 +42,6 @@ export default function MemberPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [drawerChanges, setDrawerChanges] = useState<DrawerChanges>({})
   const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
   const [inviteSectionOpen, setInviteSectionOpen] = useState(false)
   const [inviteCode, setInviteCode] = useState('ORG-A3K9-7B2M')
@@ -63,7 +61,8 @@ export default function MemberPage() {
 
   // 将 API 返回的成员数据转换为组件使用的格式
   const transformMember = (apiMember: any): Member => {
-    const primaryRole = apiMember.roles?.[0]?.role || 'Member'
+    const roles = apiMember.roles?.map((r: any) => r.role as MemberRole) || []
+    const primaryRole = roles[0] || 'Member'
     const receivingAccount = apiMember.receivingAccounts?.[0]
     const payoutIntent = apiMember.payoutIntent
 
@@ -75,6 +74,7 @@ export default function MemberPage() {
       receivingWallet: receivingAccount?.config?.address || null,
       network: payoutIntent?.network,
       role: primaryRole as MemberRole,
+      roles: roles.length > 0 ? roles : undefined,
       serviceFee: payoutIntent ? parseFloat(payoutIntent.amount) : 0,
       currency: payoutIntent?.currency,
       status: apiMember.status === 'active' ? 'Active' : apiMember.status === 'pending' ? 'Pending' : 'Inactive',
@@ -282,7 +282,6 @@ export default function MemberPage() {
   // 打开详情 Drawer
   const openMemberDrawer = (member: Member) => {
     setSelectedMember(member)
-    setDrawerChanges({})
     setDrawerOpen(true)
   }
 
@@ -345,20 +344,9 @@ export default function MemberPage() {
     })
   }
 
-  // 检查是否有未保存的修改
-  const hasUnsavedChanges = Object.keys(drawerChanges).length > 0
-
-  // 关闭 Drawer 前检查
+  // 关闭 Drawer
   const handleDrawerClose = (open: boolean) => {
-    if (!open && hasUnsavedChanges) {
-      // TODO: 显示确认对话框
-      if (window.confirm('You have unsaved changes. Do you want to discard them?')) {
-        setDrawerOpen(false)
-        setDrawerChanges({})
-      }
-    } else {
-      setDrawerOpen(open)
-    }
+    setDrawerOpen(open)
   }
 
   // 邮箱格式校验
@@ -849,18 +837,16 @@ export default function MemberPage() {
             {selectedMember && (
               <MemberDetailContent
                 selectedMember={selectedMember}
-                drawerChanges={drawerChanges}
-                assetsChains={assetsChains}
                 currentUserRole={currentUserRole}
-                hasUnsavedChanges={hasUnsavedChanges}
-                onDrawerChanges={setDrawerChanges}
-                onGetAssetNameByCurrency={getAssetNameByCurrency}
-                onGetChainIdByCurrency={getChainIdByCurrency}
-                onUpdateMembers={setMembers}
                 onDrawerClose={() => setDrawerOpen(false)}
                 onRemoveMember={member => {
                   setMemberToRemove(member)
                   setRemoveMemberDialogOpen(true)
+                }}
+                onSaveSuccess={updatedMember => {
+                  setMembers(prev =>
+                    prev.map(m => (m.id === updatedMember.id ? updatedMember : m))
+                  )
                 }}
               />
             )}

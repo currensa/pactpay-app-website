@@ -8,36 +8,114 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/components/ui/use-toast'
+import { cn } from '@/lib/utils'
+import { IconCheck } from '@tabler/icons-react'
+import { useEffect, useState } from 'react'
 import { DrawerChanges, Member, MemberRole } from './types'
 
 interface MemberDetailContentProps {
   selectedMember: Member
-  drawerChanges: DrawerChanges
-  assetsChains: AssetChain[]
   currentUserRole: MemberRole
-  hasUnsavedChanges: boolean
-  onDrawerChanges: (changes: DrawerChanges) => void
-  onGetAssetNameByCurrency: (currency: string) => string
-  onGetChainIdByCurrency: (currency: string) => string
-  onUpdateMembers: (updater: (prev: Member[]) => Member[]) => void
   onDrawerClose: () => void
   onRemoveMember: (member: Member) => void
+  onSaveSuccess?: (updatedMember: Member) => void
 }
 
 export function MemberDetailContent({
   selectedMember,
-  drawerChanges,
-  assetsChains,
   currentUserRole,
-  hasUnsavedChanges,
-  onDrawerChanges,
-  onGetAssetNameByCurrency,
-  onGetChainIdByCurrency,
-  onUpdateMembers,
   onDrawerClose,
-  onRemoveMember
+  onRemoveMember,
+  onSaveSuccess
 }: MemberDetailContentProps) {
   const { toast } = useToast()
+
+  // 内部状态管理
+  const [drawerChanges, setDrawerChanges] = useState<DrawerChanges>({})
+  const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
+
+  // MemberRole 枚举值
+  const memberRoles: MemberRole[] = ['Admin', 'Operator', 'Member']
+
+  // 计算是否有未保存的修改
+  const hasUnsavedChanges = Object.keys(drawerChanges).length > 0
+
+  // 根据货币符号获取对应的链ID
+  const getChainIdByCurrency = (currency: string): string => {
+    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
+    return assetChain?.chain.chainId || ''
+  }
+
+  // 根据货币符号获取对应的资产名称
+  const getAssetNameByCurrency = (currency: string): string => {
+    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
+    return assetChain?.chain.name || ''
+  }
+
+  // 获取资产链信息
+  useEffect(() => {
+    const fetchAssetsChains = async () => {
+      try {
+        const data = await apis.organization.getAssetsChains()
+        setAssetsChains(data)
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error?.response?.data?.message || 'Failed to load assets chains',
+          variant: 'destructive'
+        })
+      }
+    }
+    fetchAssetsChains()
+  }, [])
+
+  // 当 selectedMember 变化时重置 drawerChanges
+  useEffect(() => {
+    setDrawerChanges({})
+  }, [selectedMember.id])
+
+  // 处理角色选择变化
+  const handleRoleChange = (role: MemberRole, checked: boolean) => {
+    const currentRoles = drawerChanges.roles || selectedMember.roles || (selectedMember.role ? [selectedMember.role] : [])
+    let newRoles: MemberRole[]
+    if (checked) {
+      newRoles = [...currentRoles, role]
+    } else {
+      newRoles = currentRoles.filter((r) => r !== role)
+    }
+    setDrawerChanges({ ...drawerChanges, roles: newRoles })
+  }
+
+  // 渲染角色选择项
+  const renderRoleCheckbox = (role: MemberRole) => {
+    const currentRoles = drawerChanges.roles || selectedMember.roles || (selectedMember.role ? [selectedMember.role] : [])
+    const isChecked = currentRoles.includes(role)
+    return (
+      <label
+        key={role}
+        className={cn(
+          'flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-accent',
+          isChecked && 'bg-accent'
+        )}
+      >
+        <div
+          className={cn(
+            'flex h-4 w-4 items-center justify-center rounded border-2',
+            isChecked ? 'border-primary bg-primary' : 'border-input'
+          )}
+        >
+          {isChecked && <IconCheck className="h-3 w-3 text-primary-foreground" />}
+        </div>
+        <input
+          type="checkbox"
+          checked={isChecked}
+          onChange={(e) => handleRoleChange(role, e.target.checked)}
+          className="sr-only"
+        />
+        <span>{role}</span>
+      </label>
+    )
+  }
 
   // 保存 Drawer 修改
   const handleSaveChanges = async () => {
@@ -45,45 +123,46 @@ export function MemberDetailContent({
 
     try {
       // 更新收款账户地址
-      if (
-        drawerChanges.receivingWallet !== undefined &&
-        drawerChanges.receivingWallet !== selectedMember.receivingWallet
-      ) {
+      if (drawerChanges.receivingWallet !== undefined) {
         await apis.organization.updateMemberAccountAddress(selectedMember.memberId, drawerChanges.receivingWallet)
       }
 
       // 更新支付意向（Service Fee）
-      if (drawerChanges.serviceFee !== undefined && drawerChanges.serviceFee !== selectedMember.serviceFee) {
+      if (drawerChanges.serviceFee !== undefined || drawerChanges.currency !== undefined) {
         const currency = drawerChanges.currency || selectedMember.currency || ''
+        const serviceFee = drawerChanges.serviceFee || selectedMember.serviceFee || 0
         await apis.organization.updateMemberPayoutIntent(
           selectedMember.memberId,
-          drawerChanges.serviceFee.toString(),
-          onGetChainIdByCurrency(currency),
+          serviceFee.toString(),
+          getChainIdByCurrency(currency),
           currency
         )
       }
 
-      // 更新本地状态(体现立即更新的效果，这里应该重新请求成员列表，暂时这样写)
-      onUpdateMembers(prev =>
-        prev.map(m =>
-          m.id === selectedMember.id
-            ? {
-                ...m,
-                receivingWallet: drawerChanges.receivingWallet ?? m.receivingWallet,
-                serviceFee: drawerChanges.serviceFee ?? m.serviceFee,
-                currency: drawerChanges.currency ?? m.currency,
-                role: drawerChanges.role ?? m.role
-              }
-            : m
-        )
-      )
+      // 更新成员角色
+      if (drawerChanges.roles !== undefined && drawerChanges.roles.length > 0) {
+        await apis.organization.updateMemberRoles(selectedMember.memberId, drawerChanges.roles)
+      }
+
+      // 构建更新后的成员数据
+      const updatedMember: Member = {
+        ...selectedMember,
+        receivingWallet: drawerChanges.receivingWallet ?? selectedMember.receivingWallet,
+        serviceFee: drawerChanges.serviceFee ?? selectedMember.serviceFee,
+        currency: drawerChanges.currency ?? selectedMember.currency,
+        roles: drawerChanges.roles ?? selectedMember.roles,
+        role: drawerChanges.roles && drawerChanges.roles.length > 0
+          ? drawerChanges.roles[0]
+          : (drawerChanges.role ?? selectedMember.role)
+      }
 
       toast({
         title: 'Success',
         description: 'Member information updated successfully!'
       })
 
-      onDrawerChanges({})
+      setDrawerChanges({})
+      onSaveSuccess?.(updatedMember)
       onDrawerClose()
     } catch (error: any) {
       toast({
@@ -106,10 +185,10 @@ export function MemberDetailContent({
               <Badge className="mt-1">{selectedMember.role}</Badge>
             </div>
           </div>
-            <div>
-              <Label className="text-muted-foreground text-xs mr-2">Status</Label>
-              <Badge className="mt-1">{selectedMember.status}</Badge>
-            </div>
+          <div>
+            <Label className="text-muted-foreground text-xs mr-2">Status</Label>
+            <Badge className="mt-1">{selectedMember.status}</Badge>
+          </div>
         </div>
       </DrawerHeader>
 
@@ -131,7 +210,7 @@ export function MemberDetailContent({
                     : selectedMember.receivingWallet || ''
                 }
                 onChange={e =>
-                  onDrawerChanges({
+                  setDrawerChanges({
                     ...drawerChanges,
                     receivingWallet: e.target.value
                   })
@@ -150,7 +229,7 @@ export function MemberDetailContent({
                     : selectedMember.serviceFee
                 }
                 onChange={e =>
-                  onDrawerChanges({
+                  setDrawerChanges({
                     ...drawerChanges,
                     serviceFee: parseFloat(e.target.value) || 0
                   })
@@ -167,7 +246,7 @@ export function MemberDetailContent({
                     : selectedMember.currency || ''
                 }
                 onValueChange={(value: string) =>
-                  onDrawerChanges({
+                  setDrawerChanges({
                     ...drawerChanges,
                     currency: value
                   })
@@ -197,26 +276,15 @@ export function MemberDetailContent({
               currentUserRole === 'Admin' && (
                 <div>
                   <Label className="text-muted-foreground text-xs">Role</Label>
-                  <Select
-                    value={drawerChanges.role || selectedMember.role}
-                    onValueChange={(value: string) =>
-                      onDrawerChanges({ ...drawerChanges, role: value as MemberRole })
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      {drawerChanges.role || selectedMember.role}
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Member">Member</SelectItem>
-                      <SelectItem value="Operator">Operator</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="mt-1 space-y-2 rounded-md border border-input bg-background p-2">
+                    {memberRoles.map(renderRoleCheckbox)}
+                  </div>
                 </div>
               )}
             <div>
               <Label className="text-muted-foreground text-xs">Network</Label>
               <p className="mt-1">
-                {onGetAssetNameByCurrency(drawerChanges.currency || selectedMember.currency || '')}
+                {getAssetNameByCurrency(drawerChanges.currency || selectedMember.currency || '')}
               </p>
             </div>
             <div>
@@ -266,17 +334,17 @@ export function MemberDetailContent({
         {selectedMember.status === 'Active' &&
           selectedMember.role !== 'Admin' &&
           (currentUserRole === 'Admin' ||
-          (currentUserRole === 'Operator' && selectedMember.role === 'Member')) && (
-          <div>
-            <Button
-              variant="link"
-              className="text-destructive h-auto p-0"
-              onClick={() => onRemoveMember(selectedMember)}
-            >
-              Remove Member
-            </Button>
-          </div>
-        )}
+            (currentUserRole === 'Operator' && selectedMember.role === 'Member')) && (
+            <div>
+              <Button
+                variant="link"
+                className="text-destructive h-auto p-0"
+                onClick={() => onRemoveMember(selectedMember)}
+              >
+                Remove Member
+              </Button>
+            </div>
+          )}
       </div>
 
       <DrawerFooter>

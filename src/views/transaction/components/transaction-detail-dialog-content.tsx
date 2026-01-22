@@ -1,8 +1,12 @@
+import apis from '@/apis'
+import type { AssetChain } from '@/apis/orgnization.api'
 import { TransactionItem } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useToast } from '@/components/ui/use-toast'
+import { useEffect, useState } from 'react'
 import { Transaction } from './types'
 
 function getStatusBadge(status: Transaction['status']) {
@@ -36,6 +40,32 @@ export function TransactionDetailDialogContent({
   transactionDetailMembers,
   onExecuteNow,
 }: TransactionDetailDialogContentProps) {
+  const { toast } = useToast()
+  const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
+
+  // 获取资产链信息
+  useEffect(() => {
+    const fetchAssetsChains = async () => {
+      try {
+        const data = await apis.organization.getAssetsChains()
+        setAssetsChains(data)
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error?.response?.data?.message || 'Failed to load assets chains',
+          variant: 'destructive'
+        })
+      }
+    }
+    fetchAssetsChains()
+  }, [])
+
+  // 根据货币符号获取对应的资产名称
+  const getAssetNameByCurrency = (currency: string): string => {
+    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
+    return assetChain?.chain.name || ''
+  }
+
   if (!selectedTransaction) {
     return null
   }
@@ -60,7 +90,7 @@ export function TransactionDetailDialogContent({
             </div>
             <div>
               <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                {selectedTransaction.network}
+                {getAssetNameByCurrency(selectedTransaction.currency) || selectedTransaction.currency}
               </Badge>
             </div>
             <div>{getStatusBadge(selectedTransaction.status)}</div>
