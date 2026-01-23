@@ -121,10 +121,10 @@ async function signSafeTxHash(safeTxHash: string, walletProvider: Provider) {
 
   // const recoveredAddress = ethers.verifyMessage(getBytes(safeTxHash), signature)
   // console.log('recoveredAddress:',recoveredAddress);
-  
+
 
   return {
-    signature:signature.data
+    signature: signature.data
   }
 }
 
@@ -170,7 +170,7 @@ export default function Transaction() {
 
   const itemsPerPage = 10
 
-  const {address } =  useAppKitAccount()
+  const { address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>("eip155");
 
   // 获取组织成员列表
@@ -211,21 +211,21 @@ export default function Transaction() {
 
     // 映射状态
     let status: Transaction['status'] = 'draft'
-     if (plan.transactionStatus === 'draft') {
+    if (plan.transactionStatus === 'draft') {
       status = 'draft'
-    } else if( [ 'proposed','confirming'].includes(plan.transactionStatus)){
+    } else if (['proposed', 'confirming'].includes(plan.transactionStatus)) {
       status = 'pending'
     } else if (plan.transactionStatus === 'ready') {
       status = 'ready'
     } else if (plan.transactionStatus === 'success') {
       status = 'complete'
-    } 
+    }
 
     return {
       id: plan.id,
       name: plan.transactionName,
-      transactionId:plan.transactionId,
-      type:plan.transactionType,
+      transactionId: plan.transactionId,
+      type: plan.transactionType,
       status,
       executionDate: payPeriodDate
         .toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -277,7 +277,7 @@ export default function Transaction() {
   useEffect(() => {
     fetchTransactionPlans()
   }, [currentPage])
-  
+
   useEffect(() => {
     const intervalId = setInterval(() => {
       fetchTransactionPlans()
@@ -338,12 +338,12 @@ export default function Transaction() {
     if (transaction.status === "draft") {
       setExecutingTransaction(transaction)
       setExecuteConfirmDialogOpen(true)
-    }else if(["pending","ready"].includes(transaction.status)) {
+    } else if (["pending", "ready"].includes(transaction.status)) {
       handleGoToSafeWalletPagePage(transaction)
-    }else{
+    } else {
       // handleGoToSafeWalletPagePage(transaction)
     }
-    
+
   }
 
   // 处理 View Details 点击
@@ -434,7 +434,7 @@ export default function Transaction() {
         }
         const fee = params.memberServiceFees[memberId] || '0'
         return {
-          memberId:member.memberId,
+          memberId: member.memberId,
           receivingAccountId: Number(member.receivingAccounts[0].id), // 需要从成员数据中获取 暂时取成员的第一个收款账户
           amount: fee,
           currency: 'USDC'
@@ -492,7 +492,7 @@ export default function Transaction() {
       // - 客户自己支付 gas 费用
       // - Safe Wallet 创建对应的 transaction
       // const transactionId = await safeWalletApi.proposeTransaction(...)
-      if(executingTransaction.type === "safe_wallet"){
+      if (executingTransaction.type === "safe_transaction") {
         await proposeSafeTransaction(executingTransaction)
       }
 
@@ -512,54 +512,54 @@ export default function Transaction() {
   }
 
   const proposeSafeTransaction = async (transaction: Transaction) => {
-      try {
-        // 1. 获取完整的交易详情
-        const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
-        console.log('Transaction plan detail:', transactionPlanDetail)
+    try {
+      // 1. 获取完整的交易详情
+      const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
+      console.log('Transaction plan detail:', transactionPlanDetail)
 
-        if (!transactionPlanDetail?.paymentAccount) {
-          throw new Error('Payment account not found')
-        }
-
-        // 2. 调用 API 执行 获取safeTxHash
-        const {txHash} = await apis.transaction.getTransactionHash(transaction.id)
-        console.log('Transaction hash:', txHash)
-
-        // 3. 使用 MetaMask 对 Safe 交易哈希进行签名
-        const { signature } = await signSafeTxHash(txHash,walletProvider)
-        console.log('Signer address:', address)
-        console.log('Signature:', signature)
-        // 4. 将签名提交给后端 (TODO: 需要添加 API)
-        const {safeTxHash} = await apis.transaction.proposeTransaction(transaction.id, {
-          signature:signature,
-          signerAddress:address || '',
-        })
-        transaction.transactionId = safeTxHash
-        // 5. 更新列表
-        await fetchTransactionPlans()
-
-        setCreatedTransactionId(txHash)
-
-        toast({
-          description: 'Transaction signed successfully!',
-          variant: 'default'
-        })
-
-      } catch (error: any) {
-        console.error('Failed to sign transaction:', error)
-
-        if (error.name === 'UserRejectedRequestError') {
-          toast({
-            description: 'Transaction signing was cancelled.',
-            variant: 'destructive'
-          })
-        } else {
-          toast({
-            description: `Failed to sign transaction: ${error.message}`,
-            variant: 'destructive'
-          })
-        }
+      if (!transactionPlanDetail?.paymentAccount) {
+        throw new Error('Payment account not found')
       }
+
+      // 2. 调用 API 执行 获取safeTxHash
+      const { txHash } = await apis.transaction.getTransactionHash(transaction.id)
+      console.log('Transaction hash:', txHash)
+
+      // 3. 使用 MetaMask 对 Safe 交易哈希进行签名
+      const { signature } = await signSafeTxHash(txHash, walletProvider)
+      console.log('Signer address:', address)
+      console.log('Signature:', signature)
+      // 4. 将签名提交给后端 (TODO: 需要添加 API)
+      const { safeTxHash } = await apis.transaction.proposeTransaction(transaction.id, {
+        signature: signature,
+        signerAddress: address || '',
+      })
+      transaction.transactionId = safeTxHash
+      // 5. 更新列表
+      await fetchTransactionPlans()
+
+      setCreatedTransactionId(txHash)
+
+      toast({
+        description: 'Transaction signed successfully!',
+        variant: 'default'
+      })
+
+    } catch (error: any) {
+      console.error('Failed to sign transaction:', error)
+
+      if (error.name === 'UserRejectedRequestError') {
+        toast({
+          description: 'Transaction signing was cancelled.',
+          variant: 'destructive'
+        })
+      } else {
+        toast({
+          description: `Failed to sign transaction: ${error.message}`,
+          variant: 'destructive'
+        })
+      }
+    }
   }
 
   const networkMap = new Map()
@@ -796,7 +796,7 @@ export default function Transaction() {
 
       {/* Execute Now - Loading 状态 */}
       {isExecuting && (
-        <Dialog open={isExecuting} onOpenChange={() => {}}>
+        <Dialog open={isExecuting} onOpenChange={() => { }}>
           <DialogContent className="sm:max-w-md">
             <div className="flex flex-col items-center justify-center space-y-4 py-6">
               <IconLoader2 className="text-primary h-8 w-8 animate-spin" />
