@@ -1,6 +1,6 @@
 import { AxiosInstance } from 'axios'
 
-interface ChainAssetResponse {
+export interface ChainAssetResponse {
   data: Array<{
     id: string
     caipChainId: string

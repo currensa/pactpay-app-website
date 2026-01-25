@@ -1,8 +1,9 @@
 import { ChainAssetApi } from '@/apis/chain-asset.api'
 import request from '@/apis/request'
+import { SafeWalletApi } from '@/apis/safe-wallet.api'
 import { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider } from '@reown/appkit/react'
 import Safe, { PredictedSafeProps } from '@safe-global/protocol-kit'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Address, createPublicClient, custom, formatEther, Chain as ViemChain } from 'viem'
 
 // 选填：定义持久化状态的 Key
@@ -27,6 +28,8 @@ export default function CreateSafeWallet() {
   const [owners, setOwners] = useState<string[]>([])
   const [threshold, setThreshold] = useState<number>(1)
   const [newOwnerAddress, setNewOwnerAddress] = useState<string>('')
+  const [safeAddresses, setSafeAddresses] = useState<string[]>([])
+  const [loadingSafes, setLoadingSafes] = useState(false)
 
   // 1. 初始化加载
   useEffect(() => {
@@ -53,6 +56,30 @@ export default function CreateSafeWallet() {
     }
   }, [address])
 
+  // 3. 根据当前连接地址与所选网络获取 Safe 地址列表（不调用 getSafeInfo）
+  const loadSafeAddresses = useCallback(async () => {
+    if (!address) {
+      setSafeAddresses([])
+      return
+    }
+    try {
+      setLoadingSafes(true)
+      const safeApi = new SafeWalletApi(BigInt(selectedChainId))
+      const response = await safeApi.getSafesByOwner(address)
+      const list = response.safes || []
+      setSafeAddresses(list)
+    } catch (err) {
+      console.error('Failed to load Safe addresses:', err)
+      setSafeAddresses([])
+    } finally {
+      setLoadingSafes(false)
+    }
+  }, [address, selectedChainId])
+
+  useEffect(() => {
+    loadSafeAddresses()
+  }, [loadSafeAddresses])
+
   const selectedChain = chains.find(c => Number(c.chainId) === selectedChainId)
 
   // 辅助方法：构建 Viem Chain 对象
@@ -69,7 +96,7 @@ export default function CreateSafeWallet() {
     },
   })
 
-  // 3. 核心部署函数
+  // 4. 核心部署函数
   const handleCreateSafe = async () => {
     if (!isConnected || !walletProvider || !address) {
       open()
@@ -119,7 +146,7 @@ export default function CreateSafeWallet() {
       // D. Gas 检查
       const deployTx = await protocolKit.createSafeDeploymentTransaction()
       const userBalance = await publicClient.getBalance({ address: address as Address })
-      
+
       // 预估部署费用 (这里简单估算，生产环境建议使用 estimateGas)
       const gasPrice = await publicClient.getGasPrice()
       const estimatedGasLimit = 500000n // 部署 Safe 大约消耗 30-50w gas
@@ -184,7 +211,7 @@ export default function CreateSafeWallet() {
         {isLoadingChains ? (
           <div className="animate-pulse h-10 bg-gray-200 rounded"></div>
         ) : (
-          <select 
+          <select
             className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             value={selectedChainId}
             onChange={(e) => setSelectedChainId(Number(e.target.value))}
@@ -194,12 +221,32 @@ export default function CreateSafeWallet() {
         )}
       </div>
 
+      {/* 当前网络的 Safe 地址列表 */}
+      {isConnected && address && (
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">当前网络下我的 Safe 钱包</label>
+          {loadingSafes ? (
+            <div className="animate-pulse h-8 bg-gray-200 rounded text-sm text-gray-500">加载中...</div>
+          ) : safeAddresses.length === 0 ? (
+            <p className="text-sm text-gray-500">当前网络下暂无 Safe 钱包</p>
+          ) : (
+            <ul className="space-y-2">
+              {safeAddresses.map((addr, idx) => (
+                <li key={idx} className="text-sm font-mono text-gray-700 break-all">
+                  {addr}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {/* 持有者管理 */}
       <div className="space-y-4 mb-6">
         <label className="block text-sm font-semibold text-gray-700">多签持有者 (Owners)</label>
         {owners.map((owner, idx) => (
           <div key={idx} className="flex gap-2">
-            <input 
+            <input
               disabled={idx === 0}
               className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-md font-mono text-sm"
               value={owner}
@@ -213,7 +260,7 @@ export default function CreateSafeWallet() {
           </div>
         ))}
         <div className="flex gap-2">
-          <input 
+          <input
             className="flex-1 p-2 border border-dashed border-gray-300 rounded-md text-sm"
             placeholder="添加新持有者地址 0x..."
             value={newOwnerAddress}
@@ -228,7 +275,7 @@ export default function CreateSafeWallet() {
         <label className="block text-sm font-semibold text-gray-700 mb-2">
           签名阈值: <span className="text-blue-600">{threshold}</span> / {owners.length}
         </label>
-        <input 
+        <input
           type="range" min="1" max={owners.length || 1} value={threshold}
           onChange={(e) => setThreshold(Number(e.target.value))}
           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
@@ -239,9 +286,8 @@ export default function CreateSafeWallet() {
       <button
         disabled={isLoading || !isConnected}
         onClick={handleCreateSafe}
-        className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-all ${
-          isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
-        }`}
+        className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-all ${isLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
+          }`}
       >
         {isLoading ? '正在处理中...' : '立即部署 Safe 钱包'}
       </button>
@@ -255,7 +301,7 @@ export default function CreateSafeWallet() {
         <div className="mt-8 p-6 bg-green-50 border border-green-200 rounded-2xl">
           <h3 className="text-green-800 font-bold mb-2">🎉 部署成功!</h3>
           <p className="text-sm text-green-700 break-all font-mono mb-2">{safeAddress}</p>
-          <a 
+          <a
             href={`${selectedChain?.explorerUrls?.[0]}/address/${safeAddress}`}
             target="_blank" rel="noreferrer"
             className="text-xs text-green-600 underline hover:text-green-800"

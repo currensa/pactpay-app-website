@@ -119,14 +119,11 @@ export interface ConfirmTransactionDto {
   signature: string
 }
 
-export interface ExecuteTransactionDto {
-  signer?: string
-}
-
 export interface SignTransactionDto {
   safeTxHash: string
   signature: string
   signerAddress: string
+  safeMessageHash?: string
 }
 
 export interface RejectTransactionDto {
@@ -251,12 +248,6 @@ export class TransactionApi {
   // 确认交易
   async confirmTransaction(safeTxHash: string, confirmData: ConfirmTransactionDto) {
     const res = await this.request.post<{ success: boolean }>(`/transaction/confirm/${safeTxHash}`, confirmData)
-    return res.data
-  }
-
-  // 执行交易
-  async executeTransaction(safeTxHash: string, executeData: ExecuteTransactionDto) {
-    const res = await this.request.post<{ success: boolean; transactionHash: string }>(`/transaction/execute/${safeTxHash}`, executeData)
     return res.data
   }
 

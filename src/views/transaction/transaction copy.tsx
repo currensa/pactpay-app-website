@@ -414,7 +414,7 @@ export default function Transaction() {
       // - 客户自己支付 gas 费用
       // - Safe Wallet 创建对应的 transaction
       // const transactionId = await safeWalletApi.proposeTransaction(...)
-      if (executingTransaction.type === "safe_wallet") {
+      if (executingTransaction.type === "safe_transaction") {
         await proposeSafeTransaction(executingTransaction)
       }
 
@@ -481,7 +481,7 @@ export default function Transaction() {
       const txHash = transaction.transactionId
 
       // 使用内部路由跳转到刚创建的页面，URL 格式：/transaction/:safeTxHash
-      navigate(`/transaction/${encodeURIComponent(String(txHash))}`)
+      window.open(`/transaction/${encodeURIComponent(String(txHash))}`, '_blank')
 
       // 关闭/重置当前弹窗/状态
       setExecuteSuccessDialogOpen(false)

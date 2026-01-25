@@ -1,4 +1,5 @@
 import apis from '@/apis'
+import { ChainAssetResponse } from '@/apis/chain-asset.api'
 import type { TransactionCheckResponse } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,77 +7,29 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
 import { Provider, useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
-import Safe from '@safe-global/protocol-kit'
+import Safe, { hashSafeMessage } from '@safe-global/protocol-kit'
 import type { MetaTransactionData, SafeSignature, SafeTransaction } from '@safe-global/types-kit'
 import { ExternalLink } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
-interface ChainAsset {
-	id: string
-	caipChainId: string
-	assetId: string
-	contractAddress: string
-	decimals: number
-	isNative: boolean
-	status: string
-	createdAt: string
-	updatedAt: string
-	chain: {
-		id: string
-		caipChainId: string
-		name: string
-		chainId: string
-		ecosystem: string
-		iconUrl: string
-		rpcUrls: string[]
-		explorerUrls: string[]
-		status: string
-		createdAt: string
-		updatedAt: string
-	}
-	asset: {
-		id: string
-		symbol: string
-		name: string
-		iconUrl: string
-		isStable: boolean
-		status: string
-		createdAt: string
-		updatedAt: string
-	}
-}
-
-// 获取区块链浏览器 URL - 使用 chain.chainId
-function getExplorerUrl(chainId: string, type: 'tx' | 'address' | 'block', value: string | number): string {
-	const chainIdNum = Number(chainId)
+// 获取区块链浏览器 URL - 从 chainAssets 获取
+function getExplorerUrl(
+	chainId: string,
+	type: 'tx' | 'address' | 'block',
+	value: string | number,
+	chainAssets: ChainAssetResponse['data']
+): string {
+	// 从 chainAssets 中查找匹配的链
+	const chainAsset = chainAssets.find((ca) => Number(ca.chain.chainId) === Number(chainId))
 
 	let baseUrl = ''
-	// 根据链 ID 选择浏览器
-	switch (chainIdNum) {
-		case 1: // Ethereum Mainnet
-			baseUrl = 'https://etherscan.io'
-			break
-		case 11155111: // Sepolia
-			baseUrl = 'https://sepolia.etherscan.io'
-			break
-		case 137: // Polygon
-			baseUrl = 'https://polygonscan.com'
-			break
-		case 56: // BSC
-			baseUrl = 'https://bscscan.com'
-			break
-		case 42161: // Arbitrum
-			baseUrl = 'https://arbiscan.io'
-			break
-		case 10: // Optimism
-			baseUrl = 'https://optimistic.etherscan.io'
-			break
-		case 8453: // Base
-			baseUrl = 'https://basescan.org'
-			break
-		default:
-			baseUrl = 'https://etherscan.io'
+	if (chainAsset && chainAsset.chain.explorerUrls && chainAsset.chain.explorerUrls.length > 0) {
+		// 使用链的 explorerUrls 第一个 URL
+		baseUrl = chainAsset.chain.explorerUrls[0]
+	} else {
+		// 如果找不到对应的链，使用默认值
+		baseUrl = 'https://etherscan.io'
 	}
 
 	switch (type) {
@@ -117,7 +70,17 @@ function formatValue(value: string, decimals: number, symbol: string): string {
 	}
 }
 // 交易哈希显示组件
-function TxHashLink({ txHash, chainId, label }: { txHash: string; chainId?: string; label?: string }) {
+function TxHashLink({
+	txHash,
+	chainId,
+	label,
+	chainAssets
+}: {
+	txHash: string
+	chainId?: string
+	label?: string
+	chainAssets: ChainAssetResponse['data']
+}) {
 	const displayHash = `${txHash.slice(0, 10)}...${txHash.slice(-8)}`
 
 	// 如果 chainId 不存在,只显示文本,不显示链接
@@ -131,7 +94,7 @@ function TxHashLink({ txHash, chainId, label }: { txHash: string; chainId?: stri
 
 	return (
 		<a
-			href={getExplorerUrl(chainId, 'tx', txHash)}
+			href={getExplorerUrl(chainId, 'tx', txHash, chainAssets)}
 			target="_blank"
 			rel="noopener noreferrer"
 			className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-mono"
@@ -239,8 +202,8 @@ export default function TransactionDetail() {
 	const [isConfirming, setIsConfirming] = useState(false)
 	const [isExecuting, setIsExecuting] = useState(false)
 	const [isRejecting, setIsRejecting] = useState(false)
-	const [chainAssets, setChainAssets] = useState<ChainAsset[]>([])
-	const [currentAsset, setCurrentAsset] = useState<ChainAsset | null>(null)
+	const [chainAssets, setChainAssets] = useState<ChainAssetResponse['data']>([])
+	const [currentAsset, setCurrentAsset] = useState<ChainAssetResponse['data'][number] | null>(null)
 
 	// Refresh transaction details
 	const refreshTx = useCallback(async () => {
@@ -361,10 +324,15 @@ export default function TransactionDetail() {
 			const signatureResp = await protocolKit.signHash(tx.transaction.safeTxHash)
 			const signature = signatureResp.data
 
+			// 生成 safeMessageHash
+			const messageHash = hashSafeMessage(tx.transaction.safeTxHash)
+			const safeMessageHash = await protocolKit.getSafeMessageHash(messageHash)
+
 			const { success } = await apis.transaction.signTransaction({
 				safeTxHash: tx.transaction.safeTxHash,
 				signature: signature,
 				signerAddress: address,
+				safeMessageHash: safeMessageHash,
 			})
 			if (success) {
 				toast({ description: 'Transaction confirmation sent', variant: 'default' })
@@ -526,7 +494,7 @@ export default function TransactionDetail() {
 								<tr>
 									<td className="py-2 text-gray-600">Transaction Hash</td>
 									<td className="py-2">
-										<TxHashLink txHash={tx.transaction.transactionHash} chainId={chainId} label={tx.transaction.transactionHash} />
+										<TxHashLink txHash={tx.transaction.transactionHash} chainId={chainId} label={tx.transaction.transactionHash} chainAssets={chainAssets} />
 									</td>
 								</tr>
 							)}
@@ -624,7 +592,7 @@ export default function TransactionDetail() {
 					{isConnected && <Button
 						variant="destructive"
 						onClick={handleRejectClick}
-						disabled={isConfirming || isRejecting}
+						disabled={isConfirming || isRejecting || isExecuting}
 					>
 						Reject
 					</Button>}
