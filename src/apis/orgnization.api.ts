@@ -131,6 +131,7 @@ export interface PaymentAccount {
 }
 
 export interface Organization {
+  desc: string
   orgId: string
   orgName: string
   description?: string

@@ -53,9 +53,10 @@ export default function Settings() {
 
       // Parse organization data (API returns string, need to parse)
       const org: Organization = typeof orgData === 'string' ? JSON.parse(orgData) : orgData
+      console.log('org', org)
       setOrganization(org)
       setOrgName(org.orgName || '')
-      setDescription(org.description || '')
+      setDescription(org.desc || '')
       setWebsite((org as any).website || '')
       setChains(chainsData || [])
 
