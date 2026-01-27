@@ -45,7 +45,7 @@ export function ExecuteConfirmDialogContent({
 
           {/* 警告提示 */}
           <div className="flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
-                <IconAlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-orange-600" />
+            <IconAlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-orange-600" />
             <div className="space-y-1">
               <p className="text-sm font-medium text-orange-900">Important Notice</p>
               <p className="text-xs text-orange-800">

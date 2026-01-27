@@ -151,6 +151,17 @@ export interface TransactionConfirmation {
   submissionDate?: string
 }
 
+export interface MemberPaymentStatistic {
+  currency: string
+  totalReceived: string
+  paymentCount: number
+}
+
+export interface MemberPaymentStatisticsResponse {
+  memberId: string
+  statistics: MemberPaymentStatistic[]
+}
+
 export interface TransactionCheckResponse {
   canExecute: boolean
   transaction: {
@@ -266,6 +277,14 @@ export class TransactionApi {
   // 拒绝交易
   async rejectTransaction(rejectData: RejectTransactionDto) {
     const res = await this.request.post<{ success: boolean }>(`/transaction/reject-transaction`, rejectData)
+    return res.data
+  }
+
+  // 获取成员支付统计
+  async getMemberPaymentStatistics(memberId: string) {
+    const res = await this.request.get<MemberPaymentStatisticsResponse>(
+      `/transaction/${this.orgId}/members/${memberId}/payment-statistics`
+    )
     return res.data
   }
 }

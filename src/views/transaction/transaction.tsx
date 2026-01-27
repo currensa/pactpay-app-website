@@ -1,5 +1,6 @@
 import apis from '@/apis'
-import { MembersResponse, OrganizationMember } from '@/apis/orgnization.api'
+import type { AssetChain } from '@/apis/orgnization.api'
+import { MembersResponse } from '@/apis/orgnization.api'
 import { TransactionItem, TransactionPlan } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,13 +10,10 @@ import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
-import { cn } from '@/lib/utils'
-import { Provider, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
-import Safe from '@safe-global/protocol-kit'
+import { cn, formatAmount, sumAmounts } from '@/lib/utils'
 import { IconAlertTriangle, IconFlame, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   CreateTransactionDialogContent,
   DeleteConfirmDialogContent,
@@ -24,17 +22,6 @@ import {
   TransactionDetailDialogContent,
 } from './components'
 import type { Transaction } from './components/types'
-
-
-interface TransactionMember {
-  id: string
-  name: string
-  email: string
-  role: string
-  serviceFee: string
-  walletAddress: string
-}
-
 function getStatusBadge(status: Transaction['status']) {
   switch (status) {
     case 'ready':
@@ -79,58 +66,8 @@ function getTimeIcon(daysRemaining: number | null, isDueToday: boolean) {
   return null
 }
 
-// 模拟成员数据
-// 将 OrganizationMember 转换为 TransactionMember
-function transformOrganizationMemberToTransactionMember(member: OrganizationMember): TransactionMember {
-  const primaryRole = member.roles?.[0]?.role || 'Member'
-  const receivingAccount = member.receivingAccounts?.[0]
-  const payoutIntent = member.payoutIntent
-
-  return {
-    id: member.memberId,
-    name: member.showName,
-    email: member.showName.includes('@') ? member.showName : '',
-    role: primaryRole.toLowerCase(),
-    serviceFee: payoutIntent ? payoutIntent.amount : '0',
-    walletAddress: receivingAccount?.config?.address || ''
-  }
-}
-
-
-
-
-async function signSafeTxHash(safeTxHash: string, walletProvider: Provider) {
-
-  walletProvider.request({
-    "method": "wallet_switchEthereumChain",
-    "params": [
-      {
-        chainId: '0xaa36a7'
-      }
-    ]
-  })
-  const protocolKit = await Safe.init({
-    provider: walletProvider,
-    safeAddress: '0xe2E3173A0E55Ea761b29D80c5ABc697eD9882Be3'
-  })
-
-
-  const signature = await protocolKit.signHash(
-    safeTxHash
-  )
-
-  // const recoveredAddress = ethers.verifyMessage(getBytes(safeTxHash), signature)
-  // console.log('recoveredAddress:',recoveredAddress);
-
-
-  return {
-    signature: signature.data
-  }
-}
-
 export default function Transaction() {
   const { toast } = useToast()
-  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
@@ -160,7 +97,6 @@ export default function Transaction() {
 
   // 使用 state 管理 transactions，以便删除后可以更新
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loading, setLoading] = useState(true)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
@@ -168,11 +104,10 @@ export default function Transaction() {
   const [organizationMembers, setOrganizationMembers] = useState<MembersResponse['data']>([])
   const [membersLoading, setMembersLoading] = useState(false)
 
+  // 资产链信息状态
+  const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
+
   const itemsPerPage = 10
-
-  const { address } = useAppKitAccount()
-  const { walletProvider } = useAppKitProvider<Provider>("eip155");
-
   // 获取组织成员列表
   const fetchOrganizationMembers = async () => {
     try {
@@ -195,6 +130,29 @@ export default function Transaction() {
     fetchOrganizationMembers()
   }, [])
 
+  // 获取资产链信息
+  useEffect(() => {
+    const fetchAssetsChains = async () => {
+      try {
+        const data = await apis.organization.getAssetsChains()
+        setAssetsChains(data)
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error?.response?.data?.message || 'Failed to load assets chains',
+          variant: 'destructive'
+        })
+      }
+    }
+    fetchAssetsChains()
+  }, [])
+
+  // 根据货币符号获取对应的资产名称
+  const getAssetNameByCurrency = (currency: string): string => {
+    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
+    return assetChain?.chain.name || ''
+  }
+
   // 将 API 返回的 TransactionPlan 转换为组件需要的 Transaction 格式
   const transformTransactionPlan = (plan: TransactionPlan): Transaction => {
     const payPeriodDate = new Date(plan.payPeriod)
@@ -205,7 +163,8 @@ export default function Transaction() {
     const diffTime = payPeriodDate.getTime() - today.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-    const totalAmount = plan.items.reduce((sum, item) => sum + parseFloat(item.amount || '0'), 0)
+    const currency = plan.items[0]?.currency || 'USDC'
+    const totalAmount = sumAmounts(plan.items.map(item => item.amount || '0'), currency)
     const isComplete = plan.transactionStatus === 'success'
     const isDueToday = diffDays === 0 && !isComplete
 
@@ -232,31 +191,18 @@ export default function Transaction() {
         .replace(/\//g, '/'),
       daysRemaining: isComplete ? null : diffDays,
       isDueToday,
-      totalAmount: totalAmount.toLocaleString(),
-      currency: plan.items[0]?.currency || 'USDC',
+      totalAmount: formatAmount(totalAmount, currency),
+      currency,
       members: plan.items.length,
-      network: plan.paymentAccount?.config?.network === '11155111' ? 'Ethereum' : 'Ethereum',
+      network: plan.paymentAccount?.config?.chainId || '',
       isComplete,
       paymentAccount: plan.paymentAccount
-    }
-  }
-
-  // 将 TransactionItem 转换为 TransactionMember
-  const transformTransactionItem = (item: TransactionItem): TransactionMember => {
-    return {
-      id: item.memberId,
-      name: item.member.showName,
-      email: item.member.showName.includes('@') ? item.member.showName : '',
-      role: 'member', // 需要从其他地方获取角色信息
-      serviceFee: item.amount,
-      walletAddress: item.receivingConfig?.address || item.receivingAccount?.config?.address || ''
     }
   }
 
   // 获取交易计划列表
   const fetchTransactionPlans = async () => {
     try {
-      setLoading(true)
       const response = await apis.transaction.getTransactionPlans()
       const transformedTransactions = response.data.map(transformTransactionPlan)
       setTransactions(transformedTransactions)
@@ -268,8 +214,6 @@ export default function Transaction() {
         description: 'Failed to load transactions. Please try again.',
         variant: 'destructive'
       })
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -288,31 +232,6 @@ export default function Transaction() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchQuery, statusFilter])
-
-  // 根据交易 ID 获取成员列表
-  const [transactionDetails, setTransactionDetails] = useState<Record<string, TransactionPlan>>({})
-
-  const getTransactionMembers = async (transactionId: string): Promise<TransactionMember[]> => {
-    try {
-      // 如果已经缓存，直接返回
-      if (transactionDetails[transactionId]) {
-        return transactionDetails[transactionId].items.map(transformTransactionItem)
-      }
-
-      // 否则获取详情
-      const detail = await apis.transaction.getTransactionPlanDetail(transactionId)
-      setTransactionDetails(prev => ({ ...prev, [transactionId]: detail }))
-      return detail.items.map(transformTransactionItem)
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load transaction details.',
-        variant: 'destructive'
-      })
-      return []
-    }
-  }
-
 
 
   // 处理对话框打开时的初始化
@@ -351,7 +270,7 @@ export default function Transaction() {
     try {
       // 获取完整的交易详情
       const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
-      console.log('Transaction plan detail:', transactionPlanDetail)
+
 
       // 设置交易和成员信息
       setSelectedTransaction(transaction)
@@ -422,6 +341,7 @@ export default function Transaction() {
   const handleCreateTransaction = async (params: {
     selectedMembers: Set<string>
     memberServiceFees: Record<string, string>
+    memberCurrencies: Record<string, string>
     transactionName: string
     executionDate: string
   }) => {
@@ -437,7 +357,7 @@ export default function Transaction() {
           memberId: member.memberId,
           receivingAccountId: Number(member.receivingAccounts[0].id), // 需要从成员数据中获取 暂时取成员的第一个收款账户
           amount: fee,
-          currency: 'USDC'
+          currency: params.memberCurrencies[memberId] || 'USDC'
         }
       })
 
@@ -503,82 +423,38 @@ export default function Transaction() {
       setExecuteSuccessDialogOpen(true)
     } catch (error) {
       setIsExecuting(false)
-      toast({
-        title: 'Error',
-        description: 'Failed to create transaction on Safe Wallet. Please try again.',
-        variant: 'destructive'
-      })
     }
   }
 
   const proposeSafeTransaction = async (transaction: Transaction) => {
-    try {
-      // 1. 获取完整的交易详情
-      const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
-      console.log('Transaction plan detail:', transactionPlanDetail)
+    // 1. 调用后端接口创建交易并获取 safeTxHash
+    const { safeTxHash } = await apis.transaction.createTransactionFromBatch(transaction.id)
 
-      if (!transactionPlanDetail?.paymentAccount) {
-        throw new Error('Payment account not found')
-      }
+    transaction.transactionId = safeTxHash
+    // 2. 更新列表
+    await fetchTransactionPlans()
 
-      // 2. 调用 API 执行 获取safeTxHash
-      const { txHash } = await apis.transaction.getTransactionHash(transaction.id)
-      console.log('Transaction hash:', txHash)
+    setCreatedTransactionId(safeTxHash)
 
-      // 3. 使用 MetaMask 对 Safe 交易哈希进行签名
-      const { signature } = await signSafeTxHash(txHash, walletProvider)
-      console.log('Signer address:', address)
-      console.log('Signature:', signature)
-      // 4. 将签名提交给后端 (TODO: 需要添加 API)
-      const { safeTxHash } = await apis.transaction.proposeTransaction(transaction.id, {
-        signature: signature,
-        signerAddress: address || '',
-      })
-      transaction.transactionId = safeTxHash
-      // 5. 更新列表
-      await fetchTransactionPlans()
-
-      setCreatedTransactionId(txHash)
-
-      toast({
-        description: 'Transaction signed successfully!',
-        variant: 'default'
-      })
-
-    } catch (error: any) {
-      console.error('Failed to sign transaction:', error)
-
-      if (error.name === 'UserRejectedRequestError') {
-        toast({
-          description: 'Transaction signing was cancelled.',
-          variant: 'destructive'
-        })
-      } else {
-        toast({
-          description: `Failed to sign transaction: ${error.message}`,
-          variant: 'destructive'
-        })
-      }
-    }
+    toast({
+      description: 'Transaction created successfully!',
+      variant: 'default'
+    })
   }
-
-  const networkMap = new Map()
-  networkMap.set('11155111', 'sep')
 
   // 跳转到应用内的 Transaction Detail 页面
   const handleGoToSafeWalletPagePage = async (transaction: Transaction) => {
     try {
-      // 获取完整的交易详情以获取 chainId 与 transactionId
-      const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
-      if (!transactionPlanDetail?.paymentAccount) {
-        throw new Error('Payment account not found')
-      }
+      // // 获取完整的交易详情以获取 chainId 与 transactionId
+      // const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
+      // if (!transactionPlanDetail?.paymentAccount) {
+      //   throw new Error('Payment account not found')
+      // }
 
-      const chainId = transactionPlanDetail.paymentAccount.config.chainId
-      const txHash = transactionPlanDetail.transactionId
+      const txHash = transaction.transactionId
 
-      // 使用内部路由跳转到刚创建的页面，URL 格式：/orgs/transaction/detail/:chainId/:safeTxHash
-      navigate(`/transaction/${encodeURIComponent(String(chainId))}/${encodeURIComponent(String(txHash))}`)
+      // 使用内部路由跳转到刚创建的页面，URL 格式：/transaction/:safeTxHash
+      window.open(`/transaction/${encodeURIComponent(String(txHash))}`, '_blank')
 
       // 关闭/重置当前弹窗/状态
       setExecuteSuccessDialogOpen(false)
@@ -724,7 +600,7 @@ export default function Transaction() {
                     <span className="text-sm">{transaction.members}</span>
                   </TableCell>
                   <TableCell>
-                    <span className="text-muted-foreground text-sm">{transaction.network}</span>
+                    <span className="text-muted-foreground text-sm">{getAssetNameByCurrency(transaction.currency) || transaction.currency}</span>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
@@ -796,7 +672,7 @@ export default function Transaction() {
 
       {/* Execute Now - Loading 状态 */}
       {isExecuting && (
-        <Dialog open={isExecuting} onOpenChange={() => { }}>
+        <Dialog open={isExecuting} onOpenChange={setIsExecuting} >
           <DialogContent className="sm:max-w-md">
             <div className="flex flex-col items-center justify-center space-y-4 py-6">
               <IconLoader2 className="text-primary h-8 w-8 animate-spin" />

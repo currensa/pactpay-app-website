@@ -1,5 +1,6 @@
 import apis from '@/apis'
 import { AssetChain } from '@/apis/orgnization.api'
+import type { MemberPaymentStatistic } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -33,6 +34,8 @@ export function MemberDetailContent({
   // 内部状态管理
   const [drawerChanges, setDrawerChanges] = useState<DrawerChanges>({})
   const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
+  const [paymentStatistics, setPaymentStatistics] = useState<MemberPaymentStatistic[] | null>(null)
+  const [paymentStatisticsLoading, setPaymentStatisticsLoading] = useState(false)
 
   // MemberRole 枚举值
   const memberRoles: MemberRole[] = ['Admin', 'Operator', 'Member']
@@ -73,6 +76,28 @@ export function MemberDetailContent({
   useEffect(() => {
     setDrawerChanges({})
   }, [selectedMember.id])
+
+  // 获取成员支付统计
+  useEffect(() => {
+    const fetchPaymentStatistics = async () => {
+      setPaymentStatisticsLoading(true)
+      setPaymentStatistics(null)
+      try {
+        const data = await apis.transaction.getMemberPaymentStatistics(selectedMember.memberId)
+        setPaymentStatistics(data.statistics || [])
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error?.response?.data?.message || 'Failed to load payment statistics',
+          variant: 'destructive'
+        })
+        setPaymentStatistics([])
+      } finally {
+        setPaymentStatisticsLoading(false)
+      }
+    }
+    fetchPaymentStatistics()
+  }, [selectedMember.memberId])
 
   // 处理角色选择变化
   const handleRoleChange = (role: MemberRole, checked: boolean) => {
@@ -298,21 +323,51 @@ export function MemberDetailContent({
 
         {/* Payment Statistics */}
         <div>
-          <h3 className="text-muted-foreground mb-4 text-xs uppercase">PAYMENT STATISTICS</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground text-sm">Total Received</span>
-              <span className="font-medium">$25,000 USDC</span>
+          <h3 className="text-muted-foreground mb-3 text-xs uppercase">PAYMENT STATISTICS</h3>
+          {paymentStatisticsLoading ? (
+            <p className="text-muted-foreground text-sm">Loading...</p>
+          ) : paymentStatistics && paymentStatistics.length > 0 ? (
+            <div className="space-y-3">
+              {paymentStatistics.map((stat) => (
+                <div
+                  key={stat.currency}
+                  className="bg-muted/50 flex items-center justify-between rounded-lg px-3 py-2 text-sm"
+                >
+                  <span className="font-medium">{stat.currency}</span>
+                  <span className="text-muted-foreground">
+                    {stat.totalReceived} <span className="text-foreground font-medium">{stat.currency}</span>
+                    <span className="text-muted-foreground mx-1.5">·</span>
+                    {stat.paymentCount} payment{stat.paymentCount !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              ))}
+              <div className="flex justify-between border-border pl-2 pt-2 text-sm">
+                <span className="text-muted-foreground">Last Payment</span>
+                <span>
+                  {selectedMember.lastPayment
+                    ? new Date(selectedMember.lastPayment).toLocaleDateString()
+                    : '-'}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm pl-2">
+                <span className="text-muted-foreground">Total</span>
+                <span className="font-medium">
+                  {paymentStatistics.reduce((sum, s) => sum + s.paymentCount, 0)} payments
+                </span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground text-sm">Last Payment Date</span>
-              <span className="font-medium">{selectedMember.lastPayment || '-'}</span>
+          ) : (
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Received</span>
+                <span>-</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Last Payment</span>
+                <span>{selectedMember.lastPayment ? new Date(selectedMember.lastPayment).toLocaleDateString() : '-'}</span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground text-sm">Payment Count</span>
-              <span className="font-medium">5 payments</span>
-            </div>
-          </div>
+          )}
         </div>
 
         <Separator />
