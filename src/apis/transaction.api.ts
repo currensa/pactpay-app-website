@@ -111,8 +111,8 @@ export interface CreateTransactionPlanResponse {
 }
 
 export interface ProposeTransaction {
-  signature:string,
-  signerAddress:string,
+  signature: string
+  signerAddress: string
 }
 
 export interface ConfirmTransactionDto {
@@ -192,6 +192,45 @@ export interface TransactionCheckResponse {
   rejections?: TransactionConfirmation[]
 }
 
+export interface ModifySafeOwnerParams {
+  paymentAccountId: number
+  operationType: 'add_owner' | 'remove_owner' | 'change_threshold' | 'swap_owner'
+  addOwnerParams?: {
+    ownerAddress: string
+    threshold?: number
+  }
+  removeOwnerParams?: {
+    ownerAddress: string
+    threshold?: number
+  }
+  changeThresholdParams?: {
+    threshold: number
+  }
+  swapOwnerParams?: {
+    oldOwnerAddress: string
+    newOwnerAddress: string
+  }
+}
+
+export interface ModifySafeOwnerResponse {
+  safeTxHash: string
+  safeTransaction: StoredSafeTx
+}
+
+export interface PayrollBatch {
+  id: string
+  orgId: string
+  paymentAccountId: string
+  transactionId: string
+  transactionName: string
+  transactionType: 'safe_transaction' | 'safe_config'
+  transactionStatus: string
+  payPeriod: string
+  createdBy: string
+  createdAt: string
+  deletedAt: string | null
+}
+
 export class TransactionApi {
   constructor(private readonly request: AxiosInstance) {}
   // 统一获取 organizationId（作为 getter，更简洁）
@@ -232,7 +271,7 @@ export class TransactionApi {
 
   // 获取交易哈希
   async getTransactionHash(transaction_id: string) {
-    const res = await this.request.get<{txHash:string}>(`/transaction/${this.orgId}/${transaction_id}/getTxHash`)
+    const res = await this.request.get<{ txHash: string }>(`/transaction/${this.orgId}/${transaction_id}/getTxHash`)
     return res.data
   }
 
@@ -251,8 +290,11 @@ export class TransactionApi {
   }
 
   // 发起交易
-  async proposeTransaction(transaction_id: string,ProposeTransaction: ProposeTransaction ) {
-    const res = await this.request.post<{success:boolean, safeTxHash:string}>(`/transaction/${this.orgId}/${transaction_id}/propose`, ProposeTransaction)
+  async proposeTransaction(transaction_id: string, ProposeTransaction: ProposeTransaction) {
+    const res = await this.request.post<{ success: boolean; safeTxHash: string }>(
+      `/transaction/${this.orgId}/${transaction_id}/propose`,
+      ProposeTransaction
+    )
     return res.data
   }
 
@@ -280,11 +322,17 @@ export class TransactionApi {
     return res.data
   }
 
-  // 获取成员支付统计
-  async getMemberPaymentStatistics(memberId: string) {
-    const res = await this.request.get<MemberPaymentStatisticsResponse>(
-      `/transaction/${this.orgId}/members/${memberId}/payment-statistics`
-    )
+  // 查询待处理的 Safe Wallet 交易
+  async getPendingSafeTransaction(paymentAccountId?: string) {
+    const res = await this.request.get<PayrollBatch | null>(`/transaction/${this.orgId}/pending-safe-transaction`, {
+      params: { paymentAccountId }
+    })
+    return res.data
+  }
+
+  // 修改 Safe 钱包所有者配置
+  async modifySafeOwner(data: ModifySafeOwnerParams) {
+    const res = await this.request.post<ModifySafeOwnerResponse>(`/transaction/${this.orgId}/modify-safe-owner`, data)
     return res.data
   }
 }
