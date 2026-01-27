@@ -335,4 +335,12 @@ export class TransactionApi {
     const res = await this.request.post<ModifySafeOwnerResponse>(`/transaction/${this.orgId}/modify-safe-owner`, data)
     return res.data
   }
+
+    // 获取成员支付统计
+    async getMemberPaymentStatistics(memberId: string) {
+      const res = await this.request.get<MemberPaymentStatisticsResponse>(
+        `/transaction/${this.orgId}/members/${memberId}/payment-statistics`
+      )
+      return res.data
+    }
 }
