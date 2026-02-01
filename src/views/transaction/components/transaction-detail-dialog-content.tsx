@@ -1,4 +1,5 @@
 import apis from '@/apis'
+import type { ChainAssetResponse } from '@/apis/chain-asset.api'
 import type { AssetChain } from '@/apis/orgnization.api'
 import { TransactionItem } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
@@ -6,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
+import { getExplorerUrl } from '@/views/transaction/transaction-detail'
+import { ExternalLink } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Transaction } from './types'
 
@@ -42,6 +45,9 @@ export function TransactionDetailDialogContent({
 }: TransactionDetailDialogContentProps) {
   const { toast } = useToast()
   const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
+  const [chainAssets, setChainAssets] = useState<ChainAssetResponse['data']>([])
+  const [onChainTxHash, setOnChainTxHash] = useState<string | null>(null)
+  const [onChainChainId, setOnChainChainId] = useState<string | null>(null)
 
   // 获取资产链信息
   useEffect(() => {
@@ -59,6 +65,45 @@ export function TransactionDetailDialogContent({
     }
     fetchAssetsChains()
   }, [])
+
+  // 获取 chainAssets（用于构建区块链浏览器链接）
+  useEffect(() => {
+    const fetchChainAssets = async () => {
+      try {
+        const res = await apis.chainAsset.getChainAssets()
+        setChainAssets(res.data)
+      } catch (error: any) {
+        console.error('Failed to load chain assets:', error)
+      }
+    }
+    fetchChainAssets()
+  }, [])
+
+  // 当满足条件时，调用 API 获取链上交易哈希
+  useEffect(() => {
+    const fetchOnChainTxHash = async () => {
+      if (
+        selectedTransaction?.type === 'safe_transaction' &&
+        selectedTransaction?.status === 'complete' &&
+        selectedTransaction?.transactionId
+      ) {
+        try {
+          const response = await apis.transaction.checkTransaction(selectedTransaction.transactionId)
+          if (response.transaction.transactionHash) {
+            setOnChainTxHash(response.transaction.transactionHash)
+            setOnChainChainId(response.chainId)
+          }
+        } catch (error: any) {
+          console.error('Failed to fetch on-chain transaction hash:', error)
+        }
+      } else {
+        // 重置状态
+        setOnChainTxHash(null)
+        setOnChainChainId(null)
+      }
+    }
+    fetchOnChainTxHash()
+  }, [selectedTransaction?.type, selectedTransaction?.status, selectedTransaction?.transactionId])
 
   // 根据货币符号获取对应的资产名称
   const getAssetNameByCurrency = (currency: string): string => {
@@ -94,6 +139,22 @@ export function TransactionDetailDialogContent({
               </Badge>
             </div>
             <div>{getStatusBadge(selectedTransaction.status)}</div>
+            {selectedTransaction.type === 'safe_transaction' &&
+              selectedTransaction.status === 'complete' &&
+              onChainTxHash &&
+              onChainChainId && (
+                <div>
+                  <a
+                    href={getExplorerUrl(onChainChainId, 'tx', onChainTxHash, chainAssets)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline text-sm"
+                  >
+                    Blockchain browser
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                </div>
+              )}
           </div>
           {!selectedTransaction.isComplete && (
             <Button variant="default" onClick={() => onExecuteNow(selectedTransaction)}>

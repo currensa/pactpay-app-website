@@ -25,8 +25,6 @@ const Transaction = lazy(() => import('@/views/transaction/transaction'))
 const Analytics = lazy(() => import('@/views/orgs/analytics'))
 const Settings = lazy(() => import('@/views/orgs/settings'))
 const TransactionDetail = lazy(() => import('@/views/transaction/transaction-detail'))
-const TransactionCopy = lazy(() => import('@/views/transaction/transaction copy'))
-const TransactionDetailCopy = lazy(() => import('@/views/transaction/transaction-detail copy'))
 
 type RouteItem = RouteObject & {
   meta?: {
@@ -53,12 +51,12 @@ const routes: RouteItem[] = [
       { index: true, element: <Navigate to="/orgs/dashboard" /> },
       { path: 'dashboard', element: <Dashboard />, meta: { title: 'Dashboard' } },
       { path: 'members', element: <Members />, meta: { title: 'Members' } },
-      { path: 'transaction', element: <TransactionCopy />, meta: { title: 'Transaction' } },
+      { path: 'transaction', element: <Transaction />, meta: { title: 'Transaction' } },
       { path: 'analytics', element: <Analytics />, meta: { title: 'Analytics' } },
       { path: 'settings', element: <Settings />, meta: { title: 'Settings' } }
     ] as RouteItem[]
   },
-  { path: 'transaction/:safeTxHash', element: <TransactionDetailCopy />, meta: { title: 'Transaction Detail' } },
+  { path: 'transaction/:safeTxHash', element: <TransactionDetail />, meta: { title: 'Transaction Detail' } },
   {
     path: 'member',
     children: [

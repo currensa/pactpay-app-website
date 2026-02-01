@@ -766,7 +766,7 @@ export default function MemberPage() {
                         {member.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{member.lastPayment || '-'}</TableCell>
+                    <TableCell>{member.lastPayment ? new Date(member.lastPayment).toLocaleDateString() : '-'}</TableCell>
                     <TableCell onClick={e => e.stopPropagation()} className="space-x-2">
                       {member.status === 'Pending' &&
                         (currentUserRole === 'Admin' || currentUserRole === 'Operator') && (

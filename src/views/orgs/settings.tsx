@@ -1,11 +1,13 @@
 import api from '@/apis'
-import type { Chain } from '@/apis/orgnization.api'
-import { Organization, PaymentAccount } from '@/apis/orgnization.api'
+import type { Chain, OrganizationPaymentAccount } from '@/apis/orgnization.api'
+import { Organization } from '@/apis/orgnization.api'
+import { PayrollBatch } from '@/apis/transaction.api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { SafeWalletConfigDialog } from '@/views/orgs/components/safe-wallet/safe-wallet-config-dialog'
 import { SafeWalletSetupDialog, type SafeWalletSetupMode } from '@/views/orgs/components/safe-wallet/safe-wallet-setup-dialog'
 import { IconAlertTriangle, IconExternalLink, IconFileText, IconShield, IconUpload } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
@@ -25,12 +27,14 @@ export default function Settings() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
 
   // Safe Wallet info
-  const [safeWallet, setSafeWallet] = useState<PaymentAccount | null>(null)
+  const [safeWallet, setSafeWallet] = useState<OrganizationPaymentAccount | null>(null)
+  const [pendingSafeTx, setPendingSafeTx] = useState<PayrollBatch | null>(null)
   const [networkName, setNetworkName] = useState<string>('')
   const [chains, setChains] = useState<Chain[]>([])
   const [canManageSafeWallet, setCanManageSafeWallet] = useState(false)
   const [safeWalletDialogOpen, setSafeWalletDialogOpen] = useState(false)
   const [safeWalletDialogMode, setSafeWalletDialogMode] = useState<SafeWalletSetupMode>('bind')
+  const [safeWalletConfigDialogOpen, setSafeWalletConfigDialogOpen] = useState(false)
 
   const organizationId = localStorage.getItem('organizationId')
 
@@ -45,32 +49,42 @@ export default function Settings() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [orgData, chainsData, orgsData] = await Promise.all([
+      const [orgData, chainsData, orgsData, paymentAccountsData] = await Promise.all([
         api.organization.getOrganizationDetail(),
         api.chainAsset.getChains(),
-        api.organization.getOrganizations()
+        api.organization.getOrganizations(),
+        api.organization.getOrganizationPaymentAccounts()
       ])
 
       // Parse organization data (API returns string, need to parse)
       const org: Organization = typeof orgData === 'string' ? JSON.parse(orgData) : orgData
+      console.log('org', org)
       setOrganization(org)
       setOrgName(org.orgName || '')
-      setDescription(org.description || '')
+      setDescription(org.desc || '')
       setWebsite((org as any).website || '')
       setChains(chainsData || [])
 
-      // Find Safe Wallet
-      const safeAccount = org.paymentAccounts?.find(account => account.type === 'safe')
+      // Find Safe Wallet from payment accounts API
+      const safeAccount = paymentAccountsData.list?.find(account => account.type === 'safe_wallet')
       if (safeAccount) {
         setSafeWallet(safeAccount)
+        // Check for pending transactions immediately
+        try {
+          const pendingTx = await api.transaction.getPendingSafeTransaction(safeAccount.id)
+          setPendingSafeTx(pendingTx)
+        } catch (error) {
+          console.error('Failed to check pending transactions:', error)
+        }
+
         // Find network name from chains
         const network = chainsData.find(
           chain =>
-            chain.caipChainId === safeAccount.config.network ||
-            chain.chainId === safeAccount.config.network ||
-            chain.id === safeAccount.config.network
+            chain.caipChainId === safeAccount.config.caipChainId ||
+            chain.chainId === safeAccount.config.chainId ||
+            chain.id === safeAccount.config.chainId
         )
-        setNetworkName(network?.name || safeAccount.config.network || 'Unknown Network')
+        setNetworkName(network?.name || safeAccount.config.caipChainId || 'Unknown Network')
       } else {
         setSafeWallet(null)
         setNetworkName('')
@@ -136,9 +150,40 @@ export default function Settings() {
     }
   }
 
-  const handleChangeSafeWallet = () => {
-    setSafeWalletDialogMode('bind')
-    setSafeWalletDialogOpen(true)
+  const handleChangeSafeWallet = async () => {
+    if (!safeWallet) {
+      setSafeWalletDialogMode('bind')
+      setSafeWalletDialogOpen(true)
+      return
+    }
+    
+    // Fallback check if state wasn't updated for some reason, though UI should prevent this
+    if (pendingSafeTx) {
+      alert('Cannot modify Safe Wallet configuration while a transaction is pending.')
+      return
+    }
+
+    setSafeWalletConfigDialogOpen(true)
+  }
+
+  const handleRevokeTransaction = async (id: string) => {
+    if (!confirm('Are you sure you want to revoke this transaction?')) return
+
+    try {
+      setLoading(true)
+      await api.transaction.deleteTransactionPlan(id)
+      
+      // Refresh pending status
+      if (safeWallet) {
+        const pendingTx = await api.transaction.getPendingSafeTransaction(safeWallet.id)
+        setPendingSafeTx(pendingTx)
+      }
+    } catch (error) {
+      console.error('Failed to revoke transaction:', error)
+      alert('Failed to revoke transaction. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading) {
@@ -193,24 +238,26 @@ export default function Settings() {
           </div>
 
           {/* Organization Name */}
-          <div className="space-y-2">
-            <Label htmlFor="org-name">
+          <div className="space-y-3">
+            <Label htmlFor="org-name" className="mb-2 block">
               Organization Name <span className="text-destructive">*</span>
             </Label>
-            <Input
-              id="org-name"
-              value={orgName}
-              onChange={e => setOrgName(e.target.value)}
-              placeholder="Acme Corporation"
-            />
-            <p className="text-muted-foreground text-xs">
-              This name will be displayed to all members and in invitations
-            </p>
+            <div>
+              <Input
+                id="org-name"
+                value={orgName}
+                onChange={e => setOrgName(e.target.value)}
+                placeholder="Acme Corporation"
+              />
+              <p className="text-muted-foreground mt-2 text-xs">
+                This name will be displayed to all members and in invitations
+              </p>
+            </div>
           </div>
 
           {/* Organization Description */}
-          <div className="space-y-2">
-            <Label htmlFor="org-description">Organization Description</Label>
+          <div className="space-y-3">
+            <Label htmlFor="org-description" className="mb-2 block">Organization Description</Label>
             <Textarea
               id="org-description"
               value={description}
@@ -221,16 +268,18 @@ export default function Settings() {
           </div>
 
           {/* Organization Website */}
-          <div className="space-y-2">
-            <Label htmlFor="org-website">Organization Website</Label>
-            <Input
-              id="org-website"
-              type="url"
-              value={website}
-              onChange={e => setWebsite(e.target.value)}
-              placeholder="https://acme.com"
-            />
-            <p className="text-muted-foreground text-xs">Optional: Your organization's website URL</p>
+          <div className="space-y-3">
+            <Label htmlFor="org-website" className="mb-2 block">Organization Website</Label>
+            <div>
+              <Input
+                id="org-website"
+                type="url"
+                value={website}
+                onChange={e => setWebsite(e.target.value)}
+                placeholder="https://acme.com"
+              />
+              <p className="text-muted-foreground mt-2 text-xs">Optional: Your organization's website URL</p>
+            </div>
           </div>
 
           {/* Save Button */}
@@ -269,18 +318,60 @@ export default function Settings() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <Button onClick={handleChangeSafeWallet}>Change Safe Wallet</Button>
-                <a
-                  href="https://safe.global/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary inline-flex items-center gap-1 text-sm hover:underline"
-                >
-                  Learn about Safe Wallet Multi-sig
-                  <IconExternalLink className="size-4" />
-                </a>
-              </div>
+              {pendingSafeTx ? (
+                <div className="space-y-4 rounded-lg border border-orange-200 bg-orange-50 p-4 dark:border-orange-900 dark:bg-orange-950/10">
+                  <div className="flex items-start gap-3">
+                    <IconAlertTriangle className="mt-0.5 size-5 shrink-0 text-orange-600 dark:text-orange-500" />
+                    <div className="space-y-2">
+                      <p className="font-medium text-orange-800 dark:text-orange-200">
+                        {pendingSafeTx.transactionType === 'safe_config'
+                          ? 'There is a pending configuration change transaction.'
+                          : 'Cannot change settings while a payment transaction is pending.'}
+                      </p>
+                      
+                      {pendingSafeTx.transactionType === 'safe_config' && (
+                        <div className="flex gap-3">
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={() => handleRevokeTransaction(pendingSafeTx.id)}
+                          >
+                            Revoke
+                          </Button>
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            onClick={() => navigate(`/transaction/${pendingSafeTx.transactionId}`)}
+                          >
+                            Sign
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {pendingSafeTx.transactionType === 'safe_transaction' && (
+                     <div className="flex items-center gap-4 pt-2">
+                      <Button disabled className="opacity-50">
+                        Change Safe Wallet
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <Button onClick={handleChangeSafeWallet}>Change Safe Wallet</Button>
+                  <a
+                    href="https://safe.global/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary inline-flex items-center gap-1 text-sm hover:underline"
+                  >
+                    Learn about Safe Wallet Multi-sig
+                    <IconExternalLink className="size-4" />
+                  </a>
+                </div>
+              )}
             </>
           ) : (
             <div className="py-8 text-center">
@@ -320,6 +411,15 @@ export default function Settings() {
           organizationId={organizationId}
           chains={chains}
           canManage={canManageSafeWallet}
+          onSuccess={loadData}
+        />
+      )}
+
+      {safeWallet && (
+        <SafeWalletConfigDialog
+          open={safeWalletConfigDialogOpen}
+          onOpenChange={setSafeWalletConfigDialogOpen}
+          paymentAccount={safeWallet}
           onSuccess={loadData}
         />
       )}

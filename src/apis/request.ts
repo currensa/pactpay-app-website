@@ -1,3 +1,4 @@
+import { toast } from '@/components/ui/use-toast'
 import axios from 'axios'
 
 const request = axios.create({
@@ -19,6 +20,12 @@ request.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       window.location.href = '/account/login'
+    }
+    if (error.response?.status === 400) {
+      toast({
+        description: error.response.data.message,
+        variant: 'destructive'
+      })
     }
     return Promise.reject(error)
   }

@@ -4,7 +4,6 @@ import { SafeWalletApi } from '@/apis/safe-wallet.api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
@@ -154,19 +153,42 @@ export function BindSafeWalletForm({ open, organizationId, chains, canManage, on
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Network</Label>
-        <Select value={selectedNetworkId} onValueChange={setSelectedNetworkId}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a network" />
-          </SelectTrigger>
-          <SelectContent>
-            {chains.map(chain => (
-              <SelectItem key={chain.id} value={chain.id}>
-                {chain.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label>Select Network</Label>
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+          {chains.map(chain => {
+            const isSelected = selectedNetworkId === chain.id
+            return (
+              <button
+                key={chain.id}
+                type="button"
+                onClick={() => setSelectedNetworkId(chain.id)}
+                disabled={isSubmitting}
+                className={cn(
+                  'flex flex-col items-center gap-1 rounded-lg border-2 p-2 transition-all',
+                  isSelected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/30',
+                  isSubmitting && 'cursor-not-allowed opacity-50'
+                )}
+              >
+                <img
+                  src={chain.iconUrl}
+                  alt={chain.name}
+                  className={cn('size-4', isSelected ? 'opacity-100' : 'opacity-60')}
+                />
+                <span
+                  className={cn(
+                    'text-center text-xs font-medium',
+                    isSelected ? 'text-primary' : 'text-foreground'
+                  )}
+                >
+                  {chain.name}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-muted-foreground text-xs">
+          The network you choose determines which blockchain your transactions will occur on.
+        </p>
       </div>
 
       <div className="space-y-2">

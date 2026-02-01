@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
-import { useAppKitAccount } from '@reown/appkit/react'
+import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import Safe from '@safe-global/protocol-kit'
 import { IconArrowLeft, IconArrowRight, IconCheck, IconLoader2, IconShield } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -30,6 +31,7 @@ interface SafeInfo {
 export default function ConnectSafeWallet() {
   const navigate = useNavigate()
   const { address, isConnected } = useAppKitAccount()
+  const { walletProvider } = useAppKitProvider('eip155')
 
   const [chains, setChains] = useState<Chain[]>([])
   const [loadingChains, setLoadingChains] = useState(false)
@@ -100,15 +102,25 @@ export default function ConnectSafeWallet() {
       // getSafesByOwner returns { safes: string[] }
       const safeAddresses = response.safes || []
 
-      // Fetch detailed info for each Safe
+      // Fetch detailed info for each Safe using protocol-kit
       const safeInfoPromises = safeAddresses.map(async safeAddress => {
         try {
-          const safeInfo = await safeApi.getSafeInfo(safeAddress)
+          if (!walletProvider || !address) {
+            throw new Error('Wallet provider or address not available')
+          }
+          const protocolKit = await Safe.init({
+            provider: walletProvider as any,
+            signer: address,
+            safeAddress: safeAddress
+          })
+          const threshold = await protocolKit.getThreshold()
+          const ownerAddresses = await protocolKit.getOwners()
+          const contractVersion = protocolKit.getContractVersion()
           return {
-            address: safeInfo.address,
-            threshold: safeInfo.threshold,
-            owners: safeInfo.owners,
-            version: safeInfo.version
+            address: safeAddress,
+            threshold: Number(threshold),
+            owners: ownerAddresses,
+            version: contractVersion
           }
         } catch (error) {
           console.error(`Failed to load info for Safe ${safeAddress}:`, error)
@@ -203,7 +215,7 @@ export default function ConnectSafeWallet() {
       // Call bindPaymentAccount API
       await api.organization.bindPaymentAccount({
         address: selectedSafeAddress,
-        caipChainId: selectedChain.caipChainId    
+        caipChainId: selectedChain.caipChainId
       })
 
       // Navigate to dashboard after successful connection
