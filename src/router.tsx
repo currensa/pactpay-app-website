@@ -34,6 +34,9 @@ type RouteItem = RouteObject & {
 
 const routes: RouteItem[] = [
   {
+    index: true, element: <Navigate to="/account/identity" />
+  },
+  {
     path: 'account',
     children: [
       { path: 'login', element: <Login />, meta: { title: 'Login' } },
