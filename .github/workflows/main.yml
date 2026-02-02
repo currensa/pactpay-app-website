@@ -8,13 +8,15 @@ on:
         default: 'production'
         type: choice
         options:
-        - production
+          - production
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -22,10 +24,9 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      - uses: actions/checkout@v4
       - name: Deploy app
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: 'b30c2490be36d2b674d44573787b9fec'
+          accountId: b30c2490be36d2b674d44573787b9fec
           command: pages deploy ./dist --project-name=pactpay-app-website
