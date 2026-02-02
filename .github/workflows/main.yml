@@ -27,4 +27,5 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 'b30c2490be36d2b674d44573787b9fec'
           command: pages deploy ./dist --project-name=pactpay-app-website
