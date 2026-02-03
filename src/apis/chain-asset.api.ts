@@ -42,8 +42,38 @@ interface Chain {
   updatedAt: string
 }
 
+/** 组织支付账户支持的 Asset/Chain 单项（用于 GET :orgId/assets-chains） */
+export interface OrgAssetChainItem {
+  id: string
+  caipChainId: string
+  assetId: string
+  contractAddress: string
+  decimals: number
+  isNative: boolean
+  status: string
+  createdAt: string
+  updatedAt: string
+  asset: {
+    id: string
+    symbol: string
+    name: string
+    iconUrl: string
+    isStable: boolean
+    status: string
+    createdAt: string
+    updatedAt: string
+  }
+  chain: Chain
+}
+
 export class ChainAssetApi {
   constructor(private readonly request: AxiosInstance) {}
+
+    // 统一获取 organizationId（作为 getter，更简洁）
+    private get orgId(): string {
+      const orgId = localStorage.getItem('organizationId')
+      return orgId || ''
+    }
 
   async getChainAssets() {
     const res = await this.request.get<ChainAssetResponse>('/chain-asset')
@@ -52,6 +82,12 @@ export class ChainAssetApi {
 
   async getChains() {
     const res = await this.request.get<Chain[]>('/chain-asset/chains')
+    return res.data
+  }
+
+  /** 获取组织支付账户支持的 Assets/Chains */
+  async getOrgAssetsChains(): Promise<OrgAssetChainItem[]> {
+    const res = await this.request.get<OrgAssetChainItem[]>(`/orgs/${this.orgId}/assets-chains`)
     return res.data
   }
 }

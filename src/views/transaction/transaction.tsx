@@ -1,6 +1,5 @@
 import apis from '@/apis'
 import type { AssetChain } from '@/apis/orgnization.api'
-import { MembersResponse } from '@/apis/orgnization.api'
 import { TransactionItem, TransactionPlan } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,8 +13,8 @@ import { cn, formatAmount, sumAmounts } from '@/lib/utils'
 import { IconAlertTriangle, IconFlame, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  CreateTransactionDialogContent,
   DeleteConfirmDialogContent,
   ExecuteConfirmDialogContent,
   ExecuteSuccessDialogContent,
@@ -28,6 +27,8 @@ function getStatusBadge(status: Transaction['status']) {
       return <Badge variant="default">Ready</Badge>
     case 'pending':
       return <Badge variant="warning">Pending</Badge>
+    case 'executing':
+      return <Badge variant="default">Executing</Badge>
     case 'complete':
       return <Badge variant="success">Complete</Badge>
     case 'failed':
@@ -68,10 +69,10 @@ function getTimeIcon(daysRemaining: number | null, isDueToday: boolean) {
 
 export default function Transaction() {
   const { toast } = useToast()
+  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
-  const [addTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false)
 
   // Execute Now 相关状态
   const [executeConfirmDialogOpen, setExecuteConfirmDialogOpen] = useState(false)
@@ -93,42 +94,16 @@ export default function Transaction() {
   // Re-action 相关状态
   const [reactionConfirmDialogOpen, setReactionConfirmDialogOpen] = useState(false)
   const [transactionToReaction, setTransactionToReaction] = useState<Transaction | null>(null)
-  const [isCreatingFromReaction, setIsCreatingFromReaction] = useState(false)
 
   // 使用 state 管理 transactions，以便删除后可以更新
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
-  // 成员列表状态
-  const [organizationMembers, setOrganizationMembers] = useState<MembersResponse['data']>([])
-  const [membersLoading, setMembersLoading] = useState(false)
-
   // 资产链信息状态
   const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
 
   const itemsPerPage = 10
-  // 获取组织成员列表
-  const fetchOrganizationMembers = async () => {
-    try {
-      setMembersLoading(true)
-      const response = await apis.organization.getOrganizationMembers(1, 100) // 获取所有成员
-      setOrganizationMembers(response.data)
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load organization members.',
-        variant: 'destructive'
-      })
-    } finally {
-      setMembersLoading(false)
-    }
-  }
-
-  // 初始化时加载成员列表
-  useEffect(() => {
-    fetchOrganizationMembers()
-  }, [])
 
   // 获取资产链信息
   useEffect(() => {
@@ -176,8 +151,12 @@ export default function Transaction() {
       status = 'pending'
     } else if (plan.transactionStatus === 'ready') {
       status = 'ready'
+    } else if (plan.transactionStatus === 'executing') {
+      status = 'executing'
     } else if (plan.transactionStatus === 'success') {
       status = 'complete'
+    } else if (plan.transactionStatus === 'failed') {
+      status = 'failed'
     }
 
     return {
@@ -232,23 +211,6 @@ export default function Transaction() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchQuery, statusFilter])
-
-
-  // 处理对话框打开时的初始化
-  useEffect(() => {
-    if (!addTransactionDialogOpen) {
-      // 对话框关闭时重置状态
-      setIsCreatingFromReaction(false)
-      setTransactionToReaction(null)
-    }
-  }, [addTransactionDialogOpen])
-
-  // 处理取消
-  const handleCancel = () => {
-    setAddTransactionDialogOpen(false)
-    setIsCreatingFromReaction(false)
-    setTransactionToReaction(null)
-  }
 
 
   // 处理 Execute Now 点击
@@ -328,74 +290,13 @@ export default function Transaction() {
     setReactionConfirmDialogOpen(true)
   }
 
-  // 确认 Re-action
+  // 确认 Re-action：跳转到新增交易页面（带 fromReaction 和原交易 id，用于回填成员与金额）
   const handleConfirmReaction = () => {
     if (!transactionToReaction) return
-
+    const transactionId = transactionToReaction.id
     setReactionConfirmDialogOpen(false)
-    setIsCreatingFromReaction(true)
-    setAddTransactionDialogOpen(true)
-  }
-
-  // 处理创建 Transaction（包括 Re-action）
-  const handleCreateTransaction = async (params: {
-    selectedMembers: Set<string>
-    memberServiceFees: Record<string, string>
-    memberCurrencies: Record<string, string>
-    transactionName: string
-    executionDate: string
-  }) => {
-    try {
-      // 构建成员数据
-      const members = Array.from(params.selectedMembers).map(memberId => {
-        const member = organizationMembers.find(m => m.id === memberId)
-        if (!member) {
-          throw new Error(`Member ${memberId} not found`)
-        }
-        const fee = params.memberServiceFees[memberId] || '0'
-        return {
-          memberId: member.memberId,
-          receivingAccountId: Number(member.receivingAccounts[0].id), // 需要从成员数据中获取 暂时取成员的第一个收款账户
-          amount: fee,
-          currency: params.memberCurrencies[memberId] || 'USDC'
-        }
-      })
-
-      const paymentAccounts = await apis.organization.getOrganizationPaymentAccounts()
-
-      // 构建创建请求
-      const payload = {
-        payPeriod: params.executionDate ? new Date(params.executionDate).toISOString() : new Date().toISOString(),
-        paymentAccountId: Number(paymentAccounts.list[0].id), // TODO: 需要从组织配置中获取
-        transactionName: params.transactionName || 'New Transaction',
-        members
-      }
-
-      await apis.transaction.createTransactionPlan(payload)
-
-      // 显示成功提示
-      const successMessage = isCreatingFromReaction
-        ? 'New transaction created from re-action'
-        : 'Transaction created successfully'
-      toast({
-        title: 'Success',
-        description: successMessage
-      })
-
-      // 关闭 Modal 并重置状态
-      setAddTransactionDialogOpen(false)
-      setIsCreatingFromReaction(false)
-      setTransactionToReaction(null)
-
-      // 刷新列表
-      await fetchTransactionPlans()
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to create transaction. Please try again.',
-        variant: 'destructive'
-      })
-    }
+    setTransactionToReaction(null)
+    navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(transactionId)}`)
   }
 
   // 确认执行
@@ -526,7 +427,7 @@ export default function Transaction() {
               </SelectContent>
             </Select>
 
-            <Button onClick={() => setAddTransactionDialogOpen(true)}>
+            <Button onClick={() => navigate('/orgs/transaction/create')}>
               <IconPlus className="mr-2 size-4" />
               New Transaction
             </Button>
@@ -605,7 +506,12 @@ export default function Transaction() {
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
                       {!transaction.isComplete && (
-                        <Button variant="default" size="sm" onClick={() => handleExecuteNow(transaction)}>
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          onClick={() => handleExecuteNow(transaction)}
+                          disabled={transaction.status === 'executing'}
+                        >
                           Execute Now
                         </Button>
                       )}
@@ -622,6 +528,7 @@ export default function Transaction() {
                           size="sm"
                           className="text-destructive hover:text-destructive"
                           onClick={() => handleDeleteClick(transaction)}
+                          disabled={transaction.status === 'executing'}
                         >
                           <IconTrash className="size-4" />
                         </Button>
@@ -644,20 +551,6 @@ export default function Transaction() {
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
         </div>
       )}
-
-      {/* 新增交易对话框 */}
-      <Dialog open={addTransactionDialogOpen} onOpenChange={setAddTransactionDialogOpen}>
-        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
-          <CreateTransactionDialogContent
-            isCreatingFromReaction={isCreatingFromReaction}
-            organizationMembers={organizationMembers}
-            membersLoading={membersLoading}
-            transactionDetailMembers={transactionDetailMembers}
-            onCancel={handleCancel}
-            onCreateTransaction={handleCreateTransaction}
-          />
-        </DialogContent>
-      </Dialog>
 
       {/* Execute Now - 确认弹窗 */}
       <Dialog open={executeConfirmDialogOpen} onOpenChange={setExecuteConfirmDialogOpen}>

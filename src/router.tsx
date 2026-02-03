@@ -22,6 +22,7 @@ const Dashboard = lazy(() => import('@/views/orgs/dashboard'))
 const Members = lazy(() => import('@/views/orgs/members'))
 const CreateOrganization = lazy(() => import('@/views/orgs/create-organization'))
 const Transaction = lazy(() => import('@/views/transaction/transaction'))
+const CreateTransaction = lazy(() => import('@/views/transaction/create-transaction'))
 const Analytics = lazy(() => import('@/views/orgs/analytics'))
 const Settings = lazy(() => import('@/views/orgs/settings'))
 const TransactionDetail = lazy(() => import('@/views/transaction/transaction-detail'))
@@ -55,6 +56,7 @@ const routes: RouteItem[] = [
       { path: 'dashboard', element: <Dashboard />, meta: { title: 'Dashboard' } },
       { path: 'members', element: <Members />, meta: { title: 'Members' } },
       { path: 'transaction', element: <Transaction />, meta: { title: 'Transaction' } },
+      { path: 'transaction/create', element: <CreateTransaction />, meta: { title: 'Create Transaction' } },
       { path: 'analytics', element: <Analytics />, meta: { title: 'Analytics' } },
       { path: 'settings', element: <Settings />, meta: { title: 'Settings' } }
     ] as RouteItem[]

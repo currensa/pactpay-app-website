@@ -18,6 +18,8 @@ function getStatusBadge(status: Transaction['status']) {
       return <Badge variant="default">Ready</Badge>
     case 'pending':
       return <Badge variant="warning">Pending</Badge>
+    case 'executing':
+      return <Badge variant="default">Executing</Badge>
     case 'complete':
       return <Badge variant="success">Complete</Badge>
     case 'failed':
@@ -157,7 +159,11 @@ export function TransactionDetailDialogContent({
               )}
           </div>
           {!selectedTransaction.isComplete && (
-            <Button variant="default" onClick={() => onExecuteNow(selectedTransaction)}>
+            <Button 
+              variant="default" 
+              onClick={() => onExecuteNow(selectedTransaction)}
+              disabled={selectedTransaction.status === 'executing'}
+            >
               Execute Now
             </Button>
           )}
