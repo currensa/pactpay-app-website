@@ -108,12 +108,12 @@ export default function Settings() {
     if (file) {
       // Validate file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
-        alert('文件大小不能超过 2MB')
+        alert('File size must not exceed 2MB')
         return
       }
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        alert('请上传图片文件（PNG 或 JPG）')
+        alert('Please upload an image file (PNG or JPG)')
         return
       }
       setLogoFile(file)
@@ -127,7 +127,7 @@ export default function Settings() {
 
   const handleSaveChanges = async () => {
     if (!orgName.trim()) {
-      alert('组织名称是必填项')
+      alert('Organization name is required')
       return
     }
 
@@ -156,7 +156,7 @@ export default function Settings() {
       setSafeWalletDialogOpen(true)
       return
     }
-    
+
     // Fallback check if state wasn't updated for some reason, though UI should prevent this
     if (pendingSafeTx) {
       alert('Cannot modify Safe Wallet configuration while a transaction is pending.')
@@ -172,7 +172,7 @@ export default function Settings() {
     try {
       setLoading(true)
       await api.transaction.deleteTransactionPlan(id)
-      
+
       // Refresh pending status
       if (safeWallet) {
         const pendingTx = await api.transaction.getPendingSafeTransaction(safeWallet.id)
@@ -189,7 +189,7 @@ export default function Settings() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-muted-foreground">加载中...</div>
+        <div className="text-muted-foreground">loading...</div>
       </div>
     )
   }
@@ -328,18 +328,18 @@ export default function Settings() {
                           ? 'There is a pending configuration change transaction.'
                           : 'Cannot change settings while a payment transaction is pending.'}
                       </p>
-                      
+
                       {pendingSafeTx.transactionType === 'safe_config' && (
                         <div className="flex gap-3">
-                          <Button 
-                            variant="destructive" 
+                          <Button
+                            variant="destructive"
                             size="sm"
                             onClick={() => handleRevokeTransaction(pendingSafeTx.id)}
                           >
                             Revoke
                           </Button>
-                          <Button 
-                            variant="default" 
+                          <Button
+                            variant="default"
                             size="sm"
                             onClick={() => navigate(`/transaction/${pendingSafeTx.transactionId}`)}
                           >
@@ -349,9 +349,9 @@ export default function Settings() {
                       )}
                     </div>
                   </div>
-                  
+
                   {pendingSafeTx.transactionType === 'safe_transaction' && (
-                     <div className="flex items-center gap-4 pt-2">
+                    <div className="flex items-center gap-4 pt-2">
                       <Button disabled className="opacity-50">
                         Change Safe Wallet
                       </Button>
