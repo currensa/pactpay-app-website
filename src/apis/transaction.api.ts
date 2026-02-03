@@ -54,6 +54,7 @@ export interface TransactionPlan {
     | 'proposed' // 2️⃣ 已 propose（有 safeTxHash）
     | 'confirming' // 3️⃣ 收集中（未达到 threshold）
     | 'ready' // 4️⃣ 签名满足，可执行
+    | 'executing' // 5️⃣ 执行中
     | 'success' // 6️⃣ 执行成功
     | 'failed' // ❌ 执行失败（最终态）
   payPeriod: string
@@ -189,6 +190,7 @@ export interface TransactionCheckResponse {
   chainId: string
   safe: string
   threshold: number
+  transactionStatus:TransactionPlan['transactionStatus'],
   rejections?: TransactionConfirmation[]
 }
 
@@ -310,6 +312,12 @@ export class TransactionApi {
     return res.data
   }
 
+  // 执行交易
+  async executeTransaction(safeTxHash: string) {
+    const res = await this.request.post<{ transactionHash: string }>(`/transaction/execute/${safeTxHash}`)
+    return res.data
+  }
+
   // 签名交易
   async signTransaction(signData: SignTransactionDto) {
     const res = await this.request.post<{ success: boolean }>(`/transaction/sign-transaction`, signData)
@@ -336,11 +344,25 @@ export class TransactionApi {
     return res.data
   }
 
-    // 获取成员支付统计
-    async getMemberPaymentStatistics(memberId: string) {
-      const res = await this.request.get<MemberPaymentStatisticsResponse>(
-        `/transaction/${this.orgId}/members/${memberId}/payment-statistics`
-      )
-      return res.data
-    }
+  // 获取成员支付统计
+  async getMemberPaymentStatistics(memberId: string) {
+    const res = await this.request.get<MemberPaymentStatisticsResponse>(
+      `/transaction/${this.orgId}/members/${memberId}/payment-statistics`
+    )
+    return res.data
+  }
+
+  // 获取支付账户余额
+  async getPaymentAccountBalance(paymentAccountId: number, symbol?: string) {
+    const res = await this.request.get<{
+      symbol: string
+      balanceWei: string
+      balanceFormatted: string
+      isNative: boolean
+      decimals: number
+    }>(`/transaction/${this.orgId}/payment-accounts/${paymentAccountId}/safe-balance`, {
+      params: symbol ? { symbol } : undefined
+    })
+    return res.data
+  }
 }

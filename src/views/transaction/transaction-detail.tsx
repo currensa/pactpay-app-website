@@ -8,7 +8,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
 import { Provider, useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import Safe, { hashSafeMessage } from '@safe-global/protocol-kit'
-import type { MetaTransactionData, SafeSignature, SafeTransaction } from '@safe-global/types-kit'
 import { ExternalLink } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
@@ -124,70 +123,6 @@ function getTransactionStatus(tx: TransactionCheckResponse | null): 'ready' | 'p
 	return 'pending'
 }
 
-async function buildSafeTransaction(
-	protocolKit: Safe,
-	tx: TransactionCheckResponse
-): Promise<SafeTransaction> {
-	const metaTx: MetaTransactionData = {
-		to: tx.transaction.to,
-		value: tx.transaction.value,
-		data: tx.transaction.data ?? '0x',
-		operation: tx.transaction.operation
-	}
-
-	const safeTransaction = await protocolKit.createTransaction({
-		transactions: [metaTx],
-		options: {
-			safeTxGas: tx.transaction.safeTxGas,
-			baseGas: tx.transaction.baseGas,
-			gasPrice: tx.transaction.gasPrice,
-			gasToken: tx.transaction.gasToken,
-			refundReceiver: tx.transaction.refundReceiver,
-			nonce: Number(tx.transaction.nonce)
-		}
-	})
-
-	// confirmations -> signatures Map
-	const confirmations = tx.transaction.confirmations || []
-	confirmations.forEach((confirmation) => {
-		if (!confirmation.signature) return
-		const signature: SafeSignature = {
-			signer: confirmation.owner || tx.safe,
-			data: confirmation.signature,
-			isContractSignature: false,
-			staticPart: function (_dynamicOffset?: string) {
-				return this.data
-			},
-			dynamicPart: function () {
-				return ''
-			}
-		}
-		safeTransaction.addSignature(signature)
-	})
-
-	// 兼容旧版签名结构
-	if (tx.transaction.signatures && typeof tx.transaction.signatures === 'object') {
-		Object.entries(tx.transaction.signatures).forEach(([signer, sigData]) => {
-			if (sigData && typeof sigData === 'object' && 'data' in sigData) {
-				const signature: SafeSignature = {
-					signer: (sigData as any).signer || signer,
-					data: (sigData as any).data,
-					isContractSignature: Boolean((sigData as any).isContractSignature),
-					staticPart: function (_dynamicOffset?: string) {
-						return this.data
-					},
-					dynamicPart: function () {
-						return ''
-					}
-				}
-				safeTransaction.addSignature(signature)
-			}
-		})
-	}
-
-	return safeTransaction
-}
-
 export default function TransactionDetail() {
 	const { safeTxHash } = useParams<{ chainId: string; safeTxHash: string }>()
 	const [tx, setTx] = useState<TransactionCheckResponse | null>(null)
@@ -287,6 +222,8 @@ export default function TransactionDetail() {
 	const isFinalized = transactionStatus === 'complete' || transactionStatus === 'failed'
 	const showExecute = tx.canExecute
 	const showConfirm = !tx.canExecute
+	// 检查是否处于执行中状态
+	const isExecutingStatus = tx.transactionStatus === 'executing'
 
 	const ConnectWallet = () => {
 		open({ view: 'Connect', namespace: 'eip155' })
@@ -347,37 +284,15 @@ export default function TransactionDetail() {
 	}
 
 	const handleExecute = async () => {
-		if (!tx) return
-		if (!walletProvider) {
-			toast({ description: 'Cannot find web3 provider', variant: 'destructive' })
-			return
-		}
+		if (!tx || !safeTxHash) return
 
 		setIsExecuting(true)
-		const provider = walletProvider
 		try {
-			const hexChainId = '0x' + Number(chainId ?? 1).toString(16)
-			await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: hexChainId }] })
-		} catch (e) {
-			// ignore
-		}
-
-		try {
-
-			const protocolKit = await Safe.init({
-				provider,
-				safeAddress: tx.safe,
+			const { transactionHash } = await apis.transaction.executeTransaction(safeTxHash)
+			toast({
+				description: transactionHash ? `Transaction execution sent. Hash: ${transactionHash}` : 'Transaction execution sent',
+				variant: 'default'
 			})
-
-			const safeTransaction = await buildSafeTransaction(protocolKit, tx)
-
-			await protocolKit.executeTransaction(safeTransaction)
-
-			// 通知服务器更新交易状态
-			await apis.transaction.getSyncStatus(tx.safe)
-
-
-			toast({ description: 'Transaction execution sent', variant: 'default' })
 			await refreshTx()
 		} catch (error: any) {
 			console.error(error)
@@ -588,18 +503,18 @@ export default function TransactionDetail() {
 			{/* 右下角按钮：根据详情字段决定显示 Confirm / Execute / Reject */}
 			{!isFinalized && (
 				<div className="fixed right-6 bottom-6 flex gap-3">
-					{!isConnected && <Button onClick={ConnectWallet}>Connect Wallet</Button>}
+					{!isConnected && <Button onClick={ConnectWallet} disabled={isExecutingStatus}>Connect Wallet</Button>}
 					{isConnected && <Button
 						variant="destructive"
 						onClick={handleRejectClick}
-						disabled={isConfirming || isRejecting || isExecuting}
+						disabled={isConfirming || isRejecting || isExecuting || isExecutingStatus}
 					>
 						Reject
 					</Button>}
 					{isConnected && showConfirm && (
 						<Button
 							onClick={handleConfirm}
-							disabled={isConfirming || isRejecting}
+							disabled={isConfirming || isRejecting || isExecutingStatus}
 						>
 							{isConfirming ? 'Confirming...' : 'Confirm'}
 						</Button>
@@ -607,7 +522,7 @@ export default function TransactionDetail() {
 					{isConnected && showExecute && (
 						<Button
 							onClick={handleExecute}
-							disabled={isExecuting}
+							disabled={isExecuting || isExecutingStatus}
 						>
 							{isExecuting ? 'Executing...' : 'Execute'}
 						</Button>
