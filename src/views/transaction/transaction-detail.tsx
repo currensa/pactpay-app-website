@@ -146,10 +146,10 @@ export default function TransactionDetail() {
 		const updated = await apis.transaction.checkTransaction(safeTxHash)
 		setChainId(updated.chainId)
 		setTx(updated)
-		if (updated.canExecute) {
-			// 通知服务器更新交易状态
-			await apis.transaction.getSyncStatus(updated.safe)
-		}
+		// if (updated.canExecute) {
+		// 	// 通知服务器更新交易状态
+		// 	await apis.transaction.getSyncStatus(updated.safe)
+		// }
 	}, [safeTxHash])
 
 	// 加载链资产数据
