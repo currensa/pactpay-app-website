@@ -70,7 +70,7 @@ export default function MemberPage() {
       id: apiMember.id,
       memberId: apiMember.memberId,
       name: apiMember.showName || apiMember.memberId,
-      email: apiMember.showName?.includes('@') ? apiMember.showName : '',
+      email: apiMember.email || apiMember.showName?.includes('@') ? apiMember.showName : '',
       receivingWallet: receivingAccount?.config?.address || null,
       network: payoutIntent?.network,
       role: primaryRole as MemberRole,
@@ -485,7 +485,7 @@ export default function MemberPage() {
       setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, serviceFee: numValue } : m)))
       toast({
         title: 'Success',
-        description: `Service Fee updated to ${numValue} USDC`
+        description: `Service Fee updated to ${numValue} ${currency}`
       })
     } catch (error: any) {
       toast({

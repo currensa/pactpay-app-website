@@ -11,7 +11,7 @@ export default function MemberLayout() {
         <SidebarProvider>
           {/* Sidebar content */}
           <MemberSidebar />
-          <div className="flex h-full flex-1 flex-col">
+          <div className="flex h-full flex-1 flex-col overflow-hidden">
             <header className="bg-background h-16 shrink-0 border-b">
               {/* Header content */}
               <AppHeader />

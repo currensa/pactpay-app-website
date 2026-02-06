@@ -44,6 +44,7 @@ export interface OrganizationMember {
   memberId: string
   userId: string | null
   showName: string
+  email: string | null
   avatarUrl: string | null
   status: 'active' | 'pending' | 'inactive'
   createdAt: string

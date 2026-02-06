@@ -109,7 +109,7 @@ export default function Dashboard() {
     const query = searchQuery.toLowerCase()
     return members.filter(member => {
       const name = member.showName?.toLowerCase() || ''
-      const email = member.receivingAccounts?.[0]?.config?.address?.toLowerCase() || ''
+      const email = member.email?.toLowerCase() || ''
       const wallet = member.receivingAccounts?.[0]?.config?.address?.toLowerCase() || ''
       return name.includes(query) || email.includes(query) || wallet.includes(query)
     })
@@ -170,7 +170,7 @@ export default function Dashboard() {
       ...filteredMembers.map(m =>
         [
           m.showName || '',
-          m.receivingAccounts?.[0]?.config?.address || '',
+          m.email || '',
           m.receivingAccounts?.[0]?.config?.address || '',
           getMemberRole(m),
           getServiceFee(m),
@@ -383,7 +383,7 @@ export default function Dashboard() {
                           <span className="font-medium">{member.showName || 'Unknown'}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{walletAddress || '-'}</TableCell>
+                      <TableCell className="text-muted-foreground">{member.email || '-'}</TableCell>
                       <TableCell>
                         {hasWallet ? (
                           <div className="flex items-center gap-1">
