@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { hasPermission, Permission, MemberRole } from '@/utils/permissions'
 import { SafeWalletConfigDialog } from '@/views/orgs/components/safe-wallet/safe-wallet-config-dialog'
 import { SafeWalletSetupDialog, type SafeWalletSetupMode } from '@/views/orgs/components/safe-wallet/safe-wallet-setup-dialog'
 import { IconAlertTriangle, IconExternalLink, IconFileText, IconShield, IconUpload } from '@tabler/icons-react'
@@ -90,12 +91,12 @@ export default function Settings() {
         setNetworkName('')
       }
 
-      // Determine permission (Owner / Pay Admin) based on current organization membership
+      // 根据用户的角色判断是否有权限管理 Safe Wallet
       const currentOrgId = org.orgId || organizationId
       const currentItem = (orgsData || []).find((item: any) => item?.organization?.orgId === currentOrgId)
-      const roles: string[] = currentItem?.member?.roles?.map((r: any) => r.role) || []
-      // Map: Admin = Owner, Operator = Pay Admin
-      setCanManageSafeWallet(roles.includes('Admin') || roles.includes('Operator'))
+      const userRoles: MemberRole[] = currentItem?.member?.roles?.map((r: any) => r.role as MemberRole) || []
+      // 检查是否有绑定 Safe Wallet 的权限
+      setCanManageSafeWallet(hasPermission(userRoles, Permission.BIND_SAFE_WALLET))
     } catch (error) {
       console.error('Failed to load organization data:', error)
     } finally {

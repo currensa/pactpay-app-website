@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
+import { getPrimaryRole, getMemberRoles, hasPermission, Permission, canManageMember, MemberRole } from '@/utils/permissions'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -35,6 +36,9 @@ export default function Dashboard() {
   const [todayTransactions, setTodayTransactions] = useState<TransactionPlan[]>([])
   const [members, setMembers] = useState<OrganizationMember[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  
+  // TODO: 从 context 或 store 获取当前用户角色
+  const currentUserRoles: MemberRole[] = ['Owner']
 
   // 获取统计数据
   const fetchStats = async () => {
@@ -115,12 +119,10 @@ export default function Dashboard() {
     })
   }, [members, searchQuery])
 
-  // 获取成员角色
+  // 获取成员角色(显示用)
   const getMemberRole = (member: OrganizationMember) => {
-    if (member.roles && member.roles.length > 0) {
-      return member.roles[0].role
-    }
-    return 'Member'
+    const roles = getMemberRoles(member)
+    return getPrimaryRole(roles)
   }
 
   // 格式化钱包地址
@@ -414,31 +416,34 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2">
                           {member.status === 'pending' ? (
                             <>
-                              <Button variant="link" size="sm" className="h-auto p-0 text-red-600">
-                                Approve
-                              </Button>
-                              <Button variant="link" size="sm" className="h-auto p-0 text-red-600">
-                                Reject
-                              </Button>
+                              {hasPermission(currentUserRoles, Permission.APPROVE_MEMBER) && (
+                                <>
+                                  <Button variant="link" size="sm" className="h-auto p-0 text-green-600">
+                                    Approve
+                                  </Button>
+                                  <Button variant="link" size="sm" className="h-auto p-0 text-red-600">
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
                             </>
                           ) : (
                             <>
-                              <Button variant="link" size="sm" className="h-auto p-0">
+                              <Button 
+                                variant="link" 
+                                size="sm" 
+                                className="h-auto p-0"
+                                onClick={() => navigate(`/orgs/members?detail=${member.id}`)}
+                              >
                                 View Details
                               </Button>
-                              {getMemberRole(member) === 'Operator' && (
-                                <Button variant="link" size="sm" className="h-auto p-0 text-red-600">
-                                  Remove Operator
-                                </Button>
-                              )}
-                              {getMemberRole(member) !== 'Operator' && getMemberRole(member) !== 'Admin' && (
+                              {canManageMember(currentUserRoles, getMemberRoles(member)) && (
                                 <>
-                                  <Button variant="link" size="sm" className="h-auto p-0">
-                                    Set as Operator
-                                  </Button>
-                                  <Button variant="link" size="sm" className="h-auto p-0 text-red-600">
-                                    Remove
-                                  </Button>
+                                  {hasPermission(currentUserRoles, Permission.REMOVE_MEMBER) && (
+                                    <Button variant="link" size="sm" className="h-auto p-0 text-red-600">
+                                      Remove
+                                    </Button>
+                                  )}
                                 </>
                               )}
                             </>

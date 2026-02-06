@@ -17,9 +17,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
+import { getPrimaryRole, getMemberRoles, hasPermission, Permission, MemberRole } from '@/utils/permissions'
 import type {
   Member,
-  MemberRole,
   MemberStatus,
   SortDirection,
   SortField
@@ -57,12 +57,12 @@ export default function MemberPage() {
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null)
 
   const pageSize = 20
-  const currentUserRole: MemberRole = 'Admin' // TODO: 从 context 获取
+  const currentUserRole: MemberRole[] = ['Owner'] // TODO: 从 context 获取
 
   // 将 API 返回的成员数据转换为组件使用的格式
   const transformMember = (apiMember: any): Member => {
-    const roles = apiMember.roles?.map((r: any) => r.role as MemberRole) || []
-    const primaryRole = roles[0] || 'Member'
+    const roles = getMemberRoles(apiMember)
+    const primaryRole = getPrimaryRole(roles)
     const receivingAccount = apiMember.receivingAccounts?.[0]
     const payoutIntent = apiMember.payoutIntent
 
@@ -73,8 +73,8 @@ export default function MemberPage() {
       email: apiMember.email || apiMember.showName?.includes('@') ? apiMember.showName : '',
       receivingWallet: receivingAccount?.config?.address || null,
       network: payoutIntent?.network,
-      role: primaryRole as MemberRole,
-      roles: roles.length > 0 ? roles : undefined,
+      role: primaryRole,
+      roles: roles,
       serviceFee: payoutIntent ? parseFloat(payoutIntent.amount) : 0,
       currency: payoutIntent?.currency,
       status: apiMember.status === 'active' ? 'Active' : apiMember.status === 'pending' ? 'Pending' : 'Inactive',
@@ -616,9 +616,11 @@ export default function MemberPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
                       <DropdownMenuItem onClick={() => setRoleFilter('All')}>All Roles</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setRoleFilter('Admin')}>Admin</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setRoleFilter('Owner')}>Owner</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setRoleFilter('Org Admin')}>Org Admin</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setRoleFilter('Pay Admin')}>Pay Admin</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setRoleFilter('Operator')}>Operator</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setRoleFilter('Member')}>Member</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setRoleFilter('Employee')}>Employee</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableHead>
@@ -716,13 +718,28 @@ export default function MemberPage() {
                     </TableCell>
                     <TableCell>{getAssetNameByCurrency(member.currency || '')}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          member.role === 'Admin' ? 'default' : member.role === 'Operator' ? 'secondary' : 'outline'
-                        }
-                      >
-                        {member.role}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {member.roles && member.roles.length > 0 ? (
+                          member.roles.map(role => (
+                            <Badge
+                              key={role}
+                              variant={
+                                role === 'Owner' 
+                                  ? 'default' 
+                                  : role === 'Org Admin' || role === 'Pay Admin'
+                                    ? 'default'
+                                    : role === 'Operator'
+                                      ? 'secondary'
+                                      : 'outline'
+                              }
+                            >
+                              {role}
+                            </Badge>
+                          ))
+                        ) : (
+                          <Badge variant="outline">{member.role}</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="group relative" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
@@ -769,7 +786,7 @@ export default function MemberPage() {
                     <TableCell>{member.lastPayment ? new Date(member.lastPayment).toLocaleDateString() : '-'}</TableCell>
                     <TableCell onClick={e => e.stopPropagation()} className="space-x-2">
                       {member.status === 'Pending' &&
-                        (currentUserRole === 'Admin' || currentUserRole === 'Operator') && (
+                        hasPermission(currentUserRole, Permission.APPROVE_MEMBER) && (
                           <>
                             <Button
                               variant="ghost"

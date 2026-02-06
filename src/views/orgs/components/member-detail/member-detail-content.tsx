@@ -10,13 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
+import { MemberRole, canManageMember } from '@/utils/permissions'
 import { IconCheck } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
-import { DrawerChanges, Member, MemberRole } from './types'
+import { DrawerChanges, Member } from './types'
 
 interface MemberDetailContentProps {
   selectedMember: Member
-  currentUserRole: MemberRole
+  currentUserRole: MemberRole[]
   onDrawerClose: () => void
   onRemoveMember: (member: Member) => void
   onSaveSuccess?: (updatedMember: Member) => void
@@ -37,8 +38,8 @@ export function MemberDetailContent({
   const [paymentStatistics, setPaymentStatistics] = useState<MemberPaymentStatistic[] | null>(null)
   const [paymentStatisticsLoading, setPaymentStatisticsLoading] = useState(false)
 
-  // MemberRole 枚举值
-  const memberRoles: MemberRole[] = ['Admin', 'Operator', 'Member']
+  // MemberRole 枚举值 - 不包括 Owner,因为 Owner 不能通过此方式设置
+  const memberRoles: MemberRole[] = ['Org Admin', 'Pay Admin', 'Operator', 'Employee']
 
   // 计算是否有未保存的修改
   const hasUnsavedChanges = Object.keys(drawerChanges).length > 0
@@ -207,7 +208,15 @@ export function MemberDetailContent({
             </div>
             <div>
               <DrawerTitle>{selectedMember.name}</DrawerTitle>
-              <Badge className="mt-1">{selectedMember.role}</Badge>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {selectedMember.roles && selectedMember.roles.length > 0 ? (
+                  selectedMember.roles.map(role => (
+                    <Badge key={role}>{role}</Badge>
+                  ))
+                ) : (
+                  <Badge>{selectedMember.role}</Badge>
+                )}
+              </div>
             </div>
           </div>
           <div>
@@ -297,10 +306,9 @@ export function MemberDetailContent({
               </Select>
             </div>
             {selectedMember.status === 'Active' &&
-              selectedMember.role !== 'Admin' &&
-              currentUserRole === 'Admin' && (
+              canManageMember(currentUserRole, selectedMember.roles || [selectedMember.role]) && (
                 <div>
-                  <Label className="text-muted-foreground text-xs">Role</Label>
+                  <Label className="text-muted-foreground text-xs">Role (可多选)</Label>
                   <div className="mt-1 space-y-2 rounded-md border border-input bg-background p-2">
                     {memberRoles.map(renderRoleCheckbox)}
                   </div>
@@ -387,9 +395,7 @@ export function MemberDetailContent({
           </div>
         </div>
         {selectedMember.status === 'Active' &&
-          selectedMember.role !== 'Admin' &&
-          (currentUserRole === 'Admin' ||
-            (currentUserRole === 'Operator' && selectedMember.role === 'Member')) && (
+          canManageMember(currentUserRole, selectedMember.roles || [selectedMember.role]) && (
             <div>
               <Button
                 variant="link"

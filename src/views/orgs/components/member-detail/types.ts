@@ -1,5 +1,7 @@
 // 类型定义
-export type MemberRole = 'Admin' | 'Operator' | 'Member'
+import { MemberRole } from '@/utils/permissions'
+
+export type { MemberRole }
 export type MemberStatus = 'Active' | 'Pending' | 'Inactive'
 export type SortField = 'name' | 'serviceFee' | 'lastPayment' | null
 export type SortDirection = 'asc' | 'desc' | null
