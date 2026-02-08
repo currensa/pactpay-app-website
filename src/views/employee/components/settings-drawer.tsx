@@ -3,11 +3,11 @@ import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
+// import { Switch } from '@/components/ui/switch'
 import {
-  IconAlertTriangle,
+  // IconAlertTriangle,
   IconArrowRight,
-  IconBell,
+  // IconBell,
   IconBulb,
   IconCopy,
   IconDiamond,
@@ -25,8 +25,8 @@ interface SettingsDrawerProps {
   walletAddress: string
   formatAddress: (address: string) => string
   handleCopy: () => void
-  muteNotifications: boolean
-  setMuteNotifications: (mute: boolean) => void
+  // muteNotifications: boolean
+  // setMuteNotifications: (mute: boolean) => void
   onOpenUpdateWallet: () => void
 }
 
@@ -39,8 +39,8 @@ export function SettingsDrawer({
   walletAddress,
   formatAddress,
   handleCopy,
-  muteNotifications,
-  setMuteNotifications,
+  // muteNotifications,
+  // setMuteNotifications,
   onOpenUpdateWallet
 }: SettingsDrawerProps) {
   return (
@@ -51,11 +51,11 @@ export function SettingsDrawer({
         </DrawerHeader>
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-8">
-            {/* Member Profile Section */}
+            {/* Employee Profile Section */}
             <div className="space-y-4 rounded-md border p-4">
               <div className="flex items-center gap-2">
                 <IconUser className="text-primary h-5 w-5" />
-                <h2 className="text-lg font-semibold">Member Profile</h2>
+                <h2 className="text-lg font-semibold">Employee Profile</h2>
               </div>
               <p className="text-muted-foreground text-sm">How you appear in this organization</p>
               <div className="space-y-4">
@@ -63,7 +63,7 @@ export function SettingsDrawer({
                   <Label htmlFor="display-name">Display Name in {organizationName}</Label>
                   <Input id="display-name" value={displayName} onChange={e => setDisplayName(e.target.value)} />
                   <p className="text-muted-foreground text-xs">
-                    This name will be visible to admins and other members in this organization only
+                    This name will be visible to admins and other employees in this organization only
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -140,7 +140,7 @@ export function SettingsDrawer({
               </div>
             </div>
 
-            {/* Organization Notifications Section */}
+            {/* Organization Notifications Section
             <div className="space-y-4 rounded-md border p-4">
               <div className="flex items-center gap-2">
                 <IconBell className="h-5 w-5 text-purple-600" />
@@ -165,8 +165,9 @@ export function SettingsDrawer({
                 </div>
               </div>
             </div>
+            */}
 
-            {/* Danger Zone Section */}
+            {/* Danger Zone Section
             <div className="space-y-4 rounded-md border border-red-200 p-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-red-100">
@@ -189,6 +190,7 @@ export function SettingsDrawer({
                 </Button>
               </div>
             </div>
+            */}
           </div>
         </div>
       </DrawerContent>

@@ -43,14 +43,14 @@ const payments: PaymentItem[] = [
   }
 ]
 
-export default function TechCorp() {
+export default function EmployeeOrgsDetail() {
   const location = useLocation()
   const { orgName = 'TechDAO' } = location.state || {}
   const [, setCopied] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [displayName, setDisplayName] = useState('Alice Chen')
-  const [muteNotifications, setMuteNotifications] = useState(true)
+  // const [muteNotifications, setMuteNotifications] = useState(true)
   const walletAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'
   const organizationName = orgName
 
@@ -183,8 +183,8 @@ export default function TechCorp() {
         walletAddress={walletAddress}
         formatAddress={formatAddress}
         handleCopy={handleCopy}
-        muteNotifications={muteNotifications}
-        setMuteNotifications={setMuteNotifications}
+        // muteNotifications={muteNotifications}
+        // setMuteNotifications={setMuteNotifications}
         onOpenUpdateWallet={() => setIsDialogOpen(true)}
       />
     </div>

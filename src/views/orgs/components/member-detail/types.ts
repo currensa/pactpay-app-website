@@ -24,6 +24,7 @@ export interface Member {
 }
 
 export interface DrawerChanges {
+  name?: string
   receivingWallet?: string
   serviceFee?: number
   currency?: string

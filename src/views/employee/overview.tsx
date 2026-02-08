@@ -114,12 +114,12 @@ function PieChart({ data }: { data: DistributionData[] }) {
   )
 }
 
-export default function Overview() {
+export default function EmployeeOverview() {
   const navigate = useNavigate()
 
   const handleOrganizationClick = (organization: string) => {
     // 跳转到组织详情页，当前无数据，传参暂时设置为空
-    navigate('/member/orgdetail', { state: { orgName: organization, orgId: '' } })
+    navigate('/employee/orgdetail', { state: { orgName: organization, orgId: '' } })
   }
 
   return (
@@ -171,7 +171,7 @@ export default function Overview() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">3</div>
-            <CardDescription className="mt-1">Active memberships</CardDescription>
+            <CardDescription className="mt-1">Active organizations</CardDescription>
           </CardContent>
         </Card>
       </div>

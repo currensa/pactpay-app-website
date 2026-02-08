@@ -1,17 +1,14 @@
 import apis from '@/apis'
 import { AssetChain } from '@/apis/orgnization.api'
-import type { MemberPaymentStatistic } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
+import { DrawerFooter } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/components/ui/use-toast'
-import { cn } from '@/lib/utils'
 import { MemberRole, canManageMember } from '@/utils/permissions'
-import { IconCheck } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { DrawerChanges, Member } from './types'
 
@@ -35,11 +32,6 @@ export function MemberDetailContent({
   // 内部状态管理
   const [drawerChanges, setDrawerChanges] = useState<DrawerChanges>({})
   const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
-  const [paymentStatistics, setPaymentStatistics] = useState<MemberPaymentStatistic[] | null>(null)
-  const [paymentStatisticsLoading, setPaymentStatisticsLoading] = useState(false)
-
-  // MemberRole 枚举值 - 不包括 Owner,因为 Owner 不能通过此方式设置
-  const memberRoles: MemberRole[] = ['Org Admin', 'Pay Admin', 'Operator', 'Employee']
 
   // 计算是否有未保存的修改
   const hasUnsavedChanges = Object.keys(drawerChanges).length > 0
@@ -78,71 +70,6 @@ export function MemberDetailContent({
     setDrawerChanges({})
   }, [selectedMember.id])
 
-  // 获取成员支付统计
-  useEffect(() => {
-    const fetchPaymentStatistics = async () => {
-      setPaymentStatisticsLoading(true)
-      setPaymentStatistics(null)
-      try {
-        const data = await apis.transaction.getMemberPaymentStatistics(selectedMember.memberId)
-        setPaymentStatistics(data.statistics || [])
-      } catch (error: any) {
-        toast({
-          title: 'Error',
-          description: error?.response?.data?.message || 'Failed to load payment statistics',
-          variant: 'destructive'
-        })
-        setPaymentStatistics([])
-      } finally {
-        setPaymentStatisticsLoading(false)
-      }
-    }
-    fetchPaymentStatistics()
-  }, [selectedMember.memberId])
-
-  // 处理角色选择变化
-  const handleRoleChange = (role: MemberRole, checked: boolean) => {
-    const currentRoles = drawerChanges.roles || selectedMember.roles || (selectedMember.role ? [selectedMember.role] : [])
-    let newRoles: MemberRole[]
-    if (checked) {
-      newRoles = [...currentRoles, role]
-    } else {
-      newRoles = currentRoles.filter((r) => r !== role)
-    }
-    setDrawerChanges({ ...drawerChanges, roles: newRoles })
-  }
-
-  // 渲染角色选择项
-  const renderRoleCheckbox = (role: MemberRole) => {
-    const currentRoles = drawerChanges.roles || selectedMember.roles || (selectedMember.role ? [selectedMember.role] : [])
-    const isChecked = currentRoles.includes(role)
-    return (
-      <label
-        key={role}
-        className={cn(
-          'flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-accent',
-          isChecked && 'bg-accent'
-        )}
-      >
-        <div
-          className={cn(
-            'flex h-4 w-4 items-center justify-center rounded border-2',
-            isChecked ? 'border-primary bg-primary' : 'border-input'
-          )}
-        >
-          {isChecked && <IconCheck className="h-3 w-3 text-primary-foreground" />}
-        </div>
-        <input
-          type="checkbox"
-          checked={isChecked}
-          onChange={(e) => handleRoleChange(role, e.target.checked)}
-          className="sr-only"
-        />
-        <span>{role}</span>
-      </label>
-    )
-  }
-
   // 保存 Drawer 修改
   const handleSaveChanges = async () => {
     if (!selectedMember) return
@@ -155,6 +82,14 @@ export function MemberDetailContent({
 
       // 更新支付意向（Service Fee）
       if (drawerChanges.serviceFee !== undefined || drawerChanges.currency !== undefined) {
+        if (!selectedMember.network) {
+          toast({
+            title: 'Error',
+            description: 'Network does not exist, modification is not allowed',
+            variant: 'destructive'
+          })
+          return
+        }
         const currency = drawerChanges.currency || selectedMember.currency || ''
         const serviceFee = drawerChanges.serviceFee || selectedMember.serviceFee || 0
         await apis.organization.updateMemberPayoutIntent(
@@ -165,14 +100,10 @@ export function MemberDetailContent({
         )
       }
 
-      // 更新成员角色
-      if (drawerChanges.roles !== undefined && drawerChanges.roles.length > 0) {
-        await apis.organization.updateMemberRoles(selectedMember.memberId, drawerChanges.roles)
-      }
-
       // 构建更新后的成员数据
       const updatedMember: Member = {
         ...selectedMember,
+        name: drawerChanges.name ?? selectedMember.name,
         receivingWallet: drawerChanges.receivingWallet ?? selectedMember.receivingWallet,
         serviceFee: drawerChanges.serviceFee ?? selectedMember.serviceFee,
         currency: drawerChanges.currency ?? selectedMember.currency,
@@ -200,40 +131,56 @@ export function MemberDetailContent({
   }
   return (
     <>
-      <DrawerHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full">
-              <span className="text-lg font-medium">{selectedMember.name[0].toUpperCase()}</span>
-            </div>
-            <div>
-              <DrawerTitle>{selectedMember.name}</DrawerTitle>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {selectedMember.roles && selectedMember.roles.length > 0 ? (
-                  selectedMember.roles.map(role => (
-                    <Badge key={role}>{role}</Badge>
-                  ))
-                ) : (
-                  <Badge>{selectedMember.role}</Badge>
-                )}
-              </div>
-            </div>
-          </div>
-          <div>
-            <Label className="text-muted-foreground text-xs mr-2">Status</Label>
-            <Badge className="mt-1">{selectedMember.status}</Badge>
-          </div>
-        </div>
-      </DrawerHeader>
+      <div className="flex justify-end px-4 pt-4">
+        {/* <Button variant="ghost" size="icon" onClick={onDrawerClose}>
+        </Button> */}
+      </div>
 
-      <div className="space-y-6 px-4 pb-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+      <div className="space-y-6 px-4 pb-4 max-h-[calc(100vh-120px)] overflow-y-auto">
         {/* Basic Information */}
         <div>
-          <h3 className="text-muted-foreground mb-4 text-xs uppercase">BASIC INFORMATION</h3>
+          <h3 className="text-muted-foreground mb-4 text-xs uppercase font-medium">BASIC INFORMATION</h3>
           <div className="space-y-4">
             <div>
+              <Label className="text-muted-foreground text-xs">Name</Label>
+              <Input
+                value={drawerChanges.name !== undefined ? drawerChanges.name : selectedMember.name}
+                onChange={e =>
+                  setDrawerChanges({
+                    ...drawerChanges,
+                    name: e.target.value
+                  })
+                }
+                className="mt-1"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full">
+                  <span className="text-lg font-medium">
+                    {(drawerChanges.name || selectedMember.name)[0].toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {selectedMember.roles && selectedMember.roles.length > 0 ? (
+                    selectedMember.roles.map(role => (
+                      <Badge key={role} variant="secondary" className="bg-black text-white hover:bg-black/80">{role}</Badge>
+                    ))
+                  ) : (
+                    <Badge variant="secondary" className="bg-black text-white hover:bg-black/80">{selectedMember.role}</Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-xs">Status</span>
+                <Badge variant="default" className="bg-black text-white hover:bg-black/80">{selectedMember.status}</Badge>
+              </div>
+            </div>
+
+            <div>
               <Label className="text-muted-foreground text-xs">Email</Label>
-              <p className="mt-1">{selectedMember.email}</p>
+              <p className="mt-1 text-sm font-medium">{selectedMember.email}</p>
             </div>
             <div>
               <Label className="text-muted-foreground text-xs">Receiving Wallet Address</Label>
@@ -305,95 +252,21 @@ export function MemberDetailContent({
                 </SelectContent>
               </Select>
             </div>
-            {selectedMember.status === 'Active' &&
-              canManageMember(currentUserRole, selectedMember.roles || [selectedMember.role]) && (
-                <div>
-                  <Label className="text-muted-foreground text-xs">Role (可多选)</Label>
-                  <div className="mt-1 space-y-2 rounded-md border border-input bg-background p-2">
-                    {memberRoles.map(renderRoleCheckbox)}
-                  </div>
-                </div>
-              )}
             <div>
               <Label className="text-muted-foreground text-xs">Network</Label>
-              <p className="mt-1">
+              <p className="mt-1 text-sm">
                 {getAssetNameByCurrency(drawerChanges.currency || selectedMember.currency || '')}
               </p>
             </div>
             <div>
               <Label className="text-muted-foreground text-xs">Join Date</Label>
-              <p className="mt-1">{selectedMember.joinDate}</p>
+              <p className="mt-1 text-sm">{selectedMember.joinDate}</p>
             </div>
           </div>
         </div>
 
         <Separator />
 
-        {/* Payment Statistics */}
-        <div>
-          <h3 className="text-muted-foreground mb-3 text-xs uppercase">PAYMENT STATISTICS</h3>
-          {paymentStatisticsLoading ? (
-            <p className="text-muted-foreground text-sm">Loading...</p>
-          ) : paymentStatistics && paymentStatistics.length > 0 ? (
-            <div className="space-y-3">
-              {paymentStatistics.map((stat) => (
-                <div
-                  key={stat.currency}
-                  className="bg-muted/50 flex items-center justify-between rounded-lg px-3 py-2 text-sm"
-                >
-                  <span className="font-medium">{stat.currency}</span>
-                  <span className="text-muted-foreground">
-                    {stat.totalReceived} <span className="text-foreground font-medium">{stat.currency}</span>
-                    <span className="text-muted-foreground mx-1.5">·</span>
-                    {stat.paymentCount} payment{stat.paymentCount !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              ))}
-              <div className="flex justify-between border-border pl-2 pt-2 text-sm">
-                <span className="text-muted-foreground">Last Payment</span>
-                <span>
-                  {selectedMember.lastPayment
-                    ? new Date(selectedMember.lastPayment).toLocaleDateString()
-                    : '-'}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm pl-2">
-                <span className="text-muted-foreground">Total</span>
-                <span className="font-medium">
-                  {paymentStatistics.reduce((sum, s) => sum + s.paymentCount, 0)} payments
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Received</span>
-                <span>-</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Last Payment</span>
-                <span>{selectedMember.lastPayment ? new Date(selectedMember.lastPayment).toLocaleDateString() : '-'}</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <Separator />
-
-        {/* Activity Log */}
-        <div>
-          <h3 className="text-muted-foreground mb-4 text-xs uppercase">ACTIVITY LOG</h3>
-          <div className="space-y-3">
-            <div>
-              <p className="text-muted-foreground text-xs">2024-01-15 10:30</p>
-              <p className="text-sm">Received payment: 5000 USDC</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs">2024-01-01 09:00</p>
-              <p className="text-sm">Joined organization</p>
-            </div>
-          </div>
-        </div>
         {selectedMember.status === 'Active' &&
           canManageMember(currentUserRole, selectedMember.roles || [selectedMember.role]) && (
             <div>

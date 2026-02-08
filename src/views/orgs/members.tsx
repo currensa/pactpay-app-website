@@ -2,7 +2,7 @@ import apis from '@/apis'
 import type { AssetChain } from '@/apis/orgnization.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
-import { getPrimaryRole, getMemberRoles, hasPermission, Permission, MemberRole } from '@/utils/permissions'
+import { getMemberRoles, getPrimaryRole, hasPermission, MemberRole, Permission } from '@/utils/permissions'
 import type {
   Member,
   MemberStatus,
@@ -25,8 +25,8 @@ import type {
   SortField
 } from '@/views/orgs/components/member-detail'
 import { MemberDetailContent } from '@/views/orgs/components/member-detail'
-import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Download, Edit2, Plus, Search, X, XCircle } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Download, Edit2, FileSpreadsheet, Link, Mail, Plus, Search, Upload, X, XCircle } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 export default function MemberPage() {
   const { toast } = useToast()
@@ -52,9 +52,11 @@ export default function MemberPage() {
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false)
   const [emailInviteDialogOpen, setEmailInviteDialogOpen] = useState(false)
   const [pendingEmails, setPendingEmails] = useState<string[]>([])
+  const [activeInviteTab, setActiveInviteTab] = useState<'link' | 'email' | 'batch'>('link')
   const [sendingInvites, setSendingInvites] = useState(false)
   const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const pageSize = 20
   const currentUserRole: MemberRole[] = ['Owner'] // TODO: 从 context 获取
@@ -453,13 +455,88 @@ export default function MemberPage() {
     }
   }
 
-  // 请求地址
-  const handleRequestAddress = async (_memberId: string) => {
-    // TODO: API 调用 - 发送提醒成员填写收款地址的请求
-    toast({
-      title: 'Success',
-      description: 'Reminder sent to member.'
-    })
+  // 下载 CSV 模版
+  const handleDownloadTemplate = () => {
+    const csvContent = 'email\nuser1@example.com\nuser2@example.com'
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'pactpay_member_invite_template.csv')
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // 触发文件选择
+  const handleTriggerFileUpload = () => {
+    fileInputRef.current?.click()
+  }
+
+  // 处理文件上传解析
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+      toast({
+        title: 'Error',
+        description: 'Please upload a CSV file',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = e => {
+      const text = e.target?.result as string
+      const lines = text.split(/\r?\n/)
+
+      // 假设第一行是表头，寻找 email 列
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
+      const emailIndex = headers.indexOf('email')
+
+      if (emailIndex === -1) {
+        toast({
+          title: 'Error',
+          description: 'CSV file must contain an "email" column',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      const emails: string[] = []
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+      for (let i = 1; i < lines.length; i++) {
+        const row = lines[i].split(',')
+        if (row.length > emailIndex) {
+          const email = row[emailIndex].trim()
+          if (email && emailRegex.test(email)) {
+            emails.push(email)
+          }
+        }
+      }
+
+      if (emails.length === 0) {
+        toast({
+          title: 'Error',
+          description: 'No valid email addresses found in the CSV file',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      setPendingEmails(emails)
+      setEmailInviteDialogOpen(true)
+
+      // 重置 input 以便下次可以上传同一个文件
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+    reader.readAsText(file)
   }
 
   // 内联编辑 Service Fee
@@ -475,6 +552,14 @@ export default function MemberPage() {
     }
 
     try {
+      if (!member.network) {
+        toast({
+          title: 'Error',
+          description: 'Network does not exist, modification is not allowed',
+          variant: 'destructive'
+        })
+        return
+      }
       const currency = member.currency || ''
       await apis.organization.updateMemberPayoutIntent(
         member.memberId,
@@ -536,51 +621,142 @@ export default function MemberPage() {
 
       {/* 邀请模块 */}
       {inviteSectionOpen && (
-        <Card className="mb-4">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Invite Members</CardTitle>
-              <Button variant="ghost" size="icon" onClick={() => setInviteSectionOpen(false)}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* 组织邀请 */}
-              <div className="space-y-4">
-                <Label className="text-muted-foreground text-xs uppercase">ORGANIZATION INVITATION</Label>
+        <Card className="mb-4 overflow-hidden border-2">
+          <div className="bg-muted/30 flex border-b">
+            <button
+              onClick={() => setActiveInviteTab('link')}
+              className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${activeInviteTab === 'link' ? 'bg-background border-b-primary border-b-2' : 'hover:bg-muted/50'
+                }`}
+            >
+              <Link className="h-4 w-4" />
+              Invite Link
+            </button>
+            <button
+              onClick={() => setActiveInviteTab('email')}
+              className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${activeInviteTab === 'email' ? 'bg-background border-b-primary border-b-2' : 'hover:bg-muted/50'
+                }`}
+            >
+              <Mail className="h-4 w-4" />
+              Email Invite
+            </button>
+            <button
+              onClick={() => setActiveInviteTab('batch')}
+              className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${activeInviteTab === 'batch' ? 'bg-background border-b-primary border-b-2' : 'hover:bg-muted/50'
+                }`}
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Batch Invite
+            </button>
+          </div>
+          <CardContent className="p-6">
+            {activeInviteTab === 'link' && (
+              <div className="mx-auto max-w-2xl space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs uppercase">Organization Invite Code</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={inviteCode}
+                      readOnly
+                      className="bg-muted/30 select-all font-mono"
+                      onClick={e => (e.target as HTMLInputElement).select()}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteCode)
+                        toast({ title: 'Copied', description: 'Invite code copied to clipboard' })
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-muted-foreground text-xs uppercase">Invitation Link</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={inviteLink}
+                      readOnly
+                      className="bg-muted/30 select-all font-mono"
+                      onClick={e => (e.target as HTMLInputElement).select()}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteLink)
+                        toast({ title: 'Copied', description: 'Invite link copied to clipboard' })
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex justify-center pt-2">
+                  <Button variant="ghost" size="sm" onClick={handleRegenerateInvite} className="text-xs">
+                    Regenerate invitation credentials
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {activeInviteTab === 'email' && (
+              <div className="mx-auto max-w-2xl space-y-4">
                 <div className="space-y-2">
-                  <Input
-                    value={inviteCode}
-                    readOnly
-                    className="select-all"
-                    onClick={e => (e.target as HTMLInputElement).select()}
-                  />
-                  <Input
-                    value={inviteLink}
-                    readOnly
-                    className="select-all"
-                    onClick={e => (e.target as HTMLInputElement).select()}
+                  <Label className="text-muted-foreground text-xs uppercase">Email Addresses</Label>
+                  <textarea
+                    className="border-input ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[120px] w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="Enter email addresses separated by commas (e.g. alex@example.com, sara@example.com)"
+                    value={emailInvites}
+                    onChange={e => setEmailInvites(e.target.value)}
                   />
                 </div>
-                <Button variant="outline" onClick={handleRegenerateInvite}>
-                  Regenerate
+                <Button onClick={handleSendEmailInvites} className="w-full">
+                  Send Email Invitations
                 </Button>
               </div>
+            )}
 
-              {/* 邮箱邀请 */}
-              <div className="space-y-4">
-                <Label className="text-muted-foreground text-xs uppercase">EMAIL INVITATION</Label>
-                <textarea
-                  className="border-input ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[80px] w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                  placeholder="Enter emails (comma-separated)"
-                  value={emailInvites}
-                  onChange={e => setEmailInvites(e.target.value)}
-                />
-                <Button onClick={handleSendEmailInvites}>Send Invitations</Button>
+            {activeInviteTab === 'batch' && (
+              <div className="mx-auto max-w-2xl space-y-6">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground text-xs uppercase">Upload CSV File</Label>
+                  <div
+                    onClick={handleTriggerFileUpload}
+                    className="bg-muted/20 hover:bg-muted/40 group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 transition-all hover:border-primary/50"
+                  >
+                    <div className="bg-primary/10 group-hover:bg-primary/20 mb-4 flex h-12 w-12 items-center justify-center rounded-full transition-colors">
+                      <Upload className="text-primary h-6 w-6" />
+                    </div>
+                    <p className="mb-1 text-sm font-medium">Click to upload or drag and drop</p>
+                    <p className="text-muted-foreground text-xs text-center">CSV file with an "email" column (max 5MB)</p>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileUpload}
+                      accept=".csv"
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-lg border bg-blue-50/50 p-4 dark:bg-blue-950/20">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-100 flex h-8 w-8 items-center justify-center rounded-full dark:bg-blue-900">
+                      <FileSpreadsheet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Need a template?</p>
+                      <p className="text-muted-foreground text-xs">Download our CSV template to ensure correct formatting.</p>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="bg-background">
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Template
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -703,17 +879,7 @@ export default function MemberPage() {
                           <Check className="h-3 w-3 text-green-500" />
                         </div>
                       ) : (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          className="h-auto p-0"
-                          onClick={e => {
-                            e.stopPropagation()
-                            handleRequestAddress(member.id)
-                          }}
-                        >
-                          Request Address
-                        </Button>
+                        <span>-</span>
                       )}
                     </TableCell>
                     <TableCell>{getAssetNameByCurrency(member.currency || '')}</TableCell>
@@ -724,8 +890,8 @@ export default function MemberPage() {
                             <Badge
                               key={role}
                               variant={
-                                role === 'Owner' 
-                                  ? 'default' 
+                                role === 'Owner'
+                                  ? 'default'
                                   : role === 'Org Admin' || role === 'Pay Admin'
                                     ? 'default'
                                     : role === 'Operator'
@@ -849,8 +1015,8 @@ export default function MemberPage() {
 
       {/* 成员详情 Drawer */}
       <Drawer open={drawerOpen} onOpenChange={handleDrawerClose}>
-        <DrawerContent className="max-h-[100vh]">
-          <div className="overflow-y-auto p-4">
+        <DrawerContent className="max-h-screen">
+          <div className="overflow-y-auto py-4">
             {selectedMember && (
               <MemberDetailContent
                 selectedMember={selectedMember}

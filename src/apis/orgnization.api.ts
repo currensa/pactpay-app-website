@@ -132,18 +132,24 @@ export interface PaymentAccount {
 }
 
 export interface Organization {
-  desc: string
   orgId: string
   orgName: string
+  desc: string
   description?: string
+  website?: string
+  logoUrl?: string
   createdAt?: string
   updatedAt?: string
-  getOrganizations: Organization[]
-  paymentAccounts: PaymentAccount[]
+  paymentAccounts?: PaymentAccount[]
 }
 export interface BindSafeWalletPayload {
   address: string
   caipChainId: string
+  owners?: {
+    address: string
+    email?: string
+    description?: string
+  }[]
 }
 
 export interface OrganizationPaymentAccount {
@@ -197,6 +203,11 @@ export class OrgnizationApi {
   // 获取公司详情
   async getOrganizationDetail() {
     const res = await this.request.get<string>(`/orgs/${this.orgId}`)
+    return res.data
+  }
+  // 更新公司详情
+  async uploadOrganizationDetail(params: { orgName?: string; logoUrl?: string; desc?: string; website?: string }) {
+    const res = await this.request.patch<string>(`/orgs/${this.orgId}`, params)
     return res.data
   }
   // 获取公司成员列表

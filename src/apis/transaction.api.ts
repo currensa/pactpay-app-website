@@ -200,6 +200,8 @@ export interface ModifySafeOwnerParams {
   addOwnerParams?: {
     ownerAddress: string
     threshold?: number
+    ownerEmail?: string
+    ownerDescription?: string
   }
   removeOwnerParams?: {
     ownerAddress: string
@@ -211,6 +213,8 @@ export interface ModifySafeOwnerParams {
   swapOwnerParams?: {
     oldOwnerAddress: string
     newOwnerAddress: string
+    ownerEmail?: string
+    ownerDescription?: string
   }
 }
 

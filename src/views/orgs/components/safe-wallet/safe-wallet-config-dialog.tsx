@@ -23,6 +23,8 @@ export function SafeWalletConfigDialog({ open, onOpenChange, paymentAccount, onS
 
   // Form states
   const [newOwnerAddress, setNewOwnerAddress] = useState('')
+  const [newOwnerEmail, setNewOwnerEmail] = useState('')
+  const [newOwnerDescription, setNewOwnerDescription] = useState('')
   const [ownerToRemove, setOwnerToRemove] = useState('')
   const [oldOwnerToSwap, setOldOwnerToSwap] = useState('')
   const [newThreshold, setNewThreshold] = useState<string>('')
@@ -32,6 +34,8 @@ export function SafeWalletConfigDialog({ open, onOpenChange, paymentAccount, onS
 
   const resetForm = () => {
     setNewOwnerAddress('')
+    setNewOwnerEmail('')
+    setNewOwnerDescription('')
     setOwnerToRemove('')
     setOldOwnerToSwap('')
     setNewThreshold('')
@@ -52,7 +56,9 @@ export function SafeWalletConfigDialog({ open, onOpenChange, paymentAccount, onS
           if (!newOwnerAddress) return
           payload.addOwnerParams = {
             ownerAddress: newOwnerAddress,
-            threshold: newThreshold ? Number(newThreshold) : undefined
+            threshold: newThreshold ? Number(newThreshold) : undefined,
+            ownerEmail: newOwnerEmail,
+            ownerDescription: newOwnerDescription
           }
           break
         case 'remove_owner':
@@ -72,7 +78,9 @@ export function SafeWalletConfigDialog({ open, onOpenChange, paymentAccount, onS
           if (!oldOwnerToSwap || !newOwnerAddress) return
           payload.swapOwnerParams = {
             oldOwnerAddress: oldOwnerToSwap,
-            newOwnerAddress: newOwnerAddress
+            newOwnerAddress: newOwnerAddress,
+            ownerEmail: newOwnerEmail,
+            ownerDescription: newOwnerDescription
           }
           break
       }
@@ -96,20 +104,11 @@ export function SafeWalletConfigDialog({ open, onOpenChange, paymentAccount, onS
     resetForm()
   }
 
-  // Validation logic for threshold
-  const validateThreshold = (val: string, max: number) => {
-    const num = Number(val)
-    if (isNaN(num)) return false
-    if (num < 1) return false
-    if (num > max) return false
-    return true
-  }
-
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Change Safe Wallet</DialogTitle>
+          <DialogTitle>Safe Wallet Config</DialogTitle>
           <DialogDescription>
             Modify your Safe Wallet configuration. This will create a multi-sig transaction.
           </DialogDescription>
@@ -171,6 +170,23 @@ export function SafeWalletConfigDialog({ open, onOpenChange, paymentAccount, onS
                       placeholder="0x..."
                       value={newOwnerAddress}
                       onChange={(e) => setNewOwnerAddress(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="mb-2 block">Owner Email</Label>
+                    <Input
+                      placeholder="email@example.com"
+                      type="email"
+                      value={newOwnerEmail}
+                      onChange={(e) => setNewOwnerEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="mb-2 block">Description</Label>
+                    <Input
+                      placeholder="e.g. Finance Manager"
+                      value={newOwnerDescription}
+                      onChange={(e) => setNewOwnerDescription(e.target.value)}
                     />
                   </div>
                   <div className="space-y-3">
@@ -270,6 +286,23 @@ export function SafeWalletConfigDialog({ open, onOpenChange, paymentAccount, onS
                       placeholder="0x..."
                       value={newOwnerAddress}
                       onChange={(e) => setNewOwnerAddress(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="mb-2 block">New Owner Email</Label>
+                    <Input
+                      placeholder="email@example.com"
+                      type="email"
+                      value={newOwnerEmail}
+                      onChange={(e) => setNewOwnerEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label className="mb-2 block">New Owner Description</Label>
+                    <Input
+                      placeholder="e.g. Finance Manager"
+                      value={newOwnerDescription}
+                      onChange={(e) => setNewOwnerDescription(e.target.value)}
                     />
                   </div>
                 </>

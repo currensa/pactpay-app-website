@@ -3,25 +3,33 @@ import {
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuButton,
-  SidebarMenuItem
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem
 } from '@/components/ui/sidebar'
+import { cn } from '@/lib/utils'
 import {
-  IconAnalyze,
   IconBook,
   IconCashMove,
   IconHelpCircle,
   IconLayoutDashboard,
   IconSettings,
+  IconShield,
   // IconBuildingSkyscraper,
   IconUsers
 } from '@tabler/icons-react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 interface MenuItem {
   title: string
   key: string
   url: string
-  icon: React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement> & React.RefAttributes<SVGSVGElement>>
+  icon?: React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement> & React.RefAttributes<SVGSVGElement>>
+  items?: {
+    title: string
+    url: string
+  }[]
 }
 
 const NavMainItems: MenuItem[] = [
@@ -44,16 +52,32 @@ const NavMainItems: MenuItem[] = [
     icon: IconCashMove
   },
   {
-    title: 'Analytics',
-    key: 'analytics',
-    url: '/orgs/analytics',
-    icon: IconAnalyze
+    title: 'Role Management',
+    key: 'roles',
+    url: '/orgs/roles',
+    icon: IconShield
   },
+  // {
+  //   title: 'Analytics',
+  //   key: 'analytics',
+  //   url: '/orgs/analytics',
+  //   icon: IconAnalyze
+  // },
   {
-    title: 'Payment Settings',
+    title: 'Settings',
     key: 'settings',
     url: '/orgs/settings',
-    icon: IconSettings
+    icon: IconSettings,
+    items: [
+      {
+        title: 'Payment',
+        url: '/orgs/settings/payment'
+      },
+      {
+        title: 'Organization',
+        url: '/orgs/settings/organization'
+      }
+    ]
   }
 ]
 
@@ -74,9 +98,14 @@ const NavSecondaryItems: MenuItem[] = [
 
 export default function OrgNavMenus() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   function handleSidebarMenuClick(menu: MenuItem) {
     navigate(menu.url)
+  }
+
+  const isRouteActive = (url: string) => {
+    return location.pathname === url || location.pathname.startsWith(url + '/')
   }
 
   return (
@@ -86,16 +115,33 @@ export default function OrgNavMenus() {
         <SidebarGroupContent>
           <SidebarMenu>
             {NavMainItems.map(item => {
+              const isActive = isRouteActive(item.url)
               return (
                 <SidebarMenuItem key={item.key}>
                   <SidebarMenuButton
                     tooltip={item.title}
                     onClick={() => handleSidebarMenuClick(item)}
-                    className="transition-all"
+                    isActive={isActive}
+                    className={cn('transition-all', !isActive && 'text-muted-foreground/70')}
                   >
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                   </SidebarMenuButton>
+                  {item.items?.length && (
+                    <SidebarMenuSub>
+                      {item.items.map(subItem => (
+                        <SidebarMenuSubItem key={subItem.url}>
+                          <SidebarMenuSubButton
+                            isActive={location.pathname === subItem.url}
+                            onClick={() => navigate(subItem.url)}
+                            className={cn('cursor-pointer', location.pathname !== subItem.url && 'text-muted-foreground/70')}
+                          >
+                            <span>{subItem.title}</span>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  )}
                 </SidebarMenuItem>
               )
             })}
@@ -106,18 +152,22 @@ export default function OrgNavMenus() {
         {/* <SidebarGroupLabel className="text-muted-foreground/60">Menu</SidebarGroupLabel> */}
         <SidebarGroupContent>
           <SidebarMenu>
-            {NavSecondaryItems.map(item => (
-              <SidebarMenuItem key={item.key}>
-                <SidebarMenuButton
-                  tooltip={item.title}
-                  onClick={() => handleSidebarMenuClick(item)}
-                  className="transition-all"
-                >
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {/* {NavSecondaryItems.map(item => {
+              const isActive = isRouteActive(item.url)
+              return (
+                <SidebarMenuItem key={item.key}>
+                  <SidebarMenuButton
+                    tooltip={item.title}
+                    onClick={() => handleSidebarMenuClick(item)}
+                    isActive={isActive}
+                    className={cn('transition-all', !isActive && 'text-muted-foreground/70')}
+                  >
+                    {item.icon && <item.icon />}
+                    <span>{item.title}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })} */}
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>

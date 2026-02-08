@@ -20,6 +20,12 @@ interface BindSafeWalletFormProps {
   onDone: () => void
 }
 
+interface SafeOwnerDetails {
+  address: string
+  email: string
+  description: string
+}
+
 const EVM_ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/
 
 export function BindSafeWalletForm({ open, organizationId, chains, canManage, onSuccess, onDone }: BindSafeWalletFormProps) {
@@ -31,6 +37,10 @@ export function BindSafeWalletForm({ open, organizationId, chains, canManage, on
   const [safeAddressInput, setSafeAddressInput] = useState('')
   const [error, setError] = useState<string>('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // New state for owner details
+  const [verifiedSafeInfo, setVerifiedSafeInfo] = useState<any>(null)
+  const [ownersDetails, setOwnersDetails] = useState<SafeOwnerDetails[]>([])
 
   const selectedChain = useMemo(() => chains.find(c => c.id === selectedNetworkId), [chains, selectedNetworkId])
 
@@ -40,6 +50,8 @@ export function BindSafeWalletForm({ open, organizationId, chains, canManage, on
       setSafeAddressInput('')
       setError('')
       setIsSubmitting(false)
+      setVerifiedSafeInfo(null)
+      setOwnersDetails([])
       return
     }
     // default select first chain when opening
@@ -52,7 +64,7 @@ export function BindSafeWalletForm({ open, organizationId, chains, canManage, on
     return EVM_ADDRESS_REGEX.test(addr.trim())
   }
 
-  const handleVerifyAndConnect = async () => {
+  const handleVerify = async () => {
     if (!canManage) {
       toast({
         variant: 'destructive',
@@ -87,8 +99,10 @@ export function BindSafeWalletForm({ open, organizationId, chains, canManage, on
       let safeInfo: any
       try {
         safeInfo = await safeApi.getSafeInfo(safeAddress)
+        console.log('Safe Info:', safeInfo)
       } catch {
         setError('Address does not exist on the selected network, please check address and network')
+        setIsSubmitting(false)
         return
       }
 
@@ -97,6 +111,7 @@ export function BindSafeWalletForm({ open, organizationId, chains, canManage, on
       const isOwner = owners.some(o => o.toLowerCase() === address.toLowerCase())
       if (!isOwner) {
         setError('You are not the Owner of this Safe Wallet, cannot bind')
+        setIsSubmitting(false)
         return
       }
 
@@ -122,13 +137,41 @@ export function BindSafeWalletForm({ open, organizationId, chains, canManage, on
       const recovered = verifyMessage(message, signature)
       if (recovered.toLowerCase() !== address.toLowerCase()) {
         setError('You are not the Owner of this Safe Wallet, cannot bind')
+        setIsSubmitting(false)
         return
       }
 
+      // Verification success, prepare for details input
+      setVerifiedSafeInfo(safeInfo)
+      setOwnersDetails(owners.map(addr => ({
+        address: addr,
+        email: '',
+        description: ''
+      })))
+      
+    } catch (e: any) {
+      const msg = e?.message || 'Failed to verify Safe Wallet'
+      toast({
+        variant: 'destructive',
+        title: 'Verification failed',
+        description: msg
+      })
+      setError(msg)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleBind = async () => {
+    if (!verifiedSafeInfo || !selectedChain) return
+    
+    setIsSubmitting(true)
+    try {
       // 4) Save to organization configuration
       await api.organization.bindPaymentAccount({
-        address: safeInfo.address,
-        caipChainId: selectedChain.caipChainId
+        address: verifiedSafeInfo.address,
+        caipChainId: selectedChain.caipChainId,
+        owners: ownersDetails
       })
 
       toast({
@@ -148,6 +191,69 @@ export function BindSafeWalletForm({ open, organizationId, chains, canManage, on
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (verifiedSafeInfo) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-lg border bg-muted/20 p-4">
+          <div className="text-sm font-semibold mb-1">Verified Safe Wallet</div>
+          <div className="text-xs text-muted-foreground font-mono">{verifiedSafeInfo.address}</div>
+          <div className="text-xs text-muted-foreground mt-1">Network: {selectedChain?.name}</div>
+        </div>
+
+        <div className="space-y-4">
+          <Label>Owner Details (Required for transaction notifications)</Label>
+          <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+            {ownersDetails.map((owner, index) => (
+              <div key={owner.address} className="p-3 border rounded-md space-y-2">
+                <div className="text-xs font-mono bg-muted px-2 py-1 rounded w-fit mb-2">
+                  {owner.address}
+                </div>
+                <div className="grid gap-2">
+                  <Input 
+                    placeholder="Email" 
+                    value={owner.email}
+                    onChange={(e) => {
+                      const newOwners = [...ownersDetails]
+                      newOwners[index].email = e.target.value
+                      setOwnersDetails(newOwners)
+                    }}
+                    className="h-8 text-sm"
+                  />
+                  <Input 
+                    placeholder="Description (e.g. Name or Role)" 
+                    value={owner.description}
+                    onChange={(e) => {
+                      const newOwners = [...ownersDetails]
+                      newOwners[index].description = e.target.value
+                      setOwnersDetails(newOwners)
+                    }}
+                    className="h-8 text-sm"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" type="button" onClick={() => setVerifiedSafeInfo(null)} disabled={isSubmitting}>
+            Back
+          </Button>
+          <Button type="button" onClick={handleBind} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <IconLoader2 className="mr-2 size-4 animate-spin" />
+                Binding...
+              </>
+            ) : (
+              'Confirm & Bind'
+            )}
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -210,14 +316,14 @@ export function BindSafeWalletForm({ open, organizationId, chains, canManage, on
         <Button variant="outline" type="button" onClick={onDone} disabled={isSubmitting}>
           Cancel
         </Button>
-        <Button type="button" onClick={handleVerifyAndConnect} disabled={isSubmitting || !safeAddressInput.trim()}>
+        <Button type="button" onClick={handleVerify} disabled={isSubmitting || !safeAddressInput.trim()}>
           {isSubmitting ? (
             <>
               <IconLoader2 className="mr-2 size-4 animate-spin" />
-              Verifying & Connecting...
+              Verifying...
             </>
           ) : (
-            'Verify & Connect'
+            'Verify'
           )}
         </Button>
       </div>

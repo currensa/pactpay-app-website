@@ -46,9 +46,12 @@ export default function Identity() {
 
   const checkIdentities = (member: OrganizationMember) => {
     const roles = member.roles.map(r => r.role)
-    const isManager = roles.includes('Admin') || roles.includes('Operator')
-    const isEmployee = roles.includes('Member')
-    return { isManager, isEmployee }
+    // Check if the user has ONLY the Employee role (or 'Member' for backward compatibility)
+    const isEmployeeOnly = roles.every(r => (r as string) === 'Employee' || (r as string) === 'Member') && roles.length > 0
+    // Check if the user has any other roles (Manager, Admin, etc.)
+    const hasOtherRoles = roles.some(r => (r as string) !== 'Employee' && (r as string) !== 'Member')
+
+    return { isEmployeeOnly, hasOtherRoles }
   }
 
   // Step 2: Navigate to org dashboard (no wallet gating)
@@ -58,10 +61,10 @@ export default function Identity() {
     navigate('/orgs/dashboard', { replace: true })
   }
 
-  const navigateToMemberDashboard = (item: OrganizationResponseItem) => {
+  const navigateToEmployeeDashboard = (item: OrganizationResponseItem) => {
     // Update localStorage with organization ID
     localStorage.setItem('organizationId', item.organization.orgId)
-    navigate('/member/overview', { replace: true })
+    navigate('/employee/overview', { replace: true })
   }
 
   const handleCreateOrganization = () => {
@@ -81,17 +84,12 @@ export default function Identity() {
   useEffect(() => {
     if (organizations.length === 1 && !loading) {
       const item = organizations[0]
-      const { isManager, isEmployee } = checkIdentities(item.member)
+      const { isEmployeeOnly, hasOtherRoles } = checkIdentities(item.member)
 
-      // If user has both roles, don't auto-redirect, let them choose
-      if (isManager && isEmployee) {
-        return
-      }
-
-      if (isManager) {
+      if (isEmployeeOnly) {
+        navigateToEmployeeDashboard(item)
+      } else if (hasOtherRoles) {
         navigateToOrgDashboard(item)
-      } else if (isEmployee) {
-        navigateToMemberDashboard(item)
       }
     }
   }, [organizations, loading, navigate])
@@ -110,8 +108,9 @@ export default function Identity() {
   // If user has exactly one organization, show loading while redirecting
   // BUT only if we are actually redirecting (not both roles)
   if (organizations.length === 1) {
-    const { isManager, isEmployee } = checkIdentities(organizations[0].member)
-    if (!(isManager && isEmployee)) {
+    const { isEmployeeOnly, hasOtherRoles } = checkIdentities(organizations[0].member)
+    // We always redirect if there is 1 org, either to employee or org dashboard
+    if (isEmployeeOnly || hasOtherRoles) {
       return (
         <div className="flex min-h-screen items-center justify-center">
           <div className="flex flex-col items-center gap-4">
@@ -137,7 +136,7 @@ export default function Identity() {
           {/* Organization Cards */}
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {organizations.map(item => {
-              const { isManager, isEmployee } = checkIdentities(item.member)
+              const { isEmployeeOnly } = checkIdentities(item.member)
               return (
                 <Card
                   key={item.organization.orgId}
@@ -156,11 +155,11 @@ export default function Identity() {
                     </div>
                     <div className="text-muted-foreground flex items-center gap-2 text-xs">
                       <IconUsersGroup className="size-3.5" />
-                      <span>Member</span>
+                      <span>{isEmployeeOnly ? 'Employee' : 'Manager'}</span>
                     </div>
                   </CardContent>
                   <CardFooter className="flex flex-col gap-2 pt-2">
-                    {isManager && (
+                    {!isEmployeeOnly ? (
                       <Button
                         variant="default"
                         className="w-full justify-between"
@@ -169,12 +168,11 @@ export default function Identity() {
                         Manage Organization
                         <IconArrowRight className="size-4" />
                       </Button>
-                    )}
-                    {isEmployee && (
+                    ) : (
                       <Button
-                        variant={isManager ? 'outline' : 'default'}
+                        variant="default"
                         className="w-full justify-between"
-                        onClick={() => navigateToMemberDashboard(item)}
+                        onClick={() => navigateToEmployeeDashboard(item)}
                       >
                         Enter Workspace
                         <IconArrowRight className="size-4" />
@@ -224,7 +222,7 @@ export default function Identity() {
           <Card className="group transition-all hover:border-orange-500 hover:shadow-lg">
             <CardHeader>
               <div className="bg-primary/10 mb-4 flex size-16 items-center justify-center rounded-xl">
-              <IconBuildingSkyscraper className="text-primary size-8" />
+                <IconBuildingSkyscraper className="text-primary size-8" />
               </div>
               <CardTitle className="text-xl">I manage an organization</CardTitle>
               <CardDescription className="text-base">
@@ -268,7 +266,7 @@ export default function Identity() {
               <div className="bg-primary/10 mb-4 flex size-16 items-center justify-center rounded-xl">
                 <IconUsersGroup className="text-primary size-8" />
               </div>
-              <CardTitle className="text-xl">I'm a member</CardTitle>
+              <CardTitle className="text-xl">I'm an employee</CardTitle>
               <CardDescription className="text-base">
                 Join an organization to receive payments and view transaction history.
               </CardDescription>

@@ -3,9 +3,9 @@ import { cn } from '@/lib/utils'
 import { IconBuildingSkyscraper } from '@tabler/icons-react'
 import { NavUser } from '../base/nav-user'
 import { OrganizationSwitcher } from '../base/switcher'
-import MemberNavMenus from './nav-menus'
+import EmployeeNavMenus from './nav-menus'
 
-export default function MemberSidebar() {
+export default function EmployeeSidebar() {
   const { state } = useSidebar()
 
   return (
@@ -29,7 +29,7 @@ export default function MemberSidebar() {
             />
           </SidebarHeader>
           <SidebarContent>
-            <MemberNavMenus />
+            <EmployeeNavMenus />
           </SidebarContent>
           <SidebarFooter>
             <NavUser

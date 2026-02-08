@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { ChangeEmailDialog } from '@/views/member/components/dialogs/change-email-dialog'
-import { ChangeWalletDialog } from '@/views/member/components/dialogs/change-wallet-dialog'
+import { ChangeEmailDialog } from '@/views/account/components/dialogs/change-email-dialog'
+import { ChangeWalletDialog } from '@/views/account/components/dialogs/change-wallet-dialog'
 import { IconCopy, IconMail, IconShield, IconUser, IconWallet } from '@tabler/icons-react'
 import { useState } from 'react'
 
@@ -93,9 +93,9 @@ export default function AccountSettings() {
                     </div>
                   </div>
                 </div>
-                <div className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                {/* <div className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
                   Primary Login
-                </div>
+                </div> */}
               </div>
               <p className="text-muted-foreground text-xs">This email is used for login and receiving notifications.</p>
               <Button

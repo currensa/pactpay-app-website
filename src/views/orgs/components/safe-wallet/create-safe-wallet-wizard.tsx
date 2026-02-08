@@ -37,9 +37,18 @@ export function CreateSafeWalletWizard({
   const [status, setStatus] = useState('')
 
   // Multi-sig states from demo
-  const [owners, setOwners] = useState<string[]>([])
+  interface SafeOwner {
+    address: string
+    email: string
+    description: string
+  }
+  const [owners, setOwners] = useState<SafeOwner[]>([])
   const [threshold, setThreshold] = useState<number>(1)
+  
+  // New owner input states
   const [newOwnerAddress, setNewOwnerAddress] = useState<string>('')
+  const [newOwnerEmail, setNewOwnerEmail] = useState<string>('')
+  const [newOwnerDescription, setNewOwnerDescription] = useState<string>('')
 
   const selectedChain = useMemo(() => chains.find(c => c.id === selectedNetworkId), [chains, selectedNetworkId])
   const selectedChainIdNumber = selectedChain ? Number(selectedChain.chainId) : undefined
@@ -52,6 +61,8 @@ export function CreateSafeWalletWizard({
       setOwners([])
       setThreshold(1)
       setNewOwnerAddress('')
+      setNewOwnerEmail('')
+      setNewOwnerDescription('')
       return
     }
     if (!selectedNetworkId && chains.length > 0) {
@@ -62,19 +73,25 @@ export function CreateSafeWalletWizard({
   // Automatically set current user as the first owner
   useEffect(() => {
     if (address && owners.length === 0) {
-      setOwners([address])
+      setOwners([{ address, email: '', description: 'Initial Owner' }])
     }
   }, [address, owners.length])
 
   const addOwner = () => {
-    if (newOwnerAddress && /^0x[a-fA-F0-9]{40}$/.test(newOwnerAddress) && !owners.includes(newOwnerAddress)) {
-      setOwners([...owners, newOwnerAddress])
+    if (newOwnerAddress && /^0x[a-fA-F0-9]{40}$/.test(newOwnerAddress) && !owners.some(o => o.address.toLowerCase() === newOwnerAddress.toLowerCase())) {
+      setOwners([...owners, { 
+        address: newOwnerAddress, 
+        email: newOwnerEmail, 
+        description: newOwnerDescription 
+      }])
       setNewOwnerAddress('')
+      setNewOwnerEmail('')
+      setNewOwnerDescription('')
     } else if (newOwnerAddress) {
       toast({
         variant: 'destructive',
-        title: 'Invalid address',
-        description: 'Please enter a valid EVM address.'
+        title: 'Invalid address or duplicate',
+        description: 'Please enter a valid unique EVM address.'
       })
     }
   }
@@ -125,7 +142,7 @@ export function CreateSafeWalletWizard({
     }
 
     // B. Validate Owners and Threshold
-    const uniqueOwners = Array.from(new Set(owners.filter(o => /^0x[a-fA-F0-9]{40}$/.test(o))))
+    const uniqueOwners = Array.from(new Set(owners.map(o => o.address).filter(addr => /^0x[a-fA-F0-9]{40}$/.test(addr))))
     if (uniqueOwners.length < threshold) {
       toast({
         variant: 'destructive',
@@ -201,7 +218,12 @@ export function CreateSafeWalletWizard({
       // TODO: Backend might need owners and threshold info, currently only address and caipChainId are sent
       await api.organization.bindPaymentAccount({
         address: predictedAddress,
-        caipChainId: selectedChain.caipChainId
+        caipChainId: selectedChain.caipChainId,
+        owners: owners.map(o => ({
+          address: o.address,
+          email: o.email,
+          description: o.description
+        }))
       })
 
       toast({
@@ -281,48 +303,92 @@ export function CreateSafeWalletWizard({
         <Label className="text-base font-semibold">Owners</Label>
         <div className="space-y-3">
           {owners.map((owner, index) => (
-            <div key={index} className="flex gap-2">
-              <Input
-                value={owner}
-                disabled={index === 0 || isCreating}
-                placeholder="0x..."
-                className="font-mono text-sm"
-                onChange={e => {
-                  const newOwners = [...owners]
-                  newOwners[index] = e.target.value
-                  setOwners(newOwners)
-                }}
-              />
-              {owners.length > 1 && index !== 0 && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-destructive hover:bg-destructive/10"
-                  onClick={() => removeOwner(index)}
-                  disabled={isCreating}
-                >
-                  <IconTrash className="size-4" />
-                </Button>
-              )}
+            <div key={index} className="flex flex-col gap-2 border p-3 rounded-md bg-muted/20">
+              <div className="flex gap-2 items-center">
+                <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-medium">Owner {index + 1}</span>
+                <Input
+                  value={owner.address}
+                  disabled={true} // Address is not editable once added to list for simplicity, remove and add again to change
+                  placeholder="0x..."
+                  className="font-mono text-sm h-8"
+                  readOnly
+                />
+                {owners.length > 1 && index !== 0 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                    onClick={() => removeOwner(index)}
+                    disabled={isCreating}
+                  >
+                    <IconTrash className="size-4" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                 <Input 
+                   placeholder="Email" 
+                   value={owner.email} 
+                   onChange={(e) => {
+                     const newOwners = [...owners]
+                     newOwners[index].email = e.target.value
+                     setOwners(newOwners)
+                   }}
+                   className="h-8 text-sm"
+                   disabled={isCreating}
+                 />
+                 <Input 
+                   placeholder="Description" 
+                   value={owner.description} 
+                   onChange={(e) => {
+                     const newOwners = [...owners]
+                     newOwners[index].description = e.target.value
+                     setOwners(newOwners)
+                   }}
+                   className="h-8 text-sm"
+                   disabled={isCreating}
+                 />
+              </div>
             </div>
           ))}
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add new owner address 0x..."
-              value={newOwnerAddress}
-              onChange={e => setNewOwnerAddress(e.target.value)}
-              disabled={isCreating}
-              className="font-mono text-sm"
-              onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  addOwner()
-                }
-              }}
-            />
-            <Button variant="secondary" size="icon" onClick={addOwner} disabled={isCreating || !newOwnerAddress}>
-              <IconPlus className="size-4" />
-            </Button>
+          
+          {/* Add New Owner Section */}
+          <div className="border border-dashed p-3 rounded-md space-y-3 mt-4">
+            <Label className="text-sm text-muted-foreground">Add New Owner</Label>
+            <div className="space-y-2">
+              <Input
+                placeholder="Owner Address (0x...)"
+                value={newOwnerAddress}
+                onChange={e => setNewOwnerAddress(e.target.value)}
+                disabled={isCreating}
+                className="font-mono text-sm"
+              />
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Email"
+                  value={newOwnerEmail}
+                  onChange={e => setNewOwnerEmail(e.target.value)}
+                  disabled={isCreating}
+                  className="text-sm"
+                />
+                <Input
+                  placeholder="Description"
+                  value={newOwnerDescription}
+                  onChange={e => setNewOwnerDescription(e.target.value)}
+                  disabled={isCreating}
+                  className="text-sm"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addOwner()
+                    }
+                  }}
+                />
+              </div>
+              <Button variant="secondary" className="w-full" onClick={addOwner} disabled={isCreating || !newOwnerAddress}>
+                <IconPlus className="mr-2 size-4" /> Add Owner
+              </Button>
+            </div>
           </div>
         </div>
       </div>

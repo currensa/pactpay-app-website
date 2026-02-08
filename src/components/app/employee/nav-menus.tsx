@@ -30,8 +30,7 @@ import {
   IconHelpCircle,
   IconLayoutDashboard,
   IconPlus,
-  IconRocket,
-  IconSettings
+  IconRocket
 } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -70,7 +69,7 @@ const NavMainItems: MenuItem[] = [
   {
     title: 'Overview',
     key: 'overview',
-    url: '/member/overview',
+    url: '/employee/overview',
     icon: IconLayoutDashboard,
     type: 'item'
   }
@@ -88,16 +87,10 @@ const NavSecondaryItems: MenuItem[] = [
     key: 'help',
     url: '/help',
     icon: IconHelpCircle
-  },
-  {
-    title: 'Setting',
-    key: 'settings',
-    url: '/member/settings',
-    icon: IconSettings
   }
 ]
 
-export default function MemberNavMenus() {
+export default function EmployeeNavMenus() {
   const [isOrgsListOpen, setIsOrgsListOpen] = useState(true)
   const [orgsList, setOrgsList] = useState<OrgItem[]>([])
   const navigate = useNavigate()
@@ -115,7 +108,7 @@ export default function MemberNavMenus() {
         name: item.organization.orgName,
         // 循环使用图标，使用取模运算确保不会越界
         icon: ORG_ICONS[index % ORG_ICONS.length],
-        url: '/member/orgdetail'
+        url: '/employee/orgdetail'
       }))
       setOrgsList(formattedOrgs)
     } catch (error) {
@@ -138,7 +131,7 @@ export default function MemberNavMenus() {
   }
 
   const getOrgActive = (orgId: string) => {
-    return location.pathname === '/member/orgdetail' && location.state?.orgId === orgId
+    return location.pathname === '/employee/orgdetail' && location.state?.orgId === orgId
   }
 
   // 只要有任何一个组织被选中，Organizations 父级菜单就高亮
@@ -224,7 +217,7 @@ export default function MemberNavMenus() {
       <SidebarGroup className="mt-auto">
         <SidebarGroupContent>
           <SidebarMenu>
-            {NavSecondaryItems.map(item => {
+            {/* {NavSecondaryItems.map(item => {
               const isActive = isRouteActive(item.url)
               return (
                 <SidebarMenuItem key={item.key}>
@@ -245,7 +238,7 @@ export default function MemberNavMenus() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )
-            })}
+            })} */}
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>

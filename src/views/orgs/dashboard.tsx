@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
-import { getPrimaryRole, getMemberRoles, hasPermission, Permission, canManageMember, MemberRole } from '@/utils/permissions'
+import { canManageMember, getMemberRoles, getPrimaryRole, hasPermission, MemberRole, Permission } from '@/utils/permissions'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -36,7 +36,7 @@ export default function Dashboard() {
   const [todayTransactions, setTodayTransactions] = useState<TransactionPlan[]>([])
   const [members, setMembers] = useState<OrganizationMember[]>([])
   const [searchQuery, setSearchQuery] = useState('')
-  
+
   // TODO: 从 context 或 store 获取当前用户角色
   const currentUserRoles: MemberRole[] = ['Owner']
 
@@ -127,7 +127,7 @@ export default function Dashboard() {
 
   // 格式化钱包地址
   const formatAddress = (address: string) => {
-    if (!address) return 'Request Address'
+    if (!address) return '-'
     return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 
@@ -393,7 +393,7 @@ export default function Dashboard() {
                             <span className="text-green-600">✓</span>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground">Request Address</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell>{getMemberRole(member)}</TableCell>
@@ -429,14 +429,14 @@ export default function Dashboard() {
                             </>
                           ) : (
                             <>
-                              <Button 
+                              {/* <Button 
                                 variant="link" 
                                 size="sm" 
                                 className="h-auto p-0"
                                 onClick={() => navigate(`/orgs/members?detail=${member.id}`)}
                               >
                                 View Details
-                              </Button>
+                              </Button> */}
                               {canManageMember(currentUserRoles, getMemberRoles(member)) && (
                                 <>
                                   {hasPermission(currentUserRoles, Permission.REMOVE_MEMBER) && (
