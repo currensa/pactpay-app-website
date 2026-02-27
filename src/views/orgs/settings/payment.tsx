@@ -29,7 +29,7 @@ export default function PaymentSettings() {
 
   useEffect(() => {
     if (!organizationId) {
-      navigate('/account/identity', { replace: true })
+      navigate('/account/login', { replace: true })
       return
     }
     loadData()

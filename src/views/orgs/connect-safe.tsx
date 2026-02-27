@@ -49,7 +49,7 @@ export default function ConnectSafeWallet() {
 
   useEffect(() => {
     if (!organizationId) {
-      navigate('/account/identity', { replace: true })
+      navigate('/account/login', { replace: true })
       return
     }
     loadChains()

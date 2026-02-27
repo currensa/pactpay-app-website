@@ -67,7 +67,7 @@ export function OrganizationSwitcher({
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2" onClick={() => navigate('/account/identity')}>
+            <DropdownMenuItem className="gap-2 p-2" onClick={() => navigate('/account/login')}>
               <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
                 <ArrowRightLeft className="size-4" />
               </div>

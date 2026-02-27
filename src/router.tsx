@@ -5,7 +5,6 @@ import { lazy } from 'react'
 import { createBrowserRouter, Navigate, RouteObject } from 'react-router-dom'
 
 const Login = lazy(() => import('@/views/account/login'))
-const Identity = lazy(() => import('@/views/account/identity'))
 const ConnectSafeWallet = lazy(() => import('@/views/orgs/connect-safe'))
 const CreateSafe = lazy(() => import('@/views/demo/create-safe'))
 const ExecuteTransaction = lazy(() => import('@/views/demo/executeTransaction'))
@@ -37,13 +36,12 @@ type RouteItem = RouteObject & {
 
 const routes: RouteItem[] = [
   {
-    index: true, element: <Navigate to="/account/identity" />
+    index: true, element: <Navigate to="/account/login" />
   },
   {
     path: 'account',
     children: [
       { path: 'login', element: <Login />, meta: { title: 'Login' } },
-      { path: 'identity', element: <Identity />, meta: { title: 'Identity' } },
       { path: 'organization/create', element: <CreateOrganization />, meta: { title: 'Create Organization' } },
       { path: 'organization/connect-safe', element: <ConnectSafeWallet />, meta: { title: 'Connect Safe Wallet' } },
       { path: 'demo', element: <CreateSafe />, meta: { title: 'Create Safe Demo' } },

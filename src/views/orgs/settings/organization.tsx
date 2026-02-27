@@ -28,7 +28,7 @@ export default function OrganizationSettings() {
 
   useEffect(() => {
     if (!organizationId) {
-      navigate('/account/identity', { replace: true })
+      navigate('/account/login', { replace: true })
       return
     }
     loadData()
