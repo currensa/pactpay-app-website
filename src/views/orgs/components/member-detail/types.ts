@@ -1,4 +1,3 @@
-// 类型定义
 import { MemberRole } from '@/utils/permissions'
 
 export type { MemberRole }
@@ -6,17 +5,17 @@ export type MemberStatus = 'Active' | 'Pending' | 'Inactive'
 export type SortField = 'name' | 'serviceFee' | 'lastPayment' | null
 export type SortDirection = 'asc' | 'desc' | null
 
+/** Backend role values (authoritative) */
+export type BackendRole = 'Owner' | 'Admin' | 'Operator' | 'Employee'
+
 export interface Member {
   id: string
   memberId: string
   name: string
   email: string
-  receivingWallet: string | null
-  network: string
   role: MemberRole
   roles?: MemberRole[]
   serviceFee: number
-  currency?: string
   status: MemberStatus
   lastPayment: string | null
   joinDate: string
@@ -25,9 +24,8 @@ export interface Member {
 
 export interface DrawerChanges {
   name?: string
-  receivingWallet?: string
-  serviceFee?: number
-  currency?: string
+  /** Raw amount string, e.g. "1000000000" */
+  amount?: string
+  roles?: BackendRole[]
   role?: MemberRole
-  roles?: MemberRole[]
 }

@@ -1,34 +1,16 @@
 import api from '@/apis'
 import type { Provider } from '@reown/appkit/react'
-import { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider } from '@reown/appkit/react'
+import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconLoader2, IconMail, IconWallet } from '@tabler/icons-react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { SiweMessage } from 'siwe'
 
 interface LoginFormProps {
   onLoginSuccess: () => void
 }
 
-async function buildMessage(address: string, chainId: number) {
-  const { nonce } = await api.auth.getNonce()
-  const siweMessage = new SiweMessage({
-    address,
-    domain: 'https://' + location.host,
-    uri: location.href,
-    version: '1',
-    chainId,
-    nonce,
-    statement: 'Sign in to PactPay',
-    issuedAt: new Date().toISOString(),
-    notBefore: new Date(Date.now() - 1000).toISOString()
-  })
-  return siweMessage.prepareMessage()
-}
-
 function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
-  const { chainId } = useAppKitNetwork()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const userAction = useRef(false)
   const [loading, setLoading] = useState(false)
@@ -42,21 +24,23 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
     userAction.current = true
   }
 
-  const walletLogin = async (provider: Provider, addr: string, chainIdNum: number) => {
+  const walletLogin = async (provider: Provider, addr: string) => {
     setLoading(true)
     try {
-      const message = await buildMessage(addr, chainIdNum)
+      const { nonce } = await api.auth.getNonce()
       const signature = await provider.request<string>({
         method: 'personal_sign',
-        params: [message, addr]
+        params: [nonce, addr]
       })
       const { token } = await api.auth.login({
         type: 'wallet',
         address: addr,
-        message,
+        nonce,
         signature
       })
       localStorage.setItem('token', token)
+      localStorage.setItem('authType', 'wallet')
+      localStorage.setItem('authAddress', addr)
       onLoginSuccess()
     } catch (error) {
       console.error('Failed to sign in:', error)
@@ -66,15 +50,15 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   }
 
   const handleWalletSign = () => {
-    if (!address || !chainId || !walletProvider) return
-    walletLogin(walletProvider, address, Number(chainId))
+    if (!address || !walletProvider) return
+    walletLogin(walletProvider, address)
   }
 
   useEffect(() => {
     if (!userAction.current) return
-    if (!address || !chainId || !walletProvider) return
-    walletLogin(walletProvider, address, Number(chainId))
-  }, [address, walletProvider, chainId])
+    if (!address || !walletProvider) return
+    walletLogin(walletProvider, address)
+  }, [address, walletProvider])
 
   return (
     <button
@@ -141,6 +125,8 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         code: emailCode
       })
       localStorage.setItem('token', token)
+      localStorage.setItem('authType', 'email')
+      localStorage.setItem('authEmail', email)
       onLoginSuccess()
     } catch (error) {
       console.error('Failed to sign in with email:', error)

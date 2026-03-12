@@ -1,65 +1,69 @@
 import { Button } from '@/components/ui/button'
-import { DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Transaction } from './types'
 
 interface ExecuteSuccessDialogContentProps {
-  createdTransactionId: string
+  depositTxHash: string
   executingTransaction: Transaction | null
-  onDoItLater: () => void
-  onGoToSafeWallet: (transaction: Transaction) => void
+  onClose: () => void
 }
 
 export function ExecuteSuccessDialogContent({
-  createdTransactionId,
+  depositTxHash,
   executingTransaction,
-  onDoItLater,
-  onGoToSafeWallet,
+  onClose,
 }: ExecuteSuccessDialogContentProps) {
   return (
     <div className="flex flex-col space-y-4">
       <DialogHeader>
-        <DialogTitle>Transaction Created on Safe Wallet</DialogTitle>
-        <DialogDescription>Your transaction has been successfully created on Safe Wallet.</DialogDescription>
+        <DialogTitle>Deposit Confirmed</DialogTitle>
+        <DialogDescription>The deposit has been confirmed. Employees can now claim their payments.</DialogDescription>
       </DialogHeader>
 
       <div className="space-y-4 py-4">
-        {/* 成功提示 */}
+        {/* Success notice */}
         <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-3">
           <div className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600">✓</div>
           <div className="space-y-1 min-w-0 flex-1">
-            <p className="text-sm font-medium text-green-900">Transaction Created Successfully</p>
+            <p className="text-sm font-medium text-green-900">Deposit Confirmed Successfully</p>
             <p className="text-xs text-green-800 break-words">
-              The transaction has been proposed on Safe Wallet. You can now review and execute it.
+              The Merkle root has been deposited to the vault. Employees can now use their stealth keys to claim
+              their payments via the relayer.
             </p>
           </div>
         </div>
 
-        {/* Transaction ID */}
-        <div className="bg-muted rounded-lg p-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-muted-foreground text-sm">Transaction ID:</span>
-            <span className="font-mono text-sm font-medium break-all sm:break-normal">{createdTransactionId}</span>
+        {/* Batch name */}
+        {executingTransaction && (
+          <div className="bg-muted rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">Batch:</span>
+              <span className="text-sm font-medium">{executingTransaction.name}</span>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* 下一步操作提示 */}
+        {/* Deposit tx hash */}
+        {depositTxHash && (
+          <div className="bg-muted rounded-lg p-3 space-y-1">
+            <span className="text-muted-foreground text-sm">Deposit Transaction Hash:</span>
+            <p className="font-mono text-sm font-medium break-all">{depositTxHash}</p>
+          </div>
+        )}
+
+        {/* Next steps */}
         <div className="text-muted-foreground text-sm">
           <p className="mb-1 font-medium">Next Steps:</p>
-          <ul className="list-disc space-y-1 pl-5 break-words">
-            <li>Go to Safe Wallet to review the transaction</li>
-            <li>Sign and execute the transaction</li>
-            <li>Wait for the transaction to be confirmed on the blockchain</li>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Employees will see claimable payments in their dashboard</li>
+            <li>Each employee uses their meta private key to recover their stealth key</li>
+            <li>The relayer will process claim requests on behalf of employees</li>
           </ul>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-        <Button variant="outline" onClick={onDoItLater} className="w-full sm:w-auto">
-          I'll do it later
-        </Button>
-        <Button onClick={() => executingTransaction && onGoToSafeWallet(executingTransaction)} className="w-full sm:w-auto">
-          Go to Safe Wallet
-        </Button>
+      <div className="flex justify-end">
+        <Button onClick={onClose}>Done</Button>
       </div>
     </div>
   )

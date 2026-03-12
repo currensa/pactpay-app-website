@@ -3,7 +3,7 @@ export interface Transaction {
   name: string
   transactionId: string
   type: string
-  status: 'ready' | 'pending' | 'complete' | 'failed' | 'draft' | 'executing'
+  status: 'ready' | 'pending' | 'complete' | 'failed' | 'draft' | 'executing' | 'pending_deposit'
   executionDate: string
   daysRemaining: number | null
   isDueToday: boolean

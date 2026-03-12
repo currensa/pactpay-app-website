@@ -1,5 +1,5 @@
 import apis from '@/apis'
-import type { AssetChain } from '@/apis/orgnization.api'
+import { InviteLogStatus } from '@/apis/orgnization.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
+import useOrganizationStore from '@/stores/organization'
 import { getMemberRoles, getPrimaryRole, hasPermission, MemberRole, Permission } from '@/utils/permissions'
 import type {
   Member,
@@ -42,7 +43,6 @@ export default function MemberPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
   const [inviteSectionOpen, setInviteSectionOpen] = useState(false)
   const [inviteCode, setInviteCode] = useState('ORG-A3K9-7B2M')
   const [inviteLink, setInviteLink] = useState('https://pactpay.com/join/eng-team/inv-x9k2...')
@@ -58,6 +58,9 @@ export default function MemberPage() {
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
+  const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
+
   const pageSize = 20
   const currentUserRole: MemberRole[] = ['Owner'] // TODO: 从 context 获取
 
@@ -65,37 +68,24 @@ export default function MemberPage() {
   const transformMember = (apiMember: any): Member => {
     const roles = getMemberRoles(apiMember)
     const primaryRole = getPrimaryRole(roles)
-    const receivingAccount = apiMember.receivingAccounts?.[0]
-    const payoutIntent = apiMember.payoutIntent
+    // API 返回 payoutIntents 数组；取第一条（已由后端按组织发薪配置过滤）
+    const payoutIntent = apiMember.payoutIntent ?? null
 
     return {
       id: apiMember.id,
       memberId: apiMember.memberId,
       name: apiMember.showName || apiMember.memberId,
-      email: apiMember.email || apiMember.showName?.includes('@') ? apiMember.showName : '',
-      receivingWallet: receivingAccount?.config?.address || null,
-      network: payoutIntent?.network,
+      email: apiMember.email || '',
       role: primaryRole,
       roles: roles,
       serviceFee: payoutIntent ? parseFloat(payoutIntent.amount) : 0,
-      currency: payoutIntent?.currency,
-      status: apiMember.status === 'active' ? 'Active' : apiMember.status === 'pending' ? 'Pending' : 'Inactive',
+      status: apiMember.inviteStatus === InviteLogStatus.PENDING
+        ? 'Pending'
+        : apiMember.status === 'active' ? 'Active' : 'Inactive',
       lastPayment: apiMember.lastPayment || null,
       joinDate: apiMember.createdAt ? new Date(apiMember.createdAt).toISOString().split('T')[0] : '',
       avatar: apiMember.avatarUrl || undefined
     }
-  }
-
-  // 根据货币符号获取对应的链ID
-  const getChainIdByCurrency = (currency: string): string => {
-    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
-    return assetChain?.chain.chainId || ''
-  }
-
-  // 根据货币符号获取对应的资产名称
-  const getAssetNameByCurrency = (currency: string): string => {
-    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
-    return assetChain?.chain.name || ''
   }
 
   // 监听 organizationId 变化事件
@@ -104,21 +94,18 @@ export default function MemberPage() {
       const fetchData = async () => {
         try {
           setLoading(true)
-          // 获取成员列表
-          const membersResponse = await apis.organization.getOrganizationMembers(currentPage, pageSize)
+          const [membersResponse, inviteCodeData] = await Promise.all([
+            apis.organization.getOrganizationMembers(currentPage, pageSize),
+            apis.organization.getOrganizationInviteCode(),
+            fetchPayrollTokenSymbol(),
+          ])
+
           const transformedMembers = membersResponse.data.map(transformMember)
           setMembers(transformedMembers)
 
-          // 获取邀请码
-          const inviteCodeData = await apis.organization.getOrganizationInviteCode()
           setInviteCode(inviteCodeData.code)
-          // 根据邀请码生成邀请链接
           setInviteLink(`${window.location.origin}/join/${inviteCodeData.code}`)
 
-          // 获取资产链信息
-          const assetsChainsData = await apis.organization.getAssetsChains()
-
-          setAssetsChains(assetsChainsData)
         } catch (error: any) {
           toast({
             title: 'Error',
@@ -209,8 +196,7 @@ export default function MemberPage() {
       result = result.filter(
         m =>
           m.name.toLowerCase().includes(query) ||
-          m.email.toLowerCase().includes(query) ||
-          (m.receivingWallet?.toLowerCase().includes(query) ?? false)
+          m.email.toLowerCase().includes(query)
       )
     }
 
@@ -274,13 +260,6 @@ export default function MemberPage() {
       setSortDirection('asc')
     }
   }
-
-  // 格式化地址
-  const formatAddress = (address: string | null) => {
-    if (!address) return null
-    return `${address.slice(0, 6)}...${address.slice(-4)}`
-  }
-
   // 打开详情 Drawer
   const openMemberDrawer = (member: Member) => {
     setSelectedMember(member)
@@ -288,23 +267,33 @@ export default function MemberPage() {
   }
 
   // 处理审批
-  const handleApprove = async (memberId: string) => {
-    // TODO: API 调用
-    setMembers(prev => prev.map(m => (m.id === memberId ? { ...m, status: 'Active' as MemberStatus } : m)))
-    toast({
-      title: 'Success',
-      description: 'Member approved successfully.'
-    })
+  const handleApprove = async (member: Member) => {
+    try {
+      await apis.organization.approveInvite(member.memberId)
+      setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, status: 'Active' as MemberStatus } : m)))
+      toast({ title: 'Success', description: 'Member approved successfully.' })
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.message || 'Failed to approve member.',
+        variant: 'destructive'
+      })
+    }
   }
 
   // 处理拒绝
-  const handleReject = async (memberId: string) => {
-    // TODO: API 调用
-    setMembers(prev => prev.filter(m => m.id !== memberId))
-    toast({
-      title: 'Success',
-      description: 'Member rejected. Notification sent.'
-    })
+  const handleReject = async (member: Member) => {
+    try {
+      await apis.organization.rejectInvite(member.memberId)
+      setMembers(prev => prev.filter(m => m.id !== member.id))
+      toast({ title: 'Success', description: 'Member rejected. Notification sent.' })
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.message || 'Failed to reject member.',
+        variant: 'destructive'
+      })
+    }
   }
 
   // 处理删除
@@ -552,25 +541,14 @@ export default function MemberPage() {
     }
 
     try {
-      if (!member.network) {
-        toast({
-          title: 'Error',
-          description: 'Network does not exist, modification is not allowed',
-          variant: 'destructive'
-        })
-        return
-      }
-      const currency = member.currency || ''
       await apis.organization.updateMemberPayoutIntent(
         member.memberId,
-        numValue.toString(),
-        getChainIdByCurrency(currency),
-        currency
+        { amount: numValue.toString() }
       )
       setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, serviceFee: numValue } : m)))
       toast({
         title: 'Success',
-        description: `Service Fee updated to ${numValue} ${currency}`
+        description: `Service Fee updated to ${numValue}`
       })
     } catch (error: any) {
       toast({
@@ -780,8 +758,6 @@ export default function MemberPage() {
                   </div>
                 </TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Receiving Wallet</TableHead>
-                <TableHead>Network</TableHead>
                 <TableHead>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -793,8 +769,7 @@ export default function MemberPage() {
                     <DropdownMenuContent>
                       <DropdownMenuItem onClick={() => setRoleFilter('All')}>All Roles</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setRoleFilter('Owner')}>Owner</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setRoleFilter('Org Admin')}>Org Admin</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setRoleFilter('Pay Admin')}>Pay Admin</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setRoleFilter('Admin')}>Admin</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setRoleFilter('Operator')}>Operator</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setRoleFilter('Employee')}>Employee</DropdownMenuItem>
                     </DropdownMenuContent>
@@ -802,7 +777,7 @@ export default function MemberPage() {
                 </TableHead>
                 <TableHead className="hover:bg-muted/50 cursor-pointer" onClick={() => handleSort('serviceFee')}>
                   <div className="flex items-center gap-2">
-                    Service Fee
+                    Amount{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
                     {sortField === 'serviceFee' &&
                       (sortDirection === 'asc' ? (
                         <ChevronUp className="h-4 w-4" />
@@ -871,45 +846,22 @@ export default function MemberPage() {
                         <span className="font-medium">{member.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{member.email}</TableCell>
+                    <TableCell>{member.email || "-"}</TableCell>
                     <TableCell>
-                      {member.receivingWallet ? (
-                        <div className="flex items-center gap-1">
-                          <span className="font-mono text-sm">{formatAddress(member.receivingWallet)}</span>
-                          <Check className="h-3 w-3 text-green-500" />
-                        </div>
-                      ) : (
-                        <span>-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{getAssetNameByCurrency(member.currency || '')}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {member.roles && member.roles.length > 0 ? (
-                          member.roles.map(role => (
-                            <Badge
-                              key={role}
-                              variant={
-                                role === 'Owner'
-                                  ? 'default'
-                                  : role === 'Org Admin' || role === 'Pay Admin'
-                                    ? 'default'
-                                    : role === 'Operator'
-                                      ? 'secondary'
-                                      : 'outline'
-                              }
-                            >
-                              {role}
-                            </Badge>
-                          ))
-                        ) : (
-                          <Badge variant="outline">{member.role}</Badge>
-                        )}
-                      </div>
+                      <Badge
+                        variant={
+                          member.role === 'Owner' ? 'default'
+                            : member.role === 'Admin' ? 'default'
+                              : member.role === 'Operator' ? 'secondary'
+                                : 'outline'
+                        }
+                      >
+                        {member.role}
+                      </Badge>
                     </TableCell>
                     <TableCell className="group relative" onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
-                        <span>{member.serviceFee} {member.currency}</span>
+                        <span>{member.serviceFee}{payrollTokenSymbol ? ` ${payrollTokenSymbol}` : ''}</span>
                         <Edit2
                           className="h-3 w-3 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
                           onClick={() => {
@@ -958,7 +910,7 @@ export default function MemberPage() {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6"
-                              onClick={() => handleApprove(member.id)}
+                              onClick={() => handleApprove(member)}
                             >
                               <Check className="h-4 w-4 text-green-500" />
                             </Button>
@@ -966,7 +918,7 @@ export default function MemberPage() {
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6"
-                              onClick={() => handleReject(member.id)}
+                              onClick={() => handleReject(member)}
                             >
                               <XCircle className="h-4 w-4 text-red-500" />
                             </Button>
@@ -1021,6 +973,7 @@ export default function MemberPage() {
               <MemberDetailContent
                 selectedMember={selectedMember}
                 currentUserRole={currentUserRole}
+                payrollTokenSymbol={payrollTokenSymbol}
                 onDrawerClose={() => setDrawerOpen(false)}
                 onRemoveMember={member => {
                   setMemberToRemove(member)

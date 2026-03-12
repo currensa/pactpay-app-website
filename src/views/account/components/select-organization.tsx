@@ -1,27 +1,20 @@
-import api from '@/apis'
+import useOrganizationStore from '@/stores/organization'
 import {
   Organization,
   OrganizationMember
 } from '@/apis/orgnization.api'
-import { IconLoader2, IconPlus } from '@tabler/icons-react'
+import { IconLoader2, IconPlus, IconUser } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
 interface OrganizationResponseItem {
   organization: Organization
   member: OrganizationMember
 }
 
-function checkIdentities(member: OrganizationMember) {
-  const roles = member.roles.map(r => r.role)
-  const isEmployeeOnly =
-    roles.every(
-      r => (r as string) === 'Employee' || (r as string) === 'Member'
-    ) && roles.length > 0
-  const hasOtherRoles = roles.some(
-    r => (r as string) !== 'Employee' && (r as string) !== 'Member'
+function hasAdminRole(member: OrganizationMember) {
+  return member.roles.some(
+    r => r.role !== 'Employee' && (r.role as string) !== 'Member'
   )
-  return { isEmployeeOnly, hasOtherRoles }
 }
 
 function formatDate(dateString: string) {
@@ -32,74 +25,35 @@ function formatDate(dateString: string) {
   })
 }
 
-function getNetworkLabel(item: OrganizationResponseItem): string {
-  const config = item.organization.paymentAccounts?.[0]?.config
-  return config?.network ?? '—'
-}
-
 interface SelectOrganizationProps {
   onCreateNew?: () => void
+  onEnterAsEmployee?: () => void
+  onSelectAdminOrg?: (orgId: string, member: OrganizationMember) => void
 }
 
-export default function SelectOrganization({ onCreateNew }: SelectOrganizationProps) {
-  const navigate = useNavigate()
-  const [organizations, setOrganizations] = useState<OrganizationResponseItem[]>(
-    []
-  )
-  const [loading, setLoading] = useState(true)
+export default function SelectOrganization({
+  onCreateNew,
+  onEnterAsEmployee,
+  onSelectAdminOrg,
+}: SelectOrganizationProps) {
+  const organizations = useOrganizationStore(s => s.organizations)
+  const getOrganizations = useOrganizationStore(s => s.getOrganizations)
+  const [loading, setLoading] = useState(!organizations.length)
 
   useEffect(() => {
-    loadOrganizations()
+    if (organizations.length) return
+    getOrganizations().finally(() => setLoading(false))
   }, [])
 
-  const loadOrganizations = async () => {
-    try {
-      setLoading(true)
-      const data = await api.organization.getOrganizations()
-      const adminOrgs = (data || []).filter(item =>
-        item.member.roles.some(
-          r => r.role !== 'Employee' && r.role !== ('Member' as never)
-        )
-      )
-      setOrganizations(adminOrgs)
-    } catch (error) {
-      console.error('Failed to load organizations:', error)
-      setOrganizations([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const navigateToOrgDashboard = (item: OrganizationResponseItem) => {
-    localStorage.setItem('organizationId', item.organization.orgId)
-    navigate('/orgs/dashboard', { replace: true })
-  }
-
-  const navigateToEmployeeDashboard = (item: OrganizationResponseItem) => {
-    localStorage.setItem('organizationId', item.organization.orgId)
-    navigate('/employee/overview', { replace: true })
-  }
-
-  useEffect(() => {
-    if (organizations.length !== 1 || loading) return
-    const item = organizations[0]
-    const { isEmployeeOnly, hasOtherRoles } = checkIdentities(item.member)
-    if (isEmployeeOnly) navigateToEmployeeDashboard(item)
-    else if (hasOtherRoles) navigateToOrgDashboard(item)
-  }, [organizations, loading])
+  const adminOrgs = organizations.filter(item => hasAdminRole(item.member))
+  const hasEmployeeOrgs = organizations.some(item => !hasAdminRole(item.member))
 
   const handleSelect = (item: OrganizationResponseItem) => {
-    const { isEmployeeOnly, hasOtherRoles } = checkIdentities(item.member)
-    if (isEmployeeOnly) navigateToEmployeeDashboard(item)
-    else if (hasOtherRoles) navigateToOrgDashboard(item)
+    onSelectAdminOrg?.(item.organization.orgId, item.member)
   }
 
   const handleCreateNew = () => {
-    if (onCreateNew) {
-      onCreateNew()
-    } else {
-      navigate('/account/organization/create')
-    }
+    onCreateNew?.()
   }
 
   if (loading) {
@@ -111,20 +65,6 @@ export default function SelectOrganization({ onCreateNew }: SelectOrganizationPr
     )
   }
 
-  if (organizations.length === 1) {
-    const { isEmployeeOnly, hasOtherRoles } = checkIdentities(
-      organizations[0].member
-    )
-    if (isEmployeeOnly || hasOtherRoles) {
-      return (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-4">
-          <IconLoader2 className="h-8 w-8 animate-spin text-[#77777d]" />
-          <p className="text-sm text-[#77777d]">Redirecting...</p>
-        </div>
-      )
-    }
-  }
-
   return (
     <div className="flex h-full w-full flex-col gap-[80px] px-4 py-8 lg:px-[60px] lg:py-[40px]">
       <h1 className="shrink-0 max-w-[480px] text-[32px] font-bold leading-[48px] text-[#1c1c26]">
@@ -134,8 +74,7 @@ export default function SelectOrganization({ onCreateNew }: SelectOrganizationPr
       <div className="flex min-h-0 flex-1 flex-col gap-[32px]">
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col gap-[24px] pb-4">
-            {organizations.map(item => {
-              const networkLabel = getNetworkLabel(item)
+            {adminOrgs.map(item => {
               const lastPayment = item.member.lastPayment
                 ? formatDate(item.member.lastPayment)
                 : 'N/A'
@@ -151,17 +90,11 @@ export default function SelectOrganization({ onCreateNew }: SelectOrganizationPr
                     <p className="shrink-0 text-[24px] font-bold leading-[36px] text-[#1c1c26]">
                       {item.organization.orgName}
                     </p>
-                    <div className="flex shrink-0 items-center gap-[4px] rounded-full bg-[#f5f5f5] px-[16px] py-[6px]">
-                      <div className="size-[20px] shrink-0 rounded-[4.8px] bg-black" />
-                      <p className="text-[16px] font-normal leading-[24px] text-[#1c1c26]">
-                        {networkLabel}
-                      </p>
-                    </div>
                   </div>
                   <div className="flex w-full flex-col gap-[4px] text-[16px] font-normal leading-[24px] text-[#606067]">
                     <p>Last Payment: {lastPayment}</p>
                     <div className="flex flex-wrap items-center gap-[8px]">
-                      <span>Contractors:</span>
+                      <span>Roles:</span>
                       {roles.length > 0 ? (
                         <span className="flex flex-wrap gap-[6px]">
                           {roles.map(r => (
@@ -184,14 +117,28 @@ export default function SelectOrganization({ onCreateNew }: SelectOrganizationPr
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleCreateNew}
-          className="flex shrink-0 items-center justify-center gap-[8px] rounded-full bg-[#875dff] px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90"
-        >
-          <IconPlus className="size-[24px]" />
-          Create New Organization
-        </button>
+        <div className="flex shrink-0 flex-col gap-[12px]">
+          {/* C端入口: enter as employee */}
+          {(hasEmployeeOrgs || onEnterAsEmployee) && (
+            <button
+              type="button"
+              onClick={onEnterAsEmployee}
+              className="flex items-center justify-center gap-[8px] rounded-full border border-[#d9d9db] bg-white px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-[#1c1c26] transition-opacity hover:opacity-90"
+            >
+              <IconUser className="size-[24px]" />
+              Enter as Employee
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={handleCreateNew}
+            className="flex items-center justify-center gap-[8px] rounded-full bg-[#875dff] px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90"
+          >
+            <IconPlus className="size-[24px]" />
+            Create New Organization
+          </button>
+        </div>
       </div>
     </div>
   )

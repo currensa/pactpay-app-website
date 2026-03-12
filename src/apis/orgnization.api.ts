@@ -1,5 +1,11 @@
 import { AxiosInstance } from 'axios'
 
+export enum InviteLogStatus {
+  PENDING = 'Pending',
+  APPROVE = 'Approve',
+  REJECT = 'Reject',
+}
+
 export interface InviteCode {
   id: string
   orgId: string
@@ -14,26 +20,15 @@ export interface InviteCode {
 
 export interface MemberRole {
   id: string
-  role: 'Owner' | 'Org Admin' | 'Pay Admin' | 'Operator' | 'Employee'
+  role: 'Owner' | 'Admin' | 'Operator' | 'Employee'
   createdAt: string
-}
-
-export interface ReceivingAccount {
-  id: string
-  type: string
-  status: string
-  config: {
-    address: string
-  }
-  createdAt: string
-  updatedAt: string
 }
 
 export interface PayoutIntent {
   id: string
   amount: string
-  currency: string
-  network: string
+  caipChainId: string
+  token: string
   createdAt: string
   updatedAt: string
 }
@@ -52,8 +47,10 @@ export interface OrganizationMember {
   deletedAt: string | null
   lastPayment: string | null
   roles: MemberRole[]
-  payoutIntent: PayoutIntent | null
-  receivingAccounts: ReceivingAccount[]
+  /** 成员可有多个支付意向（按 caipChainId+token 唯一），取当前组织发薪配置对应的那条 */
+  payoutIntent: PayoutIntent
+  metaPub: string | null
+  inviteStatus: InviteLogStatus | null
 }
 
 export interface MembersResponse {
@@ -111,24 +108,9 @@ export interface EmailInvitationResponse {
     userId: string
     memberId: string
     code: string
-    result: string
+    status: InviteLogStatus
     createdAt: string
   }
-}
-
-export interface SafeWalletAccount {
-  nonce: number
-  owners: string[]
-  address: string
-  network: string
-  version: string
-  threshold: number
-}
-
-export interface PaymentAccount {
-  orgId: string
-  type: 'safe'
-  config: SafeWalletAccount
 }
 
 export interface Organization {
@@ -140,40 +122,15 @@ export interface Organization {
   logoUrl?: string
   createdAt?: string
   updatedAt?: string
-  paymentAccounts?: PaymentAccount[]
-}
-export interface BindSafeWalletPayload {
-  address: string
-  caipChainId: string
-  owners?: {
-    address: string
-    email?: string
-    description?: string
-  }[]
 }
 
-export interface OrganizationPaymentAccount {
+export interface OrgPayrollConfig {
   id: string
   orgId: string
-  type: string
-  config: {
-    nonce: number
-    owners: string[]
-    address: string
-    chainId: string
-    version: string
-    ecosystem: string
-    threshold: number
-    caipChainId: string
-  }
-  status: string
+  caipChainId: string
+  token: string
   createdAt: string
   updatedAt: string
-}
-
-export interface PaymentAccountsResponse {
-  list: OrganizationPaymentAccount[]
-  total: number
 }
 
 export class OrgnizationApi {
@@ -193,11 +150,6 @@ export class OrgnizationApi {
   // 获取我加入的公司列表
   async getOrganizations() {
     const res = await this.request.get<{ organization: Organization; member: OrganizationMember }[]>('/orgs')
-    return res.data
-  }
-  // 绑定支付账户
-  async bindPaymentAccount(params: BindSafeWalletPayload) {
-    const res = await this.request.post<Organization>(`/orgs/${this.orgId}/payment-account/bind`, params)
     return res.data
   }
   // 获取公司详情
@@ -232,20 +184,9 @@ export class OrgnizationApi {
     const res = await this.request.post<EmailInvitationResponse>(`/orgs/${this.orgId}/invites`, { email })
     return res.data
   }
-  // 更新成员的收款账户地址
-  async updateMemberAccountAddress(memberId: string, address: string) {
-    const res = await this.request.patch<string>(`/orgs/${this.orgId}/members/${memberId}/wallet`, {
-      address
-    })
-    return res.data
-  }
-  // 更新成员的支付意向
-  async updateMemberPayoutIntent(memberId: string, amount: string, network: string, currency: string) {
-    const res = await this.request.patch<PayoutIntent>(`/orgs/${this.orgId}/members/${memberId}/payout-intent`, {
-      amount,
-      network,
-      currency
-    })
+  // 更新成员的支付意向（仅 amount，caipChainId 与 token 由组织发薪配置决定）
+  async updateMemberPayoutIntent(memberId: string, payload: { amount: string }) {
+    const res = await this.request.patch<PayoutIntent>(`/orgs/${this.orgId}/members/${memberId}/payout-intent`, payload)
     return res.data
   }
   // 删除成员
@@ -254,23 +195,47 @@ export class OrgnizationApi {
     return res.data
   }
 
-  // 获取组织的资产链信息
-  async getAssetsChains(): Promise<AssetChain[]> {
-    const res = await this.request.get<AssetChain[]>(`/orgs/${this.orgId}/assets-chains`)
-    return res.data
-  }
-
-  // 获取组织支付账户详情
-  async getOrganizationPaymentAccounts(): Promise<PaymentAccountsResponse> {
-    const res = await this.request.get<PaymentAccountsResponse>(`/orgs/${this.orgId}/payment-accounts`)
-    return res.data
-  }
-
   // 更新成员角色
   async updateMemberRoles(memberId: string, roles: string[]) {
     const res = await this.request.patch<string>(`/orgs/${this.orgId}/${memberId}/roles`, {
       roles
     })
+    return res.data
+  }
+
+  // 员工提交 metaPub（StealthPay）
+  async submitMetaPub(payload: { address: string; metaPub: string; signature: string }) {
+    const res = await this.request.post<{ success: boolean }>(`/orgs/${this.orgId}/submit-meta-pub`, payload)
+    return res.data
+  }
+
+  // 审批通过加入申请
+  async approveInvite(memberId: string) {
+    const res = await this.request.post<{ message: string }>(`/orgs/${this.orgId}/invites/${memberId}/approve`)
+    return res.data
+  }
+
+  // 拒绝加入申请
+  async rejectInvite(memberId: string, reason?: string) {
+    const res = await this.request.post<{ message: string }>(`/orgs/${this.orgId}/invites/${memberId}/reject`, { reason })
+    return res.data
+  }
+
+  // 通过邀请码主动加入组织
+  async joinOrganization(payload: { code: string; showName?: string }) {
+    const res = await this.request.post<{ orgId: string; memberId: string }>('/orgs/join', payload)
+    return res.data
+  }
+
+  // 获取组织发薪配置
+  async getOrgPayrollConfig() {
+    const res = await this.request.get<OrgPayrollConfig | null>(`/orgs/${this.orgId}/payroll-config`)
+    return res.data
+  }
+
+  // 更新组织发薪配置
+  async upsertOrgPayrollConfig(payload: { caipChainId: string; token: string }) {
+    const res = await this.request.patch<OrgPayrollConfig>(`/orgs/${this.orgId}/payroll-config`, payload)
     return res.data
   }
 }

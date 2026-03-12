@@ -114,8 +114,7 @@ export default function Dashboard() {
     return members.filter(member => {
       const name = member.showName?.toLowerCase() || ''
       const email = member.email?.toLowerCase() || ''
-      const wallet = member.receivingAccounts?.[0]?.config?.address?.toLowerCase() || ''
-      return name.includes(query) || email.includes(query) || wallet.includes(query)
+      return name.includes(query) || email.includes(query)
     })
   }, [members, searchQuery])
 
@@ -131,10 +130,11 @@ export default function Dashboard() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 
-  // 获取成员服务费（从payoutIntent获取）
+  // 获取成员服务费（从 payoutIntents[0] 获取）
   const getServiceFee = (member: OrganizationMember) => {
-    if (member.payoutIntent) {
-      return `${parseFloat(member.payoutIntent.amount).toLocaleString()} ${member.payoutIntent.currency}`
+    const intent = member.payoutIntents?.[0]
+    if (intent) {
+      return parseFloat(intent.amount).toLocaleString()
     }
     return '-'
   }
@@ -168,12 +168,12 @@ export default function Dashboard() {
   // 导出成员列表
   const handleExportList = () => {
     const csvContent = [
-      ['Member', 'Email', 'Wallet', 'Role', 'Service Fee', 'Status', 'Last Payment'].join(','),
+      ['Member', 'Email', 'Role', 'Service Fee', 'Status', 'Last Payment'].join(','),
       ...filteredMembers.map(m =>
         [
           m.showName || '',
           m.email || '',
-          m.receivingAccounts?.[0]?.config?.address || '',
+          '',
           getMemberRole(m),
           getServiceFee(m),
           m.status,
@@ -355,7 +355,6 @@ export default function Dashboard() {
               <TableRow>
                 <TableHead>MEMBER</TableHead>
                 <TableHead>EMAIL</TableHead>
-                <TableHead>WALLET</TableHead>
                 <TableHead>ROLE</TableHead>
                 <TableHead>SERVICE FEE</TableHead>
                 <TableHead>STATUS</TableHead>
@@ -372,9 +371,6 @@ export default function Dashboard() {
                 </TableRow>
               ) : (
                 filteredMembers.map(member => {
-                  const walletAddress = member.receivingAccounts?.[0]?.config?.address
-                  const hasWallet = !!walletAddress
-
                   return (
                     <TableRow key={member.id}>
                       <TableCell>
@@ -386,16 +382,6 @@ export default function Dashboard() {
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{member.email || '-'}</TableCell>
-                      <TableCell>
-                        {hasWallet ? (
-                          <div className="flex items-center gap-1">
-                            <span className="font-mono text-sm">{formatAddress(walletAddress)}</span>
-                            <span className="text-green-600">✓</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
                       <TableCell>{getMemberRole(member)}</TableCell>
                       <TableCell>{getServiceFee(member)}</TableCell>
                       <TableCell>

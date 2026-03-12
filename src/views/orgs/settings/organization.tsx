@@ -1,9 +1,12 @@
 import api from '@/apis'
-import { Organization } from '@/apis/orgnization.api'
+import { Organization, OrgPayrollConfig } from '@/apis/orgnization.api'
+import { ChainAssetResponse } from '@/apis/chain-asset.api'
+import useChainAssetStore from '@/stores/chain-asset'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
 import { IconFileText, IconUpload } from '@tabler/icons-react'
@@ -13,9 +16,11 @@ import { useNavigate } from 'react-router-dom'
 export default function OrganizationSettings() {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const fetchChainAssets = useChainAssetStore(s => s.fetchChainAssets)
   const [organization, setOrganization] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingPayroll, setSavingPayroll] = useState(false)
 
   // Form state
   const [orgName, setOrgName] = useState('')
@@ -23,6 +28,12 @@ export default function OrganizationSettings() {
   const [website, setWebsite] = useState('')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
+
+  // Payroll config state
+  const [payrollConfig, setPayrollConfig] = useState<OrgPayrollConfig | null>(null)
+  const [chainAssets, setChainAssets] = useState<ChainAssetResponse['data']>([])
+  const [selectedChainId, setSelectedChainId] = useState('')
+  const [selectedToken, setSelectedToken] = useState('')
 
   const organizationId = localStorage.getItem('organizationId')
 
@@ -37,7 +48,11 @@ export default function OrganizationSettings() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const orgData = await api.organization.getOrganizationDetail()
+      const [orgData, payrollData, chainAssetData] = await Promise.all([
+        api.organization.getOrganizationDetail(),
+        api.organization.getOrgPayrollConfig(),
+        fetchChainAssets(),
+      ])
 
       // Parse organization data (API returns string, need to parse)
       const org: Organization = typeof orgData === 'string' ? JSON.parse(orgData) : orgData
@@ -47,6 +62,14 @@ export default function OrganizationSettings() {
       setWebsite(org.website || '')
       if (org.logoUrl) {
         setLogoPreview(org.logoUrl)
+      }
+
+      setChainAssets(chainAssetData)
+
+      if (payrollData) {
+        setPayrollConfig(payrollData)
+        setSelectedChainId(payrollData.caipChainId)
+        setSelectedToken(payrollData.token)
       }
     } catch (error) {
       console.error('Failed to load organization data:', error)
@@ -126,6 +149,37 @@ export default function OrganizationSettings() {
       })
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Derive unique chains from chainAssets
+  const chains = Array.from(
+    new Map(chainAssets.map(item => [item.chain.caipChainId ?? item.chain.chainId, item.chain])).values()
+  )
+
+  // Filter assets by selected chain
+  const assetsForChain = chainAssets.filter(
+    item => (item.chain.caipChainId ?? item.chain.chainId) === selectedChainId
+  )
+
+  const handleSavePayrollConfig = async () => {
+    if (!selectedChainId || !selectedToken) {
+      toast({
+        variant: 'destructive',
+        title: '验证失败',
+        description: '请选择链和Token'
+      })
+      return
+    }
+    try {
+      setSavingPayroll(true)
+      await api.organization.upsertOrgPayrollConfig({ caipChainId: selectedChainId, token: selectedToken })
+      toast({ title: '保存成功', description: '发薪货币配置已更新' })
+    } catch (error) {
+      console.error('Failed to save payroll config:', error)
+      toast({ variant: 'destructive', title: '保存失败', description: '更新发薪配置时出错，请稍后重试' })
+    } finally {
+      setSavingPayroll(false)
     }
   }
 
@@ -228,6 +282,76 @@ export default function OrganizationSettings() {
           <div className="flex justify-end">
             <Button onClick={handleSaveChanges} disabled={saving}>
               {saving ? '保存中...' : 'Save Changes'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      {/* Payroll Currency Config */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Payroll Currency</CardTitle>
+          <CardDescription>Set the default chain and token used for payroll payouts</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Chain Select */}
+          <div className="space-y-2">
+            <Label>Chain</Label>
+            <Select
+              value={selectedChainId}
+              onValueChange={val => {
+                setSelectedChainId(val)
+                setSelectedToken('')
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a chain" />
+              </SelectTrigger>
+              <SelectContent>
+                {chains.map(chain => (
+                  <SelectItem key={chain.caipChainId ?? chain.chainId} value={chain.caipChainId ?? chain.chainId}>
+                    <div className="flex items-center gap-2">
+                      {chain.iconUrl && <img src={chain.iconUrl} alt={chain.name} className="size-4 rounded-full" />}
+                      {chain.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Asset/Token Select */}
+          <div className="space-y-2">
+            <Label>Token</Label>
+            <Select value={selectedToken} onValueChange={setSelectedToken} disabled={!selectedChainId}>
+              <SelectTrigger>
+                <SelectValue placeholder={selectedChainId ? 'Select a token' : 'Select a chain first'} />
+              </SelectTrigger>
+              <SelectContent>
+                {assetsForChain.map(item => (
+                  <SelectItem key={item.id} value={item.contractAddress || item.asset.symbol}>
+                    <div className="flex items-center gap-2">
+                      {item.asset.iconUrl && (
+                        <img src={item.asset.iconUrl} alt={item.asset.symbol} className="size-4 rounded-full" />
+                      )}
+                      {item.asset.symbol}
+                      {item.isNative && (
+                        <span className="text-muted-foreground text-xs">(Native)</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {payrollConfig && (
+              <p className="text-muted-foreground text-xs">
+                Current: {payrollConfig.caipChainId} / {payrollConfig.token}
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end">
+            <Button onClick={handleSavePayrollConfig} disabled={savingPayroll}>
+              {savingPayroll ? '保存中...' : 'Save Payroll Config'}
             </Button>
           </div>
         </CardContent>

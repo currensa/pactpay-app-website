@@ -1,5 +1,6 @@
 import AppHeader from '@/components/app/base/app-header'
 import AuthChecker from '@/components/app/base/auth-checker'
+import EmployeeGuard from '@/components/app/base/employee-guard'
 import EmployeeSidebar from '@/components/app/employee/sidebar'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { Outlet } from 'react-router-dom'
@@ -7,6 +8,7 @@ import { Outlet } from 'react-router-dom'
 export default function EmployeeLayout() {
   return (
     <AuthChecker>
+      <EmployeeGuard>
       <div className="flex min-h-screen">
         <SidebarProvider>
           {/* Sidebar content */}
@@ -22,6 +24,7 @@ export default function EmployeeLayout() {
           </div>
         </SidebarProvider>
       </div>
+      </EmployeeGuard>
     </AuthChecker>
   )
 }

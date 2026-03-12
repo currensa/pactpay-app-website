@@ -1,25 +1,15 @@
-import apis from '@/apis'
-import type { ChainAssetResponse } from '@/apis/chain-asset.api'
-import type { AssetChain } from '@/apis/orgnization.api'
 import { TransactionItem } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useToast } from '@/components/ui/use-toast'
-import { getExplorerUrl } from '@/views/transaction/transaction-detail'
-import { ExternalLink } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Transaction } from './types'
 
 function getStatusBadge(status: Transaction['status']) {
   switch (status) {
-    case 'ready':
-      return <Badge variant="default">Ready</Badge>
+    case 'pending_deposit':
+      return <Badge variant="warning">Pending Deposit</Badge>
     case 'pending':
       return <Badge variant="warning">Pending</Badge>
-    case 'executing':
-      return <Badge variant="default">Executing</Badge>
     case 'complete':
       return <Badge variant="success">Complete</Badge>
     case 'failed':
@@ -30,7 +20,7 @@ function getStatusBadge(status: Transaction['status']) {
 }
 
 function formatWalletAddress(address: string): string {
-  if (address.length <= 10) return address
+  if (!address || address.length <= 10) return address || '-'
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
@@ -43,79 +33,8 @@ interface TransactionDetailDialogContentProps {
 export function TransactionDetailDialogContent({
   selectedTransaction,
   transactionDetailMembers,
-  onExecuteNow,
 }: TransactionDetailDialogContentProps) {
-  const { toast } = useToast()
-  const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
-  const [chainAssets, setChainAssets] = useState<ChainAssetResponse['data']>([])
-  const [onChainTxHash, setOnChainTxHash] = useState<string | null>(null)
-  const [onChainChainId, setOnChainChainId] = useState<string | null>(null)
-
-  // 获取资产链信息
-  useEffect(() => {
-    const fetchAssetsChains = async () => {
-      try {
-        const data = await apis.organization.getAssetsChains()
-        setAssetsChains(data)
-      } catch (error: any) {
-        toast({
-          title: 'Error',
-          description: error?.response?.data?.message || 'Failed to load assets chains',
-          variant: 'destructive'
-        })
-      }
-    }
-    fetchAssetsChains()
-  }, [])
-
-  // 获取 chainAssets（用于构建区块链浏览器链接）
-  useEffect(() => {
-    const fetchChainAssets = async () => {
-      try {
-        const res = await apis.chainAsset.getChainAssets()
-        setChainAssets(res.data)
-      } catch (error: any) {
-        console.error('Failed to load chain assets:', error)
-      }
-    }
-    fetchChainAssets()
-  }, [])
-
-  // 当满足条件时，调用 API 获取链上交易哈希
-  useEffect(() => {
-    const fetchOnChainTxHash = async () => {
-      if (
-        selectedTransaction?.type === 'safe_transaction' &&
-        selectedTransaction?.status === 'complete' &&
-        selectedTransaction?.transactionId
-      ) {
-        try {
-          const response = await apis.transaction.checkTransaction(selectedTransaction.transactionId)
-          if (response.transaction.transactionHash) {
-            setOnChainTxHash(response.transaction.transactionHash)
-            setOnChainChainId(response.chainId)
-          }
-        } catch (error: any) {
-          console.error('Failed to fetch on-chain transaction hash:', error)
-        }
-      } else {
-        // 重置状态
-        setOnChainTxHash(null)
-        setOnChainChainId(null)
-      }
-    }
-    fetchOnChainTxHash()
-  }, [selectedTransaction?.type, selectedTransaction?.status, selectedTransaction?.transactionId])
-
-  // 根据货币符号获取对应的资产名称
-  const getAssetNameByCurrency = (currency: string): string => {
-    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
-    return assetChain?.chain.name || ''
-  }
-
-  if (!selectedTransaction) {
-    return null
-  }
+  if (!selectedTransaction) return null
 
   return (
     <div className="flex flex-col space-y-6">
@@ -124,52 +43,21 @@ export function TransactionDetailDialogContent({
       </DialogHeader>
 
       <div className="space-y-6">
-        {/* 交易信息 */}
+        {/* Transaction info */}
         <div className="flex items-start justify-between">
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div className="flex items-center gap-2">
-              <span className="font-medium">{selectedTransaction.executionDate}</span>
-              {selectedTransaction.isDueToday && (
-                <Badge variant="warning" className="text-xs">
-                  Due Today
-                </Badge>
-              )}
-            </div>
-            <div>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                {getAssetNameByCurrency(selectedTransaction.currency) || selectedTransaction.currency}
-              </Badge>
-            </div>
-            <div>{getStatusBadge(selectedTransaction.status)}</div>
-            {selectedTransaction.type === 'safe_transaction' &&
-              selectedTransaction.status === 'complete' &&
-              onChainTxHash &&
-              onChainChainId && (
-                <div>
-                  <a
-                    href={getExplorerUrl(onChainChainId, 'tx', onChainTxHash, chainAssets)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline text-sm"
-                  >
-                    Blockchain browser
-                    <ExternalLink className="size-3.5" />
-                  </a>
-                </div>
-              )}
+          <div className="flex items-center gap-4">
+            <span className="font-medium">{selectedTransaction.executionDate}</span>
+            {selectedTransaction.isDueToday && (
+              <Badge variant="warning" className="text-xs">Due Today</Badge>
+            )}
+            <Badge variant="outline" className="bg-blue-50 text-blue-700">
+              {selectedTransaction.currency}
+            </Badge>
+            {getStatusBadge(selectedTransaction.status)}
           </div>
-          {!selectedTransaction.isComplete && (
-            <Button 
-              variant="default" 
-              onClick={() => onExecuteNow(selectedTransaction)}
-              disabled={selectedTransaction.status === 'executing'}
-            >
-              Execute Now
-            </Button>
-          )}
         </div>
 
-        {/* 摘要卡片 */}
+        {/* Summary cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="bg-muted rounded-lg p-4">
             <p className="text-muted-foreground text-sm">Member Count</p>
@@ -178,12 +66,12 @@ export function TransactionDetailDialogContent({
           <div className="bg-muted rounded-lg p-4">
             <p className="text-muted-foreground text-sm">Total Amount</p>
             <p className="mt-1 text-2xl font-semibold">
-              ${selectedTransaction.totalAmount} {selectedTransaction.currency}
+              {selectedTransaction.totalAmount} {selectedTransaction.currency}
             </p>
           </div>
         </div>
 
-        {/* 成员详情表格 */}
+        {/* Member details table */}
         <div className="space-y-3">
           <h3 className="text-muted-foreground text-sm font-medium uppercase">Member Details</h3>
           <div className="rounded-lg border">
@@ -191,9 +79,7 @@ export function TransactionDetailDialogContent({
               <TableHeader>
                 <TableRow>
                   <TableHead>MEMBER</TableHead>
-                  <TableHead>EMAIL</TableHead>
-                  <TableHead>ROLE</TableHead>
-                  <TableHead>WALLET ADDRESS</TableHead>
+                  <TableHead>STEALTH ADDRESS</TableHead>
                   <TableHead className="text-right">AMOUNT</TableHead>
                 </TableRow>
               </TableHeader>
@@ -202,23 +88,17 @@ export function TransactionDetailDialogContent({
                   transactionDetailMembers.map(item => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.member.showName}</TableCell>
-                      <TableCell className="text-muted-foreground">-</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
-                          Member
-                        </Badge>
-                      </TableCell>
                       <TableCell className="text-muted-foreground font-mono text-sm">
-                        {formatWalletAddress(item.receivingConfig.address)}
+                        {item.stealthAddress ? formatWalletAddress(item.stealthAddress) : '-'}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {parseFloat(item.amount)} {item.currency}
+                        {parseFloat(item.amount)} {item.tokenAddress || item.currency}
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-muted-foreground h-24 text-center">
+                    <TableCell colSpan={4} className="text-muted-foreground h-24 text-center">
                       Loading members...
                     </TableCell>
                   </TableRow>

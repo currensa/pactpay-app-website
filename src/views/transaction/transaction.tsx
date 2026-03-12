@@ -1,6 +1,6 @@
 import apis from '@/apis'
-import type { AssetChain } from '@/apis/orgnization.api'
-import { TransactionItem, TransactionPlan } from '@/apis/transaction.api'
+import { TransactionPlan } from '@/apis/transaction.api'
+import useChainAssetStore from '@/stores/chain-asset'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { cn, formatAmount, sumAmounts } from '@/lib/utils'
-import { IconAlertTriangle, IconFlame, IconLoader2, IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconAlertTriangle, IconFlame, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -21,14 +21,13 @@ import {
   TransactionDetailDialogContent,
 } from './components'
 import type { Transaction } from './components/types'
+
 function getStatusBadge(status: Transaction['status']) {
   switch (status) {
-    case 'ready':
-      return <Badge variant="default">Ready</Badge>
+    case 'pending_deposit':
+      return <Badge variant="warning">Pending Deposit</Badge>
     case 'pending':
       return <Badge variant="warning">Pending</Badge>
-    case 'executing':
-      return <Badge variant="default">Executing</Badge>
     case 'complete':
       return <Badge variant="success">Complete</Badge>
     case 'failed':
@@ -39,9 +38,7 @@ function getStatusBadge(status: Transaction['status']) {
 }
 
 function formatRelativeTime(daysRemaining: number | null, isDueToday: boolean, executionDate: string) {
-  if (isDueToday) {
-    return 'Due Today'
-  }
+  if (isDueToday) return 'Due Today'
   if (daysRemaining !== null && daysRemaining > 0) {
     return `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining`
   }
@@ -49,7 +46,6 @@ function formatRelativeTime(daysRemaining: number | null, isDueToday: boolean, e
     const daysAgo = Math.abs(daysRemaining)
     return `${daysAgo} ${daysAgo === 1 ? 'day' : 'days'} ago`
   }
-  // For completed transactions, calculate days ago
   const executionDateObj = new Date(executionDate.replace(/\//g, '-'))
   const today = new Date()
   const diffTime = Math.abs(today.getTime() - executionDateObj.getTime())
@@ -58,9 +54,7 @@ function formatRelativeTime(daysRemaining: number | null, isDueToday: boolean, e
 }
 
 function getTimeIcon(daysRemaining: number | null, isDueToday: boolean) {
-  if (isDueToday) {
-    return <IconFlame className="size-4 text-orange-500" />
-  }
+  if (isDueToday) return <IconFlame className="size-4 text-orange-500" />
   if (daysRemaining !== null && daysRemaining <= 3 && daysRemaining > 0) {
     return <IconAlertTriangle className="size-4 text-orange-500" />
   }
@@ -70,65 +64,41 @@ function getTimeIcon(daysRemaining: number | null, isDueToday: boolean) {
 export default function Transaction() {
   const { toast } = useToast()
   const navigate = useNavigate()
+  const { getTokenSymbol, chains, fetchChainAssets, fetchChains } = useChainAssetStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
 
-  // Execute Now 相关状态
-  const [executeConfirmDialogOpen, setExecuteConfirmDialogOpen] = useState(false)
-  const [executingTransaction, setExecutingTransaction] = useState<Transaction | null>(null)
-  const [isExecuting, setIsExecuting] = useState(false)
-  const [executeSuccessDialogOpen, setExecuteSuccessDialogOpen] = useState(false)
-  const [createdTransactionId, setCreatedTransactionId] = useState<string>('')
+  // Deposit 确认弹窗状态
+  const [depositConfirmDialogOpen, setDepositConfirmDialogOpen] = useState(false)
+  const [depositingTransaction, setDepositingTransaction] = useState<Transaction | null>(null)
+  const [depositingTransactionPlan, setDepositingTransactionPlan] = useState<TransactionPlan | null>(null)
+  const [depositSuccessDialogOpen, setDepositSuccessDialogOpen] = useState(false)
+  const [lastDepositTxHash, setLastDepositTxHash] = useState('')
 
   // Transaction 详情弹窗状态
   const [transactionDetailDialogOpen, setTransactionDetailDialogOpen] = useState(false)
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
-  const [transactionDetailMembers, setTransactionDetailMembers] = useState<TransactionItem[]>([])
+  const [transactionDetailMembers, setTransactionDetailMembers] = useState<any[]>([])
 
-  // 删除 Transaction 相关状态
+  // 删除弹窗状态
   const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false)
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Re-action 相关状态
+  // Re-action 弹窗状态
   const [reactionConfirmDialogOpen, setReactionConfirmDialogOpen] = useState(false)
   const [transactionToReaction, setTransactionToReaction] = useState<Transaction | null>(null)
 
-  // 使用 state 管理 transactions，以便删除后可以更新
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [rawTransactionPlans, setRawTransactionPlans] = useState<TransactionPlan[]>([])
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-
-  // 资产链信息状态
-  const [assetsChains, setAssetsChains] = useState<AssetChain[]>([])
-
   const itemsPerPage = 10
 
-  // 获取资产链信息
-  useEffect(() => {
-    const fetchAssetsChains = async () => {
-      try {
-        const data = await apis.organization.getAssetsChains()
-        setAssetsChains(data)
-      } catch (error: any) {
-        toast({
-          title: 'Error',
-          description: error?.response?.data?.message || 'Failed to load assets chains',
-          variant: 'destructive'
-        })
-      }
-    }
-    fetchAssetsChains()
-  }, [])
+  const getNetworkName = (caipChainId: string) =>
+    chains.find(c => c.caipChainId === caipChainId)?.name || caipChainId
 
-  // 根据货币符号获取对应的资产名称
-  const getAssetNameByCurrency = (currency: string): string => {
-    const assetChain = assetsChains.find(ac => ac.asset.symbol === currency)
-    return assetChain?.chain.name || ''
-  }
-
-  // 将 API 返回的 TransactionPlan 转换为组件需要的 Transaction 格式
   const transformTransactionPlan = (plan: TransactionPlan): Transaction => {
     const payPeriodDate = new Date(plan.payPeriod)
     const today = new Date()
@@ -138,31 +108,28 @@ export default function Transaction() {
     const diffTime = payPeriodDate.getTime() - today.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
-    const currency = plan.items[0]?.currency || 'USDC'
+    const currency = getTokenSymbol(plan.caipChainId, plan.tokenAddress || '') || plan.tokenAddress || 'USDC'
     const totalAmount = sumAmounts(plan.items.map(item => item.amount || '0'), currency)
     const isComplete = plan.transactionStatus === 'success'
     const isDueToday = diffDays === 0 && !isComplete
 
-    // 映射状态
-    let status: Transaction['status'] = 'draft'
+    // StealthPay 状态映射
+    let status: Transaction['status'] = 'pending_deposit'
     if (plan.transactionStatus === 'draft') {
-      status = 'draft'
-    } else if (['proposed', 'confirming'].includes(plan.transactionStatus)) {
-      status = 'pending'
-    } else if (plan.transactionStatus === 'ready') {
-      status = 'ready'
-    } else if (plan.transactionStatus === 'executing') {
-      status = 'executing'
+      status = 'pending_deposit'
     } else if (plan.transactionStatus === 'success') {
       status = 'complete'
     } else if (plan.transactionStatus === 'failed') {
       status = 'failed'
+    } else {
+      // proposed / confirming / ready / executing → pending
+      status = 'pending'
     }
 
     return {
       id: plan.id,
       name: plan.transactionName,
-      transactionId: plan.transactionId,
+      transactionId: plan.id,
       type: plan.transactionType,
       status,
       executionDate: payPeriodDate
@@ -173,21 +140,20 @@ export default function Transaction() {
       totalAmount: formatAmount(totalAmount, currency),
       currency,
       members: plan.items.length,
-      network: plan.paymentAccount?.config?.chainId || '',
+      network: getNetworkName(plan.caipChainId),
       isComplete,
-      paymentAccount: plan.paymentAccount
     }
   }
 
-  // 获取交易计划列表
   const fetchTransactionPlans = async () => {
     try {
       const response = await apis.transaction.getTransactionPlans()
+      setRawTransactionPlans(response.data)
       const transformedTransactions = response.data.map(transformTransactionPlan)
       setTransactions(transformedTransactions)
       setTotalPages(Math.ceil(response.total / itemsPerPage))
       setTotalCount(response.total)
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Failed to load transactions. Please try again.',
@@ -196,50 +162,56 @@ export default function Transaction() {
     }
   }
 
-  // 初始化和刷新数据
   useEffect(() => {
+    fetchChainAssets()
+    fetchChains()
     fetchTransactionPlans()
   }, [currentPage])
 
   useEffect(() => {
     const intervalId = setInterval(() => {
       fetchTransactionPlans()
-    }, 2000)
+    }, 5000)
     return () => clearInterval(intervalId)
   }, [])
-  // 当搜索或筛选变化时，重置到第一页
+
   useEffect(() => {
     setCurrentPage(1)
   }, [searchQuery, statusFilter])
 
-
-  // 处理 Execute Now 点击
-  const handleExecuteNow = (transaction: Transaction) => {
-    console.log(transaction);
-    if (transaction.status === "draft") {
-      setExecutingTransaction(transaction)
-      setExecuteConfirmDialogOpen(true)
-    } else if (["pending", "ready"].includes(transaction.status)) {
-      handleGoToSafeWalletPagePage(transaction)
-    } else {
-      // handleGoToSafeWalletPagePage(transaction)
-    }
-
+  // 处理 Deposit 点击（draft → 链上执行）
+  const handleDepositClick = (transaction: Transaction) => {
+    const plan = rawTransactionPlans.find(p => p.id === transaction.id) ?? null
+    setDepositingTransaction(transaction)
+    setDepositingTransactionPlan(plan)
+    setDepositConfirmDialogOpen(true)
   }
 
-  // 处理 View Details 点击
+  // 链上 deposit 成功后通知后端
+  const handleDepositSuccess = async (txHash: string) => {
+    if (!depositingTransaction) return
+    try {
+      await apis.transaction.confirmDeposit(depositingTransaction.id, txHash)
+      setDepositConfirmDialogOpen(false)
+      setLastDepositTxHash(txHash)
+      setDepositSuccessDialogOpen(true)
+      await fetchTransactionPlans()
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.message || 'Failed to confirm deposit on server.',
+        variant: 'destructive'
+      })
+    }
+  }
+
   const handleViewDetails = async (transaction: Transaction) => {
     try {
-      // 获取完整的交易详情
       const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
-
-
-      // 设置交易和成员信息
       setSelectedTransaction(transaction)
       setTransactionDetailMembers(transactionPlanDetail.items)
       setTransactionDetailDialogOpen(true)
     } catch (error: any) {
-      console.error('Failed to get transaction detail:', error)
       toast({
         description: `Failed to get transaction detail: ${error.message}`,
         variant: 'destructive'
@@ -247,50 +219,33 @@ export default function Transaction() {
     }
   }
 
-  // 处理删除按钮点击
   const handleDeleteClick = (transaction: Transaction) => {
     setTransactionToDelete(transaction)
     setDeleteConfirmDialogOpen(true)
   }
 
-  // 确认删除
   const handleConfirmDelete = async () => {
     if (!transactionToDelete) return
-
     setIsDeleting(true)
     try {
       await apis.transaction.deleteTransactionPlan(transactionToDelete.id)
-
-      // 从列表中移除
       setTransactions(prev => prev.filter(t => t.id !== transactionToDelete.id))
       setTotalCount(prev => prev - 1)
-
-      // 显示成功提示
-      toast({
-        title: 'Success',
-        description: 'Transaction deleted successfully'
-      })
-
+      toast({ title: 'Success', description: 'Transaction deleted successfully' })
       setDeleteConfirmDialogOpen(false)
       setTransactionToDelete(null)
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to delete transaction. Please try again.',
-        variant: 'destructive'
-      })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to delete transaction.', variant: 'destructive' })
     } finally {
       setIsDeleting(false)
     }
   }
 
-  // 处理 Re-action 点击
   const handleReactionClick = (transaction: Transaction) => {
     setTransactionToReaction(transaction)
     setReactionConfirmDialogOpen(true)
   }
 
-  // 确认 Re-action：跳转到新增交易页面（带 fromReaction 和原交易 id，用于回填成员与金额）
   const handleConfirmReaction = () => {
     if (!transactionToReaction) return
     const transactionId = transactionToReaction.id
@@ -299,98 +254,12 @@ export default function Transaction() {
     navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(transactionId)}`)
   }
 
-  // 确认执行
-  const handleConfirmExecute = async () => {
-    if (!executingTransaction) return
-
-    setExecuteConfirmDialogOpen(false)
-    setIsExecuting(true)
-
-    try {
-      // TODO: 调用 Safe Wallet API 提交 propose
-      // 步骤 2: 提交 Propose（自动）
-      // - 调用 Safe Wallet API 提交 propose
-      // - 客户自己支付 gas 费用
-      // - Safe Wallet 创建对应的 transaction
-      // const transactionId = await safeWalletApi.proposeTransaction(...)
-      if (executingTransaction.type === "safe_transaction") {
-        await proposeSafeTransaction(executingTransaction)
-      }
-
-
-      //
-
-      setIsExecuting(false)
-      setExecuteSuccessDialogOpen(true)
-    } catch (error) {
-      setIsExecuting(false)
-    }
-  }
-
-  const proposeSafeTransaction = async (transaction: Transaction) => {
-    // 1. 调用后端接口创建交易并获取 safeTxHash
-    const { safeTxHash } = await apis.transaction.createTransactionFromBatch(transaction.id)
-
-    transaction.transactionId = safeTxHash
-    // 2. 更新列表
-    await fetchTransactionPlans()
-
-    setCreatedTransactionId(safeTxHash)
-
-    toast({
-      description: 'Transaction created successfully!',
-      variant: 'default'
-    })
-  }
-
-  // 跳转到应用内的 Transaction Detail 页面
-  const handleGoToSafeWalletPagePage = async (transaction: Transaction) => {
-    try {
-      // // 获取完整的交易详情以获取 chainId 与 transactionId
-      // const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
-      // if (!transactionPlanDetail?.paymentAccount) {
-      //   throw new Error('Payment account not found')
-      // }
-
-      const txHash = transaction.transactionId
-
-      // 使用内部路由跳转到刚创建的页面，URL 格式：/transaction/:safeTxHash
-      window.open(`/transaction/${encodeURIComponent(String(txHash))}`, '_blank')
-
-      // 关闭/重置当前弹窗/状态
-      setExecuteSuccessDialogOpen(false)
-      setExecutingTransaction(null)
-      setCreatedTransactionId('')
-    } catch (error: any) {
-      console.error('Failed to get transaction detail:', error)
-      toast({
-        description: `Failed to get transaction detail: ${error?.message || error}`,
-        variant: 'destructive'
-      })
-    }
-  }
-
-  // 稍后处理
-  const handleDoItLater = () => {
-    setExecuteSuccessDialogOpen(false)
-    setExecutingTransaction(null)
-    setCreatedTransactionId('')
-
-    // TODO: 步骤 6: 状态更新
-    // - PactPay 同步 Safe Wallet API 检查执行状态
-    // - 执行成功后:
-    //   - Toast: "Transaction executed successfully on Safe Wallet."
-    //   - Transaction 状态更新为 "complete"
-    //   - 更新列表显示
-  }
-
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = transaction.name.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter
     return matchesSearch && matchesStatus
   })
 
-  // 计算分页
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex)
@@ -399,7 +268,6 @@ export default function Transaction() {
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="mb-4 space-y-4">
-        {/* Search and Filters */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative max-w-md flex-1">
             <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
@@ -415,14 +283,12 @@ export default function Transaction() {
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
                 {statusFilter === 'all' && 'All Statuses'}
-                {statusFilter === 'ready' && 'Ready'}
-                {statusFilter === 'pending' && 'Pending'}
+                {statusFilter === 'pending_deposit' && 'Pending Deposit'}
                 {statusFilter === 'complete' && 'Complete'}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="ready">Ready</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="pending_deposit">Pending Deposit</SelectItem>
                 <SelectItem value="complete">Complete</SelectItem>
               </SelectContent>
             </Select>
@@ -494,25 +360,22 @@ export default function Transaction() {
                   </TableCell>
                   <TableCell>
                     <span className="font-medium">
-                      ${transaction.totalAmount} {transaction.currency}
+                      {transaction.totalAmount} {transaction.currency}
                     </span>
                   </TableCell>
                   <TableCell className="text-center">
                     <span className="text-sm">{transaction.members}</span>
                   </TableCell>
                   <TableCell>
-                    <span className="text-muted-foreground text-sm">{getAssetNameByCurrency(transaction.currency) || transaction.currency}</span>
+                    <span className="text-muted-foreground text-sm">
+                      {transaction.network}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
-                      {!transaction.isComplete && (
-                        <Button 
-                          variant="default" 
-                          size="sm" 
-                          onClick={() => handleExecuteNow(transaction)}
-                          disabled={transaction.status === 'executing'}
-                        >
-                          Execute Now
+                      {transaction.status === 'pending_deposit' && (
+                        <Button variant="default" size="sm" onClick={() => handleDepositClick(transaction)}>
+                          Deposit
                         </Button>
                       )}
                       <Button variant="outline" size="sm" onClick={() => handleViewDetails(transaction)}>
@@ -528,7 +391,6 @@ export default function Transaction() {
                           size="sm"
                           className="text-destructive hover:text-destructive"
                           onClick={() => handleDeleteClick(transaction)}
-                          disabled={transaction.status === 'executing'}
                         >
                           <IconTrash className="size-4" />
                         </Button>
@@ -552,42 +414,33 @@ export default function Transaction() {
         </div>
       )}
 
-      {/* Execute Now - 确认弹窗 */}
-      <Dialog open={executeConfirmDialogOpen} onOpenChange={setExecuteConfirmDialogOpen}>
+      {/* Deposit 确认弹窗 */}
+      <Dialog open={depositConfirmDialogOpen} onOpenChange={setDepositConfirmDialogOpen}>
         <DialogContent>
           <ExecuteConfirmDialogContent
-            executingTransaction={executingTransaction}
-            onCancel={() => setExecuteConfirmDialogOpen(false)}
-            onConfirm={handleConfirmExecute}
+            executingTransaction={depositingTransaction}
+            transactionPlan={depositingTransactionPlan}
+            onCancel={() => {
+              setDepositConfirmDialogOpen(false)
+              setDepositingTransaction(null)
+              setDepositingTransactionPlan(null)
+            }}
+            onSuccess={handleDepositSuccess}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Execute Now - Loading 状态 */}
-      {isExecuting && (
-        <Dialog open={isExecuting} onOpenChange={setIsExecuting} >
-          <DialogContent className="sm:max-w-md">
-            <div className="flex flex-col items-center justify-center space-y-4 py-6">
-              <IconLoader2 className="text-primary h-8 w-8 animate-spin" />
-              <div className="text-center">
-                <p className="font-medium">Creating transaction on Safe Wallet...</p>
-                <p className="text-muted-foreground mt-2 text-sm">
-                  Please wait while we submit the transaction proposal.
-                </p>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Execute Now - 成功提示弹窗 */}
-      <Dialog open={executeSuccessDialogOpen} onOpenChange={setExecuteSuccessDialogOpen}>
+      {/* Deposit 成功弹窗 */}
+      <Dialog open={depositSuccessDialogOpen} onOpenChange={setDepositSuccessDialogOpen}>
         <DialogContent className="max-w-2xl">
           <ExecuteSuccessDialogContent
-            createdTransactionId={createdTransactionId}
-            executingTransaction={executingTransaction}
-            onDoItLater={handleDoItLater}
-            onGoToSafeWallet={handleGoToSafeWalletPagePage}
+            depositTxHash={lastDepositTxHash}
+            executingTransaction={depositingTransaction}
+            onClose={() => {
+              setDepositSuccessDialogOpen(false)
+              setDepositingTransaction(null)
+              setLastDepositTxHash('')
+            }}
           />
         </DialogContent>
       </Dialog>
@@ -598,7 +451,7 @@ export default function Transaction() {
           <TransactionDetailDialogContent
             selectedTransaction={selectedTransaction}
             transactionDetailMembers={transactionDetailMembers}
-            onExecuteNow={handleExecuteNow}
+            onExecuteNow={() => {}}
           />
         </DialogContent>
       </Dialog>
@@ -628,7 +481,6 @@ export default function Transaction() {
               unchanged.
             </DialogDescription>
           </DialogHeader>
-
           <div className="flex items-center justify-end gap-3 pt-4">
             <Button
               variant="outline"

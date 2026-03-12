@@ -5,9 +5,6 @@ import { lazy } from 'react'
 import { createBrowserRouter, Navigate, RouteObject } from 'react-router-dom'
 
 const Login = lazy(() => import('@/views/account/login'))
-const ConnectSafeWallet = lazy(() => import('@/views/orgs/connect-safe'))
-const CreateSafe = lazy(() => import('@/views/demo/create-safe'))
-const ExecuteTransaction = lazy(() => import('@/views/demo/executeTransaction'))
 
 const EmployeeOverview = lazy(() => import('@/views/employee/overview'))
 const EmployeeOrgsDetail = lazy(() => import('@/views/employee/orgsdetail'))
@@ -43,9 +40,6 @@ const routes: RouteItem[] = [
     children: [
       { path: 'login', element: <Login />, meta: { title: 'Login' } },
       { path: 'organization/create', element: <CreateOrganization />, meta: { title: 'Create Organization' } },
-      { path: 'organization/connect-safe', element: <ConnectSafeWallet />, meta: { title: 'Connect Safe Wallet' } },
-      { path: 'demo', element: <CreateSafe />, meta: { title: 'Create Safe Demo' } },
-      { path: 'execute-transaction', element: <ExecuteTransaction />, meta: { title: 'Execute Transaction Demo' } },
       {
         path: 'settings',
         element: <AccountLayout />,
@@ -79,7 +73,7 @@ const routes: RouteItem[] = [
       }
     ] as RouteItem[]
   },
-  { path: 'transaction/:safeTxHash', element: <TransactionDetail />, meta: { title: 'Transaction Detail' } },
+  { path: 'transaction/:batchId', element: <TransactionDetail />, meta: { title: 'Transaction Detail' } },
   {
     path: 'employee',
     children: [
