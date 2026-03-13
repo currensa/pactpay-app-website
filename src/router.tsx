@@ -8,6 +8,7 @@ const Login = lazy(() => import('@/views/account/login'))
 
 const EmployeeOverview = lazy(() => import('@/views/employee/overview'))
 const EmployeeOrgsDetail = lazy(() => import('@/views/employee/orgsdetail'))
+const EmployeeClaim = lazy(() => import('@/views/employee/claim'))
 
 // Settings Pages
 const AccountSettings = lazy(() => import('@/views/account/settings/account'))
@@ -82,7 +83,8 @@ const routes: RouteItem[] = [
         children: [
           { index: true, element: <Navigate to="/employee/overview" /> },
           { path: 'overview', element: <EmployeeOverview />, meta: { title: 'Overview' } },
-          { path: 'orgdetail', element: <EmployeeOrgsDetail />, meta: { title: 'TechCorp Inc.' } }
+          { path: 'orgdetail', element: <EmployeeOrgsDetail />, meta: { title: 'TechCorp Inc.' } },
+          { path: 'claim', element: <EmployeeClaim />, meta: { title: 'Claim Payroll' } }
         ]
       }
     ] as RouteItem[]

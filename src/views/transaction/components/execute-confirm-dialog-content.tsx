@@ -4,7 +4,7 @@ import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/di
 import { erc20Abi, vaultAbi } from '@/lib/vault-abi'
 import useChainAssetStore from '@/stores/chain-asset'
 import { useState } from 'react'
-import { createPublicClient, createWalletClient, custom, http, parseUnits, type Hex } from 'viem'
+import { createPublicClient, createWalletClient, custom, http, type Hex } from 'viem'
 import type { Transaction } from './types'
 
 declare global {
@@ -82,18 +82,16 @@ export function ExecuteConfirmDialogContent({
         })
       }
 
-      // ── 4. Resolve token decimals & isNative ──────────────────────────────
+      // ── 4. Resolve token isNative + decimals ─────────────────────────────
       const chainAssetEntry = getChainAssetByToken(transactionPlan.caipChainId, tokenAddress)
-      const decimals = chainAssetEntry?.decimals ?? 18
       const isNative = chainAssetEntry?.isNative ?? false
+      const tokenDecimals = chainAssetEntry?.decimals ?? 18
 
-      // ── 5. Compute total amount (sum of items, convert to wei) ────────────
-      const totalHuman = transactionPlan.items.reduce(
-        (acc, item) => acc + parseFloat(item.amount || '0'),
-        0
-      )
-      if (totalHuman <= 0) throw new Error('Total payroll amount is zero.')
-      const totalAmount = parseUnits(totalHuman.toFixed(decimals), decimals)
+      // ── 5. Total amount：使用后端预计算的总额（含服务费），已是 token 最小单位 ──
+      if (!transactionPlan.totalAmount || BigInt(transactionPlan.totalAmount) <= 0n) {
+        throw new Error('Total payroll amount is zero.')
+      }
+      const totalAmount = BigInt(transactionPlan.totalAmount)
 
       // Build a minimal viem chain object from store data
       const viemChain = {

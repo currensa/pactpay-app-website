@@ -3,8 +3,10 @@ import { MembersResponse } from '@/apis/orgnization.api'
 import type { TransactionItem } from '@/apis/transaction.api'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
+import useChainAssetStore from '@/stores/chain-asset'
 import { CreateTransactionDialogContent } from '@/views/transaction/components'
 import { IconArrowLeft } from '@tabler/icons-react'
+import { formatUnits } from 'ethers'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
@@ -20,6 +22,8 @@ export default function CreateTransaction() {
   const [reactionSourceMembers, setReactionSourceMembers] = useState<TransactionItem[]>([])
   const [reactionSourceLoading, setReactionSourceLoading] = useState(false)
   const [initialExecutionDate, setInitialExecutionDate] = useState<string>('')
+
+  const { getTokenDecimals } = useChainAssetStore()
 
   const fetchOrganizationMembers = async () => {
     try {
@@ -47,7 +51,12 @@ export default function CreateTransaction() {
       try {
         setReactionSourceLoading(true)
         const plan = await apis.transaction.getTransactionPlanDetail(reactionSourceTransactionId)
-        setReactionSourceMembers((plan.items ?? []) as TransactionItem[])
+        const decimals = getTokenDecimals(plan.caipChainId, plan.tokenAddress || '')
+        const convertedItems: TransactionItem[] = (plan.items ?? []).map(item => ({
+          ...item,
+          amount: formatUnits(BigInt(item.amount || '0'), decimals),
+        }))
+        setReactionSourceMembers(convertedItems)
         if (plan.payPeriod) {
           const d = new Date(plan.payPeriod)
           setInitialExecutionDate(

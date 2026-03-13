@@ -9,35 +9,51 @@ export interface StealthPayrollItem {
   stealthAddress: string
   amount: string
   tokenAddress: string
-  ephemeralPub: string
   proof: string[]
   leaf: string
   recipient: string | null
   fee: string | null
   status: 'pending' | 'submitted' | 'claimed' | 'failed'
+  txHash: string | null
   createdAt: string
   updatedAt: string
-  member: {
+  organizationName: string | null
+  transactionName: string | null
+  member?: {
     showName: string
     status: string
   }
-  // batch-level fields for EIP-712 signing
-  vaultAddress?: string
-  caipChainId?: string
-  merkleRoot?: string
+  batch: {
+    id: string
+    caipChainId: string
+    ephemeralPub: string
+    merkleRoot: string
+    tokenAddress: string
+    transactionStatus: string
+    depositTxHash: string | null
+    payPeriod: string
+  }
 }
 
 export interface ConfirmDepositPayload {
   depositTxHash: string
 }
 
-export interface SubmitClaimPayload {
+export interface BatchClaimItem {
   payrollItemId: string
   recipient: string
   fee: string
   deadline: number
   signature: string
-  proof: string[]
+}
+
+export interface BatchClaimPayload {
+  items: BatchClaimItem[]
+}
+
+export interface BatchClaimResponse {
+  succeeded: { payrollItemId: string; txUrl: string; transactionName: string }[]
+  failed: { payrollItemId: string; reason: string }[]
 }
 
 export interface SubmitMetaPubPayload {
@@ -73,6 +89,7 @@ export interface TransactionItemMember {
 
 export interface TransactionItem {
   amount: string
+  id:string
   member: TransactionItemMember
 }
 
@@ -82,6 +99,8 @@ export interface TransactionPlan {
   caipChainId: string
   transactionName: string
   transactionType: string
+  /** 所有 item（含服务费）金额之和，token 最小单位字符串 */
+  totalAmount: string
   transactionStatus:
     | 'draft'
     | 'proposed'
@@ -173,18 +192,22 @@ export class TransactionApi {
     return res.data
   }
 
-  // 员工查询自己的工资明细（StealthPay）
-  async getMyPayrollItems() {
-    const res = await this.request.get<StealthPayrollItem[]>(`/transaction/${this.orgId}/my-payroll-items`)
+  // 员工查询自己的工资明细（StealthPay，跨所有组织）
+  async getMyPayrollItems(params: {
+    status?: 'pending' | 'submitted' | 'claimed' | 'failed'
+    page?: number
+    pageSize?: number
+  } = {}) {
+    const res = await this.request.get<{ data: StealthPayrollItem[]; total: number }>(
+      `/transaction/my-payroll-items`,
+      { params }
+    )
     return res.data
   }
 
-  // 员工提交 claim（StealthPay）
-  async submitClaim(data: SubmitClaimPayload) {
-    const res = await this.request.post<{ success: boolean; relayerTxId: string }>(
-      `/transaction/${this.orgId}/submit-claim`,
-      data
-    )
+  // 员工批量提交 claim（StealthPay，proof 由后端从 DB 获取）
+  async batchClaim(data: BatchClaimPayload) {
+    const res = await this.request.post<BatchClaimResponse>(`/transaction/claims/batch`, data)
     return res.data
   }
 

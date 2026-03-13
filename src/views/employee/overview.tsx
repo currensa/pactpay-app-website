@@ -1,7 +1,11 @@
+import apis from '@/apis'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { IconBuilding, IconCurrencyDollar } from '@tabler/icons-react'
+import { useToast } from '@/components/ui/use-toast'
+import { IconBuilding, IconCurrencyDollar, IconShieldCheck } from '@tabler/icons-react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 interface ActivityItem {
@@ -64,13 +68,13 @@ interface DistributionData {
 }
 
 const distributionData: DistributionData[] = [
-  { name: 'TechCorp Inc.', value: 50, color: '#3b82f6' }, // blue
-  { name: 'Digital Ventures', value: 30, color: '#a855f7' }, // purple
-  { name: 'Crypto Solutions Ltd', value: 20, color: '#ec4899' } // pink
+  { name: 'TechCorp Inc.', value: 50, color: '#3b82f6' },
+  { name: 'Digital Ventures', value: 30, color: '#a855f7' },
+  { name: 'Crypto Solutions Ltd', value: 20, color: '#ec4899' }
 ]
 
 function PieChart({ data }: { data: DistributionData[] }) {
-  let currentAngle = -90 // Start from top
+  let currentAngle = -90
   const total = data.reduce((sum, item) => sum + item.value, 0)
 
   const paths = data.map((item, index) => {
@@ -114,12 +118,44 @@ function PieChart({ data }: { data: DistributionData[] }) {
   )
 }
 
+/** 钱包签名 → 确定性 metaPrivKey（与 bind-wallet.tsx 保持完全一致） */
+async function deriveMetaPrivKey(walletProvider: Provider, address: string): Promise<`0x${string}`> {
+  const sig = await walletProvider.request<string>({
+    method: 'personal_sign',
+    params: ['PactPay MetaKey v1', address],
+  }) as `0x${string}`
+  return ethers.keccak256(ethers.getBytes(sig)) as `0x${string}`
+}
+
 export default function EmployeeOverview() {
   const navigate = useNavigate()
+  const { toast } = useToast()
+
+  const [pendingCount, setPendingCount] = useState(0)
+  const [payrollLoading, setPayrollLoading] = useState(false)
+
+  useEffect(() => {
+    loadPayrollItems()
+  }, [])
+
+  const loadPayrollItems = async () => {
+    try {
+      setPayrollLoading(true)
+      const data = await apis.transaction.getMyPayrollItems({ status: 'pending', page: 1, pageSize: 1 })
+      setPendingCount(data.total ?? 0)
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.message || 'Failed to load payroll items.',
+        variant: 'destructive',
+      })
+    } finally {
+      setPayrollLoading(false)
+    }
+  }
 
   const handleOrganizationClick = (organization: string) => {
-    // 跳转到组织详情页，当前无数据，传参暂时设置为空
-    navigate('/employee/orgdetail', { state: { orgName: organization, orgId: '' } })
+    navigate('/employee/orgdetail', { state: { orgName: organization, orgId: '', memberId: '' } })
   }
 
   return (
@@ -129,7 +165,7 @@ export default function EmployeeOverview() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -172,6 +208,34 @@ export default function EmployeeOverview() {
           <CardContent>
             <div className="text-2xl font-bold">3</div>
             <CardDescription className="mt-1">Active organizations</CardDescription>
+          </CardContent>
+        </Card>
+
+        {/* Claim Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium">Claimable Payroll</CardTitle>
+              <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900/20">
+                <IconShieldCheck className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <div className="text-2xl font-bold">
+                {payrollLoading ? '...' : pendingCount}
+              </div>
+              <CardDescription className="mt-1">Pending items</CardDescription>
+            </div>
+            <Button
+              size="sm"
+              className="w-full"
+              onClick={() => navigate('/employee/claim')}
+              disabled={payrollLoading || pendingCount === 0}
+            >
+              {`Claim (${pendingCount})`}
+            </Button>
           </CardContent>
         </Card>
       </div>

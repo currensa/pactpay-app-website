@@ -1,7 +1,7 @@
 import { TransactionItem } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Transaction } from './types'
 
 function getStatusBadge(status: Transaction['status']) {
@@ -79,7 +79,6 @@ export function TransactionDetailDialogContent({
               <TableHeader>
                 <TableRow>
                   <TableHead>MEMBER</TableHead>
-                  <TableHead>STEALTH ADDRESS</TableHead>
                   <TableHead className="text-right">AMOUNT</TableHead>
                 </TableRow>
               </TableHeader>
@@ -88,11 +87,8 @@ export function TransactionDetailDialogContent({
                   transactionDetailMembers.map(item => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.member.showName}</TableCell>
-                      <TableCell className="text-muted-foreground font-mono text-sm">
-                        {item.stealthAddress ? formatWalletAddress(item.stealthAddress) : '-'}
-                      </TableCell>
                       <TableCell className="text-right font-medium">
-                        {parseFloat(item.amount)} {item.tokenAddress || item.currency}
+                        {parseFloat(item.amount)}
                       </TableCell>
                     </TableRow>
                   ))

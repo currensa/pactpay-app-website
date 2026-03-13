@@ -178,7 +178,3 @@ HR 在交易列表页点击 **Deposit** 按钮后，前端全自动完成链上�
 | `decimals` | `chainAsset.decimals`（通过 `caipChainId + tokenAddress` 匹配） |
 | `isNative` | `chainAsset.isNative`（native 跳过 approve，附 `msg.value`） |
 | `vaultAddress` | `Chain.vaultAddress`（后端 `/api/chain-asset/chains` 返回，来自 Vault 表） |
-
-### 后端变更
-
-`GET /api/chain-asset/chains` 响应新增 `vaultAddress: string | null`（仅 Vault 状态为 `active` 时非 null）。

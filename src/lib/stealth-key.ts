@@ -26,7 +26,7 @@ function to32Bytes(hex: string): Uint8Array {
 function sharedSecret(scalarHex: string, pubHex: string): Uint8Array {
   const point = secp256k1.ProjectivePoint.fromHex(strip0x(pubHex))
   const scalar = BigInt('0x' + strip0x(scalarHex).padStart(64, '0'))
-  return point.multiply(scalar).toRawBytes(true)
+  return point.multiply(scalar).toRawBytes(false) // uncompressed 65 B，与后端 getSharedSecret(..., false) 保持一致
 }
 
 function sharedSecretToScalar(secret: Uint8Array): bigint {

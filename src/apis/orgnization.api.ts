@@ -203,6 +203,12 @@ export class OrgnizationApi {
     return res.data
   }
 
+  // 更新成员展示信息（管理员或本人）
+  async updateMemberProfile(orgId: string, memberId: string, payload: { showName?: string; avatarUrl?: string }) {
+    const res = await this.request.patch<OrganizationMember>(`/orgs/${orgId}/members/${memberId}/profile`, payload)
+    return res.data
+  }
+
   // 员工提交 metaPub（StealthPay）
   async submitMetaPub(payload: { address: string; metaPub: string; signature: string }) {
     const res = await this.request.post<{ success: boolean }>(`/orgs/${this.orgId}/submit-meta-pub`, payload)

@@ -1,6 +1,5 @@
 import apis from '@/apis'
 import { TransactionPlan } from '@/apis/transaction.api'
-import useChainAssetStore from '@/stores/chain-asset'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -9,7 +8,10 @@ import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
-import { cn, formatAmount, sumAmounts } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { formatUnits } from 'ethers'
+import useChainAssetStore from '@/stores/chain-asset'
+import useOrganizationStore from '@/stores/organization'
 import { IconAlertTriangle, IconFlame, IconPlus, IconTrash } from '@tabler/icons-react'
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -64,7 +66,6 @@ function getTimeIcon(daysRemaining: number | null, isDueToday: boolean) {
 export default function Transaction() {
   const { toast } = useToast()
   const navigate = useNavigate()
-  const { getTokenSymbol, chains, fetchChainAssets, fetchChains } = useChainAssetStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
@@ -96,8 +97,18 @@ export default function Transaction() {
   const [totalCount, setTotalCount] = useState(0)
   const itemsPerPage = 10
 
-  const getNetworkName = (caipChainId: string) =>
-    chains.find(c => c.caipChainId === caipChainId)?.name || caipChainId
+  const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
+  const { getTokenSymbol, getTokenDecimals, fetchChainAssets, fetchChains, getChain } = useChainAssetStore()
+
+  useEffect(() => {
+    const init = async () => {
+      await fetchChainAssets()
+      await fetchChains()
+      await fetchPayrollTokenSymbol()
+      await fetchTransactionPlans()
+    }
+    init()
+  }, [])
 
   const transformTransactionPlan = (plan: TransactionPlan): Transaction => {
     const payPeriodDate = new Date(plan.payPeriod)
@@ -109,7 +120,9 @@ export default function Transaction() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
     const currency = getTokenSymbol(plan.caipChainId, plan.tokenAddress || '') || plan.tokenAddress || 'USDC'
-    const totalAmount = sumAmounts(plan.items.map(item => item.amount || '0'), currency)
+    // totalAmount 是后端预计算的含服务费总额（raw token 单位），formatUnits 转为可读金额
+    const decimals = getTokenDecimals(plan.caipChainId, plan.tokenAddress || '')
+    const totalAmount = formatUnits(BigInt(plan.totalAmount || '0'), decimals)
     const isComplete = plan.transactionStatus === 'success'
     const isDueToday = diffDays === 0 && !isComplete
 
@@ -137,10 +150,10 @@ export default function Transaction() {
         .replace(/\//g, '/'),
       daysRemaining: isComplete ? null : diffDays,
       isDueToday,
-      totalAmount: formatAmount(totalAmount, currency),
+      totalAmount,
       currency,
       members: plan.items.length,
-      network: getNetworkName(plan.caipChainId),
+      network: getChain(plan.caipChainId)?.name || plan.caipChainId,
       isComplete,
     }
   }
@@ -161,19 +174,6 @@ export default function Transaction() {
       })
     }
   }
-
-  useEffect(() => {
-    fetchChainAssets()
-    fetchChains()
-    fetchTransactionPlans()
-  }, [currentPage])
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      fetchTransactionPlans()
-    }, 5000)
-    return () => clearInterval(intervalId)
-  }, [])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -451,7 +451,7 @@ export default function Transaction() {
           <TransactionDetailDialogContent
             selectedTransaction={selectedTransaction}
             transactionDetailMembers={transactionDetailMembers}
-            onExecuteNow={() => {}}
+            onExecuteNow={() => { }}
           />
         </DialogContent>
       </Dialog>
