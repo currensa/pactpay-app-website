@@ -101,14 +101,7 @@ export interface TransactionPlan {
   transactionType: string
   /** 所有 item（含服务费）金额之和，token 最小单位字符串 */
   totalAmount: string
-  transactionStatus:
-    | 'draft'
-    | 'proposed'
-    | 'confirming'
-    | 'ready'
-    | 'executing'
-    | 'success'
-    | 'failed'
+  transactionStatus: string
   payPeriod: string
   merkleRoot?: string
   tokenAddress?: string
@@ -147,6 +140,33 @@ export interface PayrollBatch {
   createdBy: string
   createdAt: string
   deletedAt: string | null
+}
+
+export interface TransactionListItem {
+  id: string
+  orgId: string
+  caipChainId: string
+  transactionId?: string
+  transactionName?: string
+  transactionType: string
+  transactionStatus: string
+  payPeriod: string
+  merkleRoot?: string
+  tokenAddress?: string
+  ephemeralPub?: string
+  depositTxHash: string | null
+  createdBy: string
+  createdAt: string
+  deletedAt?: string | null
+  items: TransactionItem[]
+  totalAmount: string
+}
+
+export interface TransactionListResponse {
+  data: TransactionListItem[]
+  page: number
+  pageSize: number
+  total: number
 }
 
 
@@ -217,6 +237,14 @@ export class TransactionApi {
       memberId: string
       statistics: { currency: string; totalReceived: string; paymentCount: number }[]
     }>(`/transaction/${this.orgId}/members/${memberId}/payment-statistics`)
+    return res.data
+  }
+
+  // 获取今日待执行交易列表
+  async getReadyToExecuteTodayList(page: number = 1, pageSize: number = 20) {
+    const res = await this.request.get<TransactionListResponse>(`/transaction/${this.orgId}/ready-to-execute-today`, {
+      params: { page, pageSize }
+    })
     return res.data
   }
 }

@@ -1,5 +1,4 @@
 import apis from '@/apis'
-import { InviteLogStatus } from '@/apis/orgnization.api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,11 +16,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
+import { getMemberStatusDisplayName, memberStatus } from '@/enums/org'
 import useOrganizationStore from '@/stores/organization'
 import { getMemberRoles, getPrimaryRole, hasPermission, MemberRole, Permission } from '@/utils/permissions'
 import type {
   Member,
-  MemberStatus,
   SortDirection,
   SortField
 } from '@/views/orgs/components/member-detail'
@@ -29,15 +28,25 @@ import { MemberDetailContent } from '@/views/orgs/components/member-detail'
 import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Download, Edit2, FileSpreadsheet, Link, Mail, Plus, Search, Upload, X, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-export default function MemberPage() {
+interface MemberPageProps {
+  showInvite: boolean
+}
+export default function MemberPage(
+  {
+    showInvite = true
+  }: MemberPageProps
+) {
   const { toast } = useToast()
 
   // 状态管理
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [total, setTotal] = useState(0)
+  const [inited, setInited] = useState(false)
   const [roleFilter, setRoleFilter] = useState<MemberRole | 'All'>('All')
-  const [statusFilter, setStatusFilter] = useState<MemberStatus | 'All'>('All')
+  const [statusFilter, setStatusFilter] = useState<memberStatus | 'All'>('All')
   const [sortField, setSortField] = useState<SortField>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -64,6 +73,8 @@ export default function MemberPage() {
   const pageSize = 20
   const currentUserRole: MemberRole[] = ['Owner'] // TODO: 从 context 获取
 
+
+
   // 将 API 返回的成员数据转换为组件使用的格式
   const transformMember = (apiMember: any): Member => {
     const roles = getMemberRoles(apiMember)
@@ -74,107 +85,59 @@ export default function MemberPage() {
     return {
       id: apiMember.id,
       memberId: apiMember.memberId,
-      name: apiMember.showName || apiMember.memberId,
+      name: apiMember.showName || '',
       email: apiMember.email || '',
       role: primaryRole,
       roles: roles,
       serviceFee: payoutIntent ? parseFloat(payoutIntent.amount) : 0,
-      status: apiMember.inviteStatus === InviteLogStatus.PENDING
-        ? 'Pending'
-        : apiMember.status === 'active' ? 'Active' : 'Inactive',
+      status: apiMember.status,
       lastPayment: apiMember.lastPayment || null,
       joinDate: apiMember.createdAt ? new Date(apiMember.createdAt).toISOString().split('T')[0] : '',
       avatar: apiMember.avatarUrl || undefined
     }
   }
 
-  // 监听 organizationId 变化事件
-  useEffect(() => {
-    const handleOrganizationIdChange = () => {
-      const fetchData = async () => {
-        try {
-          setLoading(true)
-          const [membersResponse, inviteCodeData] = await Promise.all([
-            apis.organization.getOrganizationMembers(currentPage, pageSize),
-            apis.organization.getOrganizationInviteCode(),
-            fetchPayrollTokenSymbol(),
-          ])
+  // sortField → 后端 sortBy 字段名映射
+  const toApiSortBy = (field: SortField): 'showName' | 'amount' | 'status' | 'createdAt' | 'lastPayment' | undefined => {
+    if (!field) return undefined
+    if (field === 'name') return 'showName'
+    if (field === 'serviceFee') return 'amount'
+    return field as 'lastPayment'
+  }
 
-          const transformedMembers = membersResponse.data.map(transformMember)
-          setMembers(transformedMembers)
-
-          setInviteCode(inviteCodeData.code)
-          setInviteLink(`${window.location.origin}/join/${inviteCodeData.code}`)
-
-        } catch (error: any) {
-          toast({
-            title: 'Error',
-            description: error?.response?.data?.message || 'Failed to load data',
-            variant: 'destructive'
-          })
-        } finally {
-          setLoading(false)
-        }
-      }
-      fetchData()
+  // 获取成员列表（服务端 keyword/status/sort/page）
+  // isInitial=true 时显示全屏 loading 占位；false 时只降低表格透明度，避免抖动
+  const fetchMembers = async (page = currentPage, isInitial = false) => {
+    if (!localStorage.getItem('organizationId')) return
+    if (isInitial) setLoading(true)
+    else setRefreshing(true)
+    try {
+      const membersResponse = await apis.organization.getOrganizationMembers({
+        page,
+        pageSize,
+        keyword: debouncedSearch || undefined,
+        status: statusFilter !== 'All' ? statusFilter : undefined,
+        sortBy: toApiSortBy(sortField),
+        sortOrder: sortDirection ?? undefined,
+      })
+      setMembers(membersResponse.data.map(transformMember))
+      setTotal(membersResponse.total)
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.message || 'Failed to load members',
+        variant: 'destructive'
+      })
+    } finally {
+      if (isInitial) setLoading(false)
+      else setRefreshing(false)
+      setInited(true)
     }
-
-    window.addEventListener('organizationIdChanged', handleOrganizationIdChange)
-    return () => {
-      window.removeEventListener('organizationIdChanged', handleOrganizationIdChange)
-    }
-  }, [currentPage])
+  }
 
   // 组织初始化：只在组件挂载时执行一次
   useEffect(() => {
-    const initializeOrganization = async () => {
-      try {
-        setLoading(true)
-        const existingOrgId = localStorage.getItem('organizationId')
-        if (!existingOrgId) {
-          // 没有 organizationId，获取组织列表
-          const organizations = await apis.organization.getOrganizations()
-
-          if (organizations && Array.isArray(organizations) && organizations.length > 0) {
-            // 使用第一个组织的 orgId 作为当前组织，并保存到 localStorage
-            const orgId = organizations[0].organization?.orgId
-            if (orgId) {
-              localStorage.setItem('organizationId', orgId)
-              // 触发数据获取事件
-              window.dispatchEvent(new Event('organizationIdChanged'))
-            } else {
-              toast({
-                title: 'Warning',
-                description: 'Organization ID not found',
-                variant: 'destructive'
-              })
-              setLoading(false)
-            }
-          } else {
-            // 没有组织，显示提示信息
-            toast({
-              title: 'No Organizations',
-              description: 'You do not have any organizations. Please create one first.',
-              variant: 'destructive'
-            })
-            setLoading(false)
-          }
-        } else {
-          // 有 organizationId，直接触发数据获取事件
-          window.dispatchEvent(new Event('organizationIdChanged'))
-        }
-      } catch (error: any) {
-        console.error('Failed to initialize organization:', error)
-        toast({
-          title: 'Error',
-          description: error?.response?.data?.message || error?.message || 'Failed to initialize organization',
-          variant: 'destructive'
-        })
-        setLoading(false)
-      }
-    }
-
-    initializeOrganization()
+    fetchMembers(1, true)
   }, []) // 只在组件挂载时执行一次
 
   // 搜索防抖
@@ -186,65 +149,26 @@ export default function MemberPage() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // 过滤和排序
-  const filteredAndSortedMembers = useMemo(() => {
-    let result = [...members]
+  // 过滤条件或页码变化时重新请求（debouncedSearch/statusFilter/sort 变化时重置到第一页）
+  useEffect(() => {
+    if (!inited) return
+    setCurrentPage(1)
+    fetchMembers(1)
+  }, [debouncedSearch, statusFilter, sortField, sortDirection])
 
-    // 搜索过滤
-    if (debouncedSearch) {
-      const query = debouncedSearch.toLowerCase()
-      result = result.filter(
-        m =>
-          m.name.toLowerCase().includes(query) ||
-          m.email.toLowerCase().includes(query)
-      )
-    }
+  useEffect(() => {
+    if (!inited) return
+    fetchMembers(currentPage)
+  }, [currentPage])
 
-    // 角色过滤
-    if (roleFilter !== 'All') {
-      result = result.filter(m => m.role === roleFilter)
-    }
-
-    // 状态过滤
-    if (statusFilter !== 'All') {
-      result = result.filter(m => m.status === statusFilter)
-    }
-
-    // 排序
-    if (sortField && sortDirection) {
-      result.sort((a, b) => {
-        let aVal: any
-        let bVal: any
-
-        switch (sortField) {
-          case 'name':
-            aVal = a.name.toLowerCase()
-            bVal = b.name.toLowerCase()
-            break
-          case 'serviceFee':
-            aVal = a.serviceFee
-            bVal = b.serviceFee
-            break
-          case 'lastPayment':
-            aVal = a.lastPayment || ''
-            bVal = b.lastPayment || ''
-            break
-          default:
-            return 0
-        }
-
-        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
-        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
-        return 0
-      })
-    }
-
-    return result
-  }, [members, debouncedSearch, roleFilter, statusFilter, sortField, sortDirection])
+  // 角色过滤（客户端，仅在当前页数据上过滤）
+  const paginatedMembers = useMemo(() => {
+    if (roleFilter === 'All') return members
+    return members.filter(m => m.role === roleFilter)
+  }, [members, roleFilter])
 
   // 分页
-  const totalPages = Math.ceil(filteredAndSortedMembers.length / pageSize)
-  const paginatedMembers = filteredAndSortedMembers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const totalPages = Math.ceil(total / pageSize)
 
   // 处理排序
   const handleSort = (field: SortField) => {
@@ -270,7 +194,7 @@ export default function MemberPage() {
   const handleApprove = async (member: Member) => {
     try {
       await apis.organization.approveInvite(member.memberId)
-      setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, status: 'Active' as MemberStatus } : m)))
+      setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, status: memberStatus.ACTIVE } : m)))
       toast({ title: 'Success', description: 'Member approved successfully.' })
     } catch (error: any) {
       toast({
@@ -402,9 +326,7 @@ export default function MemberPage() {
         setEmailInviteDialogOpen(false)
         setPendingEmails([])
         // 刷新成员列表
-        const membersResponse = await apis.organization.getOrganizationMembers(currentPage, pageSize)
-        const transformedMembers = membersResponse.data.map(transformMember)
-        setMembers(transformedMembers)
+        fetchMembers(currentPage)
       } else {
         throw new Error('All invitations failed')
       }
@@ -581,7 +503,7 @@ export default function MemberPage() {
             Export List
           </Button>
           {/* 邀请按钮 */}
-          <Button onClick={() => setInviteSectionOpen(!inviteSectionOpen)} className="w-[160px] justify-center">
+          {showInvite && <Button onClick={() => setInviteSectionOpen(!inviteSectionOpen)} className="w-[160px] justify-center">
             {inviteSectionOpen ? (
               <>
                 <X className="mr-2 h-4 w-4" />
@@ -593,7 +515,7 @@ export default function MemberPage() {
                 Invite Members
               </>
             )}
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -797,9 +719,9 @@ export default function MemberPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
                       <DropdownMenuItem onClick={() => setStatusFilter('All')}>All Statuses</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setStatusFilter('Active')}>Active</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setStatusFilter('Pending')}>Pending</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setStatusFilter('Inactive')}>Inactive</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter(memberStatus.ACTIVE)}>Active</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter(memberStatus.ACTIVATION)}>Pending activation</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setStatusFilter(memberStatus.REVIEW)}>Pending review</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableHead>
@@ -818,7 +740,7 @@ export default function MemberPage() {
                 <TableHead>Approval</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className={refreshing ? 'opacity-50 pointer-events-none' : undefined}>
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={9} className="py-8 text-center">
@@ -841,7 +763,7 @@ export default function MemberPage() {
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full">
-                          <span className="text-sm font-medium">{member.name[0].toUpperCase()}</span>
+                          <span className="text-sm font-medium">{member.name?.[0]?.toUpperCase()}</span>
                         </div>
                         <span className="font-medium">{member.name}</span>
                       </div>
@@ -895,15 +817,19 @@ export default function MemberPage() {
                     <TableCell>
                       <Badge
                         variant={
-                          member.status === 'Active' ? 'default' : member.status === 'Pending' ? 'secondary' : 'outline'
+                          member.status === memberStatus.ACTIVE
+                            ? 'success'
+                            : (member.status === memberStatus.ACTIVATION || member.status === memberStatus.REVIEW)
+                              ? 'warning'
+                              : 'secondary'
                         }
                       >
-                        {member.status}
+                        {getMemberStatusDisplayName(member.status)}
                       </Badge>
                     </TableCell>
                     <TableCell>{member.lastPayment ? new Date(member.lastPayment).toLocaleDateString() : '-'}</TableCell>
                     <TableCell onClick={e => e.stopPropagation()} className="space-x-2">
-                      {member.status === 'Pending' &&
+                      {member.status === memberStatus.REVIEW &&
                         hasPermission(currentUserRole, Permission.APPROVE_MEMBER) && (
                           <>
                             <Button
@@ -934,11 +860,11 @@ export default function MemberPage() {
       </Card>
 
       {/* 分页 */}
-      {!loading && filteredAndSortedMembers.length > 0 && (
+      {!loading && total > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-muted-foreground text-sm">
             Showing {(currentPage - 1) * pageSize + 1}-
-            {Math.min(currentPage * pageSize, filteredAndSortedMembers.length)} of {filteredAndSortedMembers.length}{' '}
+            {Math.min(currentPage * pageSize, total)} of {total}{' '}
             members
           </p>
           <div className="flex items-center gap-2">

@@ -1,9 +1,15 @@
 import { AxiosInstance } from 'axios'
 
 export enum InviteLogStatus {
-  PENDING = 'Pending',
+  INVITE_PENDING = 'InvitePending', // 管理员已邀请，用户尚未提交 metaPub
+  PENDING = 'Pending',              // 用户主动申请，等待管理员审批
   APPROVE = 'Approve',
   REJECT = 'Reject',
+}
+
+export enum InviteLogSource {
+  INVITE = 'invite', // 管理员发起邀请
+  APPLY = 'apply',   // 用户主动申请
 }
 
 export interface InviteCode {
@@ -41,7 +47,7 @@ export interface OrganizationMember {
   showName: string
   email: string | null
   avatarUrl: string | null
-  status: 'active' | 'pending' | 'inactive'
+  status: 'active' | 'pending_activation' | 'pending_review'
   createdAt: string
   updatedAt: string
   deletedAt: string | null
@@ -109,6 +115,7 @@ export interface EmailInvitationResponse {
     memberId: string
     code: string
     status: InviteLogStatus
+    source?: InviteLogSource
     createdAt: string
   }
 }
@@ -163,9 +170,17 @@ export class OrgnizationApi {
     return res.data
   }
   // 获取公司成员列表
-  async getOrganizationMembers(page: number = 1, pageSize: number = 20) {
+  async getOrganizationMembers(params: {
+    page?: number
+    pageSize?: number
+    status?: OrganizationMember['status']
+    keyword?: string
+    sortBy?: 'showName' | 'amount' | 'status' | 'createdAt' | 'lastPayment'
+    sortOrder?: 'asc' | 'desc'
+  } = {}) {
+    const { page = 1, pageSize = 20, ...rest } = params
     const res = await this.request.get<MembersResponse>(`/orgs/${this.orgId}/members`, {
-      params: { page, pageSize }
+      params: { page, pageSize, ...rest }
     })
     return res.data
   }

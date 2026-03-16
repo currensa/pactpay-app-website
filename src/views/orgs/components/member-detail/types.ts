@@ -1,7 +1,7 @@
+import { memberStatus } from '@/enums/org'
 import { MemberRole } from '@/utils/permissions'
 
 export type { MemberRole }
-export type MemberStatus = 'Active' | 'Pending' | 'Inactive'
 export type SortField = 'name' | 'serviceFee' | 'lastPayment' | null
 export type SortDirection = 'asc' | 'desc' | null
 
@@ -16,7 +16,7 @@ export interface Member {
   role: MemberRole
   roles?: MemberRole[]
   serviceFee: number
-  status: MemberStatus
+  status: memberStatus
   lastPayment: string | null
   joinDate: string
   avatar?: string

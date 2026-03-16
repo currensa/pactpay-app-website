@@ -80,7 +80,7 @@ export default function RoleManagementPage() {
   const fetchMembers = async () => {
     try {
       setLoading(true)
-      const response = await apis.organization.getOrganizationMembers(1, 100)
+      const response = await apis.organization.getOrganizationMembers({ page: 1, pageSize: 100, status: 'active' })
       setMembers(response.data.map(transformMember))
     } catch (error: any) {
       toast({

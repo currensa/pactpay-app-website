@@ -60,16 +60,17 @@ const routes: RouteItem[] = [
       { index: true, element: <Navigate to="/orgs/dashboard" /> },
       { path: 'dashboard', element: <Dashboard />, meta: { title: 'Dashboard' } },
       { path: 'members', element: <Members />, meta: { title: 'Members' } },
-      { path: 'roles', element: <RoleManagement />, meta: { title: 'Role Management' } },
+      // { path: 'roles', element: <RoleManagement />, meta: { title: 'Role Management' } },
       { path: 'transaction', element: <Transaction />, meta: { title: 'Transaction' } },
       { path: 'transaction/create', element: <CreateTransaction />, meta: { title: 'Create Transaction' } },
       { path: 'analytics', element: <Analytics />, meta: { title: 'Analytics' } },
       {
         path: 'settings',
+        element: <OrganizationSettings />,
         children: [
-          { index: true, element: <Navigate to="/orgs/settings/payment" replace /> },
-          { path: 'payment', element: <PaymentSettings />, meta: { title: 'Payment Settings' } },
-          { path: 'organization', element: <OrganizationSettings />, meta: { title: 'Organization Settings' } }
+          // { index: true, element: <Navigate to="/orgs/settings/payment" replace /> },
+          // { path: 'payment', element: <PaymentSettings />, meta: { title: 'Payment Settings' } },
+          // { path: 'organization', element: <OrganizationSettings />, meta: { title: 'Organization Settings' } }
         ]
       }
     ] as RouteItem[]

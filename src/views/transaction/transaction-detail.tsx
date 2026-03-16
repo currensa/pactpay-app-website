@@ -1,5 +1,6 @@
 import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
+import { PayrollTransactionStatus, getStatusDisplayName } from '@/enums/transaction'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -46,11 +47,11 @@ export default function TransactionDetail() {
   if (loading) return <div className="p-6 text-muted-foreground">Loading...</div>
   if (!batch) return <div className="p-6">Batch not found</div>
 
-  const statusVariant = batch.transactionStatus === 'success'
+  const statusVariant = batch.transactionStatus === PayrollTransactionStatus.COMPLETE
     ? 'success'
-    : batch.transactionStatus === 'failed'
-      ? 'destructive'
-      : 'warning'
+    : batch.transactionStatus === PayrollTransactionStatus.PENDING
+      ? 'warning'
+      : 'secondary'
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -62,7 +63,7 @@ export default function TransactionDetail() {
         <div className="flex-1">
           <h1 className="text-2xl font-bold">{batch.transactionName}</h1>
         </div>
-        <Badge variant={statusVariant}>{batch.transactionStatus}</Badge>
+        <Badge variant={statusVariant}>{getStatusDisplayName(batch.transactionStatus)}</Badge>
       </div>
 
       {/* Batch info */}

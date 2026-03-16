@@ -9,15 +9,16 @@ interface JoinOrganizationProps {
 
 export default function JoinOrganization({ onBack, onJoin }: JoinOrganizationProps) {
   const [orgCode, setOrgCode] = useState('')
+  const [showName, setShowName] = useState('')
   const [joinLoading, setJoinLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleJoin = async () => {
-    if (!orgCode.trim()) return
+    if (!orgCode.trim() || !showName.trim()) return
     setError('')
     setJoinLoading(true)
     try {
-      await api.organization.joinOrganization({ code: orgCode.trim() })
+      await api.organization.joinOrganization({ code: orgCode.trim(), showName: showName.trim() })
       onJoin()
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to join. Please check your code and try again.')
@@ -34,8 +35,24 @@ export default function JoinOrganization({ onBack, onJoin }: JoinOrganizationPro
 
       <div className="flex w-full flex-col gap-[32px]">
         <div className="flex flex-col gap-[8px]">
+          <label htmlFor="showName" className="text-[16px] leading-[24px] text-[#1c1c26]">
+            Display Name <span className="text-red-500">*</span>
+          </label>
+          <div className="flex h-[38px] items-center overflow-hidden rounded-[6px] border border-[#d9d9db] bg-white px-[12px] py-[4px]">
+            <input
+              id="showName"
+              type="text"
+              value={showName}
+              onChange={e => setShowName(e.target.value)}
+              placeholder="Enter your display name"
+              className="flex-1 text-[14px] leading-[22px] text-[#1c1c26] placeholder:text-[rgba(19,19,26,0.2)] focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-[8px]">
           <label htmlFor="orgCode" className="text-[16px] leading-[24px] text-[#1c1c26]">
-            Organization Code
+            Organization Code <span className="text-red-500">*</span>
           </label>
           <div className="flex h-[38px] items-center overflow-hidden rounded-[6px] border border-[#d9d9db] bg-white px-[12px] py-[4px]">
             <input
@@ -65,7 +82,7 @@ export default function JoinOrganization({ onBack, onJoin }: JoinOrganizationPro
           </button>
           <button
             type="button"
-            disabled={!orgCode.trim() || joinLoading}
+            disabled={!orgCode.trim() || !showName.trim() || joinLoading}
             onClick={handleJoin}
             className="flex flex-1 items-center justify-center gap-[8px] rounded-full bg-[#875dff] px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >

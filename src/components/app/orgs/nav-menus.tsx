@@ -15,7 +15,6 @@ import {
   IconHelpCircle,
   IconLayoutDashboard,
   IconSettings,
-  IconShield,
   // IconBuildingSkyscraper,
   IconUsers
 } from '@tabler/icons-react'
@@ -51,12 +50,12 @@ const NavMainItems: MenuItem[] = [
     url: '/orgs/transaction',
     icon: IconCashMove
   },
-  {
-    title: 'Role Management',
-    key: 'roles',
-    url: '/orgs/roles',
-    icon: IconShield
-  },
+  // {
+  //   title: 'Role Management',
+  //   key: 'roles',
+  //   url: '/orgs/roles',
+  //   icon: IconShield
+  // },
   // {
   //   title: 'Analytics',
   //   key: 'analytics',
@@ -68,16 +67,16 @@ const NavMainItems: MenuItem[] = [
     key: 'settings',
     url: '/orgs/settings',
     icon: IconSettings,
-    items: [
-      {
-        title: 'Payment',
-        url: '/orgs/settings/payment'
-      },
-      {
-        title: 'Organization',
-        url: '/orgs/settings/organization'
-      }
-    ]
+    // items: [
+    // {
+    //   title: 'Payment',
+    //   url: '/orgs/settings/payment'
+    // },
+    // {
+    //   title: 'Organization',
+    //   url: '/orgs/settings/organization'
+    // }
+    // ]
   }
 ]
 

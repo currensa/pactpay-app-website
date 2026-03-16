@@ -2,26 +2,20 @@ import { TransactionItem } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { PayrollTransactionStatus } from '@/enums/transaction'
 import { Transaction } from './types'
 
 function getStatusBadge(status: Transaction['status']) {
   switch (status) {
-    case 'pending_deposit':
-      return <Badge variant="warning">Pending Deposit</Badge>
-    case 'pending':
+    case PayrollTransactionStatus.READY:
+      return <Badge variant="secondary">Ready</Badge>
+    case PayrollTransactionStatus.PENDING:
       return <Badge variant="warning">Pending</Badge>
-    case 'complete':
+    case PayrollTransactionStatus.COMPLETE:
       return <Badge variant="success">Complete</Badge>
-    case 'failed':
-      return <Badge variant="destructive">Failed</Badge>
     default:
       return <Badge variant="secondary">{status}</Badge>
   }
-}
-
-function formatWalletAddress(address: string): string {
-  if (!address || address.length <= 10) return address || '-'
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
 interface TransactionDetailDialogContentProps {

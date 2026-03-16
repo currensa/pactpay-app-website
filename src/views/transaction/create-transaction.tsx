@@ -28,7 +28,7 @@ export default function CreateTransaction() {
   const fetchOrganizationMembers = async () => {
     try {
       setMembersLoading(true)
-      const response = await apis.organization.getOrganizationMembers(1, 100)
+      const response = await apis.organization.getOrganizationMembers({ page: 1, pageSize: 100, status: 'active' })
       setOrganizationMembers(response.data)
     } catch {
       toast({

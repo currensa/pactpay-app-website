@@ -8,11 +8,12 @@ import { Pagination } from '@/components/ui/pagination'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
+import { PayrollTransactionStatus } from '@/enums/transaction'
 import { cn } from '@/lib/utils'
-import { formatUnits } from 'ethers'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { IconAlertTriangle, IconFlame, IconPlus, IconTrash } from '@tabler/icons-react'
+import { formatUnits } from 'ethers'
 import { Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -26,14 +27,12 @@ import type { Transaction } from './components/types'
 
 function getStatusBadge(status: Transaction['status']) {
   switch (status) {
-    case 'pending_deposit':
-      return <Badge variant="warning">Pending Deposit</Badge>
-    case 'pending':
+    case PayrollTransactionStatus.READY:
+      return <Badge variant="secondary">Ready</Badge>
+    case PayrollTransactionStatus.PENDING:
       return <Badge variant="warning">Pending</Badge>
-    case 'complete':
+    case PayrollTransactionStatus.COMPLETE:
       return <Badge variant="success">Complete</Badge>
-    case 'failed':
-      return <Badge variant="destructive">Failed</Badge>
     default:
       return <Badge variant="secondary">{status}</Badge>
   }
@@ -123,21 +122,10 @@ export default function Transaction() {
     // totalAmount 是后端预计算的含服务费总额（raw token 单位），formatUnits 转为可读金额
     const decimals = getTokenDecimals(plan.caipChainId, plan.tokenAddress || '')
     const totalAmount = formatUnits(BigInt(plan.totalAmount || '0'), decimals)
-    const isComplete = plan.transactionStatus === 'success'
+    const isComplete = plan.transactionStatus === PayrollTransactionStatus.COMPLETE
     const isDueToday = diffDays === 0 && !isComplete
 
-    // StealthPay 状态映射
-    let status: Transaction['status'] = 'pending_deposit'
-    if (plan.transactionStatus === 'draft') {
-      status = 'pending_deposit'
-    } else if (plan.transactionStatus === 'success') {
-      status = 'complete'
-    } else if (plan.transactionStatus === 'failed') {
-      status = 'failed'
-    } else {
-      // proposed / confirming / ready / executing → pending
-      status = 'pending'
-    }
+    const status = (plan.transactionStatus as Transaction['status']) || PayrollTransactionStatus.READY
 
     return {
       id: plan.id,
@@ -199,7 +187,7 @@ export default function Transaction() {
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error?.response?.data?.message || 'Failed to confirm deposit on server.',
+        description: error?.response?.data?.message || 'Failed to confirm execute on server.',
         variant: 'destructive'
       })
     }
@@ -283,13 +271,15 @@ export default function Transaction() {
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
                 {statusFilter === 'all' && 'All Statuses'}
-                {statusFilter === 'pending_deposit' && 'Pending Deposit'}
-                {statusFilter === 'complete' && 'Complete'}
+                {statusFilter === PayrollTransactionStatus.READY && 'Ready'}
+                {statusFilter === PayrollTransactionStatus.PENDING && 'Pending'}
+                {statusFilter === PayrollTransactionStatus.COMPLETE && 'Complete'}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending_deposit">Pending Deposit</SelectItem>
-                <SelectItem value="complete">Complete</SelectItem>
+                <SelectItem value={PayrollTransactionStatus.READY}>Ready</SelectItem>
+                <SelectItem value={PayrollTransactionStatus.PENDING}>Pending</SelectItem>
+                <SelectItem value={PayrollTransactionStatus.COMPLETE}>Complete</SelectItem>
               </SelectContent>
             </Select>
 
@@ -373,9 +363,9 @@ export default function Transaction() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
-                      {transaction.status === 'pending_deposit' && (
+                      {transaction.status === PayrollTransactionStatus.READY && (
                         <Button variant="default" size="sm" onClick={() => handleDepositClick(transaction)}>
-                          Deposit
+                          Execute
                         </Button>
                       )}
                       <Button variant="outline" size="sm" onClick={() => handleViewDetails(transaction)}>

@@ -160,7 +160,7 @@ export function ExecuteConfirmDialogContent({
   return (
     <div className="flex flex-col space-y-4">
       <DialogHeader>
-        <DialogTitle>Confirm Deposit</DialogTitle>
+        <DialogTitle>Confirm Execute</DialogTitle>
         <DialogDescription>
           Connect your HR wallet to execute approve + depositForPayroll on-chain.
         </DialogDescription>
