@@ -1,4 +1,3 @@
-import api from '@/apis'
 import useAuthStore from '@/stores/auth'
 import useOrganizationStore from '@/stores/organization'
 import { IconLoader2 } from '@tabler/icons-react'
@@ -77,7 +76,7 @@ export default function Login() {
     if (!submitted) {
       setCurrentStep('bindWallet')
     } else {
-      navigate('/employee/overview', { replace: true })
+      navigate('/employee/dashboard', { replace: true })
     }
   }
 
@@ -112,7 +111,7 @@ export default function Login() {
   }
 
   const handleBindWalletSuccess = () => {
-    navigate('/employee/overview', { replace: true })
+    navigate('/employee/dashboard', { replace: true })
   }
 
   // --- Render ---
@@ -171,7 +170,7 @@ export default function Login() {
 
   return (
     <div className="flex h-dvh w-full flex-col items-center gap-4 overflow-hidden bg-white p-4 lg:flex-row lg:gap-[60px] lg:px-[80px] lg:py-[80px]">
-      <IntroSection />
+      {currentStep === "welcome" && <IntroSection />}
       <div className="flex w-full lg:h-full">{renderRightSection()}</div>
     </div>
   )

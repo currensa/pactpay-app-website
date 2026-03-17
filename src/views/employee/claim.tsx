@@ -216,7 +216,7 @@ export default function ClaimPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/employee/overview')} aria-label="Back">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/employee/dashboard')} aria-label="Back">
           <IconArrowLeft className="size-5" />
         </Button>
         <h1 className="text-2xl font-bold">Claim Payroll</h1>
@@ -288,8 +288,8 @@ export default function ClaimPage() {
                 key={tab}
                 onClick={() => handleTabChange(tab)}
                 className={`rounded-md px-3 py-1 text-sm font-medium capitalize transition-colors ${activeTab === tab
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
                   }`}
               >
                 {tab}

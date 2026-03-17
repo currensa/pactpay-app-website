@@ -1,247 +1,105 @@
 import api from '@/apis'
-import {
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuAction,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem
-} from '@/components/ui/sidebar'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import {
-  IconApps,
-  IconAtom,
-  IconBook,
-  IconBriefcase,
-  IconBuilding,
-  IconBuildingArch,
-  IconBuildingBank,
-  IconBuildingCastle,
-  IconBuildingFactory,
-  IconBuildingSkyscraper,
-  IconChevronDown,
-  IconChevronRight,
-  IconDiamond,
-  IconGlobe,
-  IconHelpCircle,
-  IconLayoutDashboard,
-  IconPlus,
-  IconRocket
-} from '@tabler/icons-react'
+import { getEmployeeNavItems, type OrgNavItem } from '@/router'
+import { IconBuilding } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-interface OrgItem {
-  id: string
-  name: string
-  icon: typeof IconBuilding
-  url: string
-}
-
-interface MenuItem {
-  title: string
-  key: string
-  url: string
-  icon: React.ForwardRefExoticComponent<React.SVGProps<SVGSVGElement> & React.RefAttributes<SVGSVGElement>>
-  type?: 'item' | 'collapsible'
-}
-
-// 预定义9个不同的图标用于循环展示
-const ORG_ICONS = [
-  IconBuildingSkyscraper,
-  IconBuildingFactory,
-  IconBuildingCastle,
-  IconBuildingBank,
-  IconBuildingArch,
-  IconBriefcase,
-  IconGlobe,
-  IconRocket,
-  IconAtom,
-  IconDiamond,
-  IconApps
-]
-
-const NavMainItems: MenuItem[] = [
-  {
-    title: 'Overview',
-    key: 'overview',
-    url: '/employee/overview',
-    icon: IconLayoutDashboard,
-    type: 'item'
-  }
-]
-
-const NavSecondaryItems: MenuItem[] = [
-  {
-    title: 'Document',
-    key: 'documentation',
-    url: 'https://docs.pactpay.com',
-    icon: IconBook
-  },
-  {
-    title: 'Help',
-    key: 'help',
-    url: '/help',
-    icon: IconHelpCircle
-  }
-]
-
 export default function EmployeeNavMenus() {
-  const [isOrgsListOpen, setIsOrgsListOpen] = useState(true)
-  const [orgsList, setOrgsList] = useState<OrgItem[]>([])
   const navigate = useNavigate()
   const location = useLocation()
+  const staticItems = getEmployeeNavItems()
+  const [orgChildren, setOrgChildren] = useState<OrgNavItem['children']>([])
 
   useEffect(() => {
-    loadOrganizations()
+    api.organization.getOrganizations().then(data => {
+      if (!data.length) return
+      setOrgChildren(
+        data.map(({ organization, member }) => ({
+          title: organization.orgName,
+          url: '/employee/orgdetail',
+          onClick: () =>
+            navigate('/employee/orgdetail', {
+              state: {
+                orgId: organization.orgId,
+                orgName: organization.orgName,
+                memberId: member.memberId
+              }
+            }),
+          isActive: (_pathname: string, state: unknown) =>
+            (state as { orgId?: string })?.orgId === organization.orgId
+        }))
+      )
+    }).catch(console.error)
   }, [])
 
-  const loadOrganizations = async () => {
-    try {
-      const data = await api.organization.getOrganizations()
-      const formattedOrgs = data.map((item, index) => ({
-        id: item.organization.orgId,
-        name: item.organization.orgName,
-        // 循环使用图标，使用取模运算确保不会越界
-        icon: ORG_ICONS[index % ORG_ICONS.length],
-        url: '/employee/orgdetail'
-      }))
-      setOrgsList(formattedOrgs)
-    } catch (error) {
-      console.error('Failed to load organizations:', error)
-    }
-  }
+  const isActive = (url: string) =>
+    location.pathname === url || location.pathname.startsWith(url + '/')
 
-  function handleOrgClick(org: OrgItem) {
-    navigate(org.url, { state: { orgId: org.id, orgName: org.name } })
-  }
+  const isChildActive = (child: OrgNavItem['children'][number]) =>
+    child.isActive
+      ? child.isActive(location.pathname, location.state)
+      : location.pathname === child.url
 
-  function handleJoinNewOrg() {
-    // TODO: 实现加入新组织的逻辑
-    console.log('Join New Org')
-  }
+  // 分离 settings（末尾固定项）和其余静态项
+  const topItems = staticItems.filter(i => i.key !== 'settings')
+  const settingsItem = staticItems.find(i => i.key === 'settings')
 
-  const isRouteActive = (url: string) => {
-    if (url.startsWith('http')) return false
-    return location.pathname === url
+  const renderItem = (item: OrgNavItem) => {
+    const active = isActive(item.url)
+    return (
+      <button
+        key={item.key}
+        onClick={() => navigate(item.url)}
+        className={cn(
+          'flex w-full items-center gap-[12px] rounded-[16px] px-[20px] py-[14px] transition-colors',
+          active ? 'bg-[#5e85ee] text-white' : 'text-[#8d8d93] hover:bg-[#f5f5f5] hover:text-[#1c1c26]'
+        )}
+      >
+        <item.icon className="h-[22px] w-[22px] shrink-0" />
+        <span className="font-['Poppins',sans-serif] text-[15px] font-medium leading-[24px] whitespace-nowrap">
+          {item.title}
+        </span>
+      </button>
+    )
   }
-
-  const getOrgActive = (orgId: string) => {
-    return location.pathname === '/employee/orgdetail' && location.state?.orgId === orgId
-  }
-
-  // 只要有任何一个组织被选中，Organizations 父级菜单就高亮
-  const isAnyOrgActive = orgsList.some(org => getOrgActive(org.id))
 
   return (
-    <>
-      <SidebarGroup>
-        <SidebarGroupContent>
-          <SidebarMenu>
-            {/* Main Items */}
-            {NavMainItems.map(item => {
-              const isActive = isRouteActive(item.url)
-              return (
-                <SidebarMenuItem key={item.key}>
-                  <SidebarMenuButton
-                    isActive={isActive}
-                    tooltip={item.title}
-                    onClick={() => navigate(item.url)}
-                    className={cn('transition-all', !isActive && 'text-muted-foreground/70')}
-                  >
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )
-            })}
+    <div className="flex flex-col gap-[4px]">
+      {topItems.map(renderItem)}
 
-            {/* Organizations - Collapsible Menu (Custom Logic) */}
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={isAnyOrgActive}
-                onClick={() => setIsOrgsListOpen(!isOrgsListOpen)}
-                className={cn('transition-all', !isAnyOrgActive && 'text-muted-foreground/70')}
-              >
-                <IconBuilding />
-                <span>Organizations</span>
-                {isOrgsListOpen ? (
-                  <IconChevronDown className="ml-auto h-4 w-4" />
-                ) : (
-                  <IconChevronRight className="ml-auto h-4 w-4" />
+      {/* Dynamic org sub-menu */}
+      {orgChildren && orgChildren.length > 0 && (
+        <div>
+          <div className={cn(
+            'flex w-full items-center gap-[12px] rounded-[16px] px-[20px] py-[14px]',
+            'text-[#8d8d93]'
+          )}>
+            <IconBuilding className="h-[22px] w-[22px] shrink-0" />
+            <span className="font-['Poppins',sans-serif] text-[15px] font-medium leading-[24px] whitespace-nowrap">
+              Organizations
+            </span>
+          </div>
+          <div className="mt-[4px] flex flex-col gap-[2px] pl-[16px]">
+            {orgChildren.map(child => (
+              <button
+                key={child.url + child.title}
+                onClick={() => child.onClick ? child.onClick() : navigate(child.url)}
+                className={cn(
+                  "flex w-full items-center rounded-[12px] px-[16px] py-[8px] text-left font-['Inter',sans-serif] text-[14px] transition-colors",
+                  isChildActive(child)
+                    ? 'bg-[rgba(94,133,238,0.1)] font-medium text-[#5e85ee]'
+                    : 'text-[#606067] hover:bg-[#f5f5f5] hover:text-[#1c1c26]'
                 )}
-              </SidebarMenuButton>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <SidebarMenuAction
-                    onClick={e => {
-                      e.stopPropagation()
-                      handleJoinNewOrg()
-                    }}
-                  >
-                    <IconPlus className="h-4 w-4" />
-                  </SidebarMenuAction>
-                </TooltipTrigger>
-                <TooltipContent side="right" align="center">
-                  Join New Org
-                </TooltipContent>
-              </Tooltip>
-              {isOrgsListOpen && (
-                <SidebarMenuSub>
-                  {orgsList.map(org => {
-                    const isActive = getOrgActive(org.id)
-                    return (
-                      <SidebarMenuSubItem key={org.id}>
-                        <SidebarMenuSubButton
-                          isActive={isActive}
-                          onClick={() => handleOrgClick(org)}
-                          className={cn(!isActive && 'text-muted-foreground/70')}
-                        >
-                          <org.icon className="h-4 w-4" />
-                          <span>{org.name}</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    )
-                  })}
-                </SidebarMenuSub>
-              )}
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
+              >
+                {child.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-      <SidebarGroup className="mt-auto">
-        <SidebarGroupContent>
-          <SidebarMenu>
-            {/* {NavSecondaryItems.map(item => {
-              const isActive = isRouteActive(item.url)
-              return (
-                <SidebarMenuItem key={item.key}>
-                  <SidebarMenuButton
-                    isActive={isActive}
-                    tooltip={item.title}
-                    onClick={() => {
-                      if (item.url.startsWith('http')) {
-                        window.open(item.url, '_blank')
-                      } else {
-                        navigate(item.url)
-                      }
-                    }}
-                    className={cn('transition-all', !isActive && 'text-muted-foreground/70')}
-                  >
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )
-            })} */}
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    </>
+      {settingsItem && renderItem(settingsItem)}
+    </div>
   )
 }

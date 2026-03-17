@@ -91,8 +91,8 @@ welcome → login → checking → ...
 
 ```
 GET /api/auth/meta-pub
-  ├─ submitted: true  → /employee/overview
-  └─ submitted: false → bindWallet（连接钱包 + 生成并提交 metaKey）→ /employee/overview
+  ├─ submitted: true  → /employee/dashboard
+  └─ submitted: false → bindWallet（连接钱包 + 生成并提交 metaKey）→ /employee/dashboard
 ```
 
 - B端路径（创建组织 / 选择管理员组织）**不需要** metaPub 检查，直接进入 `/orgs/dashboard`。

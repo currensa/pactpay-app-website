@@ -1,43 +1,58 @@
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, useSidebar } from '@/components/ui/sidebar'
-import { cn } from '@/lib/utils'
-import { IconBuildingSkyscraper } from '@tabler/icons-react'
-import { NavUser } from '../base/nav-user'
-import { OrganizationSwitcher } from '../base/switcher'
-import EmployeeNavMenus from './nav-menus'
+import api from '@/apis'
+import AppSidebar from '@/components/app/base/app-sidebar'
+import type { OrgNavItem } from '@/router'
+import { IconBuilding, IconLayoutDashboard, IconSettings } from '@tabler/icons-react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+
+const TOP_ITEMS: OrgNavItem[] = [
+  { title: 'Dashboard', key: 'dashboard', url: '/employee/dashboard', icon: IconLayoutDashboard },
+]
+
+const BOTTOM_ITEMS: OrgNavItem[] = [
+  { title: 'Settings', key: 'settings', url: '/employee/settings', icon: IconSettings },
+]
 
 export default function EmployeeSidebar() {
-  const { state } = useSidebar()
+  const navigate = useNavigate()
+  const [navItems, setNavItems] = useState<OrgNavItem[]>([...TOP_ITEMS, ...BOTTOM_ITEMS])
 
-  return (
-    <div>
-      <Sidebar collapsible="icon">
-        <div className={cn('bg-background flex h-full flex-col transition-all')}>
-          <SidebarHeader>
-            <OrganizationSwitcher
-              organizations={[
-                {
-                  name: 'PactPay',
-                  logo: IconBuildingSkyscraper,
-                  plan: 'Free'
-                },
-                {
-                  name: 'PactPay2',
-                  logo: IconBuildingSkyscraper,
-                  plan: 'Free'
-                }
-              ]}
-            />
-          </SidebarHeader>
-          <SidebarContent>
-            <EmployeeNavMenus />
-          </SidebarContent>
-          <SidebarFooter>
-            <NavUser
-              user={{ name: 'John Doe', email: 'john.doe@example.com', avatar: 'https://github.com/shadcn.png' }}
-            />
-          </SidebarFooter>
-        </div>
-      </Sidebar>
-    </div>
-  )
+  useEffect(() => {
+    api.organization.getOrganizations().then(data => {
+      if (!data.length) {
+        setNavItems([...TOP_ITEMS, ...BOTTOM_ITEMS])
+        return
+      }
+
+      const orgChildren = data.map(({ organization, member }) => ({
+        title: organization.orgName,
+        url: '/employee/orgdetail',
+        logoUrl: organization.logoUrl,
+        onClick: () =>
+          navigate('/employee/orgdetail', {
+            state: {
+              orgId: organization.orgId,
+              orgName: organization.orgName,
+              memberId: member.memberId
+            }
+          }),
+        isActive: (_pathname: string, state: unknown) =>
+          (state as { orgId?: string })?.orgId === organization.orgId
+      }))
+
+      setNavItems([
+        ...TOP_ITEMS,
+        {
+          title: 'Organizations',
+          key: 'organizations',
+          url: '/employee/orgdetail',
+          icon: IconBuilding,
+          children: orgChildren
+        },
+        ...BOTTOM_ITEMS,
+      ])
+    }).catch(console.error)
+  }, [])
+
+  return <AppSidebar navItems={navItems} hideSwitchButton />
 }

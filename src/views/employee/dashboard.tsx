@@ -118,16 +118,8 @@ function PieChart({ data }: { data: DistributionData[] }) {
   )
 }
 
-/** 钱包签名 → 确定性 metaPrivKey（与 bind-wallet.tsx 保持完全一致） */
-async function deriveMetaPrivKey(walletProvider: Provider, address: string): Promise<`0x${string}`> {
-  const sig = await walletProvider.request<string>({
-    method: 'personal_sign',
-    params: ['PactPay MetaKey v1', address],
-  }) as `0x${string}`
-  return ethers.keccak256(ethers.getBytes(sig)) as `0x${string}`
-}
 
-export default function EmployeeOverview() {
+export default function EmployeeDashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -160,10 +152,6 @@ export default function EmployeeOverview() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Overview</h1>
-      </div>
-
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>

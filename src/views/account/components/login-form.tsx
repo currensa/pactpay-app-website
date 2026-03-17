@@ -32,13 +32,14 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
         method: 'personal_sign',
         params: [nonce, addr]
       })
-      const { token } = await api.auth.login({
+      const { token, userId } = await api.auth.login({
         type: 'wallet',
         address: addr,
         nonce,
         signature
       })
       localStorage.setItem('token', token)
+      localStorage.setItem('userId', userId)
       localStorage.setItem('authType', 'wallet')
       localStorage.setItem('authAddress', addr)
       onLoginSuccess()
@@ -113,18 +114,19 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     }
   }
 
-  const handleEmailLogin = async (e: FormEvent) => {
+  const emailLogin = async (e: FormEvent) => {
     e.preventDefault()
     if (!email || !emailCode) return
     setEmailLoginError('')
     setEmailLoginLoading(true)
     try {
-      const { token } = await api.auth.login({
+      const { token, userId } = await api.auth.login({
         type: 'email',
         email,
         code: emailCode
       })
       localStorage.setItem('token', token)
+      localStorage.setItem('userId', userId)
       localStorage.setItem('authType', 'email')
       localStorage.setItem('authEmail', email)
       onLoginSuccess()
@@ -162,7 +164,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           </div>
 
           {/* 邮箱登录表单 */}
-          <form onSubmit={handleEmailLogin} className="flex flex-col gap-[24px]">
+          <form onSubmit={emailLogin} className="flex flex-col gap-[24px]">
             {/* 邮箱输入框 */}
             <div className="flex h-[56px] items-center justify-between overflow-hidden rounded-[16px] bg-[#f5f5f5] px-[16px]">
               <input

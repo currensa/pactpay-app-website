@@ -5,10 +5,10 @@ import { DrawerFooter } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select'
-import * as SelectPrimitive from '@radix-ui/react-select'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/components/ui/use-toast'
 import { canManageMember, MemberRole } from '@/utils/permissions'
+import * as SelectPrimitive from '@radix-ui/react-select'
 import { useEffect, useState } from 'react'
 import { BackendRole, DrawerChanges, Member } from './types'
 
@@ -141,7 +141,7 @@ export function MemberDetailContent({
               <div className="flex items-center gap-3">
                 <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-full">
                   <span className="text-lg font-medium">
-                    {(drawerChanges.name || selectedMember.name)[0].toUpperCase()}
+                    {(drawerChanges.name || selectedMember.name)[0]?.toUpperCase()}
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1">

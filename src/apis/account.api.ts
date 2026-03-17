@@ -47,4 +47,27 @@ export class AccountApi {
     const res = await this.request.post<{ success: boolean }>('/auth/meta-pub', payload)
     return res.data
   }
+
+  async uploadFile(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await this.request.post<{ url: string }>('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+    return res.data.url
+  }
+
+  async getUserAuths(userId: string) {
+    const res = await this.request.get<{
+      list: Array<{
+        id: string
+        userId: string
+        type: string
+        account: string
+        createdAt: string
+        updatedAt: string
+      }>
+    }>(`/auth/users/${userId}/auths`)
+    return res.data.list
+  }
 }

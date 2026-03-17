@@ -242,8 +242,9 @@ export class TransactionApi {
 
   // 获取今日待执行交易列表
   async getReadyToExecuteTodayList(page: number = 1, pageSize: number = 20) {
-    const res = await this.request.get<TransactionListResponse>(`/transaction/${this.orgId}/ready-to-execute-today`, {
-      params: { page, pageSize }
+    const today = new Date().toISOString().split('T')[0]
+    const res = await this.request.get<TransactionListResponse>(`/transaction/${this.orgId}`, {
+      params: { transactionStatus: 'ready', payPeriodStart: today, payPeriodEnd: today, page, pageSize }
     })
     return res.data
   }
