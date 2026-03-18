@@ -1,14 +1,16 @@
 import api from '@/apis'
+import { INVITE_CODE_SESSION_KEY } from '@/views/account/join-invite'
 import { IconArrowLeft, IconLoader2 } from '@tabler/icons-react'
 import { useState } from 'react'
 
 interface JoinOrganizationProps {
   onBack: () => void
   onJoin: () => void
+  initialCode?: string
 }
 
-export default function JoinOrganization({ onBack, onJoin }: JoinOrganizationProps) {
-  const [orgCode, setOrgCode] = useState('')
+export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOrganizationProps) {
+  const [orgCode, setOrgCode] = useState(initialCode ?? '')
   const [showName, setShowName] = useState('')
   const [joinLoading, setJoinLoading] = useState(false)
   const [error, setError] = useState('')
@@ -19,6 +21,7 @@ export default function JoinOrganization({ onBack, onJoin }: JoinOrganizationPro
     setJoinLoading(true)
     try {
       await api.organization.joinOrganization({ code: orgCode.trim(), showName: showName.trim() })
+      sessionStorage.removeItem(INVITE_CODE_SESSION_KEY)
       onJoin()
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to join. Please check your code and try again.')
@@ -59,9 +62,10 @@ export default function JoinOrganization({ onBack, onJoin }: JoinOrganizationPro
           <input
             type="text"
             value={orgCode}
-            onChange={e => setOrgCode(e.target.value)}
+            onChange={e => { if (!initialCode) setOrgCode(e.target.value) }}
+            readOnly={!!initialCode}
             placeholder="Enter Organization Code"
-            className="h-[56px] w-full rounded-[12px] bg-[#f5f5f5] px-[16px] font-['Inter',sans-serif] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none"
+            className={`h-[56px] w-full rounded-[12px] bg-[#f5f5f5] px-[16px] font-['Inter',sans-serif] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none ${initialCode ? 'cursor-default select-none text-[#8d8d93]' : ''}`}
           />
           <p className="font-['Inter',sans-serif] text-[14px] leading-[22px] text-[#8d8d93]">
             {"Don't have a code? Ask your organization admin for an invite link or code."}

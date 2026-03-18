@@ -419,7 +419,7 @@ export default function Dashboard() {
       {/* 团队成员列表 */}
       <CardTitle>Team Members</CardTitle>
       <Card>
-        <CardContent>
+        <CardContent className="p-0">
           <MembersView showInvite={false} />
         </CardContent>
       </Card>

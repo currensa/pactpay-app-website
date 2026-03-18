@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { getMemberStatusDisplayName, memberStatus } from '@/enums/org'
 import useOrganizationStore from '@/stores/organization'
@@ -20,8 +21,7 @@ import type {
   SortField
 } from '@/views/orgs/components/member-detail'
 import { MemberDetailContent } from '@/views/orgs/components/member-detail'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Check, ChevronDown, ChevronUp, ChevronsUpDown, Copy, Download, Edit2, Plus, RefreshCw, Search, Send, Upload, X, XCircle } from 'lucide-react'
+import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Copy, Download, Edit2, Plus, RefreshCw, Search, Send, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface MemberPageProps {
@@ -382,21 +382,6 @@ export default function MemberPage(
       })
     }
   }
-
-  // 下载 CSV 模版
-  const handleDownloadTemplate = () => {
-    const csvContent = 'email\nuser1@example.com\nuser2@example.com'
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', 'pactpay_member_invite_template.csv')
-    link.style.visibility = 'hidden'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
-
   // 触发文件选择
   const handleTriggerFileUpload = () => {
     fileInputRef.current?.click()
@@ -870,11 +855,10 @@ export default function MemberPage(
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
-                  className={`flex h-[30px] w-[30px] items-center justify-center rounded-[10px] text-[13px] leading-[20px] transition-colors ${
-                    currentPage === page
+                  className={`flex h-[30px] w-[30px] items-center justify-center rounded-[10px] text-[13px] leading-[20px] transition-colors ${currentPage === page
                       ? 'bg-[rgba(28,28,38,0.1)] text-[#606067]'
                       : 'text-[#606067] hover:bg-[rgba(0,0,0,0.06)]'
-                  }`}
+                    }`}
                 >
                   {page}
                 </button>

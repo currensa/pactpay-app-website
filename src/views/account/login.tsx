@@ -7,6 +7,7 @@ import BindWallet from './components/bind-wallet'
 import CreateOrgStep1 from './components/create-org-step1'
 import IdentitySelection from './components/identity-selection'
 import IntroSection from './components/intro-section'
+import { INVITE_CODE_SESSION_KEY } from './join-invite'
 import JoinOrganization from './components/join-organization'
 import LoginForm from './components/login-form'
 import SelectOrganization from './components/select-organization'
@@ -48,6 +49,14 @@ export default function Login() {
   /** After login: fetch orgs and decide where to send the user */
   const handleLoginSuccess = async () => {
     setCurrentStep('checking')
+
+    // If user arrived via an invite link, go straight to joinOrg
+    const pendingCode = sessionStorage.getItem(INVITE_CODE_SESSION_KEY)
+    if (pendingCode) {
+      setCurrentStep('joinOrg')
+      return
+    }
+
     try {
       const orgs = await getOrganizations()
 
@@ -155,6 +164,7 @@ export default function Login() {
       case 'joinOrg':
         return (
           <JoinOrganization
+            initialCode={sessionStorage.getItem(INVITE_CODE_SESSION_KEY) ?? undefined}
             onBack={() => setCurrentStep('identity')}
             onJoin={handleJoinOrgSuccess}
           />

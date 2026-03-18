@@ -30,6 +30,7 @@ export interface OrgNavItem {
 }
 
 const Login = lazy(() => import('@/views/account/login'))
+const JoinInvite = lazy(() => import('@/views/account/join-invite'))
 
 const EmployeeDashboard = lazy(() => import('@/views/employee/dashboard'))
 const EmployeeOrgsDetail = lazy(() => import('@/views/employee/orgsdetail'))
@@ -61,6 +62,10 @@ type RouteItem = RouteObject & {
 const routes: RouteItem[] = [
   {
     index: true, element: <Navigate to="/account/login" />
+  },
+  {
+    path: 'join/:code',
+    element: <JoinInvite />,
   },
   {
     path: 'account',
