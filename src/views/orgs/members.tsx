@@ -1,7 +1,5 @@
 import apis from '@/apis'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -11,10 +9,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Drawer, DrawerContent } from '@/components/ui/drawer'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { getMemberStatusDisplayName, memberStatus } from '@/enums/org'
 import useOrganizationStore from '@/stores/organization'
@@ -25,7 +20,8 @@ import type {
   SortField
 } from '@/views/orgs/components/member-detail'
 import { MemberDetailContent } from '@/views/orgs/components/member-detail'
-import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Download, Edit2, FileSpreadsheet, Link, Mail, Plus, Search, Upload, X, XCircle } from 'lucide-react'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Check, ChevronDown, ChevronUp, ChevronsUpDown, Copy, Download, Edit2, Plus, RefreshCw, Search, Send, Upload, X, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface MemberPageProps {
@@ -65,6 +61,8 @@ export default function MemberPage(
   const [sendingInvites, setSendingInvites] = useState(false)
   const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null)
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false)
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
@@ -481,417 +479,397 @@ export default function MemberPage(
     }
   }
 
+  // Helper: status badge
+  const StatusBadge = ({ status }: { status: memberStatus }) => {
+    if (status === memberStatus.ACTIVE) {
+      return (
+        <span className="inline-flex items-center rounded-[8px] bg-[rgba(93,221,34,0.12)] px-[7px] py-[2px] text-[12px] leading-[18px] text-[#5ddd22] whitespace-nowrap">
+          Active
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center rounded-[8px] bg-[rgba(255,168,0,0.12)] px-[7px] py-[2px] text-[12px] leading-[18px] text-[#ffa800] whitespace-nowrap">
+        {getMemberStatusDisplayName(status)}
+      </span>
+    )
+  }
+
+  // Helper: sort icon
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField === field) {
+      return sortDirection === 'asc'
+        ? <ChevronUp className="h-[14px] w-[14px] text-[#1c1c26]" />
+        : <ChevronDown className="h-[14px] w-[14px] text-[#1c1c26]" />
+    }
+    return <ChevronsUpDown className="h-[14px] w-[14px] text-[#8d8d93]" />
+  }
+
+  const ROLES: Array<MemberRole | 'All'> = ['All', 'Owner', 'Admin', 'Operator', 'Employee']
+  const STATUSES: Array<memberStatus | 'All'> = ['All', memberStatus.ACTIVE, memberStatus.ACTIVATION, memberStatus.REVIEW]
+
   return (
-    <div className="flex h-full flex-col">
-      {/* 工具栏 */}
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div className="max-w-md flex-1 space-y-4">
-          <div className="relative">
-            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
-            <Input
-              placeholder="Search by name, email, or wallet..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+    <div className="flex flex-col gap-[16px] h-full bg-white rounded-[32px] p-[20px]">
+
+      {/* ── Invite Members section ─────────────────────────────────────── */}
+      {showInvite && inviteSectionOpen && (
+        <div className="bg-[#f5f5f5] rounded-[20px] px-[20px] pt-[16px] pb-[20px] flex flex-col gap-[16px] shrink-0">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[24px] text-[#1c1c26]">
+              Invite Members
+            </p>
+            <button
+              onClick={() => { handleTriggerFileUpload() }}
+              className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#ebebeb] transition-colors"
+            >
+              <Download className="h-[14px] w-[14px]" />
+              Batch Import
+            </button>
+            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
+          </div>
+
+          {/* Two-column cards */}
+          <div className="flex gap-[20px]">
+            {/* Organization Invitation */}
+            <div className="flex flex-1 flex-col gap-[12px] rounded-[16px] border-[0.5px] border-[rgba(0,0,0,0.1)] bg-white p-[16px]">
+              <div className="flex flex-col gap-[6px]">
+                <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Organization Invitation</p>
+                <div className="flex flex-col gap-[6px] rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px]">
+                  <div className="flex items-center justify-between">
+                    <p className="flex-1 truncate text-[13px] leading-[20px] text-[#1c1c26]">{inviteCode}</p>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(inviteCode); toast({ description: 'Invite code copied.' }) }}
+                      className="ml-[8px] text-[#8d8d93] hover:text-[#1c1c26] transition-colors shrink-0"
+                    >
+                      <Copy className="h-[16px] w-[16px]" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="flex-1 truncate text-[13px] leading-[20px] text-[#1c1c26]">{inviteLink}</p>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(inviteLink); toast({ description: 'Invite link copied.' }) }}
+                      className="ml-[8px] text-[#8d8d93] hover:text-[#1c1c26] transition-colors shrink-0"
+                    >
+                      <Copy className="h-[16px] w-[16px]" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleRegenerateInvite}
+                className="flex w-fit items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#ebebeb] transition-colors"
+              >
+                <RefreshCw className="h-[14px] w-[14px]" />
+                Regenerate
+              </button>
+            </div>
+
+            {/* Email Invitation */}
+            <div className="flex flex-1 flex-col gap-[12px] rounded-[16px] border-[0.5px] border-[rgba(0,0,0,0.1)] bg-white p-[16px]">
+              <div className="flex flex-1 flex-col gap-[6px]">
+                <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Email Invitation</p>
+                <textarea
+                  value={emailInvites}
+                  onChange={e => setEmailInvites(e.target.value)}
+                  placeholder="Enter emails (comma-separated)"
+                  className="flex-1 min-h-[64px] w-full resize-none rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
+                />
+              </div>
+              <button
+                onClick={handleSendEmailInvites}
+                className="flex w-fit items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity"
+              >
+                <Send className="h-[14px] w-[14px]" />
+                Send Email
+              </button>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* 导出按钮 */}
-          <Button variant="outline" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export List
-          </Button>
-          {/* 邀请按钮 */}
-          {showInvite && <Button onClick={() => setInviteSectionOpen(!inviteSectionOpen)} className="w-[160px] justify-center">
-            {inviteSectionOpen ? (
-              <>
-                <X className="mr-2 h-4 w-4" />
-                Hide
-              </>
-            ) : (
-              <>
-                <Plus className="mr-2 h-4 w-4" />
-                Invite Members
-              </>
+      )}
+
+      {/* ── Toolbar ────────────────────────────────────────────────────── */}
+      <div className="flex shrink-0 items-center justify-between">
+        {/* Left: Search + Role + Status */}
+        <div className="flex items-center gap-[10px]">
+          {/* Search */}
+          <div className="flex h-[36px] w-[260px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]">
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search by name, email..."
+              className="flex-1 bg-transparent text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#8d8d93] outline-none"
+            />
+            <Search className="h-[16px] w-[16px] text-[#8d8d93] shrink-0" />
+          </div>
+
+          {/* Role dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => { setRoleDropdownOpen(v => !v); setStatusDropdownOpen(false) }}
+              className="flex h-[36px] w-[120px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]"
+            >
+              <span className={`text-[13px] leading-[20px] ${roleFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
+                {roleFilter === 'All' ? 'Role' : roleFilter}
+              </span>
+              <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${roleDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {roleDropdownOpen && (
+              <div className="absolute left-0 top-full z-20 mt-[4px] w-[120px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg overflow-hidden">
+                {ROLES.map(r => (
+                  <button
+                    key={r}
+                    onClick={() => { setRoleFilter(r); setRoleDropdownOpen(false) }}
+                    className={`w-full px-[12px] py-[8px] text-left text-[13px] leading-[20px] hover:bg-[#f5f5f5] transition-colors ${roleFilter === r ? 'text-[#5e85ee]' : 'text-[#1c1c26]'}`}
+                  >
+                    {r === 'All' ? 'All Roles' : r}
+                  </button>
+                ))}
+              </div>
             )}
-          </Button>}
+          </div>
+
+          {/* Status dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => { setStatusDropdownOpen(v => !v); setRoleDropdownOpen(false) }}
+              className="flex h-[36px] w-[120px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]"
+            >
+              <span className={`text-[13px] leading-[20px] ${statusFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
+                {statusFilter === 'All' ? 'Status' : getMemberStatusDisplayName(statusFilter as memberStatus)}
+              </span>
+              <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {statusDropdownOpen && (
+              <div className="absolute left-0 top-full z-20 mt-[4px] w-[160px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg overflow-hidden">
+                {STATUSES.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => { setStatusFilter(s); setStatusDropdownOpen(false) }}
+                    className={`w-full px-[12px] py-[8px] text-left text-[13px] leading-[20px] hover:bg-[#f5f5f5] transition-colors ${statusFilter === s ? 'text-[#5e85ee]' : 'text-[#1c1c26]'}`}
+                  >
+                    {s === 'All' ? 'All Statuses' : getMemberStatusDisplayName(s as memberStatus)}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Hide + Export */}
+        <div className="flex items-center gap-[10px]">
+          {showInvite && (
+            <button
+              onClick={() => setInviteSectionOpen(v => !v)}
+              className="flex items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity"
+            >
+              {inviteSectionOpen
+                ? <X className="h-[14px] w-[14px]" />
+                : <Plus className="h-[14px] w-[14px]" />}
+              {inviteSectionOpen ? 'Hide' : 'Invite Members'}
+            </button>
+          )}
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+          >
+            <Download className="h-[14px] w-[14px]" />
+            Export
+          </button>
         </div>
       </div>
 
-      {/* 邀请模块 */}
-      {inviteSectionOpen && (
-        <Card className="mb-4 overflow-hidden border-2">
-          <div className="bg-muted/30 flex border-b">
-            <button
-              onClick={() => setActiveInviteTab('link')}
-              className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${activeInviteTab === 'link' ? 'bg-background border-b-primary border-b-2' : 'hover:bg-muted/50'
-                }`}
-            >
-              <Link className="h-4 w-4" />
-              Invite Link
-            </button>
-            <button
-              onClick={() => setActiveInviteTab('email')}
-              className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${activeInviteTab === 'email' ? 'bg-background border-b-primary border-b-2' : 'hover:bg-muted/50'
-                }`}
-            >
-              <Mail className="h-4 w-4" />
-              Email Invite
-            </button>
-            <button
-              onClick={() => setActiveInviteTab('batch')}
-              className={`flex flex-1 items-center justify-center gap-2 py-3 text-sm font-medium transition-colors ${activeInviteTab === 'batch' ? 'bg-background border-b-primary border-b-2' : 'hover:bg-muted/50'
-                }`}
-            >
-              <FileSpreadsheet className="h-4 w-4" />
-              Batch Invite
-            </button>
-          </div>
-          <CardContent className="p-6">
-            {activeInviteTab === 'link' && (
-              <div className="mx-auto max-w-2xl space-y-4">
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground text-xs uppercase">Organization Invite Code</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={inviteCode}
-                      readOnly
-                      className="bg-muted/30 select-all font-mono"
-                      onClick={e => (e.target as HTMLInputElement).select()}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(inviteCode)
-                        toast({ title: 'Copied', description: 'Invite code copied to clipboard' })
-                      }}
-                    >
-                      Copy
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground text-xs uppercase">Invitation Link</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={inviteLink}
-                      readOnly
-                      className="bg-muted/30 select-all font-mono"
-                      onClick={e => (e.target as HTMLInputElement).select()}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(inviteLink)
-                        toast({ title: 'Copied', description: 'Invite link copied to clipboard' })
-                      }}
-                    >
-                      Copy
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex justify-center pt-2">
-                  <Button variant="ghost" size="sm" onClick={handleRegenerateInvite} className="text-xs">
-                    Regenerate invitation credentials
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {activeInviteTab === 'email' && (
-              <div className="mx-auto max-w-2xl space-y-4">
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground text-xs uppercase">Email Addresses</Label>
-                  <textarea
-                    className="border-input ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[120px] w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                    placeholder="Enter email addresses separated by commas (e.g. alex@example.com, sara@example.com)"
-                    value={emailInvites}
-                    onChange={e => setEmailInvites(e.target.value)}
-                  />
-                </div>
-                <Button onClick={handleSendEmailInvites} className="w-full">
-                  Send Email Invitations
-                </Button>
-              </div>
-            )}
-
-            {activeInviteTab === 'batch' && (
-              <div className="mx-auto max-w-2xl space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground text-xs uppercase">Upload CSV File</Label>
-                  <div
-                    onClick={handleTriggerFileUpload}
-                    className="bg-muted/20 hover:bg-muted/40 group flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 transition-all hover:border-primary/50"
-                  >
-                    <div className="bg-primary/10 group-hover:bg-primary/20 mb-4 flex h-12 w-12 items-center justify-center rounded-full transition-colors">
-                      <Upload className="text-primary h-6 w-6" />
-                    </div>
-                    <p className="mb-1 text-sm font-medium">Click to upload or drag and drop</p>
-                    <p className="text-muted-foreground text-xs text-center">CSV file with an "email" column (max 5MB)</p>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileUpload}
-                      accept=".csv"
-                      className="hidden"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-4 rounded-lg border bg-blue-50/50 p-4 dark:bg-blue-950/20">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 flex h-8 w-8 items-center justify-center rounded-full dark:bg-blue-900">
-                      <FileSpreadsheet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Need a template?</p>
-                      <p className="text-muted-foreground text-xs">Download our CSV template to ensure correct formatting.</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="bg-background">
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Template
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 成员列表表格 */}
-      <Card className="mb-4">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
+      {/* ── Table ──────────────────────────────────────────────────────── */}
+      <div className={`flex-1 min-h-0 overflow-x-auto ${refreshing ? 'opacity-50 pointer-events-none' : ''}`}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>
+                <button onClick={() => handleSort('name')} className="flex items-center gap-[4px]">
+                  Member <SortIcon field="name" />
+                </button>
+              </TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>
+                <button onClick={() => handleSort('serviceFee')} className="flex items-center gap-[4px]">
+                  Service Fee{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''} <SortIcon field="serviceFee" />
+                </button>
+              </TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>
+                <button onClick={() => handleSort('lastPayment')} className="flex items-center gap-[4px]">
+                  Last Payment <SortIcon field="lastPayment" />
+                </button>
+              </TableHead>
+              <TableHead>Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
               <TableRow>
-                <TableHead className="hover:bg-muted/50 cursor-pointer" onClick={() => handleSort('name')}>
-                  <div className="flex items-center gap-2">
-                    Name
-                    {sortField === 'name' &&
-                      (sortDirection === 'asc' ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      ))}
-                    {sortField !== 'name' && <ChevronsUpDown className="h-4 w-4 opacity-50" />}
-                  </div>
-                </TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 px-2">
-                        Role
-                        {roleFilter !== 'All' && <span className="ml-2 text-xs">✓</span>}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => setRoleFilter('All')}>All Roles</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setRoleFilter('Owner')}>Owner</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setRoleFilter('Admin')}>Admin</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setRoleFilter('Operator')}>Operator</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setRoleFilter('Employee')}>Employee</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableHead>
-                <TableHead className="hover:bg-muted/50 cursor-pointer" onClick={() => handleSort('serviceFee')}>
-                  <div className="flex items-center gap-2">
-                    Amount{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
-                    {sortField === 'serviceFee' &&
-                      (sortDirection === 'asc' ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      ))}
-                    {sortField !== 'serviceFee' && <ChevronsUpDown className="h-4 w-4 opacity-50" />}
-                  </div>
-                </TableHead>
-                <TableHead>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 px-2">
-                        Status
-                        {statusFilter !== 'All' && <span className="ml-2 text-xs">✓</span>}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => setStatusFilter('All')}>All Statuses</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setStatusFilter(memberStatus.ACTIVE)}>Active</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setStatusFilter(memberStatus.ACTIVATION)}>Pending activation</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setStatusFilter(memberStatus.REVIEW)}>Pending review</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableHead>
-                <TableHead className="hover:bg-muted/50 cursor-pointer" onClick={() => handleSort('lastPayment')}>
-                  <div className="flex items-center gap-2">
-                    Last Payment
-                    {sortField === 'lastPayment' &&
-                      (sortDirection === 'asc' ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      ))}
-                    {sortField !== 'lastPayment' && <ChevronsUpDown className="h-4 w-4 opacity-50" />}
-                  </div>
-                </TableHead>
-                <TableHead>Approval</TableHead>
+                <TableCell colSpan={7} className="text-center py-[40px] text-[#8d8d93]">Loading...</TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody className={refreshing ? 'opacity-50 pointer-events-none' : undefined}>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center">
-                    Loading...
-                  </TableCell>
-                </TableRow>
-              ) : paginatedMembers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <Search className="text-muted-foreground h-12 w-12" />
-                      <p className="font-medium">No members found</p>
-                      <p className="text-muted-foreground text-sm">Try adjusting your search or filters.</p>
+            ) : paginatedMembers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7}>
+                  <div className="flex flex-col items-center justify-center gap-[8px] py-[40px]">
+                    <Search className="h-[40px] w-[40px] text-[#8d8d93]" />
+                    <p className="text-[13px] font-medium leading-[20px] text-[#1c1c26]">No members found</p>
+                    <p className="text-[13px] leading-[20px] text-[#8d8d93]">Try adjusting your search or filters.</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedMembers.map(member => (
+                <TableRow key={member.id} className="cursor-pointer" onClick={() => openMemberDrawer(member)}>
+                  {/* Member */}
+                  <TableCell>
+                    <div className="flex items-center gap-[6px]">
+                      {member.avatar ? (
+                        <img src={member.avatar} alt={member.name} className="h-[28px] w-[28px] rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full bg-[#e8eefe]">
+                          <span className="text-[12px] font-medium text-[#5e85ee]">{member.name?.[0]?.toUpperCase() || '?'}</span>
+                        </div>
+                      )}
+                      <span className="max-w-[120px] truncate">{member.name || '—'}</span>
                     </div>
                   </TableCell>
-                </TableRow>
-              ) : (
-                paginatedMembers.map(member => (
-                  <TableRow key={member.id} className="cursor-pointer" onClick={() => openMemberDrawer(member)}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full">
-                          <span className="text-sm font-medium">{member.name?.[0]?.toUpperCase()}</span>
-                        </div>
-                        <span className="font-medium">{member.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{member.email || "-"}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          member.role === 'Owner' ? 'default'
-                            : member.role === 'Admin' ? 'default'
-                              : member.role === 'Operator' ? 'secondary'
-                                : 'outline'
-                        }
-                      >
-                        {member.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="group relative" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center gap-2">
-                        <span>{member.serviceFee}{payrollTokenSymbol ? ` ${payrollTokenSymbol}` : ''}</span>
-                        <Edit2
-                          className="h-3 w-3 cursor-pointer opacity-0 transition-opacity group-hover:opacity-100"
-                          onClick={() => {
-                            setEditingField(member.id)
-                            setEditingValue(member.serviceFee.toString())
-                          }}
-                        />
-                      </div>
-                      {editingField === member.id && (
+                  {/* Email */}
+                  <TableCell className="max-w-[200px] truncate">{member.email || '—'}</TableCell>
+                  {/* Role */}
+                  <TableCell>{member.role || '—'}</TableCell>
+                  {/* Service Fee */}
+                  <TableCell onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-[4px]">
+                      {editingField === member.id ? (
                         <Input
                           type="number"
                           value={editingValue}
                           onChange={e => setEditingValue(e.target.value)}
-                          onBlur={() => {
-                            handleEditServiceFee(member, editingValue)
-                            setEditingField(null)
-                          }}
+                          onBlur={() => { handleEditServiceFee(member, editingValue); setEditingField(null) }}
                           onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              handleEditServiceFee(member, editingValue)
-                              setEditingField(null)
-                            } else if (e.key === 'Escape') {
-                              setEditingField(null)
-                            }
+                            if (e.key === 'Enter') { handleEditServiceFee(member, editingValue); setEditingField(null) }
+                            else if (e.key === 'Escape') setEditingField(null)
                           }}
-                          className="h-8 w-24"
+                          className="h-[26px] w-[90px]"
                           autoFocus
                         />
+                      ) : (
+                        <>
+                          <span className="whitespace-nowrap">
+                            {member.serviceFee}{payrollTokenSymbol ? ` ${payrollTokenSymbol}` : ''}
+                          </span>
+                          <button
+                            onClick={() => { setEditingField(member.id); setEditingValue(member.serviceFee.toString()) }}
+                            className="text-[#8d8d93] hover:text-[#5e85ee] transition-colors"
+                          >
+                            <Edit2 className="h-[15px] w-[15px]" />
+                          </button>
+                        </>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          member.status === memberStatus.ACTIVE
-                            ? 'success'
-                            : (member.status === memberStatus.ACTIVATION || member.status === memberStatus.REVIEW)
-                              ? 'warning'
-                              : 'secondary'
-                        }
+                    </div>
+                  </TableCell>
+                  {/* Status */}
+                  <TableCell><StatusBadge status={member.status} /></TableCell>
+                  {/* Last Payment */}
+                  <TableCell>
+                    {member.lastPayment ? new Date(member.lastPayment).toLocaleDateString('zh-CN').replace(/\//g, '/') : '—'}
+                  </TableCell>
+                  {/* Action */}
+                  <TableCell onClick={e => e.stopPropagation()}>
+                    {member.status === memberStatus.REVIEW && hasPermission(currentUserRole, Permission.APPROVE_MEMBER) ? (
+                      <div className="flex items-center gap-[6px]">
+                        <button
+                          onClick={() => handleApprove(member)}
+                          className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] bg-[#5e85ee] hover:opacity-90 transition-opacity"
+                        >
+                          <Check className="h-[18px] w-[18px] text-white" />
+                        </button>
+                        <button
+                          onClick={() => handleReject(member)}
+                          className="flex h-[30px] w-[30px] items-center justify-center rounded-[10px] border border-[rgba(0,0,0,0.12)] bg-white hover:bg-[#f5f5f5] transition-colors"
+                        >
+                          <X className="h-[18px] w-[18px] text-[#1c1c26]" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => openMemberDrawer(member)}
+                        className="text-[13px] leading-[20px] text-[#5e85ee] hover:opacity-80 transition-opacity whitespace-nowrap"
                       >
-                        {getMemberStatusDisplayName(member.status)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{member.lastPayment ? new Date(member.lastPayment).toLocaleDateString() : '-'}</TableCell>
-                    <TableCell onClick={e => e.stopPropagation()} className="space-x-2">
-                      {member.status === memberStatus.REVIEW &&
-                        hasPermission(currentUserRole, Permission.APPROVE_MEMBER) && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => handleApprove(member)}
-                            >
-                              <Check className="h-4 w-4 text-green-500" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => handleReject(member)}
-                            >
-                              <XCircle className="h-4 w-4 text-red-500" />
-                            </Button>
-                          </>
-                        )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                        View Details
+                      </button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
-      {/* 分页 */}
+      {/* ── Pagination ─────────────────────────────────────────────────── */}
       {!loading && total > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-sm">
-            Showing {(currentPage - 1) * pageSize + 1}-
-            {Math.min(currentPage * pageSize, total)} of {total}{' '}
-            members
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
+        <div className="flex shrink-0 items-center justify-between">
+          <p className="text-[13px] leading-[20px] text-[#606067]">{total.toLocaleString()} Members</p>
+          <div className="flex items-center gap-[4px]">
+            <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
+              className="flex h-[30px] w-[30px] items-center justify-center rounded-[6px] text-[#606067] hover:bg-[rgba(0,0,0,0.06)] disabled:opacity-30 transition-colors"
             >
-              Previous
-            </Button>
-            <span className="text-sm">
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
+              ‹
+            </button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              let page: number
+              if (totalPages <= 5) {
+                page = i + 1
+              } else if (currentPage <= 3) {
+                page = i + 1
+              } else if (currentPage >= totalPages - 2) {
+                page = totalPages - 4 + i
+              } else {
+                page = currentPage - 2 + i
+              }
+              return (
+                <button
+                  key={page}
+                  onClick={() => setCurrentPage(page)}
+                  className={`flex h-[30px] w-[30px] items-center justify-center rounded-[10px] text-[13px] leading-[20px] transition-colors ${
+                    currentPage === page
+                      ? 'bg-[rgba(28,28,38,0.1)] text-[#606067]'
+                      : 'text-[#606067] hover:bg-[rgba(0,0,0,0.06)]'
+                  }`}
+                >
+                  {page}
+                </button>
+              )
+            })}
+            {totalPages > 5 && currentPage < totalPages - 2 && (
+              <>
+                <span className="flex h-[30px] w-[30px] items-center justify-center text-[#606067]">…</span>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  className="flex h-[30px] w-[30px] items-center justify-center rounded-[6px] text-[13px] leading-[20px] text-[#606067] hover:bg-[rgba(0,0,0,0.06)] transition-colors"
+                >
+                  {totalPages}
+                </button>
+              </>
+            )}
+            <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
+              className="flex h-[30px] w-[30px] items-center justify-center rounded-[6px] text-[#606067] hover:bg-[rgba(0,0,0,0.06)] disabled:opacity-30 transition-colors"
             >
-              Next
-            </Button>
+              ›
+            </button>
           </div>
         </div>
       )}
 
-      {/* 成员详情 Drawer */}
+      {/* ── Member Detail Drawer ────────────────────────────────────────── */}
       <Drawer open={drawerOpen} onOpenChange={handleDrawerClose}>
         <DrawerContent className="max-h-screen">
           <div className="overflow-y-auto py-4">
@@ -901,133 +879,70 @@ export default function MemberPage(
                 currentUserRole={currentUserRole}
                 payrollTokenSymbol={payrollTokenSymbol}
                 onDrawerClose={() => setDrawerOpen(false)}
-                onRemoveMember={member => {
-                  setMemberToRemove(member)
-                  setRemoveMemberDialogOpen(true)
-                }}
-                onSaveSuccess={updatedMember => {
-                  setMembers(prev =>
-                    prev.map(m => (m.id === updatedMember.id ? updatedMember : m))
-                  )
-                }}
+                onRemoveMember={member => { setMemberToRemove(member); setRemoveMemberDialogOpen(true) }}
+                onSaveSuccess={updatedMember => setMembers(prev => prev.map(m => m.id === updatedMember.id ? updatedMember : m))}
               />
             )}
           </div>
         </DrawerContent>
       </Drawer>
 
-      {/* 重新生成邀请码确认对话框 */}
+      {/* ── Regenerate dialog ───────────────────────────────────────────── */}
       <Dialog open={regenerateDialogOpen} onOpenChange={setRegenerateDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Regenerate Organization Invitation</DialogTitle>
             <DialogDescription>
-              Are you sure you want to regenerate the organization invitation? The old code and link will no longer
-              work.
+              Are you sure you want to regenerate the organization invitation? The old code and link will no longer work.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmRegenerate}>
-              Regenerate
-            </Button>
+            <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleConfirmRegenerate}>Regenerate</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 邮箱邀请确认对话框 */}
-      <Dialog
-        open={emailInviteDialogOpen}
-        onOpenChange={open => {
-          if (!sendingInvites) {
-            setEmailInviteDialogOpen(open)
-            if (!open) {
-              setPendingEmails([])
-            }
-          }
-        }}
-      >
+      {/* ── Email invite confirm dialog ─────────────────────────────────── */}
+      <Dialog open={emailInviteDialogOpen} onOpenChange={open => { if (!sendingInvites) { setEmailInviteDialogOpen(open); if (!open) setPendingEmails([]) } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Send Email Invitations</DialogTitle>
             <DialogDescription>
-              {sendingInvites ? (
-                <span>Sending invitations...</span>
-              ) : (
-                <span>The following email addresses will receive invitation emails:</span>
-              )}
+              {sendingInvites ? 'Sending invitations...' : 'The following email addresses will receive invitation emails:'}
             </DialogDescription>
           </DialogHeader>
           {!sendingInvites && (
-            <div className="max-h-60 overflow-y-auto">
-              <div className="space-y-2">
-                {pendingEmails.map((email, index) => (
-                  <div key={index} className="bg-muted/50 flex items-center gap-2 rounded-md px-3 py-2">
-                    <span className="text-sm">{email}</span>
-                  </div>
-                ))}
-              </div>
+            <div className="max-h-60 overflow-y-auto space-y-2">
+              {pendingEmails.map((email, i) => (
+                <div key={i} className="rounded-md bg-[#f5f5f5] px-3 py-2 text-sm">{email}</div>
+              ))}
             </div>
           )}
           {sendingInvites && (
             <div className="flex items-center justify-center py-8">
-              <div className="flex flex-col items-center gap-2">
-                <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
-                <p className="text-muted-foreground text-sm">Sending invitations...</p>
-              </div>
+              <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
             </div>
           )}
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEmailInviteDialogOpen(false)
-                setPendingEmails([])
-              }}
-              disabled={sendingInvites}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmSendInvites} disabled={sendingInvites}>
-              {sendingInvites ? 'Sending...' : 'Send Invitations'}
-            </Button>
+            <Button variant="outline" onClick={() => { setEmailInviteDialogOpen(false); setPendingEmails([]) }} disabled={sendingInvites}>Cancel</Button>
+            <Button onClick={handleConfirmSendInvites} disabled={sendingInvites}>{sendingInvites ? 'Sending...' : 'Send Invitations'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* 删除成员确认对话框 */}
-      <Dialog
-        open={removeMemberDialogOpen}
-        onOpenChange={open => {
-          setRemoveMemberDialogOpen(open)
-          if (!open) {
-            setMemberToRemove(null)
-          }
-        }}
-      >
+      {/* ── Remove member dialog ────────────────────────────────────────── */}
+      <Dialog open={removeMemberDialogOpen} onOpenChange={open => { setRemoveMemberDialogOpen(open); if (!open) setMemberToRemove(null) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Remove Member</DialogTitle>
             <DialogDescription>
-              {memberToRemove &&
-                `Are you sure you want to remove ${memberToRemove.name}? They will no longer receive payments from this organization.`}
+              {memberToRemove && `Are you sure you want to remove ${memberToRemove.name}? They will no longer receive payments from this organization.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setRemoveMemberDialogOpen(false)
-                setMemberToRemove(null)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmRemove}>
-              Remove Member
-            </Button>
+            <Button variant="outline" onClick={() => { setRemoveMemberDialogOpen(false); setMemberToRemove(null) }}>Cancel</Button>
+            <Button variant="destructive" onClick={handleConfirmRemove}>Remove Member</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -169,6 +169,8 @@ export default function EmployeeSettings() {
       <ChangeEmailDialog
         open={showChangeEmail}
         onClose={() => setShowChangeEmail(false)}
+        onSuccess={(boundEmail) => setEmail(boundEmail)}
+        userId={uid}
         currentEmail={email}
         mode={email ? 'change' : 'bind'}
       />

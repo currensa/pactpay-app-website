@@ -342,13 +342,8 @@ export default function Dashboard() {
       </div>
 
       {/* 今日执行任务区域 */}
+      <CardTitle>Today's Executions Section</CardTitle>
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Today's Executions</CardTitle>
-            <span className="text-muted-foreground text-xs">Execution Layer</span>
-          </div>
-        </CardHeader>
         <CardContent>
           {todayTransactions.length === 0 ? (
             <div className="text-muted-foreground py-8 text-center">No transactions ready to execute today</div>
@@ -422,10 +417,8 @@ export default function Dashboard() {
       </Card>
 
       {/* 团队成员列表 */}
+      <CardTitle>Team Members</CardTitle>
       <Card>
-        <CardHeader>
-          <CardTitle>Team Members</CardTitle>
-        </CardHeader>
         <CardContent>
           <MembersView showInvite={false} />
         </CardContent>

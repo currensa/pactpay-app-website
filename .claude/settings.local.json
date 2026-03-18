@@ -3,7 +3,9 @@
     "allow": [
       "Bash(grep -r \"interface.*OrganizationPaymentAccount\\\\|interface.*PaymentAccountsResponse\\\\|interface.*BindSafeWalletPayload\" \"C:/Users/zhong/Desktop/project/pactpay-app-website/src\" --include=\"*.ts\" --include=\"*.tsx\" 2>/dev/null | head -20)",
       "mcp__plugin_figma_figma__get_design_context",
-      "Bash(npx shadcn@latest add popover --yes)"
+      "Bash(npx shadcn@latest add popover --yes)",
+      "mcp__plugin_figma_figma__get_screenshot",
+      "mcp__plugin_figma_figma__create_design_system_rules"
     ]
   }
 }

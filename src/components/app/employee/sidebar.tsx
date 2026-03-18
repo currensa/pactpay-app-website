@@ -33,6 +33,7 @@ export default function EmployeeSidebar() {
             state: {
               orgId: organization.orgId,
               orgName: organization.orgName,
+              desc: organization.desc,
               memberId: member.memberId
             }
           }),

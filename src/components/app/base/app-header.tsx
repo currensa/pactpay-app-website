@@ -19,7 +19,14 @@ export default function AppHeader() {
   const navigate = useNavigate()
   const { disconnect } = useDisconnect()
 
-  const meta = useMemo(() => getRouteMeta(location.pathname) ?? {}, [location.pathname])
+  const meta = useMemo(() => {
+    const routeMeta = getRouteMeta(location.pathname) ?? {}
+    const state = location.state as { orgName?: string; desc?: string } | null
+    if (state?.orgName) {
+      return { ...routeMeta, title: state.orgName, subtitle: state.desc ?? routeMeta.subtitle }
+    }
+    return routeMeta
+  }, [location.pathname, location.state])
 
   async function handleLogout() {
     await disconnect()
