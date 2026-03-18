@@ -1,34 +1,177 @@
+import type { TransactionPlan } from '@/apis/transaction.api'
 import { Button } from '@/components/ui/button'
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { IconAlertTriangle } from '@tabler/icons-react'
-import { Transaction } from './types'
+import { erc20Abi, vaultAbi } from '@/lib/vault-abi'
+import useChainAssetStore from '@/stores/chain-asset'
+import { useState } from 'react'
+import { createPublicClient, createWalletClient, custom, http, type Hex } from 'viem'
+import type { Transaction } from './types'
+
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ethereum?: any
+  }
+}
+
+const ETH_SENTINEL = '0x0000000000000000000000000000000000000000' as Hex
+
+type DepositStatus = 'idle' | 'connecting' | 'checking' | 'approving' | 'depositing' | 'done' | 'error'
+
+const STEP_LABELS: Record<DepositStatus, string> = {
+  idle: 'Connect & Deposit',
+  connecting: 'Connecting wallet…',
+  checking: 'Checking allowance…',
+  approving: 'Waiting for approve…',
+  depositing: 'Waiting for deposit…',
+  done: 'Done',
+  error: 'Retry',
+}
 
 interface ExecuteConfirmDialogContentProps {
   executingTransaction: Transaction | null
+  transactionPlan: TransactionPlan | null
   onCancel: () => void
-  onConfirm: () => void
+  /** Called with the deposit txHash after the on-chain tx is confirmed. */
+  onSuccess: (txHash: string) => void
 }
 
 export function ExecuteConfirmDialogContent({
   executingTransaction,
+  transactionPlan,
   onCancel,
-  onConfirm,
+  onSuccess,
 }: ExecuteConfirmDialogContentProps) {
+  const { chainAssets, getChainAssetByToken, getChain } = useChainAssetStore()
+  const [status, setStatus] = useState<DepositStatus>('idle')
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const isBusy = ['connecting', 'checking', 'approving', 'depositing'].includes(status)
+  const progressSteps: DepositStatus[] = ['checking', 'approving', 'depositing']
+
+  async function handleDeposit() {
+    if (!transactionPlan) return
+    setErrorMsg('')
+    setStatus('connecting')
+
+    try {
+      // ── 1. Connect wallet ─────────────────────────────────────────────────
+      if (!window.ethereum) throw new Error('MetaMask not detected. Please install it first.')
+      const accounts: string[] = await window.ethereum.request({ method: 'eth_requestAccounts' })
+      const account = accounts[0] as Hex
+
+      // ── 2. Resolve chain info ─────────────────────────────────────────────
+      const chainEntry = getChain(transactionPlan.caipChainId)
+      if (!chainEntry) throw new Error(`Chain ${transactionPlan.caipChainId} is not found in chain list.`)
+      if (!chainEntry.vaultAddress) {
+        throw new Error(`Vault contract is not configured for chain ${transactionPlan.caipChainId}.`)
+      }
+
+      const numericChainId = parseInt(chainEntry.chainId, 10)
+      const vaultAddress = chainEntry.vaultAddress as Hex
+      const tokenAddress = (transactionPlan.tokenAddress || ETH_SENTINEL) as Hex
+      const merkleRoot = transactionPlan.merkleRoot as Hex
+      const rpcUrl = (chainEntry.rpcUrls as string[])[0]
+
+      // ── 3. Switch network if needed ───────────────────────────────────────
+      const currentChainIdHex: string = await window.ethereum.request({ method: 'eth_chainId' })
+      if (parseInt(currentChainIdHex, 16) !== numericChainId) {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: `0x${numericChainId.toString(16)}` }],
+        })
+      }
+
+      // ── 4. Resolve token isNative + decimals ─────────────────────────────
+      const chainAssetEntry = getChainAssetByToken(transactionPlan.caipChainId, tokenAddress)
+      const isNative = chainAssetEntry?.isNative ?? false
+      const tokenDecimals = chainAssetEntry?.decimals ?? 18
+
+      // ── 5. Total amount：使用后端预计算的总额（含服务费），已是 token 最小单位 ──
+      if (!transactionPlan.totalAmount || BigInt(transactionPlan.totalAmount) <= 0n) {
+        throw new Error('Total payroll amount is zero.')
+      }
+      const totalAmount = BigInt(transactionPlan.totalAmount)
+
+      // Build a minimal viem chain object from store data
+      const viemChain = {
+        id: numericChainId,
+        name: chainEntry.name,
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        rpcUrls: { default: { http: chainEntry.rpcUrls as string[] } },
+      } as const
+
+      const walletClient = createWalletClient({
+        account,
+        chain: viemChain as any,
+        transport: custom(window.ethereum),
+      })
+      const publicClient = createPublicClient({
+        chain: viemChain as any,
+        transport: http(rpcUrl),
+      })
+
+      // ── 6. Approve (ERC-20 only) ──────────────────────────────────────────
+      if (!isNative) {
+        setStatus('checking')
+        const allowance = await publicClient.readContract({
+          address: tokenAddress,
+          abi: erc20Abi,
+          functionName: 'allowance',
+          args: [account, vaultAddress],
+        })
+
+        if (allowance < totalAmount) {
+          setStatus('approving')
+          const approveTx = await walletClient.writeContract({
+            address: tokenAddress,
+            abi: erc20Abi,
+            functionName: 'approve',
+            args: [vaultAddress, totalAmount],
+          })
+          await publicClient.waitForTransactionReceipt({ hash: approveTx })
+        }
+      }
+
+      // ── 7. depositForPayroll ──────────────────────────────────────────────
+      setStatus('depositing')
+      const depositTx = await walletClient.writeContract({
+        address: vaultAddress,
+        abi: vaultAbi,
+        functionName: 'depositForPayroll',
+        args: [merkleRoot, tokenAddress, totalAmount],
+        ...(isNative ? { value: totalAmount } : {}),
+      })
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
+      if (receipt.status !== 'success') throw new Error('depositForPayroll transaction reverted.')
+
+      setStatus('done')
+      onSuccess(depositTx)
+    } catch (err: any) {
+      setErrorMsg(err?.shortMessage || err?.message || String(err))
+      setStatus('error')
+    }
+  }
+
+  // Determine step state for progress indicator
+  const stepIndex = (s: DepositStatus) => progressSteps.indexOf(s)
+  const currentIndex = stepIndex(status as DepositStatus)
+
   return (
     <div className="flex flex-col space-y-4">
       <DialogHeader>
-        <DialogTitle>Execute Transaction</DialogTitle>
+        <DialogTitle>Confirm Execute</DialogTitle>
         <DialogDescription>
-          Please confirm that you want to execute this transaction on Safe Wallet.
+          Connect your HR wallet to execute approve + depositForPayroll on-chain.
         </DialogDescription>
       </DialogHeader>
 
       {executingTransaction && (
-        <div className="space-y-4 py-4">
-          {/* Transaction 摘要 */}
+        <div className="space-y-4 py-2">
+          {/* Summary */}
           <div className="bg-muted space-y-2 rounded-lg p-4">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Transaction Name:</span>
+              <span className="text-muted-foreground text-sm">Batch Name:</span>
               <span className="text-sm font-medium">{executingTransaction.name}</span>
             </div>
             <div className="flex items-center justify-between">
@@ -38,30 +181,53 @@ export function ExecuteConfirmDialogContent({
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground text-sm">Total Amount:</span>
               <span className="text-sm font-medium">
-                ${executingTransaction.totalAmount} {executingTransaction.currency}
+                {executingTransaction.totalAmount} {executingTransaction.currency}
               </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">Network:</span>
+              <span className="text-sm font-medium">{executingTransaction.network}</span>
             </div>
           </div>
 
-          {/* 警告提示 */}
-          <div className="flex items-start gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3">
-            <IconAlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-orange-600" />
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-orange-900">Important Notice</p>
-              <p className="text-xs text-orange-800">
-                You will need to pay gas fees when executing this transaction on Safe Wallet. Make sure you have
-                sufficient funds in your wallet.
-              </p>
+          {/* Progress steps */}
+          {status !== 'idle' && status !== 'error' && (
+            <div className="flex items-center gap-2 text-xs">
+              {progressSteps.map((s, i) => {
+                const si = stepIndex(s)
+                const done = status === 'done' || currentIndex > si
+                const active = status === s
+                return (
+                  <div
+                    key={s}
+                    className={`flex items-center gap-1 ${active ? 'text-blue-500' : done ? 'text-emerald-600' : 'text-muted-foreground'
+                      }`}
+                  >
+                    {i > 0 && <span className="text-muted-foreground">→</span>}
+                    <span>{['allowance', 'approve', 'deposit'][i]}</span>
+                    {done && <span>✓</span>}
+                  </div>
+                )
+              })}
             </div>
-          </div>
+          )}
+
+          {/* Error message */}
+          {status === 'error' && errorMsg && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              {errorMsg}
+            </div>
+          )}
         </div>
       )}
 
       <div className="flex items-center justify-end gap-3">
-        <Button variant="outline" onClick={onCancel}>
+        <Button variant="outline" onClick={onCancel} disabled={isBusy}>
           Cancel
         </Button>
-        <Button onClick={onConfirm}>Execute</Button>
+        <Button onClick={handleDeposit} disabled={isBusy || status === 'done'}>
+          {isBusy ? STEP_LABELS[status] : STEP_LABELS[status]}
+        </Button>
       </div>
     </div>
   )

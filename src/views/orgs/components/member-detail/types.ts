@@ -1,30 +1,31 @@
-// 类型定义
-export type MemberRole = 'Admin' | 'Operator' | 'Member'
-export type MemberStatus = 'Active' | 'Pending' | 'Inactive'
+import { memberStatus } from '@/enums/org'
+import { MemberRole } from '@/utils/permissions'
+
+export type { MemberRole }
 export type SortField = 'name' | 'serviceFee' | 'lastPayment' | null
 export type SortDirection = 'asc' | 'desc' | null
+
+/** Backend role values (authoritative) */
+export type BackendRole = 'Owner' | 'Admin' | 'Operator' | 'Employee'
 
 export interface Member {
   id: string
   memberId: string
   name: string
   email: string
-  receivingWallet: string | null
-  network: string
   role: MemberRole
   roles?: MemberRole[]
   serviceFee: number
-  currency?: string
-  status: MemberStatus
+  status: memberStatus
   lastPayment: string | null
   joinDate: string
   avatar?: string
 }
 
 export interface DrawerChanges {
-  receivingWallet?: string
-  serviceFee?: number
-  currency?: string
+  name?: string
+  /** Raw amount string, e.g. "1000000000" */
+  amount?: string
+  roles?: BackendRole[]
   role?: MemberRole
-  roles?: MemberRole[]
 }

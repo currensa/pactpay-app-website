@@ -1,27 +1,31 @@
-import AppHeader from '@/components/app/base/app-header'
 import AuthChecker from '@/components/app/base/auth-checker'
+import AppHeader from '@/components/app/base/app-header'
 import OrgSidebar from '@/components/app/orgs/sidebar'
-import { SidebarProvider } from '@/components/ui/sidebar'
-import { Outlet } from 'react-router-dom'
+import useOrganizationStore from '@/stores/organization'
+import { Navigate, Outlet } from 'react-router-dom'
+
+function OrgGuard({ children }: { children: React.ReactNode }) {
+  const currentOrgId = useOrganizationStore(s => s.currentOrgId)
+  if (!currentOrgId) {
+    return <Navigate to="/account/login" replace />
+  }
+  return <>{children}</>
+}
 
 export default function OrgLayout() {
   return (
     <AuthChecker>
-      <div className="flex min-h-screen">
-        <SidebarProvider>
-          {/* Sidebar content */}
+      <OrgGuard>
+        <div className="flex h-screen overflow-hidden bg-[#f5f5f5] gap-[24px] p-[24px]">
           <OrgSidebar />
-          <div className="flex h-full flex-1 flex-col">
-            <header className="bg-background h-16 shrink-0 border-b">
-              {/* Header content */}
-              <AppHeader />
-            </header>
-            <main className="flex-1 overflow-auto px-3 py-4">
+          <div className="flex flex-1 flex-col min-w-0 gap-[24px] overflow-hidden">
+            <AppHeader />
+            <main className="flex-1 overflow-y-auto">
               <Outlet />
             </main>
           </div>
-        </SidebarProvider>
-      </div>
+        </div>
+      </OrgGuard>
     </AuthChecker>
   )
 }

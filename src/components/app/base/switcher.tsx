@@ -1,6 +1,7 @@
 // 左上角组织切换器
-import { ChevronsUpDown, Plus } from 'lucide-react'
+import { ArrowRightLeft, ChevronsUpDown } from 'lucide-react'
 import * as React from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import {
   DropdownMenu,
@@ -23,6 +24,7 @@ export function OrganizationSwitcher({
   }[]
 }) {
   const { isMobile } = useSidebar()
+  const navigate = useNavigate()
   const [activeTeam, setActiveTeam] = React.useState(organizations[0])
 
   if (!activeTeam) {
@@ -65,11 +67,11 @@ export function OrganizationSwitcher({
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
+            <DropdownMenuItem className="gap-2 p-2" onClick={() => navigate('/account/login')}>
               <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-4" />
+                <ArrowRightLeft className="size-4" />
               </div>
-              <div className="text-muted-foreground font-medium">Add team</div>
+              <div className="text-muted-foreground font-medium">Switch organization</div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

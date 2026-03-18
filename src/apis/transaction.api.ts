@@ -1,103 +1,116 @@
 import { AxiosInstance } from 'axios'
 
+// ── StealthPay 相关接口 ─────────────────────────────────────────────────────
+
+export interface StealthPayrollItem {
+  id: string
+  batchId: string
+  memberId: string
+  stealthAddress: string
+  amount: string
+  tokenAddress: string
+  proof: string[]
+  leaf: string
+  recipient: string | null
+  fee: string | null
+  status: 'pending' | 'submitted' | 'claimed' | 'failed'
+  txHash: string | null
+  createdAt: string
+  updatedAt: string
+  organizationName: string | null
+  transactionName: string | null
+  member?: {
+    showName: string
+    status: string
+  }
+  batch: {
+    id: string
+    caipChainId: string
+    ephemeralPub: string
+    merkleRoot: string
+    tokenAddress: string
+    transactionStatus: string
+    depositTxHash: string | null
+    payPeriod: string
+  }
+}
+
+export interface ConfirmDepositPayload {
+  depositTxHash: string
+}
+
+export interface BatchClaimItem {
+  payrollItemId: string
+  recipient: string
+  fee: string
+  deadline: number
+  signature: string
+}
+
+export interface BatchClaimPayload {
+  items: BatchClaimItem[]
+}
+
+export interface BatchClaimResponse {
+  succeeded: { payrollItemId: string; txUrl: string; transactionName: string }[]
+  failed: { payrollItemId: string; reason: string }[]
+}
+
+export interface SubmitMetaPubPayload {
+  metaPub: string
+}
+
+// ── 原有接口（保留兼容性）──────────────────────────────────────────────────
+
 export interface TransactionPlanMember {
   memberId: string
-  receivingAccountId: number
   amount: string
-  currency: string
 }
 
 export interface CreateTransactionPlanPayload {
   payPeriod: string
-  paymentAccountId: number
   transactionName: string
   members: TransactionPlanMember[]
 }
 
 export interface TransactionItemMember {
-  showName: string
+  id: string
+  orgId: string
+  memberId: string
+  userId: string
+  showName: string | null
+  avatarUrl: string | null
   status: string
-}
-
-export interface TransactionItemReceivingAccount {
-  type: string
-  config: {
-    address: string
-  }
-  status: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
+  lastPayment: string | null
 }
 
 export interface TransactionItem {
-  id: string
-  memberId: string
-  receivingAccountId: string
-  receivingType: string
-  receivingConfig: {
-    address: string
-  }
   amount: string
-  currency: string
-  createdAt: string
-  updatedAt: string
+  id:string
   member: TransactionItemMember
-  receivingAccount: TransactionItemReceivingAccount
 }
 
 export interface TransactionPlan {
   id: string
   orgId: string
-  transactionId: string
+  caipChainId: string
   transactionName: string
   transactionType: string
-  transactionStatus:
-    | 'draft' // 1️⃣ 仅创建了发薪计划，还没 propose
-    | 'proposed' // 2️⃣ 已 propose（有 safeTxHash）
-    | 'confirming' // 3️⃣ 收集中（未达到 threshold）
-    | 'ready' // 4️⃣ 签名满足，可执行
-    | 'executing' // 5️⃣ 执行中
-    | 'success' // 6️⃣ 执行成功
-    | 'failed' // ❌ 执行失败（最终态）
+  /** 所有 item（含服务费）金额之和，token 最小单位字符串 */
+  totalAmount: string
+  transactionStatus: string
   payPeriod: string
+  merkleRoot?: string
+  tokenAddress?: string
+  ephemeralPub?: string
+  depositTxHash: string | null
   createdBy: string
   createdAt: string
-  paymentAccount: {
-    id: string
-    type: string
-    config: {
-      nonce: number
-      owners: string[]
-      address: string
-      chainId: string
-      network: string
-      version: string
-      threshold: number
-    }
-  }
-  items: Array<{
-    id: string
-    memberId: string
-    receivingAccountId: string
-    receivingType: string
-    receivingConfig: {
-      address: string
-    }
-    amount: string
-    currency: string
-    createdAt: string
-    updatedAt: string
-    member: {
-      showName: string
-      status: string
-      userAuths: any[]
-    }
-    receivingAccount: {
-      type: string
-      config: {
-        address: string
-      }
-      status: string
-    }
-  }>
+  deletedAt: string | null
+  items: TransactionItem[]
 }
 
 export interface TransactionPlansResponse {
@@ -111,134 +124,57 @@ export interface CreateTransactionPlanResponse {
   batchId: string
 }
 
-export interface ProposeTransaction {
-  signature: string
-  signerAddress: string
-}
-
-export interface ConfirmTransactionDto {
-  signature: string
-}
-
-export interface SignTransactionDto {
-  safeTxHash: string
-  signature: string
-  signerAddress: string
-  safeMessageHash?: string
-}
-
-export interface RejectTransactionDto {
-  safeTxHash: string
-  signature: string
-  ownerAddress: string
-  reason?: string
-}
-
-export interface StoredSafeTx {
-  safeTxHash: string
-  data: Record<string, any>
-  signatures: Record<string, any>
-}
-
-export interface CreateTransactionResult {
-  safeTxHash: string
-  safeTransaction: StoredSafeTx
-}
-
-export interface TransactionConfirmation {
-  owner?: string
-  signature: string
-  contractTransactionHash?: string
-  submissionDate?: string
-}
-
-export interface MemberPaymentStatistic {
-  currency: string
-  totalReceived: string
-  paymentCount: number
-}
-
-export interface MemberPaymentStatisticsResponse {
-  memberId: string
-  statistics: MemberPaymentStatistic[]
-}
-
-export interface TransactionCheckResponse {
-  canExecute: boolean
-  transaction: {
-    to: string
-    data: string
-    safe: string
-    nonce: number | string
-    value: string
-    baseGas: string
-    gasPrice: string
-    gasToken: string
-    operation: number
-    safeTxGas: string
-    safeTxHash: string
-    confirmations: TransactionConfirmation[]
-    refundReceiver: string
-    signatures?: Record<string, any>
-    isExecuted?: boolean
-    isSuccessful?: boolean
-    transactionHash?: string // 链上交易哈希
-    executionDate?: string // 执行时间
-    fee?: string // 交易费用
-    gasUsed?: number // 使用的 gas
-  }
-  chainId: string
-  safe: string
-  threshold: number
-  transactionStatus:TransactionPlan['transactionStatus'],
-  rejections?: TransactionConfirmation[]
-}
-
-export interface ModifySafeOwnerParams {
-  paymentAccountId: number
-  operationType: 'add_owner' | 'remove_owner' | 'change_threshold' | 'swap_owner'
-  addOwnerParams?: {
-    ownerAddress: string
-    threshold?: number
-  }
-  removeOwnerParams?: {
-    ownerAddress: string
-    threshold?: number
-  }
-  changeThresholdParams?: {
-    threshold: number
-  }
-  swapOwnerParams?: {
-    oldOwnerAddress: string
-    newOwnerAddress: string
-  }
-}
-
-export interface ModifySafeOwnerResponse {
-  safeTxHash: string
-  safeTransaction: StoredSafeTx
-}
-
 export interface PayrollBatch {
   id: string
   orgId: string
   paymentAccountId: string
   transactionId: string
   transactionName: string
-  transactionType: 'safe_transaction' | 'safe_config'
+  transactionType: 'stealth'
   transactionStatus: string
+  merkleRoot?: string
+  token?: string
+  ephemeralPub?: string
+  depositTxHash?: string
   payPeriod: string
   createdBy: string
   createdAt: string
   deletedAt: string | null
 }
 
+export interface TransactionListItem {
+  id: string
+  orgId: string
+  caipChainId: string
+  transactionId?: string
+  transactionName?: string
+  transactionType: string
+  transactionStatus: string
+  payPeriod: string
+  merkleRoot?: string
+  tokenAddress?: string
+  ephemeralPub?: string
+  depositTxHash: string | null
+  createdBy: string
+  createdAt: string
+  deletedAt?: string | null
+  items: TransactionItem[]
+  totalAmount: string
+}
+
+export interface TransactionListResponse {
+  data: TransactionListItem[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+
 export class TransactionApi {
   constructor(private readonly request: AxiosInstance) {}
-  // 统一获取 organizationId（作为 getter，更简洁）
+
   private get orgId(): string {
-    const orgId = localStorage.getItem('organizationId')
-    return orgId || ''
+    return localStorage.getItem('organizationId') || ''
   }
 
   // 交易计划列表查询
@@ -248,10 +184,6 @@ export class TransactionApi {
     })
     return res.data
   }
-  // async getTransactionPlans() {
-  //   const res = await this.request.get<TransactionPlansResponse>(`/transaction/${this.orgId}`)
-  //   return res.data
-  // }
 
   // 获取单个交易计划详情
   async getTransactionPlanDetail(transaction_id: string) {
@@ -259,7 +191,7 @@ export class TransactionApi {
     return res.data
   }
 
-  // 创建交易计划
+  // 创建交易计划（StealthPay）
   async createTransactionPlan(plan: CreateTransactionPlanPayload) {
     const res = await this.request.post<CreateTransactionPlanResponse>(`/transaction/${this.orgId}/plan`, plan)
     return res.data
@@ -271,97 +203,48 @@ export class TransactionApi {
     return res.data
   }
 
-  // 获取交易哈希
-  async getTransactionHash(transaction_id: string) {
-    const res = await this.request.get<{ txHash: string }>(`/transaction/${this.orgId}/${transaction_id}/getTxHash`)
-    return res.data
-  }
-
-  // 创建交易并返回 safeTxHash
-  async createTransactionFromBatch(batchId: string) {
-    const res = await this.request.post<CreateTransactionResult>(
-      `/transaction/${this.orgId}/batch/${batchId}/create-transaction`
+  // HR 确认 deposit（StealthPay）
+  async confirmDeposit(batchId: string, depositTxHash: string) {
+    const res = await this.request.patch<{ success: boolean }>(
+      `/transaction/${this.orgId}/batch/${batchId}/confirm-deposit`,
+      { depositTxHash }
     )
     return res.data
   }
 
-  // 同步交易状态
-  async getSyncStatus(safeAddress: string) {
-    const res = await this.request.get<{ status: string }>(`/transaction/sync-status/${safeAddress}`)
-    return res.data
-  }
-
-  // 发起交易
-  async proposeTransaction(transaction_id: string, ProposeTransaction: ProposeTransaction) {
-    const res = await this.request.post<{ success: boolean; safeTxHash: string }>(
-      `/transaction/${this.orgId}/${transaction_id}/propose`,
-      ProposeTransaction
+  // 员工查询自己的工资明细（StealthPay，跨所有组织）
+  async getMyPayrollItems(params: {
+    status?: 'pending' | 'submitted' | 'claimed' | 'failed'
+    page?: number
+    pageSize?: number
+  } = {}) {
+    const res = await this.request.get<{ data: StealthPayrollItem[]; total: number }>(
+      `/transaction/my-payroll-items`,
+      { params }
     )
     return res.data
   }
 
-  // 确认交易
-  async confirmTransaction(safeTxHash: string, confirmData: ConfirmTransactionDto) {
-    const res = await this.request.post<{ success: boolean }>(`/transaction/confirm/${safeTxHash}`, confirmData)
-    return res.data
-  }
-
-  // 检查交易状态
-  async checkTransaction(safeTxHash: string) {
-    const res = await this.request.get<TransactionCheckResponse>(`/transaction/check/${safeTxHash}`)
-    return res.data
-  }
-
-  // 执行交易
-  async executeTransaction(safeTxHash: string) {
-    const res = await this.request.post<{ transactionHash: string }>(`/transaction/execute/${safeTxHash}`)
-    return res.data
-  }
-
-  // 签名交易
-  async signTransaction(signData: SignTransactionDto) {
-    const res = await this.request.post<{ success: boolean }>(`/transaction/sign-transaction`, signData)
-    return res.data
-  }
-
-  // 拒绝交易
-  async rejectTransaction(rejectData: RejectTransactionDto) {
-    const res = await this.request.post<{ success: boolean }>(`/transaction/reject-transaction`, rejectData)
-    return res.data
-  }
-
-  // 查询待处理的 Safe Wallet 交易
-  async getPendingSafeTransaction(paymentAccountId?: string) {
-    const res = await this.request.get<PayrollBatch | null>(`/transaction/${this.orgId}/pending-safe-transaction`, {
-      params: { paymentAccountId }
-    })
-    return res.data
-  }
-
-  // 修改 Safe 钱包所有者配置
-  async modifySafeOwner(data: ModifySafeOwnerParams) {
-    const res = await this.request.post<ModifySafeOwnerResponse>(`/transaction/${this.orgId}/modify-safe-owner`, data)
+  // 员工批量提交 claim（StealthPay，proof 由后端从 DB 获取）
+  async batchClaim(data: BatchClaimPayload) {
+    const res = await this.request.post<BatchClaimResponse>(`/transaction/claims/batch`, data)
     return res.data
   }
 
   // 获取成员支付统计
   async getMemberPaymentStatistics(memberId: string) {
-    const res = await this.request.get<MemberPaymentStatisticsResponse>(
-      `/transaction/${this.orgId}/members/${memberId}/payment-statistics`
-    )
+    const res = await this.request.get<{
+      memberId: string
+      statistics: { currency: string; totalReceived: string; paymentCount: number }[]
+    }>(`/transaction/${this.orgId}/members/${memberId}/payment-statistics`)
     return res.data
   }
 
-  // 获取支付账户余额
-  async getPaymentAccountBalance(paymentAccountId: number, symbol?: string) {
-    const res = await this.request.get<{
-      symbol: string
-      balanceWei: string
-      balanceFormatted: string
-      isNative: boolean
-      decimals: number
-    }>(`/transaction/${this.orgId}/payment-accounts/${paymentAccountId}/safe-balance`, {
-      params: symbol ? { symbol } : undefined
+  // 获取今日待执行交易列表
+  async getReadyToExecuteTodayList(page: number = 1, pageSize: number = 20) {
+    const today = new Date().toISOString().split('T')[0]
+    const res = await this.request.get<TransactionListResponse>(`/transaction/${this.orgId}`, {
+      params: { transactionStatus: 'ready', payPeriodStart: today, payPeriodEnd: today, page, pageSize }
     })
     return res.data
   }
