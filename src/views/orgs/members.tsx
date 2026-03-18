@@ -49,8 +49,9 @@ export default function MemberPage(
   const [selectedMember, setSelectedMember] = useState<Member | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [inviteSectionOpen, setInviteSectionOpen] = useState(false)
-  const [inviteCode, setInviteCode] = useState('ORG-A3K9-7B2M')
-  const [inviteLink, setInviteLink] = useState('https://pactpay.com/join/eng-team/inv-x9k2...')
+  const [inviteCodeLoading, setInviteCodeLoading] = useState(false)
+  const [inviteCode, setInviteCode] = useState('')
+  const [inviteLink, setInviteLink] = useState('')
   const [emailInvites, setEmailInvites] = useState('')
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState('')
@@ -339,6 +340,24 @@ export default function MemberPage(
     }
   }
 
+  // 加载邀请码
+  const loadInviteCode = async () => {
+    try {
+      setInviteCodeLoading(true)
+      const data = await apis.organization.getOrganizationInviteCode()
+      setInviteCode(data.code)
+      setInviteLink(`${window.location.origin}/join/${data.code}`)
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.message || 'Failed to load invite code.',
+        variant: 'destructive',
+      })
+    } finally {
+      setInviteCodeLoading(false)
+    }
+  }
+
   // 打开重新生成确认对话框
   const handleRegenerateInvite = () => {
     setRegenerateDialogOpen(true)
@@ -536,24 +555,30 @@ export default function MemberPage(
               <div className="flex flex-col gap-[6px]">
                 <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Organization Invitation</p>
                 <div className="flex flex-col gap-[6px] rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px]">
-                  <div className="flex items-center justify-between">
-                    <p className="flex-1 truncate text-[13px] leading-[20px] text-[#1c1c26]">{inviteCode}</p>
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(inviteCode); toast({ description: 'Invite code copied.' }) }}
-                      className="ml-[8px] text-[#8d8d93] hover:text-[#1c1c26] transition-colors shrink-0"
-                    >
-                      <Copy className="h-[16px] w-[16px]" />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="flex-1 truncate text-[13px] leading-[20px] text-[#1c1c26]">{inviteLink}</p>
-                    <button
-                      onClick={() => { navigator.clipboard.writeText(inviteLink); toast({ description: 'Invite link copied.' }) }}
-                      className="ml-[8px] text-[#8d8d93] hover:text-[#1c1c26] transition-colors shrink-0"
-                    >
-                      <Copy className="h-[16px] w-[16px]" />
-                    </button>
-                  </div>
+                  {inviteCodeLoading ? (
+                    <p className="text-[13px] leading-[20px] text-[#8d8d93]">Loading...</p>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <p className="flex-1 truncate text-[13px] leading-[20px] text-[#1c1c26]">{inviteCode}</p>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(inviteCode); toast({ description: 'Invite code copied.' }) }}
+                          className="ml-[8px] text-[#8d8d93] hover:text-[#1c1c26] transition-colors shrink-0"
+                        >
+                          <Copy className="h-[16px] w-[16px]" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="flex-1 truncate text-[13px] leading-[20px] text-[#1c1c26]">{inviteLink}</p>
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(inviteLink); toast({ description: 'Invite link copied.' }) }}
+                          className="ml-[8px] text-[#8d8d93] hover:text-[#1c1c26] transition-colors shrink-0"
+                        >
+                          <Copy className="h-[16px] w-[16px]" />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
               <button
@@ -660,13 +685,21 @@ export default function MemberPage(
         <div className="flex items-center gap-[10px]">
           {showInvite && (
             <button
-              onClick={() => setInviteSectionOpen(v => !v)}
-              className="flex items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity"
+              onClick={async () => {
+                if (!inviteSectionOpen) {
+                  setInviteSectionOpen(true)
+                  await loadInviteCode()
+                } else {
+                  setInviteSectionOpen(false)
+                }
+              }}
+              disabled={inviteCodeLoading}
+              className="flex items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
             >
               {inviteSectionOpen
                 ? <X className="h-[14px] w-[14px]" />
                 : <Plus className="h-[14px] w-[14px]" />}
-              {inviteSectionOpen ? 'Hide' : 'Invite Members'}
+              {inviteSectionOpen ? 'Hide' : inviteCodeLoading ? 'Loading...' : 'Invite Members'}
             </button>
           )}
           <button
