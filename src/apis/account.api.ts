@@ -15,8 +15,9 @@ interface EmailLoginRequest {
 
 export interface SubmitMetaPubRequest {
   address: string
-  metaPub: string
+  signMessage: string
   signature: string
+  metaPub: string
 }
 
 export class AccountApi {
@@ -40,6 +41,16 @@ export class AccountApi {
 
   async getMetaPubStatus() {
     const res = await this.request.get<{ submitted: boolean }>('/auth/meta-pub')
+    return res.data
+  }
+
+  async getMetaPubSignMessage() {
+    const res = await this.request.get<{ signMessage: string }>('/auth/meta-pub/sign-message')
+    return res.data
+  }
+
+  async getMySignMessage() {
+    const res = await this.request.get<{ signMessage: string }>('/auth/meta-pub/my-sign-message')
     return res.data
   }
 

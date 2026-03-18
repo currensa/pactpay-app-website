@@ -30,24 +30,19 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
     setError('')
     setLoading(true)
     try {
-      // Step 1: sign a fixed seed to derive metaPriv deterministically
-      const seedSig = await walletProvider.request<string>({
+      // Step 1: get signMessage from server
+      const { signMessage } = await api.auth.getMetaPubSignMessage()
+
+      // Step 2: sign → derive metaPriv → derive metaPub (all local, nothing uploaded)
+      const signature = await walletProvider.request<string>({
         method: 'personal_sign',
-        params: ['PactPay MetaKey v1', address]
+        params: [signMessage, address]
       })
-      const metaPriv = ethers.keccak256(ethers.getBytes(seedSig))
+      const metaPriv = ethers.keccak256(ethers.getBytes(signature))
       const metaPub = getMetaPublicKey(metaPriv)
 
-      // Step 2: sign metaPub so backend can verify ownership.
-      // Wrap in a readable prefix and hex-encode the UTF-8 bytes so MetaMask
-      // displays human-readable text instead of raw binary gibberish.
-      const metaPubMessage = `PactPay MetaKey Registration:\n${metaPub}`
-      const metaPubSig = await walletProvider.request<string>({
-        method: 'personal_sign',
-        params: [ethers.hexlify(ethers.toUtf8Bytes(metaPubMessage)), address]
-      })
-
-      await api.auth.submitMetaPub({ address, metaPub, signature: metaPubSig })
+      // Step 3: submit
+      await api.auth.submitMetaPub({ address, signMessage, signature, metaPub })
       setMetaPubSubmitted(true)
       onSuccess()
     } catch (err: any) {
@@ -102,7 +97,7 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
         </button>
 
         <p className="text-[13px] leading-[20px] text-[#8d8d93]">
-          This will prompt two wallet signatures: one to derive your meta key, and one to prove ownership.
+          This will prompt one wallet signature to derive and register your meta key.
           No transaction will be sent.
         </p>
       </div>

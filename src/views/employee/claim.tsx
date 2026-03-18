@@ -22,9 +22,10 @@ const PAGE_SIZE = 10
 type StatusTab = 'pending' | 'failed'
 
 async function deriveMetaPrivKey(walletProvider: Provider, address: string): Promise<`0x${string}`> {
+  const { signMessage } = await apis.auth.getMySignMessage()
   const sig = await walletProvider.request<string>({
     method: 'personal_sign',
-    params: ['PactPay MetaKey v1', address],
+    params: [signMessage, address],
   }) as `0x${string}`
   return ethers.keccak256(ethers.getBytes(sig)) as `0x${string}`
 }
