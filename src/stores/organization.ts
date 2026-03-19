@@ -16,10 +16,19 @@ interface OrganizationState {
   reset: () => void
 }
 
+function loadCurrentMember(): OrganizationMember | null {
+  try {
+    const raw = localStorage.getItem('currentMember')
+    return raw ? (JSON.parse(raw) as OrganizationMember) : null
+  } catch {
+    return null
+  }
+}
+
 const useOrganizationStore = create<OrganizationState>((set) => ({
   organizations: [],
   currentOrgId: localStorage.getItem('organizationId'),
-  currentMember: null,
+  currentMember: loadCurrentMember(),
   payrollTokenSymbol: null,
   getOrganizations: async () => {
     const organizations = await apis.organization.getOrganizations()
@@ -28,6 +37,7 @@ const useOrganizationStore = create<OrganizationState>((set) => ({
   },
   setCurrentOrg: (orgId: string, member: OrganizationMember) => {
     localStorage.setItem('organizationId', orgId)
+    localStorage.setItem('currentMember', JSON.stringify(member))
     set({ currentOrgId: orgId, currentMember: member })
   },
   fetchPayrollTokenSymbol: async () => {
@@ -46,6 +56,7 @@ const useOrganizationStore = create<OrganizationState>((set) => ({
   },
   reset: () => {
     localStorage.removeItem('organizationId')
+    localStorage.removeItem('currentMember')
     set({ organizations: [], currentOrgId: null, currentMember: null, payrollTokenSymbol: null })
   },
 }))

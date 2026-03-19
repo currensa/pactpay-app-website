@@ -1,5 +1,4 @@
-import { Button } from '@/components/ui/button'
-import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { X } from 'lucide-react'
 import { Transaction } from './types'
 
 interface ExecuteSuccessDialogContentProps {
@@ -8,62 +7,75 @@ interface ExecuteSuccessDialogContentProps {
   onClose: () => void
 }
 
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[14px] leading-[22px] text-[#606067]">{label}</span>
+      <span className="text-[14px] leading-[22px] text-[#1c1c26]">{children}</span>
+    </div>
+  )
+}
+
 export function ExecuteSuccessDialogContent({
   depositTxHash,
   executingTransaction,
   onClose,
 }: ExecuteSuccessDialogContentProps) {
   return (
-    <div className="flex flex-col space-y-4">
-      <DialogHeader>
-        <DialogTitle>Deposit Confirmed</DialogTitle>
-        <DialogDescription>The deposit has been confirmed. Employees can now claim their payments.</DialogDescription>
-      </DialogHeader>
+    <div className="flex flex-col gap-[20px]">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">Transaction Confirmed</span>
+        <button
+          onClick={onClose}
+          className="flex items-center justify-center w-[28px] h-[28px] rounded-full hover:bg-[#f5f5f5] transition-colors"
+        >
+          <X size={16} className="text-[#606067]" />
+        </button>
+      </div>
 
-      <div className="space-y-4 py-4">
-        {/* Success notice */}
-        <div className="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-3">
-          <div className="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600">✓</div>
-          <div className="space-y-1 min-w-0 flex-1">
-            <p className="text-sm font-medium text-green-900">Deposit Confirmed Successfully</p>
-            <p className="text-xs text-green-800 break-words">
-              The Merkle root has been deposited to the vault. Employees can now use their stealth keys to claim
-              their payments via the relayer.
-            </p>
-          </div>
+      {/* Success indicator */}
+      <div className="flex items-center gap-[10px] bg-[rgba(93,221,34,0.06)] rounded-[12px] px-4 py-3">
+        <div className="flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[rgba(93,221,34,0.15)] shrink-0">
+          <svg width="14" height="11" viewBox="0 0 14 11" fill="none">
+            <path d="M1 5.5L5 9.5L13 1.5" stroke="#5ddd22" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </div>
-
-        {/* Batch name */}
-        {executingTransaction && (
-          <div className="bg-muted rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Batch:</span>
-              <span className="text-sm font-medium">{executingTransaction.name}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Deposit tx hash */}
-        {depositTxHash && (
-          <div className="bg-muted rounded-lg p-3 space-y-1">
-            <span className="text-muted-foreground text-sm">Deposit Transaction Hash:</span>
-            <p className="font-mono text-sm font-medium break-all">{depositTxHash}</p>
-          </div>
-        )}
-
-        {/* Next steps */}
-        <div className="text-muted-foreground text-sm">
-          <p className="mb-1 font-medium">Next Steps:</p>
-          <ul className="list-disc space-y-1 pl-5">
-            <li>Employees will see claimable payments in their dashboard</li>
-            <li>Each employee uses their meta private key to recover their stealth key</li>
-            <li>The relayer will process claim requests on behalf of employees</li>
-          </ul>
+        <div>
+          <p className="text-[13px] font-medium text-[#1c1c26] leading-[22px]">Deposit Confirmed</p>
+          <p className="text-[12px] text-[#606067] leading-[20px]">Employees can now claim their payments.</p>
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <Button onClick={onClose}>Done</Button>
+      {/* Summary card */}
+      <div className="bg-[#f5f5f5] rounded-[12px] p-4 flex flex-col gap-[18px]">
+        {executingTransaction && (
+          <>
+            <InfoRow label="Transaction Name">{executingTransaction.name}</InfoRow>
+            <InfoRow label="Pay Day">{executingTransaction.executionDate}</InfoRow>
+            <InfoRow label="Network">{executingTransaction.network}</InfoRow>
+            <InfoRow label="Total Amount">
+              {executingTransaction.totalAmount} {executingTransaction.currency}
+            </InfoRow>
+            <InfoRow label="Total Members">{executingTransaction.members}</InfoRow>
+          </>
+        )}
+        {depositTxHash && (
+          <div className="flex flex-col gap-[4px]">
+            <span className="text-[13px] text-[#606067] leading-[22px]">Tx Hash</span>
+            <span className="text-[12px] text-[#1c1c26] leading-[20px] font-mono break-all">{depositTxHash}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center justify-end">
+        <button
+          onClick={onClose}
+          className="h-[38px] px-[16px] rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity"
+        >
+          Done
+        </button>
       </div>
     </div>
   )

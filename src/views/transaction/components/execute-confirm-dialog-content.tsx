@@ -1,6 +1,5 @@
 import type { TransactionPlan } from '@/apis/transaction.api'
-import { Button } from '@/components/ui/button'
-import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { PayrollTransactionStatus } from '@/enums/transaction'
 import { erc20Abi, vaultAbi } from '@/lib/vault-abi'
 import useChainAssetStore from '@/stores/chain-asset'
 import { useState } from 'react'
@@ -19,11 +18,11 @@ const ETH_SENTINEL = '0x0000000000000000000000000000000000000000' as Hex
 type DepositStatus = 'idle' | 'connecting' | 'checking' | 'approving' | 'depositing' | 'done' | 'error'
 
 const STEP_LABELS: Record<DepositStatus, string> = {
-  idle: 'Connect & Deposit',
-  connecting: 'Connecting wallet…',
+  idle: 'Connect Wallet',
+  connecting: 'Connecting…',
   checking: 'Checking allowance…',
-  approving: 'Waiting for approve…',
-  depositing: 'Waiting for deposit…',
+  approving: 'Approving…',
+  depositing: 'Depositing…',
   done: 'Done',
   error: 'Retry',
 }
@@ -32,8 +31,38 @@ interface ExecuteConfirmDialogContentProps {
   executingTransaction: Transaction | null
   transactionPlan: TransactionPlan | null
   onCancel: () => void
-  /** Called with the deposit txHash after the on-chain tx is confirmed. */
   onSuccess: (txHash: string) => void
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === PayrollTransactionStatus.COMPLETE) {
+    return (
+      <span className="inline-flex items-center rounded-[8px] bg-[rgba(93,221,34,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5ddd22] whitespace-nowrap">
+        Complete
+      </span>
+    )
+  }
+  if (status === PayrollTransactionStatus.PENDING) {
+    return (
+      <span className="inline-flex items-center rounded-[8px] bg-[rgba(255,168,0,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#ffa800] whitespace-nowrap">
+        Pending
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center rounded-[8px] bg-[rgba(94,133,238,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5e85ee] whitespace-nowrap">
+      Ready
+    </span>
+  )
+}
+
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[14px] leading-[22px] text-[#606067]">{label}</span>
+      <span className="text-[14px] leading-[22px] text-[#1c1c26]">{children}</span>
+    </div>
+  )
 }
 
 export function ExecuteConfirmDialogContent({
@@ -42,12 +71,11 @@ export function ExecuteConfirmDialogContent({
   onCancel,
   onSuccess,
 }: ExecuteConfirmDialogContentProps) {
-  const { chainAssets, getChainAssetByToken, getChain } = useChainAssetStore()
+  const { getChainAssetByToken, getChain } = useChainAssetStore()
   const [status, setStatus] = useState<DepositStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
   const isBusy = ['connecting', 'checking', 'approving', 'depositing'].includes(status)
-  const progressSteps: DepositStatus[] = ['checking', 'approving', 'depositing']
 
   async function handleDeposit() {
     if (!transactionPlan) return
@@ -55,12 +83,10 @@ export function ExecuteConfirmDialogContent({
     setStatus('connecting')
 
     try {
-      // ── 1. Connect wallet ─────────────────────────────────────────────────
       if (!window.ethereum) throw new Error('MetaMask not detected. Please install it first.')
       const accounts: string[] = await window.ethereum.request({ method: 'eth_requestAccounts' })
       const account = accounts[0] as Hex
 
-      // ── 2. Resolve chain info ─────────────────────────────────────────────
       const chainEntry = getChain(transactionPlan.caipChainId)
       if (!chainEntry) throw new Error(`Chain ${transactionPlan.caipChainId} is not found in chain list.`)
       if (!chainEntry.vaultAddress) {
@@ -73,7 +99,6 @@ export function ExecuteConfirmDialogContent({
       const merkleRoot = transactionPlan.merkleRoot as Hex
       const rpcUrl = (chainEntry.rpcUrls as string[])[0]
 
-      // ── 3. Switch network if needed ───────────────────────────────────────
       const currentChainIdHex: string = await window.ethereum.request({ method: 'eth_chainId' })
       if (parseInt(currentChainIdHex, 16) !== numericChainId) {
         await window.ethereum.request({
@@ -82,18 +107,14 @@ export function ExecuteConfirmDialogContent({
         })
       }
 
-      // ── 4. Resolve token isNative + decimals ─────────────────────────────
       const chainAssetEntry = getChainAssetByToken(transactionPlan.caipChainId, tokenAddress)
       const isNative = chainAssetEntry?.isNative ?? false
-      const tokenDecimals = chainAssetEntry?.decimals ?? 18
 
-      // ── 5. Total amount：使用后端预计算的总额（含服务费），已是 token 最小单位 ──
       if (!transactionPlan.totalAmount || BigInt(transactionPlan.totalAmount) <= 0n) {
         throw new Error('Total payroll amount is zero.')
       }
       const totalAmount = BigInt(transactionPlan.totalAmount)
 
-      // Build a minimal viem chain object from store data
       const viemChain = {
         id: numericChainId,
         name: chainEntry.name,
@@ -111,7 +132,6 @@ export function ExecuteConfirmDialogContent({
         transport: http(rpcUrl),
       })
 
-      // ── 6. Approve (ERC-20 only) ──────────────────────────────────────────
       if (!isNative) {
         setStatus('checking')
         const allowance = await publicClient.readContract({
@@ -133,7 +153,6 @@ export function ExecuteConfirmDialogContent({
         }
       }
 
-      // ── 7. depositForPayroll ──────────────────────────────────────────────
       setStatus('depositing')
       const depositTx = await walletClient.writeContract({
         address: vaultAddress,
@@ -153,81 +172,65 @@ export function ExecuteConfirmDialogContent({
     }
   }
 
-  // Determine step state for progress indicator
-  const stepIndex = (s: DepositStatus) => progressSteps.indexOf(s)
-  const currentIndex = stepIndex(status as DepositStatus)
-
   return (
-    <div className="flex flex-col space-y-4">
-      <DialogHeader>
-        <DialogTitle>Confirm Execute</DialogTitle>
-        <DialogDescription>
-          Connect your HR wallet to execute approve + depositForPayroll on-chain.
-        </DialogDescription>
-      </DialogHeader>
+    <div className="flex flex-col gap-[20px]">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">Transaction Summary</span>
+      </div>
 
+      {/* Summary card */}
       {executingTransaction && (
-        <div className="space-y-4 py-2">
-          {/* Summary */}
-          <div className="bg-muted space-y-2 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Batch Name:</span>
-              <span className="text-sm font-medium">{executingTransaction.name}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Members:</span>
-              <span className="text-sm font-medium">{executingTransaction.members}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Total Amount:</span>
-              <span className="text-sm font-medium">
-                {executingTransaction.totalAmount} {executingTransaction.currency}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Network:</span>
-              <span className="text-sm font-medium">{executingTransaction.network}</span>
-            </div>
+        <div className="bg-[#f5f5f5] rounded-[12px] p-4 flex flex-col gap-[18px]">
+          <InfoRow label="Transaction Name">{executingTransaction.name}</InfoRow>
+          <InfoRow label="Pay Day">{executingTransaction.executionDate}</InfoRow>
+          <InfoRow label="Network">{executingTransaction.network}</InfoRow>
+          <div className="flex items-center justify-between">
+            <span className="text-[14px] leading-[22px] text-[#606067]">Status</span>
+            <StatusBadge status={executingTransaction.status} />
           </div>
-
-          {/* Progress steps */}
-          {status !== 'idle' && status !== 'error' && (
-            <div className="flex items-center gap-2 text-xs">
-              {progressSteps.map((s, i) => {
-                const si = stepIndex(s)
-                const done = status === 'done' || currentIndex > si
-                const active = status === s
-                return (
-                  <div
-                    key={s}
-                    className={`flex items-center gap-1 ${active ? 'text-blue-500' : done ? 'text-emerald-600' : 'text-muted-foreground'
-                      }`}
-                  >
-                    {i > 0 && <span className="text-muted-foreground">→</span>}
-                    <span>{['allowance', 'approve', 'deposit'][i]}</span>
-                    {done && <span>✓</span>}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Error message */}
-          {status === 'error' && errorMsg && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-              {errorMsg}
-            </div>
-          )}
+          <InfoRow label="Total Amount">
+            {executingTransaction.totalAmount} {executingTransaction.currency}
+          </InfoRow>
+          <InfoRow label="Total Members">{executingTransaction.members}</InfoRow>
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-3">
-        <Button variant="outline" onClick={onCancel} disabled={isBusy}>
-          Cancel
-        </Button>
-        <Button onClick={handleDeposit} disabled={isBusy || status === 'done'}>
-          {isBusy ? STEP_LABELS[status] : STEP_LABELS[status]}
-        </Button>
+      {/* Progress steps */}
+      {isBusy && (
+        <div className="flex items-center gap-[8px] text-[12px] text-[#606067]">
+          {(['checking', 'approving', 'depositing'] as DepositStatus[]).map((s, i) => {
+            const stepIdx = ['checking', 'approving', 'depositing'].indexOf(status)
+            const done = stepIdx > i
+            const active = status === s
+            return (
+              <div key={s} className="flex items-center gap-[4px]">
+                {i > 0 && <span className="text-[rgba(0,0,0,0.2)]">→</span>}
+                <span className={active ? 'text-[#5e85ee] font-medium' : done ? 'text-[#5ddd22]' : 'text-[#8d8d93]'}>
+                  {['Allowance', 'Approve', 'Deposit'][i]}{done ? ' ✓' : ''}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Error */}
+      {status === 'error' && errorMsg && (
+        <div className="rounded-[12px] border border-[rgba(217,43,43,0.2)] bg-[rgba(217,43,43,0.04)] px-4 py-3 text-[13px] text-[#d92b2b]">
+          {errorMsg}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center justify-end">
+        <button
+          onClick={handleDeposit}
+          disabled={isBusy || status === 'done'}
+          className="h-[38px] px-[16px] rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {STEP_LABELS[status]}
+        </button>
       </div>
     </div>
   )

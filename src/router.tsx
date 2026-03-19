@@ -44,7 +44,7 @@ const CreateTransaction = lazy(() => import('@/views/transaction/create-transact
 const Analytics = lazy(() => import('@/views/orgs/analytics'))
 const OrganizationSettings = lazy(() => import('@/views/orgs/settings/organization'))
 const RoleManagement = lazy(() => import('@/views/orgs/roles'))
-const TransactionDetail = lazy(() => import('@/views/transaction/transaction-detail'))
+const TransactionDetailPage = lazy(() => import('@/views/transaction/transaction-detail'))
 
 type RouteItem = RouteObject & {
   meta?: {
@@ -54,6 +54,7 @@ type RouteItem = RouteObject & {
     hideInMenu?: boolean
     [key: string]: string | number | boolean | undefined
   }
+  // (backUrl is managed via useHeaderStore, not meta — kept for reference)
   /** 侧边栏图标，仅顶层菜单项需要 */
   navIcon?: React.ElementType
   children?: RouteItem[]
@@ -92,7 +93,8 @@ const routes: RouteItem[] = [
       { path: 'members', navIcon: IconUsers, element: <Members showInvite />, meta: { title: 'Members', subtitle: 'Manage your organization members' } },
       // { path: 'roles', navIcon: IconShield, element: <RoleManagement />, meta: { title: 'Role Management' } },
       { path: 'transaction', navIcon: IconCashMove, element: <Transaction />, meta: { title: 'Transactions', subtitle: 'View and manage payment transactions' } },
-      { path: 'transaction/create', element: <CreateTransaction />, meta: { title: 'Create Transaction', subtitle: 'Set up a new payment transaction', hideInMenu: true } },
+      { path: 'transaction/create', element: <CreateTransaction />, meta: { title: 'Create New Transaction', hideInMenu: true } },
+      { path: 'transaction/:id', element: <TransactionDetailPage />, meta: { title: 'Transaction Detail', hideInMenu: true } },
       { path: 'analytics', navIcon: IconAlignBoxBottomRight, element: <Analytics />, meta: { title: 'Analytics', subtitle: 'Track your payment analytics', hideInMenu: false } },
       {
         path: 'settings',
@@ -102,7 +104,6 @@ const routes: RouteItem[] = [
       }
     ] as RouteItem[]
   },
-  // { path: 'transaction/:batchId', element: <TransactionDetail />, meta: { title: 'Transaction Detail' } },
   {
     path: 'employee',
     children: [
@@ -122,10 +123,20 @@ const routes: RouteItem[] = [
 
 export const router = createBrowserRouter(routes)
 
+/** Convert a route pattern like "transaction/:id" to a regex that matches real paths */
+function routePatternToRegex(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const withParams = escaped.replace(/:[\w]+/g, '[^/]+')
+  return new RegExp('(^|/)' + withParams + '$')
+}
+
 function findMeta(items: RouteItem[], fullPath: string): RouteItem['meta'] | undefined {
   for (const route of items) {
-    if (route.path && fullPath.endsWith('/' + route.path)) {
-      return route.meta
+    if (route.path) {
+      const pattern = routePatternToRegex(route.path)
+      if (pattern.test(fullPath)) {
+        return route.meta
+      }
     }
     if (route.children) {
       const found = findMeta(route.children as RouteItem[], fullPath)

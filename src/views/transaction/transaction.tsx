@@ -1,6 +1,5 @@
 import apis from '@/apis'
 import { TransactionPlan } from '@/apis/transaction.api'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -12,81 +11,66 @@ import { PayrollTransactionStatus } from '@/enums/transaction'
 import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
-import { IconAlertTriangle, IconFlame, IconPlus, IconTrash } from '@tabler/icons-react'
+import { Permission, useHasPermission } from '@/utils/permissions'
 import { formatUnits } from 'ethers'
-import { Search } from 'lucide-react'
+import { ChevronsUpDown, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   DeleteConfirmDialogContent,
   ExecuteConfirmDialogContent,
   ExecuteSuccessDialogContent,
-  TransactionDetailDialogContent,
 } from './components'
 import type { Transaction } from './components/types'
 
-function getStatusBadge(status: Transaction['status']) {
+function TransactionStatusBadge({ status }: { status: Transaction['status'] }) {
   switch (status) {
     case PayrollTransactionStatus.READY:
-      return <Badge variant="secondary">Ready</Badge>
+      return (
+        <span className="inline-flex items-center rounded-[8px] bg-[rgba(94,133,238,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5e85ee] whitespace-nowrap">
+          Ready
+        </span>
+      )
     case PayrollTransactionStatus.PENDING:
-      return <Badge variant="warning">Pending</Badge>
+      return (
+        <span className="inline-flex items-center rounded-[8px] bg-[rgba(255,168,0,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#ffa800] whitespace-nowrap">
+          Pending
+        </span>
+      )
     case PayrollTransactionStatus.COMPLETE:
-      return <Badge variant="success">Complete</Badge>
+      return (
+        <span className="inline-flex items-center rounded-[8px] bg-[rgba(93,221,34,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5ddd22] whitespace-nowrap">
+          Complete
+        </span>
+      )
     default:
-      return <Badge variant="secondary">{status}</Badge>
+      return (
+        <span className="inline-flex items-center rounded-[8px] bg-[rgba(0,0,0,0.06)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
+          {status}
+        </span>
+      )
   }
-}
-
-function formatRelativeTime(daysRemaining: number | null, isDueToday: boolean, executionDate: string) {
-  if (isDueToday) return 'Due Today'
-  if (daysRemaining !== null && daysRemaining > 0) {
-    return `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining`
-  }
-  if (daysRemaining !== null && daysRemaining < 0) {
-    const daysAgo = Math.abs(daysRemaining)
-    return `${daysAgo} ${daysAgo === 1 ? 'day' : 'days'} ago`
-  }
-  const executionDateObj = new Date(executionDate.replace(/\//g, '-'))
-  const today = new Date()
-  const diffTime = Math.abs(today.getTime() - executionDateObj.getTime())
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-  return `${diffDays} days ago`
-}
-
-function getTimeIcon(daysRemaining: number | null, isDueToday: boolean) {
-  if (isDueToday) return <IconFlame className="size-4 text-orange-500" />
-  if (daysRemaining !== null && daysRemaining <= 3 && daysRemaining > 0) {
-    return <IconAlertTriangle className="size-4 text-orange-500" />
-  }
-  return null
 }
 
 export default function Transaction() {
   const { toast } = useToast()
   const navigate = useNavigate()
+  const hasPermission = useHasPermission()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
 
-  // Deposit 确认弹窗状态
   const [depositConfirmDialogOpen, setDepositConfirmDialogOpen] = useState(false)
   const [depositingTransaction, setDepositingTransaction] = useState<Transaction | null>(null)
   const [depositingTransactionPlan, setDepositingTransactionPlan] = useState<TransactionPlan | null>(null)
   const [depositSuccessDialogOpen, setDepositSuccessDialogOpen] = useState(false)
   const [lastDepositTxHash, setLastDepositTxHash] = useState('')
 
-  // Transaction 详情弹窗状态
-  const [transactionDetailDialogOpen, setTransactionDetailDialogOpen] = useState(false)
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
-  const [transactionDetailMembers, setTransactionDetailMembers] = useState<any[]>([])
 
-  // 删除弹窗状态
   const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false)
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Re-action 弹窗状态
   const [reactionConfirmDialogOpen, setReactionConfirmDialogOpen] = useState(false)
   const [transactionToReaction, setTransactionToReaction] = useState<Transaction | null>(null)
 
@@ -119,12 +103,10 @@ export default function Transaction() {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
     const currency = getTokenSymbol(plan.caipChainId, plan.tokenAddress || '') || plan.tokenAddress || 'USDC'
-    // totalAmount 是后端预计算的含服务费总额（raw token 单位），formatUnits 转为可读金额
     const decimals = getTokenDecimals(plan.caipChainId, plan.tokenAddress || '')
     const totalAmount = formatUnits(BigInt(plan.totalAmount || '0'), decimals)
     const isComplete = plan.transactionStatus === PayrollTransactionStatus.COMPLETE
     const isDueToday = diffDays === 0 && !isComplete
-
     const status = (plan.transactionStatus as Transaction['status']) || PayrollTransactionStatus.READY
 
     return {
@@ -155,19 +137,12 @@ export default function Transaction() {
       setTotalPages(Math.ceil(response.total / itemsPerPage))
       setTotalCount(response.total)
     } catch {
-      toast({
-        title: 'Error',
-        description: 'Failed to load transactions. Please try again.',
-        variant: 'destructive'
-      })
+      toast({ title: 'Error', description: 'Failed to load transactions. Please try again.', variant: 'destructive' })
     }
   }
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, statusFilter])
+  useEffect(() => { setCurrentPage(1) }, [searchQuery, statusFilter])
 
-  // 处理 Deposit 点击（draft → 链上执行）
   const handleDepositClick = (transaction: Transaction) => {
     const plan = rawTransactionPlans.find(p => p.id === transaction.id) ?? null
     setDepositingTransaction(transaction)
@@ -175,7 +150,6 @@ export default function Transaction() {
     setDepositConfirmDialogOpen(true)
   }
 
-  // 链上 deposit 成功后通知后端
   const handleDepositSuccess = async (txHash: string) => {
     if (!depositingTransaction) return
     try {
@@ -185,26 +159,12 @@ export default function Transaction() {
       setDepositSuccessDialogOpen(true)
       await fetchTransactionPlans()
     } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.message || 'Failed to confirm execute on server.',
-        variant: 'destructive'
-      })
+      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to confirm execute on server.', variant: 'destructive' })
     }
   }
 
-  const handleViewDetails = async (transaction: Transaction) => {
-    try {
-      const transactionPlanDetail = await apis.transaction.getTransactionPlanDetail(transaction.id)
-      setSelectedTransaction(transaction)
-      setTransactionDetailMembers(transactionPlanDetail.items)
-      setTransactionDetailDialogOpen(true)
-    } catch (error: any) {
-      toast({
-        description: `Failed to get transaction detail: ${error.message}`,
-        variant: 'destructive'
-      })
-    }
+  const handleViewDetails = (transaction: Transaction) => {
+    navigate(`/orgs/transaction/${transaction.id}`)
   }
 
   const handleDeleteClick = (transaction: Transaction) => {
@@ -253,232 +213,204 @@ export default function Transaction() {
   const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex)
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="mb-4 space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative max-w-md flex-1">
-            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform" />
+    <div className="bg-white rounded-[32px] p-6 flex flex-col gap-6 h-full">
+
+      {/* ── Toolbar ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+          {/* Search */}
+          <div className="relative">
             <Input
               placeholder="Search transactions..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10"
+              className="w-[300px] h-[42px] pl-4 pr-10 rounded-[12px] border-[rgba(0,0,0,0.12)] text-[13px] placeholder:text-[#8d8d93]"
             />
+            <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8d8d93]" />
           </div>
 
-          <div className="flex items-center gap-3">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                {statusFilter === 'all' && 'All Statuses'}
-                {statusFilter === PayrollTransactionStatus.READY && 'Ready'}
-                {statusFilter === PayrollTransactionStatus.PENDING && 'Pending'}
-                {statusFilter === PayrollTransactionStatus.COMPLETE && 'Complete'}
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value={PayrollTransactionStatus.READY}>Ready</SelectItem>
-                <SelectItem value={PayrollTransactionStatus.PENDING}>Pending</SelectItem>
-                <SelectItem value={PayrollTransactionStatus.COMPLETE}>Complete</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button onClick={() => navigate('/orgs/transaction/create')}>
-              <IconPlus className="mr-2 size-4" />
-              New Transaction
-            </Button>
-          </div>
+          {/* Status filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[130px] h-[42px] rounded-[12px] border-[rgba(0,0,0,0.12)] text-[13px] text-[#8d8d93]">
+              {statusFilter === 'all' && 'Status'}
+              {statusFilter === PayrollTransactionStatus.READY && 'Ready'}
+              {statusFilter === PayrollTransactionStatus.PENDING && 'Pending'}
+              {statusFilter === PayrollTransactionStatus.COMPLETE && 'Complete'}
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value={PayrollTransactionStatus.READY}>Ready</SelectItem>
+              <SelectItem value={PayrollTransactionStatus.PENDING}>Pending</SelectItem>
+              <SelectItem value={PayrollTransactionStatus.COMPLETE}>Complete</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+
+        {hasPermission(Permission.CREATE_TRANSACTION) && (
+          <Button
+            onClick={() => navigate('/orgs/transaction/create')}
+            className="bg-[#5e85ee] rounded-[12px] h-[42px] px-4 text-[13px] font-normal text-white hover:bg-[#5e85ee]/90 gap-[6px]"
+          >
+            <Plus size={14} />
+            New Transaction
+          </Button>
+        )}
       </div>
 
-      {/* Table */}
-      <div className="bg-card rounded-lg border">
+      {/* ── Table ───────────────────────────────────────────────────────── */}
+      <div className="overflow-x-auto flex-1">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead className="w-[300px]">Transaction</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Execution Date</TableHead>
-              <TableHead>Total Amount</TableHead>
-              <TableHead className="text-center">Members</TableHead>
-              <TableHead>Network</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+            <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
+              <TableHead className="text-[#8d8d93] text-[13px] font-normal pl-5 pb-3 w-[220px]">Transaction</TableHead>
+              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[140px]">Network</TableHead>
+              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[100px]">Members</TableHead>
+              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[120px]">Amount</TableHead>
+              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[90px]">Status</TableHead>
+              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[120px]">
+                <button className="flex items-center gap-1 hover:text-[#1c1c26] transition-colors">
+                  Pay Day <ChevronsUpDown size={13} />
+                </button>
+              </TableHead>
+              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedTransactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-muted-foreground h-24 text-center">
+                <TableCell colSpan={7} className="h-24 text-center text-[#8d8d93] text-[13px]">
                   No transactions found.
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedTransactions.map(transaction => (
-                <TableRow
-                  key={transaction.id}
-                  className={cn(
-                    'group',
-                    !transaction.isComplete && 'border-l-2 border-l-orange-500 bg-orange-50/20 hover:bg-orange-50/40'
-                  )}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={cn(
-                          'h-full w-1 rounded-full',
-                          transaction.isComplete ? 'bg-gray-300' : 'bg-orange-500'
-                        )}
-                      />
-                      <span className="font-medium">{transaction.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>{getStatusBadge(transaction.status)}</TableCell>
-                  <TableCell>
-                    <div className="items-center gap-2">
-                      <span className="text-muted-foreground text-sm">{transaction.executionDate}</span>
-                      <div className="flex items-center gap-1.5">
-                        {getTimeIcon(transaction.daysRemaining, transaction.isDueToday)}
-                        <span className="text-muted-foreground text-xs">
-                          {formatRelativeTime(
-                            transaction.daysRemaining,
-                            transaction.isDueToday,
-                            transaction.executionDate
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-medium">
+              paginatedTransactions.map(transaction => {
+                const isPending = transaction.status === PayrollTransactionStatus.PENDING
+                const isComplete = transaction.isComplete
+                return (
+                  <TableRow
+                    key={transaction.id}
+                    className={cn(
+                      'relative border-b border-[rgba(0,0,0,0.06)] hover:bg-[#f5f5f5]/60',
+                      isPending && 'bg-[rgba(255,168,0,0.04)]'
+                    )}
+                  >
+                    {/* Pending left accent bar */}
+                    {isPending && (
+                      <td className="p-0 w-0 border-0">
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[22px] bg-[#ffa800] rounded-r-[2px]" />
+                      </td>
+                    )}
+                    <TableCell className="pl-5 text-[13px] text-[#1c1c26] leading-[22px]">
+                      {transaction.name}
+                    </TableCell>
+                    <TableCell className="text-[13px] text-[#1c1c26] leading-[22px]">{transaction.network}</TableCell>
+                    <TableCell className="text-[13px] text-[#1c1c26] leading-[22px]">{transaction.members}</TableCell>
+                    <TableCell className="text-[13px] text-[#1c1c26] leading-[22px]">
                       {transaction.totalAmount} {transaction.currency}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <span className="text-sm">{transaction.members}</span>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-muted-foreground text-sm">
-                      {transaction.network}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-2">
-                      {transaction.status === PayrollTransactionStatus.READY && (
-                        <Button variant="default" size="sm" onClick={() => handleDepositClick(transaction)}>
-                          Execute
-                        </Button>
-                      )}
-                      <Button variant="outline" size="sm" onClick={() => handleViewDetails(transaction)}>
-                        View Details
-                      </Button>
-                      {transaction.isComplete ? (
-                        <Button variant="outline" size="sm" onClick={() => handleReactionClick(transaction)}>
-                          Re-action
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteClick(transaction)}
+                    </TableCell>
+                    <TableCell>
+                      <TransactionStatusBadge status={transaction.status} />
+                    </TableCell>
+                    <TableCell className="text-[13px] text-[#1c1c26] leading-[22px]">
+                      {transaction.executionDate}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        {isComplete
+                          ? hasPermission(Permission.REACTION_TRANSACTION) && (
+                              <button
+                                className="text-[#5e85ee] text-[13px] hover:opacity-70 transition-opacity whitespace-nowrap"
+                                onClick={() => handleReactionClick(transaction)}
+                              >
+                                Create again
+                              </button>
+                            )
+                          : hasPermission(Permission.EXECUTE_TRANSACTION) && (
+                              <button
+                                className="bg-[#5e85ee] text-white text-[13px] px-[10px] py-[5px] rounded-[12px] hover:bg-[#5e85ee]/90 transition-opacity whitespace-nowrap"
+                                onClick={() => handleDepositClick(transaction)}
+                              >
+                                Execute
+                              </button>
+                            )
+                        }
+                        <button
+                          className="text-[#5e85ee] text-[13px] hover:opacity-70 transition-opacity whitespace-nowrap"
+                          onClick={() => handleViewDetails(transaction)}
                         >
-                          <IconTrash className="size-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                          View Details
+                        </button>
+                        {hasPermission(Permission.MODIFY_TRANSACTION) && (
+                          <button
+                            className="text-[#d92b2b] text-[13px] hover:opacity-70 transition-opacity whitespace-nowrap"
+                            onClick={() => handleDeleteClick(transaction)}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-muted-foreground text-sm">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredTransactions.length)} of {totalCount} transactions
-          </div>
+      {/* ── Pagination ──────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between shrink-0">
+        <span className="text-[#606067] text-[13px]">
+          Showing {startIndex + 1}–{Math.min(endIndex, filteredTransactions.length)} of {totalCount} transactions
+        </span>
+        {totalPages > 1 && (
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Deposit 确认弹窗 */}
+      {/* ── Dialogs ─────────────────────────────────────────────────────── */}
       <Dialog open={depositConfirmDialogOpen} onOpenChange={setDepositConfirmDialogOpen}>
         <DialogContent>
           <ExecuteConfirmDialogContent
             executingTransaction={depositingTransaction}
             transactionPlan={depositingTransactionPlan}
-            onCancel={() => {
-              setDepositConfirmDialogOpen(false)
-              setDepositingTransaction(null)
-              setDepositingTransactionPlan(null)
-            }}
+            onCancel={() => { setDepositConfirmDialogOpen(false); setDepositingTransaction(null); setDepositingTransactionPlan(null) }}
             onSuccess={handleDepositSuccess}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Deposit 成功弹窗 */}
       <Dialog open={depositSuccessDialogOpen} onOpenChange={setDepositSuccessDialogOpen}>
         <DialogContent className="max-w-2xl">
           <ExecuteSuccessDialogContent
             depositTxHash={lastDepositTxHash}
             executingTransaction={depositingTransaction}
-            onClose={() => {
-              setDepositSuccessDialogOpen(false)
-              setDepositingTransaction(null)
-              setLastDepositTxHash('')
-            }}
+            onClose={() => { setDepositSuccessDialogOpen(false); setDepositingTransaction(null); setLastDepositTxHash('') }}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Transaction 详情弹窗 */}
-      <Dialog open={transactionDetailDialogOpen} onOpenChange={setTransactionDetailDialogOpen}>
-        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-          <TransactionDetailDialogContent
-            selectedTransaction={selectedTransaction}
-            transactionDetailMembers={transactionDetailMembers}
-            onExecuteNow={() => { }}
-          />
-        </DialogContent>
-      </Dialog>
-
-      {/* 删除确认弹窗 */}
       <Dialog open={deleteConfirmDialogOpen} onOpenChange={setDeleteConfirmDialogOpen}>
         <DialogContent>
           <DeleteConfirmDialogContent
             transactionToDelete={transactionToDelete}
             isDeleting={isDeleting}
-            onCancel={() => {
-              setDeleteConfirmDialogOpen(false)
-              setTransactionToDelete(null)
-            }}
+            onCancel={() => { setDeleteConfirmDialogOpen(false); setTransactionToDelete(null) }}
             onConfirm={handleConfirmDelete}
           />
         </DialogContent>
       </Dialog>
 
-      {/* Re-action 确认弹窗 */}
       <Dialog open={reactionConfirmDialogOpen} onOpenChange={setReactionConfirmDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Re-action Transaction</DialogTitle>
             <DialogDescription>
-              Are you sure you want to create a new transaction based on this one? The original transaction will remain
-              unchanged.
+              Are you sure you want to create a new transaction based on this one? The original transaction will remain unchanged.
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-end gap-3 pt-4">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setReactionConfirmDialogOpen(false)
-                setTransactionToReaction(null)
-              }}
-            >
+            <Button variant="outline" onClick={() => { setReactionConfirmDialogOpen(false); setTransactionToReaction(null) }}>
               Cancel
             </Button>
             <Button onClick={handleConfirmReaction}>Confirm</Button>

@@ -1,4 +1,3 @@
-import { memberStatus } from '@/enums/org'
 import { MemberRole } from '@/utils/permissions'
 
 export type { MemberRole }
@@ -8,22 +7,8 @@ export type SortDirection = 'asc' | 'desc' | null
 /** Backend role values (authoritative) */
 export type BackendRole = 'Owner' | 'Admin' | 'Operator' | 'Employee'
 
-export interface Member {
-  id: string
-  memberId: string
-  name: string
-  email: string
-  role: MemberRole
-  roles?: MemberRole[]
-  serviceFee: number
-  status: memberStatus
-  lastPayment: string | null
-  joinDate: string
-  avatar?: string
-}
-
 export interface DrawerChanges {
-  name?: string
+  showName?: string
   /** Raw amount string, e.g. "1000000000" */
   amount?: string
   roles?: BackendRole[]

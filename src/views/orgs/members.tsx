@@ -1,4 +1,5 @@
 import apis from '@/apis'
+import { OrganizationMember } from '@/apis/orgnization.api'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,14 +15,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/components/ui/use-toast'
 import { getMemberStatusDisplayName, memberStatus } from '@/enums/org'
 import useOrganizationStore from '@/stores/organization'
-import { getMemberRoles, getPrimaryRole, hasPermission, MemberRole, Permission } from '@/utils/permissions'
-import type {
-  Member,
-  SortDirection,
-  SortField
-} from '@/views/orgs/components/member-detail'
+import { getMemberRoles, getPrimaryRole, MemberRole, Permission, useHasPermission } from '@/utils/permissions'
+import { StatusBadge } from '@/views/orgs/components/status-badge'
+import type { SortDirection, SortField } from '@/views/orgs/components/member-detail'
 import { MemberDetailContent } from '@/views/orgs/components/member-detail'
-import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Copy, Download, Edit2, Plus, RefreshCw, Search, Send, X } from 'lucide-react'
+import { AlertCircle, Check, CheckCircle, ChevronDown, ChevronsUpDown, ChevronUp, Copy, Download, Edit2, Plus, RefreshCw, Search, Send, Upload, X, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface MemberPageProps {
@@ -35,7 +33,7 @@ export default function MemberPage(
   const { toast } = useToast()
 
   // 状态管理
-  const [members, setMembers] = useState<Member[]>([])
+  const [members, setMembers] = useState<OrganizationMember[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -46,55 +44,45 @@ export default function MemberPage(
   const [sortField, setSortField] = useState<SortField>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null)
+  const [selectedMember, setSelectedMember] = useState<OrganizationMember | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [inviteSectionOpen, setInviteSectionOpen] = useState(false)
   const [inviteCodeLoading, setInviteCodeLoading] = useState(false)
   const [inviteCode, setInviteCode] = useState('')
   const [inviteLink, setInviteLink] = useState('')
   const [emailInvites, setEmailInvites] = useState('')
+  const [emailShowName, setEmailShowName] = useState('')
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState('')
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false)
   const [emailInviteDialogOpen, setEmailInviteDialogOpen] = useState(false)
-  const [pendingEmails, setPendingEmails] = useState<string[]>([])
-  const [activeInviteTab, setActiveInviteTab] = useState<'link' | 'email' | 'batch'>('link')
+  const [pendingInvites, setPendingInvites] = useState<Array<{ name: string; email: string }>>([])
   const [sendingInvites, setSendingInvites] = useState(false)
   const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false)
-  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null)
+  const [memberToRemove, setMemberToRemove] = useState<OrganizationMember | null>(null)
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false)
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const batchFileInputRef = useRef<HTMLInputElement>(null)
+
+  const [batchImportOpen, setBatchImportOpen] = useState(false)
+  const [batchImportStep, setBatchImportStep] = useState<'upload' | 'preview' | 'importing' | 'result'>('upload')
+  const [batchTotal, setBatchTotal] = useState(0)
+  const [batchHeaders, setBatchHeaders] = useState<string[]>([])
+  const [batchPreviewRows, setBatchPreviewRows] = useState<Array<{ cells: string[]; valid: boolean }>>([])
+  const [batchImporting, setBatchImporting] = useState(false)
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [batchResult, setBatchResult] = useState<{
+    total: number; successCount: number; failCount: number
+    results: Array<{ row: number; email: string; success: boolean; message: string }>
+  } | null>(null)
 
   const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
-  const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
 
   const pageSize = 20
-  const currentUserRole: MemberRole[] = ['Owner'] // TODO: 从 context 获取
+  const hasPermission = useHasPermission()
 
 
-
-  // 将 API 返回的成员数据转换为组件使用的格式
-  const transformMember = (apiMember: any): Member => {
-    const roles = getMemberRoles(apiMember)
-    const primaryRole = getPrimaryRole(roles)
-    // API 返回 payoutIntents 数组；取第一条（已由后端按组织发薪配置过滤）
-    const payoutIntent = apiMember.payoutIntent ?? null
-
-    return {
-      id: apiMember.id,
-      memberId: apiMember.memberId,
-      name: apiMember.showName || '',
-      email: apiMember.email || '',
-      role: primaryRole,
-      roles: roles,
-      serviceFee: payoutIntent ? parseFloat(payoutIntent.amount) : 0,
-      status: apiMember.status,
-      lastPayment: apiMember.lastPayment || null,
-      joinDate: apiMember.createdAt ? new Date(apiMember.createdAt).toISOString().split('T')[0] : '',
-      avatar: apiMember.avatarUrl || undefined
-    }
-  }
 
   // sortField → 后端 sortBy 字段名映射
   const toApiSortBy = (field: SortField): 'showName' | 'amount' | 'status' | 'createdAt' | 'lastPayment' | undefined => {
@@ -119,7 +107,7 @@ export default function MemberPage(
         sortBy: toApiSortBy(sortField),
         sortOrder: sortDirection ?? undefined,
       })
-      setMembers(membersResponse.data.map(transformMember))
+      setMembers(membersResponse.data)
       setTotal(membersResponse.total)
     } catch (error: any) {
       toast({
@@ -163,7 +151,7 @@ export default function MemberPage(
   // 角色过滤（客户端，仅在当前页数据上过滤）
   const paginatedMembers = useMemo(() => {
     if (roleFilter === 'All') return members
-    return members.filter(m => m.role === roleFilter)
+    return members.filter(m => getMemberRoles(m).includes(roleFilter as MemberRole))
   }, [members, roleFilter])
 
   // 分页
@@ -184,16 +172,16 @@ export default function MemberPage(
     }
   }
   // 打开详情 Drawer
-  const openMemberDrawer = (member: Member) => {
+  const openMemberDrawer = (member: OrganizationMember) => {
     setSelectedMember(member)
     setDrawerOpen(true)
   }
 
   // 处理审批
-  const handleApprove = async (member: Member) => {
+  const handleApprove = async (member: OrganizationMember) => {
     try {
       await apis.organization.approveInvite(member.memberId)
-      setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, status: memberStatus.ACTIVE } : m)))
+      setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, status: 'active' as const } : m)))
       toast({ title: 'Success', description: 'Member approved successfully.' })
     } catch (error: any) {
       toast({
@@ -205,7 +193,7 @@ export default function MemberPage(
   }
 
   // 处理拒绝
-  const handleReject = async (member: Member) => {
+  const handleReject = async (member: OrganizationMember) => {
     try {
       await apis.organization.rejectInvite(member.memberId)
       setMembers(prev => prev.filter(m => m.id !== member.id))
@@ -249,13 +237,36 @@ export default function MemberPage(
     setMemberToRemove(null)
   }
 
-  // 导出列表
-  const handleExport = () => {
-    // TODO: 实现导出逻辑
-    toast({
-      title: 'Success',
-      description: 'Member list exported successfully.'
-    })
+  // 导出当前页成员数据：先拉模板获取表头，再按表头顺序填充成员数据
+  const handleExport = async () => {
+    try {
+      // 1. 下载模板，解析表头
+      const { blob } = await apis.organization.getInviteImportTemplate()
+      const text = await blob.text()
+      const firstLine = text.split(/\r?\n/)[0] ?? ''
+      const headers = firstLine.split(',').map(h => h.trim().replace(/"/g, ''))
+
+      // 2. 直接用表头字段名从成员对象取值
+      const escape = (v: string) => `"${String(v ?? '').replace(/"/g, '""')}"`
+      const rows = [
+        headers.map(escape).join(','),
+        ...paginatedMembers.map(m => headers.map(h => escape(String((m as any)[h] ?? ''))).join(','))
+      ]
+
+      const csvBlob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(csvBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `members-page-${currentPage}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.message || 'Failed to export members',
+        variant: 'destructive'
+      })
+    }
   }
 
   // 关闭 Drawer
@@ -289,6 +300,15 @@ export default function MemberPage(
 
   // 发送邮箱邀请 - 校验并打开确认对话框
   const handleSendEmailInvites = () => {
+    if (!emailShowName.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a display name',
+        variant: 'destructive'
+      })
+      return
+    }
+
     const validation = validateEmails(emailInvites)
 
     if (!validation.valid) {
@@ -300,8 +320,16 @@ export default function MemberPage(
       return
     }
 
-    // 校验通过，显示确认对话框
-    setPendingEmails(validation.emails)
+    const names = emailShowName.split(',').map(n => n.trim()).filter(n => n)
+    if (names.length !== validation.emails.length) {
+      toast({
+        title: 'Error',
+        description: `Names count (${names.length}) does not match emails count (${validation.emails.length})`,
+        variant: 'destructive'
+      })
+      return
+    }
+    setPendingInvites(validation.emails.map((email, i) => ({ name: names[i], email })))
     setEmailInviteDialogOpen(true)
   }
 
@@ -311,7 +339,7 @@ export default function MemberPage(
 
     try {
       // 逐个发送邀请邮件
-      const results = await Promise.allSettled(pendingEmails.map(email => apis.organization.sendEmailInvitation(email)))
+      const results = await Promise.allSettled(pendingInvites.map(({ email, name }) => apis.organization.sendEmailInvitation(email, name)))
 
       const successCount = results.filter(r => r.status === 'fulfilled').length
       const failCount = results.filter(r => r.status === 'rejected').length
@@ -322,8 +350,9 @@ export default function MemberPage(
           description: `Invitation emails sent successfully to ${successCount} recipient(s)${failCount > 0 ? `, ${failCount} failed` : ''}`
         })
         setEmailInvites('')
+        setEmailShowName('')
         setEmailInviteDialogOpen(false)
-        setPendingEmails([])
+        setPendingInvites([])
         // 刷新成员列表
         fetchMembers(currentPage)
       } else {
@@ -382,78 +411,122 @@ export default function MemberPage(
       })
     }
   }
-  // 触发文件选择
-  const handleTriggerFileUpload = () => {
-    fileInputRef.current?.click()
-  }
-
-  // 处理文件上传解析
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+  // 下载 CSV 模板
+  const handleDownloadTemplate = async () => {
+    try {
+      const { blob, filename } = await apis.organization.getInviteImportTemplate()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error: any) {
       toast({
         title: 'Error',
-        description: 'Please upload a CSV file',
+        description: error?.response?.data?.message || 'Failed to download template',
         variant: 'destructive'
       })
+    }
+  }
+
+  // CSV 客户端预览解析：保留原始表头和列顺序
+  const parseCsvForPreview = (text: string) => {
+    const lines = text.split(/\r?\n/).filter(l => l.trim())
+    if (lines.length < 2) return { total: 0, headers: [] as string[], rows: [] as Array<{ cells: string[]; valid: boolean }> }
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+    const emailIdx = headers.findIndex(h => h.toLowerCase() === 'email')
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const total = lines.length - 1
+    const rows = lines.slice(1).map(line => {
+      const cells = line.split(',').map(c => c.trim().replace(/"/g, ''))
+      const email = emailIdx >= 0 ? (cells[emailIdx] ?? '') : ''
+      return { cells, valid: emailIdx < 0 || (!!email && emailRegex.test(email)) }
+    })
+    return { total, headers, rows }
+  }
+
+  // 处理选中文件：解析 CSV 生成预览
+  const handleBatchFile = (file: File) => {
+    if (!file.name.endsWith('.csv')) {
+      toast({ title: 'Error', description: 'Please upload a CSV file', variant: 'destructive' })
       return
     }
-
     const reader = new FileReader()
     reader.onload = e => {
-      const text = e.target?.result as string
-      const lines = text.split(/\r?\n/)
-
-      // 假设第一行是表头，寻找 email 列
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
-      const emailIndex = headers.indexOf('email')
-
-      if (emailIndex === -1) {
-        toast({
-          title: 'Error',
-          description: 'CSV file must contain an "email" column',
-          variant: 'destructive'
-        })
-        return
-      }
-
-      const emails: string[] = []
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-      for (let i = 1; i < lines.length; i++) {
-        const row = lines[i].split(',')
-        if (row.length > emailIndex) {
-          const email = row[emailIndex].trim()
-          if (email && emailRegex.test(email)) {
-            emails.push(email)
-          }
-        }
-      }
-
-      if (emails.length === 0) {
-        toast({
-          title: 'Error',
-          description: 'No valid email addresses found in the CSV file',
-          variant: 'destructive'
-        })
-        return
-      }
-
-      setPendingEmails(emails)
-      setEmailInviteDialogOpen(true)
-
-      // 重置 input 以便下次可以上传同一个文件
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      const { total, headers, rows } = parseCsvForPreview(e.target?.result as string)
+      setBatchTotal(total)
+      setBatchHeaders(headers)
+      setBatchPreviewRows(rows)
+      setBatchImportStep('preview')
     }
     reader.readAsText(file)
   }
 
+  // 确认批量导入：逐行调用邮件邀请接口，实时显示进度
+  const handleConfirmBatchImport = async () => {
+    const emailIdx = batchHeaders.findIndex(h => h.toLowerCase() === 'email')
+    const nameIdx = batchHeaders.findIndex(h => ['name', 'showname'].includes(h.toLowerCase()))
+    const amountIdx = batchHeaders.findIndex(h => ['fee', 'amount', 'servicefee', 'service fee'].includes(h.toLowerCase()))
+
+    const validRows = batchPreviewRows.filter(r => r.valid)
+    if (validRows.length === 0) return
+
+    setBatchImporting(true)
+    setBatchProgress({ current: 0, total: validRows.length })
+    setBatchImportStep('importing')
+
+    const results: Array<{ row: number; email: string; success: boolean; message: string }> = []
+
+    for (let i = 0; i < validRows.length; i++) {
+      const row = validRows[i]
+      const email = emailIdx >= 0 ? (row.cells[emailIdx] ?? '') : ''
+      const name = nameIdx >= 0 ? (row.cells[nameIdx] ?? '') : ''
+      const amount = amountIdx >= 0 ? (row.cells[amountIdx] ?? '') : ''
+      const rowNum = batchPreviewRows.indexOf(row) + 2
+
+      try {
+        await apis.organization.sendEmailInvitation(email, name, amount || undefined)
+        results.push({ row: rowNum, email, success: true, message: '' })
+      } catch (error: any) {
+        results.push({ row: rowNum, email, success: false, message: error?.response?.data?.message || 'Failed' })
+      }
+
+      setBatchProgress({ current: i + 1, total: validRows.length })
+    }
+
+    const successCount = results.filter(r => r.success).length
+    const failCount = results.filter(r => !r.success).length
+    setBatchResult({ total: validRows.length, successCount, failCount, results })
+    setBatchImporting(false)
+    setBatchImportStep('result')
+    fetchMembers(currentPage)
+  }
+
+  // 前端生成失败项 CSV 并下载
+  const handleDownloadErrorReport = () => {
+    if (!batchResult) return
+    const failedResults = batchResult.results.filter(r => !r.success)
+    const headers = [...batchHeaders, 'Error']
+    const csvRows = failedResults.map(r => {
+      // API 中 row 从 2 开始（第 1 行是表头），对应 batchPreviewRows 索引 = r.row - 2
+      const rowData = batchPreviewRows[r.row - 2]
+      const cells = rowData ? [...rowData.cells] : []
+      while (cells.length < batchHeaders.length) cells.push('')
+      return [...cells, r.message || ''].map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')
+    })
+    const csv = [headers.map(h => `"${h}"`).join(','), ...csvRows].join('\n')
+    const blob = new Blob(['\uFEFF' + csv,], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'import-error-report.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   // 内联编辑 Service Fee
-  const handleEditServiceFee = async (member: Member, value: string) => {
+  const handleEditServiceFee = async (member: OrganizationMember, value: string) => {
     const numValue = parseFloat(value)
     if (isNaN(numValue) || numValue < 0) {
       toast({
@@ -469,7 +542,10 @@ export default function MemberPage(
         member.memberId,
         { amount: numValue.toString() }
       )
-      setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, serviceFee: numValue } : m)))
+      setMembers(prev => prev.map(m => m.id === member.id
+        ? { ...m, payoutIntent: { ...m.payoutIntent, amount: numValue.toString() } }
+        : m
+      ))
       toast({
         title: 'Success',
         description: `Service Fee updated to ${numValue}`
@@ -481,22 +557,6 @@ export default function MemberPage(
         variant: 'destructive'
       })
     }
-  }
-
-  // Helper: status badge
-  const StatusBadge = ({ status }: { status: memberStatus }) => {
-    if (status === memberStatus.ACTIVE) {
-      return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(93,221,34,0.12)] px-[7px] py-[2px] text-[12px] leading-[18px] text-[#5ddd22] whitespace-nowrap">
-          Active
-        </span>
-      )
-    }
-    return (
-      <span className="inline-flex items-center rounded-[8px] bg-[rgba(255,168,0,0.12)] px-[7px] py-[2px] text-[12px] leading-[18px] text-[#ffa800] whitespace-nowrap">
-        {getMemberStatusDisplayName(status)}
-      </span>
-    )
   }
 
   // Helper: sort icon
@@ -524,13 +584,12 @@ export default function MemberPage(
               Invite Members
             </p>
             <button
-              onClick={() => { handleTriggerFileUpload() }}
+              onClick={() => { setBatchImportOpen(true); setBatchImportStep('upload') }}
               className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#ebebeb] transition-colors"
             >
-              <Download className="h-[14px] w-[14px]" />
+              <Upload className="h-[14px] w-[14px]" />
               Batch Import
             </button>
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" />
           </div>
 
           {/* Two-column cards */}
@@ -579,11 +638,17 @@ export default function MemberPage(
             <div className="flex flex-1 flex-col gap-[12px] rounded-[16px] border-[0.5px] border-[rgba(0,0,0,0.1)] bg-white p-[16px]">
               <div className="flex flex-1 flex-col gap-[6px]">
                 <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Email Invitation</p>
-                <textarea
+                <input
+                  value={emailShowName}
+                  onChange={e => setEmailShowName(e.target.value)}
+                  placeholder="Enter name (comma-separated)"
+                  className="w-full rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
+                />
+                <input
                   value={emailInvites}
                   onChange={e => setEmailInvites(e.target.value)}
                   placeholder="Enter emails (comma-separated)"
-                  className="flex-1 min-h-[64px] w-full resize-none rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
+                  className="w-full rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
                 />
               </div>
               <button
@@ -744,20 +809,20 @@ export default function MemberPage(
                   {/* Member */}
                   <TableCell>
                     <div className="flex items-center gap-[6px]">
-                      {member.avatar ? (
-                        <img src={member.avatar} alt={member.name} className="h-[28px] w-[28px] rounded-full object-cover shrink-0" />
+                      {member.avatarUrl ? (
+                        <img src={member.avatarUrl} alt={member.showName} className="h-[28px] w-[28px] rounded-full object-cover shrink-0" />
                       ) : (
                         <div className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full bg-[#e8eefe]">
-                          <span className="text-[12px] font-medium text-[#5e85ee]">{member.name?.[0]?.toUpperCase() || '?'}</span>
+                          <span className="text-[12px] font-medium text-[#5e85ee]">{member.showName?.[0]?.toUpperCase() || '?'}</span>
                         </div>
                       )}
-                      <span className="max-w-[120px] truncate">{member.name || '—'}</span>
+                      <span className="max-w-[120px] truncate">{member.showName || '—'}</span>
                     </div>
                   </TableCell>
                   {/* Email */}
                   <TableCell className="max-w-[200px] truncate">{member.email || '—'}</TableCell>
                   {/* Role */}
-                  <TableCell>{member.role || '—'}</TableCell>
+                  <TableCell>{getPrimaryRole(getMemberRoles(member)) || '—'}</TableCell>
                   {/* Service Fee */}
                   <TableCell onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-[4px]">
@@ -777,10 +842,10 @@ export default function MemberPage(
                       ) : (
                         <>
                           <span className="whitespace-nowrap">
-                            {member.serviceFee}{payrollTokenSymbol ? ` ${payrollTokenSymbol}` : ''}
+                            {member.payoutIntent?.amount ?? 0}{payrollTokenSymbol ? ` ${payrollTokenSymbol}` : ''}
                           </span>
                           <button
-                            onClick={() => { setEditingField(member.id); setEditingValue(member.serviceFee.toString()) }}
+                            onClick={() => { setEditingField(member.id); setEditingValue(member.payoutIntent?.amount ?? '') }}
                             className="text-[#8d8d93] hover:text-[#5e85ee] transition-colors"
                           >
                             <Edit2 className="h-[15px] w-[15px]" />
@@ -797,7 +862,7 @@ export default function MemberPage(
                   </TableCell>
                   {/* Action */}
                   <TableCell onClick={e => e.stopPropagation()}>
-                    {member.status === memberStatus.REVIEW && hasPermission(currentUserRole, Permission.APPROVE_MEMBER) ? (
+                    {member.status === 'pending_review' && hasPermission(Permission.APPROVE_MEMBER) ? (
                       <div className="flex items-center gap-[6px]">
                         <button
                           onClick={() => handleApprove(member)}
@@ -856,8 +921,8 @@ export default function MemberPage(
                   key={page}
                   onClick={() => setCurrentPage(page)}
                   className={`flex h-[30px] w-[30px] items-center justify-center rounded-[10px] text-[13px] leading-[20px] transition-colors ${currentPage === page
-                      ? 'bg-[rgba(28,28,38,0.1)] text-[#606067]'
-                      : 'text-[#606067] hover:bg-[rgba(0,0,0,0.06)]'
+                    ? 'bg-[rgba(28,28,38,0.1)] text-[#606067]'
+                    : 'text-[#606067] hover:bg-[rgba(0,0,0,0.06)]'
                     }`}
                 >
                   {page}
@@ -888,19 +953,16 @@ export default function MemberPage(
 
       {/* ── Member Detail Drawer ────────────────────────────────────────── */}
       <Drawer open={drawerOpen} onOpenChange={handleDrawerClose}>
-        <DrawerContent className="max-h-screen">
-          <div className="overflow-y-auto py-4">
-            {selectedMember && (
-              <MemberDetailContent
-                selectedMember={selectedMember}
-                currentUserRole={currentUserRole}
-                payrollTokenSymbol={payrollTokenSymbol}
-                onDrawerClose={() => setDrawerOpen(false)}
-                onRemoveMember={member => { setMemberToRemove(member); setRemoveMemberDialogOpen(true) }}
-                onSaveSuccess={updatedMember => setMembers(prev => prev.map(m => m.id === updatedMember.id ? updatedMember : m))}
-              />
-            )}
-          </div>
+        <DrawerContent className="max-h-screen flex flex-col w-[420px]">
+          {selectedMember && (
+            <MemberDetailContent
+              selectedMember={selectedMember}
+              payrollTokenSymbol={payrollTokenSymbol}
+              onDrawerClose={() => setDrawerOpen(false)}
+              onRemoveMember={member => { setMemberToRemove(member); setRemoveMemberDialogOpen(true) }}
+              onSaveSuccess={updatedMember => setMembers(prev => prev.map(m => m.id === updatedMember.id ? updatedMember : m))}
+            />
+          )}
         </DrawerContent>
       </Drawer>
 
@@ -921,30 +983,212 @@ export default function MemberPage(
       </Dialog>
 
       {/* ── Email invite confirm dialog ─────────────────────────────────── */}
-      <Dialog open={emailInviteDialogOpen} onOpenChange={open => { if (!sendingInvites) { setEmailInviteDialogOpen(open); if (!open) setPendingEmails([]) } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Email Invitations</DialogTitle>
-            <DialogDescription>
-              {sendingInvites ? 'Sending invitations...' : 'The following email addresses will receive invitation emails:'}
-            </DialogDescription>
+      <Dialog open={emailInviteDialogOpen} onOpenChange={open => { if (!sendingInvites) { setEmailInviteDialogOpen(open); if (!open) setPendingInvites([]) } }}>
+        <DialogContent className="max-w-[440px] p-[20px] gap-0 flex flex-col gap-[16px]">
+          <DialogHeader className="p-0">
+            <DialogTitle className="text-[15px] font-semibold leading-[22px] text-[#1c1c26]">
+              Send Email Invitations
+            </DialogTitle>
           </DialogHeader>
-          {!sendingInvites && (
-            <div className="max-h-60 overflow-y-auto space-y-2">
-              {pendingEmails.map((email, i) => (
-                <div key={i} className="rounded-md bg-[#f5f5f5] px-3 py-2 text-sm">{email}</div>
-              ))}
+
+          {sendingInvites ? (
+            <div className="flex items-center justify-center gap-[10px] h-[80px] rounded-[10px] bg-[#f5f5f5]">
+              <div className="h-[20px] w-[20px] animate-spin rounded-full border-2 border-[#5e85ee] border-t-transparent" />
+              <p className="text-[13px] leading-[20px] text-[#8d8d93]">Sending invitations...</p>
+            </div>
+          ) : (
+            <div className="rounded-[10px] border border-[rgba(0,0,0,0.10)] overflow-hidden">
+              <div className="grid grid-cols-2 bg-[#f5f5f5] border-b border-[rgba(0,0,0,0.08)]">
+                <div className="px-[12px] py-[5px] text-[11px] leading-[16px] text-[#8d8d93]">Name</div>
+                <div className="px-[12px] py-[5px] text-[11px] leading-[16px] text-[#8d8d93] border-l border-[rgba(0,0,0,0.08)]">Email</div>
+              </div>
+              <div className="max-h-[220px] overflow-y-auto">
+                {pendingInvites.map(({ name, email }, i) => (
+                  <div key={i} className="grid grid-cols-2 border-b border-[rgba(0,0,0,0.06)] last:border-b-0">
+                    <div className="px-[12px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] truncate">{name}</div>
+                    <div className="px-[12px] py-[8px] text-[13px] leading-[20px] text-[#606067] truncate border-l border-[rgba(0,0,0,0.06)]">{email}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-          {sendingInvites && (
-            <div className="flex items-center justify-center py-8">
-              <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+
+          <div className="flex items-center justify-end gap-[8px]">
+            <button
+              onClick={() => { setEmailInviteDialogOpen(false); setPendingInvites([]) }}
+              disabled={sendingInvites}
+              className="rounded-[10px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmSendInvites}
+              disabled={sendingInvites}
+              className="rounded-[10px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              Send Invitations
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Batch Import Dialog ─────────────────────────────────────────── */}
+      <Dialog
+        open={batchImportOpen}
+        onOpenChange={open => {
+          if (!batchImporting) {
+            setBatchImportOpen(open)
+            if (!open) { setBatchImportStep('upload'); setBatchHeaders([]); setBatchPreviewRows([]); setBatchResult(null); setBatchProgress({ current: 0, total: 0 }) }
+          }
+        }}
+      >
+        <DialogContent className="max-w-[580px] p-[24px] gap-0 flex flex-col gap-[20px]">
+          <DialogHeader className="p-0">
+            <DialogTitle className="text-[16px] font-semibold leading-[24px] text-[#1c1c26]">
+              Batch Import Members
+            </DialogTitle>
+          </DialogHeader>
+
+          {batchImportStep === 'upload' ? (
+            <>
+              {/* Download Template link */}
+              <button
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-[4px] text-[13px] font-semibold text-[#5e85ee] hover:opacity-80 transition-opacity w-fit"
+              >
+                <Download className="h-[14px] w-[14px]" />
+                Download Template
+              </button>
+
+              {/* Drop zone */}
+              <div
+                onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={e => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files[0]; if (f) handleBatchFile(f) }}
+                onClick={() => batchFileInputRef.current?.click()}
+                className={`flex flex-col items-center justify-center gap-[10px] h-[200px] rounded-[12px] bg-[#f5f5f5] cursor-pointer transition-colors ${isDragging ? 'border-2 border-dashed border-[#5e85ee]' : 'hover:bg-[#ececec]'}`}
+              >
+                <div className="flex h-[44px] w-[44px] items-center justify-center rounded-[10px] bg-[#d2d2d4]">
+                  <Upload className="h-[24px] w-[24px] text-white" />
+                </div>
+                <div className="flex flex-col items-center gap-[2px]">
+                  <p className="text-[13px] leading-[20px] text-[#1c1c26]">Click or drag to upload file</p>
+                  <p className="text-[12px] leading-[18px] text-[#8d8d93]">Supports CSV, Max 5MB</p>
+                </div>
+              </div>
+              <input
+                type="file"
+                ref={batchFileInputRef}
+                accept=".csv"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleBatchFile(f); e.target.value = '' }}
+              />
+            </>
+          ) : batchImportStep === 'preview' ? (
+            <>
+              {/* Stats row */}
+              <div className="flex items-center gap-[12px]">
+                <p className="text-[14px] leading-[22px] text-[#1c1c26]">Total: {batchTotal} rows</p>
+                <div className="flex items-center gap-[2px]">
+                  <CheckCircle className="h-[18px] w-[18px] text-[#5ddd22]" />
+                  <p className="text-[14px] leading-[22px] text-[#1c1c26]">Valid: {batchPreviewRows.filter(r => r.valid).length}</p>
+                </div>
+                <div className="flex items-center gap-[2px]">
+                  <XCircle className="h-[18px] w-[18px] text-[#d92b2b]" />
+                  <p className="text-[14px] leading-[22px] text-[#1c1c26]">Invalid: {batchPreviewRows.filter(r => !r.valid).length}</p>
+                </div>
+              </div>
+
+              {/* Preview table */}
+              <div className="flex flex-col gap-[6px]">
+                <p className="text-[11px] leading-[16px] text-[#8d8d93]">Preview of the first 10 items</p>
+                <div className="border border-[rgba(0,0,0,0.12)] rounded-[12px] overflow-hidden">
+                  <div className="overflow-y-auto max-h-[260px]">
+                    <table className="w-full border-collapse">
+                      <thead className="sticky top-0">
+                        <tr className="bg-[#f5f5f5] border-b border-[rgba(0,0,0,0.12)]">
+                          {batchHeaders.map((h, i) => (
+                            <th key={i} className="px-[14px] py-[5px] text-left text-[11px] leading-[16px] text-[#8d8d93] font-normal whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {batchPreviewRows.slice(0, 10).map((row, i) => {
+                          const emailIdx = batchHeaders.findIndex(h => h.toLowerCase() === 'email')
+                          return (
+                            <tr key={i} className={`border-b border-[rgba(0,0,0,0.12)] last:border-b-0 ${!row.valid ? 'bg-[rgba(217,43,43,0.04)]' : ''}`}>
+                              {row.cells.map((cell, j) => (
+                                <td key={j} className="px-[14px] py-[10px] text-[13px] leading-[20px] whitespace-nowrap">
+                                  {j === emailIdx && !row.valid ? (
+                                    <div className="flex items-center gap-[4px]">
+                                      <span className="text-[#d92b2b]">{cell || '—'}</span>
+                                      <AlertCircle className="h-[12px] w-[12px] text-[#d92b2b] shrink-0" />
+                                    </div>
+                                  ) : (
+                                    <span className="text-[#1c1c26]">{cell || '—'}</span>
+                                  )}
+                                </td>
+                              ))}
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-[10px]">
+                <button
+                  onClick={() => setBatchImportStep('upload')}
+                  className="rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleConfirmBatchImport}
+                  disabled={batchImporting}
+                  className="rounded-[12px] bg-[#5e85ee] px-[14px] py-[8px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+                >
+                  {batchImporting ? 'Importing...' : 'Import'}
+                </button>
+              </div>
+            </>
+          ) : batchImportStep === 'importing' ? (
+            <div className="flex flex-col items-center justify-center gap-[8px] h-[200px] w-full rounded-[12px] bg-[#f5f5f5]">
+              <div className="h-[36px] w-[36px] animate-spin rounded-full border-[3px] border-[#5e85ee] border-t-transparent border-r-transparent" />
+              <p className="text-[14px] leading-[22px] text-[#1c1c26]">
+                Importing... {batchProgress.current}/{batchProgress.total}
+              </p>
             </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setEmailInviteDialogOpen(false); setPendingEmails([]) }} disabled={sendingInvites}>Cancel</Button>
-            <Button onClick={handleConfirmSendInvites} disabled={sendingInvites}>{sendingInvites ? 'Sending...' : 'Send Invitations'}</Button>
-          </DialogFooter>
+          ) : batchImportStep === 'result' ? (
+            <div className="flex flex-col items-center justify-center gap-[10px] h-[200px] w-full rounded-[12px] bg-[#f5f5f5]">
+              {batchResult?.failCount === 0 ? (
+                <>
+                  <CheckCircle className="h-[52px] w-[52px] text-[#5ddd22]" strokeWidth={1.5} />
+                  <p className="text-[14px] leading-[22px] text-[#1c1c26]">
+                    {batchResult.successCount} members imported successfully.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-[52px] w-[52px] text-[#ffa800]" strokeWidth={1.5} />
+                  <p className="text-[14px] leading-[22px] text-[#1c1c26]">
+                    {batchResult?.successCount} successed,{' '}
+                    <span className="text-[#d92b2b]">{batchResult?.failCount}</span> failed.
+                  </p>
+                  <button
+                    onClick={handleDownloadErrorReport}
+                    className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f0f0f0] transition-colors"
+                  >
+                    <Download className="h-[14px] w-[14px]" />
+                    Download error report
+                  </button>
+                </>
+              )}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -954,7 +1198,7 @@ export default function MemberPage(
           <DialogHeader>
             <DialogTitle>Remove Member</DialogTitle>
             <DialogDescription>
-              {memberToRemove && `Are you sure you want to remove ${memberToRemove.name}? They will no longer receive payments from this organization.`}
+              {memberToRemove && `Are you sure you want to remove ${memberToRemove.showName}? They will no longer receive payments from this organization.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
