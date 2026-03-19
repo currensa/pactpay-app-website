@@ -9,15 +9,15 @@ import { useToast } from '@/components/ui/use-toast'
 import { getStatusDisplayName, PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
-import { getMemberRoles, getPrimaryRole, MemberRole } from '@/utils/permissions'
+import { getMemberRoles, getPrimaryRole, MemberRole, Permission, useHasPermission } from '@/utils/permissions'
 import {
   ExecuteConfirmDialogContent,
   ExecuteSuccessDialogContent,
-  TransactionDetailDialogContent,
 } from '@/views/transaction/components'
 import type { Transaction } from '@/views/transaction/components/types'
 import { formatUnits } from 'ethers'
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import MembersView from '@/views/orgs/members'
 
@@ -37,6 +37,8 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { toast } = useToast()
+  const navigate = useNavigate()
+  const hasPermission = useHasPermission()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<DashboardStats>({
     totalMembers: 0,
@@ -55,11 +57,6 @@ export default function Dashboard() {
   const [depositingTransactionPlan, setDepositingTransactionPlan] = useState<TransactionPlan | null>(null)
   const [depositSuccessDialogOpen, setDepositSuccessDialogOpen] = useState(false)
   const [lastDepositTxHash, setLastDepositTxHash] = useState('')
-
-  // Transaction 详情弹窗状态
-  const [transactionDetailDialogOpen, setTransactionDetailDialogOpen] = useState(false)
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null)
-  const [transactionDetailMembers, setTransactionDetailMembers] = useState<any[]>([])
 
   // TODO: 从 context 或 store 获取当前用户角色
   const currentUserRoles: MemberRole[] = ['Owner']
@@ -280,10 +277,7 @@ export default function Dashboard() {
 
   // 查看交易详情
   const handleViewDetails = (transaction: TransactionListItem) => {
-    const plan = transaction as unknown as TransactionPlan
-    setSelectedTransaction(transformTransactionPlan(plan))
-    setTransactionDetailMembers(plan.items)
-    setTransactionDetailDialogOpen(true)
+    navigate(`/orgs/transaction/${transaction.id}`)
   }
 
   if (loading) {
@@ -401,9 +395,11 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button onClick={() => handleExecuteNow(transaction)} className="flex-1">
-                        Execute Now
-                      </Button>
+                      {hasPermission(Permission.EXECUTE_TRANSACTION) && (
+                        <Button onClick={() => handleExecuteNow(transaction)} className="flex-1">
+                          Execute Now
+                        </Button>
+                      )}
                       <Button variant="outline" onClick={() => handleViewDetails(transaction)}>
                         View Details
                       </Button>
@@ -454,16 +450,6 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Transaction 详情弹窗 */}
-      <Dialog open={transactionDetailDialogOpen} onOpenChange={setTransactionDetailDialogOpen}>
-        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-          <TransactionDetailDialogContent
-            selectedTransaction={selectedTransaction}
-            transactionDetailMembers={transactionDetailMembers}
-            onExecuteNow={() => { }}
-          />
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

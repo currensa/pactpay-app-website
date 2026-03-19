@@ -1,11 +1,9 @@
 import apis from '@/apis'
 import { MembersResponse } from '@/apis/orgnization.api'
 import type { TransactionItem } from '@/apis/transaction.api'
-import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import { CreateTransactionDialogContent } from '@/views/transaction/components'
-import { IconArrowLeft } from '@tabler/icons-react'
 import { formatUnits } from 'ethers'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -23,7 +21,7 @@ export default function CreateTransaction() {
   const [reactionSourceLoading, setReactionSourceLoading] = useState(false)
   const [initialExecutionDate, setInitialExecutionDate] = useState<string>('')
 
-  const { getTokenDecimals } = useChainAssetStore()
+  const { getTokenDecimals, fetchChainAssets } = useChainAssetStore()
 
   const fetchOrganizationMembers = async () => {
     try {
@@ -50,6 +48,7 @@ export default function CreateTransaction() {
     const fetchReactionSource = async () => {
       try {
         setReactionSourceLoading(true)
+        await fetchChainAssets()
         const plan = await apis.transaction.getTransactionPlanDetail(reactionSourceTransactionId)
         const decimals = getTokenDecimals(plan.caipChainId, plan.tokenAddress || '')
         const convertedItems: TransactionItem[] = (plan.items ?? []).map(item => ({
@@ -76,7 +75,6 @@ export default function CreateTransaction() {
     fetchReactionSource()
   }, [isCreatingFromReaction, reactionSourceTransactionId, toast])
 
-  const handleBack = () => navigate('/orgs/transaction')
   const handleCancel = () => navigate('/orgs/transaction')
 
   const handleCreateTransaction = async (params: {
@@ -118,27 +116,18 @@ export default function CreateTransaction() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="mb-6 flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={handleBack} className="shrink-0" aria-label="Back">
-          <IconArrowLeft className="size-5" />
-        </Button>
-        <h1 className="text-xl font-semibold">Create New Transaction</h1>
-      </div>
-
-      <div className="flex-1">
-        <CreateTransactionDialogContent
-          variant="page"
-          isCreatingFromReaction={isCreatingFromReaction}
-          organizationMembers={organizationMembers}
-          membersLoading={membersLoading}
-          transactionDetailMembers={reactionSourceMembers}
-          initialExecutionDate={initialExecutionDate}
-          reactionSourceLoading={reactionSourceLoading}
-          onCancel={handleCancel}
-          onCreateTransaction={handleCreateTransaction}
-        />
-      </div>
+    <div className="bg-white rounded-[32px] p-6 flex flex-col gap-6 h-full">
+      <CreateTransactionDialogContent
+        variant="page"
+        isCreatingFromReaction={isCreatingFromReaction}
+        organizationMembers={organizationMembers}
+        membersLoading={membersLoading}
+        transactionDetailMembers={reactionSourceMembers}
+        initialExecutionDate={initialExecutionDate}
+        reactionSourceLoading={reactionSourceLoading}
+        onCancel={handleCancel}
+        onCreateTransaction={handleCreateTransaction}
+      />
     </div>
   )
 }

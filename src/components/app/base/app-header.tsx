@@ -9,8 +9,10 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { getRouteMeta } from '@/router'
+import useHeaderStore from '@/stores/header'
 import { IconBadgeCc, IconBell, IconLogout } from '@tabler/icons-react'
 import { useDisconnect } from '@reown/appkit/react'
+import { ChevronLeft } from 'lucide-react'
 import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
@@ -18,6 +20,7 @@ export default function AppHeader() {
   const location = useLocation()
   const navigate = useNavigate()
   const { disconnect } = useDisconnect()
+  const { steps, breadcrumb, backUrl } = useHeaderStore()
 
   const meta = useMemo(() => {
     const routeMeta = getRouteMeta(location.pathname) ?? {}
@@ -37,16 +40,55 @@ export default function AppHeader() {
 
   return (
     <div className="flex shrink-0 items-center justify-between">
-      {/* Page title + subtitle */}
+      {/* Page title + subtitle / steps */}
       <div className="flex flex-col">
-        <p className="font-['Poppins',sans-serif] text-[28px] leading-[40px] text-[#1c1c26]">
-          {meta.title}
-        </p>
-        {meta.subtitle && (
+        <div className="flex items-center gap-[8px]">
+          {backUrl && (
+            <button
+              onClick={() => navigate(backUrl)}
+              className="flex h-[34px] w-[34px] items-center justify-center rounded-[8px] border border-[rgba(0,0,0,0.12)] bg-white hover:bg-[#f5f5f5] transition-colors shrink-0"
+            >
+              <ChevronLeft size={16} className="text-[#1c1c26]" />
+            </button>
+          )}
+          <p className="font-['Poppins',sans-serif] text-[28px] leading-[40px] text-[#1c1c26]">
+            {meta.title}
+          </p>
+        </div>
+        {steps ? (
+          <div className="flex items-center gap-[10px] mt-[2px]">
+            {steps.map((step, i) => (
+              <div key={i} className="flex items-center gap-[10px]">
+                {i > 0 && <div className="w-[20px] h-px bg-[rgba(0,0,0,0.2)]" />}
+                <span className={`text-[13px] leading-[22px] ${step.active ? 'text-[#5e85ee]' : 'text-[#1c1c26]'}`}>
+                  {step.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : breadcrumb ? (
+          <div className="flex items-center gap-[4px] mt-[1px]">
+            {breadcrumb.map((item, i) => (
+              <div key={i} className="flex items-center gap-[4px]">
+                {i > 0 && <span className="text-[13px] text-[rgba(0,0,0,0.2)]">/</span>}
+                {item.href ? (
+                  <button
+                    onClick={() => navigate(item.href!)}
+                    className="text-[13px] leading-[22px] text-[#a4a4a8] hover:text-[#606067] transition-colors"
+                  >
+                    {item.label}
+                  </button>
+                ) : (
+                  <span className="text-[13px] leading-[22px] text-[#1c1c26]">{item.label}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : meta.subtitle ? (
           <p className="font-['Inter',sans-serif] text-[14px] leading-[22px] text-[#a4a4a8]">
             {meta.subtitle}
           </p>
-        )}
+        ) : null}
       </div>
 
       {/* Right: bell + user avatar */}

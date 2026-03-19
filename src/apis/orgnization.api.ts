@@ -195,8 +195,8 @@ export class OrgnizationApi {
     return res.data
   }
   // 发送邮箱邀请
-  async sendEmailInvitation(email: string) {
-    const res = await this.request.post<EmailInvitationResponse>(`/orgs/${this.orgId}/invites`, { email })
+  async sendEmailInvitation(email: string, showName: string, amount?: string) {
+    const res = await this.request.post<EmailInvitationResponse>(`/orgs/${this.orgId}/invites`, { email, showName, amount })
     return res.data
   }
   // 更新成员的支付意向（仅 amount，caipChainId 与 token 由组织发薪配置决定）
@@ -234,6 +234,17 @@ export class OrgnizationApi {
   async approveInvite(memberId: string) {
     const res = await this.request.post<{ message: string }>(`/orgs/${this.orgId}/invites/${memberId}/approve`)
     return res.data
+  }
+
+  // 下载批量导入成员的 CSV 模板
+  async getInviteImportTemplate(): Promise<{ blob: Blob; filename: string }> {
+    const res = await this.request.get(`/orgs/${this.orgId}/invites/import-template`, {
+      responseType: 'blob'
+    })
+    const disposition: string = res.headers['content-disposition'] ?? ''
+    const match = disposition.match(/filename="?([^";\n]+)"?/)
+    const filename = match?.[1] ?? 'members-import-template.csv'
+    return { blob: res.data, filename }
   }
 
   // 拒绝加入申请

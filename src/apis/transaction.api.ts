@@ -1,4 +1,5 @@
 import { AxiosInstance } from 'axios'
+import { MemberRole } from './orgnization.api'
 
 // ── StealthPay 相关接口 ─────────────────────────────────────────────────────
 
@@ -74,6 +75,8 @@ export interface CreateTransactionPlanPayload {
 }
 
 export interface TransactionItemMember {
+  roles: MemberRole[]
+  email: string
   id: string
   orgId: string
   memberId: string
@@ -235,7 +238,13 @@ export class TransactionApi {
   async getMemberPaymentStatistics(memberId: string) {
     const res = await this.request.get<{
       memberId: string
-      statistics: { currency: string; totalReceived: string; paymentCount: number }[]
+      statistics: {
+        tokenAddress: string
+        caipChainId: string
+        totalReceived: string
+        paymentCount: number
+        lastPayment: string | null
+      }[]
     }>(`/transaction/${this.orgId}/members/${memberId}/payment-statistics`)
     return res.data
   }

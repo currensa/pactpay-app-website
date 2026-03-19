@@ -1,13 +1,10 @@
 import { OrganizationMember } from '@/apis/orgnization.api'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { DatePickerInput } from '@/components/ui/datePickerInput'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
+import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
 import { IconLoader2 } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -41,6 +38,7 @@ export function CreateTransactionDialogContent({
   onCreateTransaction,
 }: CreateTransactionDialogContentProps) {
   const [currentStep, setCurrentStep] = useState(1)
+  const { setHeader, clearHeader } = useHeaderStore()
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set())
   const [memberAmounts, setMemberAmounts] = useState<Record<string, string>>({})
   const [transactionName, setTransactionName] = useState('')
@@ -52,6 +50,19 @@ export function CreateTransactionDialogContent({
   useEffect(() => {
     fetchPayrollTokenSymbol()
   }, [])
+
+  // Sync step indicator into AppHeader when rendered as a page
+  useEffect(() => {
+    if (variant !== 'page') return
+    setHeader({
+      backUrl: '/orgs/transaction',
+      steps: [
+        { label: '1.Select Members & Amount', active: currentStep === 1 },
+        { label: '2.Set Execution Date', active: currentStep === 2 },
+      ],
+    })
+    return () => clearHeader()
+  }, [variant, currentStep])
 
   // 初始化金额
   useEffect(() => {
@@ -75,7 +86,7 @@ export function CreateTransactionDialogContent({
     })
     const orgMemberIds: string[] = []
     transactionDetailMembers.forEach(item => {
-      const orgMember = organizationMembers.find(m => m.memberId === item.memberId)
+      const orgMember = organizationMembers.find(m => m.memberId === item.member?.memberId)
       if (orgMember) {
         orgMemberIds.push(orgMember.id)
         initialAmounts[orgMember.id] = item.amount ?? '0'
@@ -174,6 +185,10 @@ export function CreateTransactionDialogContent({
 
   const canProceedToStep2 = selectedMembers.size > 0 && !currencyMismatch && !!derivedCurrency
 
+  const isSelected = (id: string) => selectedMembers.has(id)
+  const allSelected = organizationMembers.length > 0 && selectedMembers.size === organizationMembers.length
+  const someSelected = selectedMembers.size > 0 && !allSelected
+
   return (
     <div className="flex flex-col h-full">
       {variant === 'dialog' && (
@@ -182,235 +197,281 @@ export function CreateTransactionDialogContent({
         </DialogHeader>
       )}
 
-      {/* Step indicator */}
-      <div className="flex items-center gap-4 pb-6">
-        <div className="flex items-center gap-2">
-          <div
-            className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium',
-              currentStep === 1
-                ? 'bg-primary text-primary-foreground'
-                : isCreatingFromReaction
-                  ? 'bg-green-500 text-white'
-                  : 'bg-muted text-muted-foreground'
-            )}
-          >
-            {isCreatingFromReaction && currentStep === 2 ? '✓' : '1'}
-          </div>
-          <span className={cn('text-sm font-medium', currentStep === 1 || isCreatingFromReaction ? 'text-foreground' : 'text-muted-foreground')}>
-            Select Members & Set Amounts
-          </span>
-        </div>
-        <div className="bg-border h-px flex-1" />
-        <div className="flex items-center gap-2">
-          <div
-            className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium',
-              currentStep === 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-            )}
-          >
-            2
-          </div>
-          <span className={cn('text-sm font-medium', currentStep === 2 ? 'text-foreground' : 'text-muted-foreground')}>
-            Choose Date & Preview
-          </span>
-        </div>
-      </div>
-
-      {/* Step 1: Select members and amounts */}
-      {currentStep === 1 && (
-        <div className="flex flex-1 gap-6 overflow-hidden">
-          <div className="flex min-w-0 flex-1 flex-col space-y-4 overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleSelectAll}>Select All</Button>
-                <Button variant="outline" size="sm" onClick={handleInvertSelection}>Invert Selection</Button>
-              </div>
-
-              {/* 已选成员数 + 推导出的 token + 总金额 */}
-              <div className="bg-muted flex shrink-0 flex-row items-center gap-3 rounded-lg p-2">
-                <span className="text-muted-foreground text-sm">Members: {selectedMembers.size}</span>
-                {selectedMembers.size > 0 && (
-                  currencyMismatch ? (
-                    <span className="text-xs text-destructive font-medium">Currency mismatch</span>
-                  ) : derivedCurrency ? (
-                    <span className="text-sm font-medium">
-                      Total: {totalAmount} {derivedCurrency}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">No payout intent set</span>
-                  )
-                )}
-              </div>
+      {/* Step indicator — dialog variant only */}
+      {variant !== 'page' && (
+        <div className="flex items-center gap-4 pb-6">
+          <div className="flex items-center gap-2">
+            <div className={cn('flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium', currentStep === 1 ? 'bg-primary text-primary-foreground' : isCreatingFromReaction ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground')}>
+              {isCreatingFromReaction && currentStep === 2 ? '✓' : '1'}
             </div>
+            <span className={cn('text-sm font-medium', currentStep === 1 || isCreatingFromReaction ? 'text-foreground' : 'text-muted-foreground')}>Select Members & Set Amounts</span>
+          </div>
+          <div className="bg-border h-px flex-1" />
+          <div className="flex items-center gap-2">
+            <div className={cn('flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium', currentStep === 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>2</div>
+            <span className={cn('text-sm font-medium', currentStep === 2 ? 'text-foreground' : 'text-muted-foreground')}>Choose Date & Preview</span>
+          </div>
+        </div>
+      )}
 
-            {currencyMismatch && (
-              <p className="text-destructive text-sm">
-                Selected members have different currencies. All members in a transaction must share the same currency.
-              </p>
-            )}
+      {/* ── Step 1: Select members & amounts ─────────────────────────────── */}
+      {currentStep === 1 && (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          {currencyMismatch && (
+            <p className="text-[#d92b2b] text-[13px] mb-3">
+              Selected members have different currencies. All members in a transaction must share the same currency.
+            </p>
+          )}
 
-            <div className="rounded-lg border">
-              <Table>
-                <TableHeader>
+          <div className="flex-1 overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
+                  <TableHead className="w-10 pb-3">
+                    <div
+                      className={cn(
+                        'w-[14px] h-[14px] rounded-[3px] border cursor-pointer flex items-center justify-center shrink-0',
+                        allSelected ? 'bg-[#5e85ee] border-[#5e85ee]' : someSelected ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]'
+                      )}
+                      onClick={handleSelectAll}
+                    >
+                      {(allSelected || someSelected) && (
+                        <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      )}
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">Member</TableHead>
+                  <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">Email</TableHead>
+                  <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[180px]">Role</TableHead>
+                  <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3">
+                    Service Fee{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {membersLoading || (isCreatingFromReaction && reactionSourceLoading) ? (
                   <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead>Member</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Service Fee ({payrollTokenSymbol})</TableHead>
-                    <TableHead>META PUB STATUS</TableHead>
+                    <TableCell colSpan={5} className="h-24 text-center text-[#8d8d93] text-[13px]">
+                      <div className="flex items-center justify-center gap-2">
+                        <IconLoader2 className="h-4 w-4 animate-spin" />
+                        {isCreatingFromReaction && reactionSourceLoading ? 'Loading re-action data...' : 'Loading members...'}
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {membersLoading || (isCreatingFromReaction && reactionSourceLoading) ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-muted-foreground h-24 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <IconLoader2 className="h-4 w-4 animate-spin" />
-                          {isCreatingFromReaction && reactionSourceLoading ? 'Loading re-action data...' : 'Loading members...'}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : organizationMembers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-muted-foreground h-24 text-center">No members found.</TableCell>
-                    </TableRow>
-                  ) : (
-                    organizationMembers.map(member => (
-                      <TableRow key={member.id}>
-                        <TableCell>
+                ) : organizationMembers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center text-[#8d8d93] text-[13px]">No members found.</TableCell>
+                  </TableRow>
+                ) : (
+                  organizationMembers.map(member => {
+                    const checked = isSelected(member.id)
+                    return (
+                      <TableRow
+                        key={member.id}
+                        className="border-b border-[rgba(0,0,0,0.06)] hover:bg-[#f5f5f5]/60 cursor-pointer"
+                        onClick={() => handleMemberToggle(member.id)}
+                      >
+                        <TableCell className="py-[14px]">
+                          <div className={cn('w-[14px] h-[14px] rounded-[3px] border flex items-center justify-center shrink-0', checked ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]')}>
+                            {checked && (
+                              <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-[14px]">
+                          <div className="flex items-center gap-[6px]">
+                            <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee]">
+                              {(member.showName || '?')[0].toUpperCase()}
+                            </div>
+                            <span className="text-[13px] text-[#1c1c26] leading-[22px]">{member.showName || '-'}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{member.email || '-'}</TableCell>
+                        <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{member.roles[0]?.role || '-'}</TableCell>
+                        <TableCell className="py-[14px]" onClick={e => e.stopPropagation()}>
                           <input
-                            type="checkbox"
-                            checked={selectedMembers.has(member.id)}
-                            onChange={() => handleMemberToggle(member.id)}
-                            className="border-input accent-primary h-4 w-4 cursor-pointer rounded"
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">{member.showName || "-"}</TableCell>
-                        <TableCell>{member.email || "-"}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize">
-                            {member.roles[0]?.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Input
                             type="number"
                             min="0"
-                            value={memberAmounts[member.id] || ''}
+                            value={memberAmounts[member.id] ?? ''}
                             onChange={e => handleAmountChange(member.id, e.target.value)}
-                            className="w-24"
                             placeholder="0"
+                            className={cn(
+                              'w-[140px] h-[34px] rounded-[10px] px-3 text-[13px] text-[#1c1c26] leading-[22px] outline-none border-0',
+                              checked ? 'bg-[#f5f5f5]' : 'bg-transparent'
+                            )}
                           />
                         </TableCell>
-                        <TableCell>
-                          {member.metaPub ? (
-                            <Badge variant="success" className="text-xs">Ready</Badge>
-                          ) : (
-                            <Badge variant="warning" className="text-xs">No metaPub</Badge>
-                          )}
-                        </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Step 1 footer */}
+          <div className="flex items-center justify-between pt-5 shrink-0">
+            <div className="flex items-center gap-[10px]">
+              <button
+                onClick={handleSelectAll}
+                className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+              >
+                Select All
+              </button>
+              <button
+                onClick={handleInvertSelection}
+                className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+              >
+                Invert Selection
+              </button>
+              {currencyMismatch ? (
+                <span className="text-[13px] text-[#d92b2b]">Currency mismatch</span>
+              ) : selectedMembers.size > 0 && derivedCurrency ? (
+                <span className="text-[13px] text-[#606067]">{selectedMembers.size} members · {totalAmount} {derivedCurrency}</span>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-[10px]">
+              <button
+                onClick={onCancel}
+                className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleNext}
+                disabled={!canProceedToStep2}
+                className="h-[38px] px-4 rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-25 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Step 2: Date and preview */}
+      {/* ── Step 2: Date, preview & member details ───────────────────────── */}
       {currentStep === 2 && (
-        <div className="flex-1 space-y-6 overflow-y-auto">
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="transaction-name">Transaction Name</Label>
-              <Input
-                id="transaction-name"
-                placeholder="Enter transaction name."
-                value={transactionName}
-                onChange={e => setTransactionName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="execution-date">Execution Date</Label>
-              <DatePickerInput
-                id="execution-date"
-                value={executionDate ? new Date(executionDate) : undefined}
-                onChange={date =>
-                  setExecutionDate(
-                    date
-                      ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-                      : ''
-                  )
-                }
-                fromDate={(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d })()}
-              />
-            </div>
-          </div>
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex flex-1 gap-[20px] overflow-hidden min-h-0">
+            {/* Left column */}
+            <div className="flex flex-col flex-1 gap-[28px] overflow-y-auto min-w-0">
+              {/* Transaction Name */}
+              <div className="flex flex-col gap-[7px]">
+                <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Transaction Name</span>
+                <input
+                  type="text"
+                  placeholder="Enter transaction name"
+                  value={transactionName}
+                  onChange={e => setTransactionName(e.target.value)}
+                  className="w-full bg-[#f5f5f5] rounded-[12px] px-4 py-[11px] text-[13px] text-[#1c1c26] leading-[22px] placeholder:text-[#8d8d93] outline-none border-0"
+                />
+              </div>
 
-          {/* Summary */}
-          <div className="bg-muted space-y-2 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Transaction Name:</span>
-              <span className="text-sm font-medium">{transactionName || '-'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Token:</span>
-              <span className="text-sm font-medium">{derivedCurrency || '-'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Selected Members:</span>
-              <span className="text-sm font-medium">{selectedMembers.size}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Execution Date:</span>
-              <span className="text-sm font-medium">{executionDate ? formatDateForDisplay(executionDate) : '-'}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Total Amount:</span>
-              <span className="text-sm font-medium">
-                {totalAmount} {derivedCurrency}
-              </span>
-            </div>
-          </div>
-
-          {/* Member details */}
-          <div className="space-y-3">
-            <h3 className="text-muted-foreground text-sm font-medium uppercase">Member Details</h3>
-            <div className="space-y-2">
-              {memberDetailsForPreview.map(item => (
-                <div key={item.id} className="flex items-center justify-between rounded-lg border p-3">
-                  <span className="font-medium">{item.member?.showName ?? ''}</span>
-                  <span className="text-muted-foreground text-sm">
-                    {parseFloat(String(item.amount))} {derivedCurrency}
-                  </span>
+              {/* Execution Date */}
+              <div className="flex flex-col gap-[7px]">
+                <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Execution Date</span>
+                <div className="[&_input]:bg-[#f5f5f5] [&_input]:rounded-[12px] [&_input]:border-0 [&_input]:text-[13px] [&_input]:text-[#1c1c26] [&_input]:h-[44px] [&_input]:px-4">
+                  <DatePickerInput
+                    value={executionDate ? new Date(executionDate) : undefined}
+                    onChange={date =>
+                      setExecutionDate(
+                        date
+                          ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+                          : ''
+                      )
+                    }
+                    fromDate={(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d })()}
+                  />
                 </div>
-              ))}
+              </div>
+
+              {/* Transaction Preview */}
+              <div className="flex flex-col flex-1 border border-[rgba(0,0,0,0.12)] rounded-[12px] overflow-hidden">
+                <div className="bg-[#f5f5f5] px-4 py-[7px] shrink-0">
+                  <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Transaction Preview</span>
+                </div>
+                <div className="flex flex-col gap-[14px] p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] text-[#8d8d93] leading-[22px]">Transaction Name</span>
+                    <span className="text-[13px] text-[#1c1c26] leading-[22px]">{transactionName || '-'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] text-[#8d8d93] leading-[22px]">Selected Members</span>
+                    <span className="text-[13px] text-[#1c1c26] leading-[22px]">{selectedMembers.size}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] text-[#8d8d93] leading-[22px]">Execution Date</span>
+                    <span className="text-[13px] text-[#1c1c26] leading-[22px]">{executionDate || '-'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[13px] text-[#8d8d93] leading-[22px]">Total Amount</span>
+                    <span className="text-[13px] text-[#1c1c26] leading-[22px]">{totalAmount} {derivedCurrency || '-'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right column: Member Details */}
+            <div className="flex flex-col flex-1 border border-[rgba(0,0,0,0.12)] rounded-[12px] overflow-hidden min-w-0">
+              <div className="bg-[#f5f5f5] px-4 py-[7px] shrink-0">
+                <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Member Details</span>
+              </div>
+              <div className="flex flex-col gap-[18px] p-4 overflow-y-auto flex-1">
+                {memberDetailsForPreview.map(item => {
+                  const originalAmount = organizationMembers.find(m => m.memberId === (item as any).member?.memberId)?.payoutIntent?.amount
+                  const newAmount = parseFloat(String(item.amount)) || 0
+                  const hasChanged = isCreatingFromReaction && originalAmount !== undefined && parseFloat(originalAmount) !== newAmount
+                  return (
+                    <div key={item.id ?? item.memberId} className="flex items-center justify-between">
+                      <div className="flex items-center gap-[6px]">
+                        <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee]">
+                          {(item.member?.showName || '?')[0].toUpperCase()}
+                        </div>
+                        <span className="text-[13px] text-[#1c1c26] leading-[22px] w-[110px] truncate">{item.member?.showName ?? ''}</span>
+                      </div>
+                      <div className="flex items-center gap-[4px]">
+                        {hasChanged && (
+                          <span className="text-[13px] text-[#bbbbbe] line-through leading-[22px]">
+                            {parseFloat(originalAmount!).toLocaleString()}
+                          </span>
+                        )}
+                        <span className="text-[13px] text-[#1c1c26] leading-[22px]">
+                          {newAmount.toLocaleString()} {derivedCurrency}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Step 2 footer */}
+          <div className="flex items-center justify-between pt-5 shrink-0">
+            <button
+              onClick={onCancel}
+              className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+            >
+              Back
+            </button>
+            <div className="flex items-center gap-[10px]">
+              <button
+                onClick={handlePrevious}
+                className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+              >
+                Previous
+              </button>
+              <button
+                onClick={handleCreateTransaction}
+                disabled={!transactionName || !executionDate}
+                className="h-[38px] px-4 rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-25 disabled:cursor-not-allowed"
+              >
+                Create Transaction
+              </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Footer buttons */}
-      <div className="flex items-center justify-end gap-3 border-t pt-4 mt-6">
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        {currentStep === 1 && (
-          <Button onClick={handleNext} disabled={!canProceedToStep2}>
-            Next
-          </Button>
-        )}
-        {currentStep === 2 && (
-          <>
-            <Button variant="outline" onClick={handlePrevious}>Previous</Button>
-            <Button onClick={handleCreateTransaction} disabled={!transactionName || !executionDate}>
-              Create Transaction
-            </Button>
-          </>
-        )}
-      </div>
     </div>
   )
 }
