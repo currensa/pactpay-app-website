@@ -50,7 +50,7 @@ export class AccountApi {
   }
 
   async getMySignMessage() {
-    const res = await this.request.get<{ signMessage: string }>('/auth/meta-pub/my-sign-message')
+    const res = await this.request.get<{ signMessage: string ,updatedAt: Date }>('/auth/meta-pub/my-sign-message')
     return res.data
   }
 

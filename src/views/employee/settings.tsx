@@ -1,6 +1,6 @@
 import api from '@/apis'
 import ChangeEmailDialog from '@/views/employee/components/change-email-dialog'
-import { IconChevronDown, IconEye, IconEyeOff } from '@tabler/icons-react'
+import { IconChevronDown, IconEye, IconEyeOff, IconRefresh } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 
 const LANGUAGES = ['English']
@@ -26,6 +26,12 @@ export default function EmployeeSettings() {
   const [uid, setUid] = useState('')
   const [walletAddress, setWalletAddress] = useState('')
 
+  // Personal Token
+  const [personalToken, setPersonalToken] = useState('')
+  const [tokenUpdatedAt, setTokenUpdatedAt] = useState<Date | null>(null)
+  const [showToken, setShowToken] = useState(false)
+  const [tokenLoading, setTokenLoading] = useState(false)
+
   useEffect(() => {
     const userId = localStorage.getItem('userId')
     if (!userId) return
@@ -36,7 +42,25 @@ export default function EmployeeSettings() {
       }
       setUid(userId)
     }).catch(console.error)
+
+    api.auth.getMySignMessage().then(data => {
+      setPersonalToken(data.signMessage)
+      setTokenUpdatedAt(new Date(data.updatedAt))
+    }).catch(() => { })
   }, [])
+
+  const handleGenerateToken = async () => {
+    setTokenLoading(true)
+    try {
+      const data = await api.auth.getMySignMessage()
+      setPersonalToken(data.signMessage)
+      setTokenUpdatedAt(new Date(data.updatedAt))
+      setShowToken(true)
+    } catch {
+    } finally {
+      setTokenLoading(false)
+    }
+  }
 
   const toggleNotification = (key: keyof typeof notifications) =>
     setNotifications(prev => ({ ...prev, [key]: !prev[key] }))
@@ -46,63 +70,117 @@ export default function EmployeeSettings() {
       {/* Account */}
       <section className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">Account</p>
-        <div className="bg-white rounded-[32px] p-[24px] flex flex-col gap-[24px]">
-          {/* Login Email */}
-          <div className="flex flex-col gap-[8px]">
-            <p className="text-[14px] leading-[22px] text-[#8d8d93]">Login Email</p>
-            <div className="flex items-center gap-[8px]">
-              <p className="text-[16px] leading-[24px] text-[#1c1c26]">{email || '—'}</p>
-              <button
-                onClick={() => setShowChangeEmail(true)}
-                className="text-[14px] leading-[22px] text-[#5e85ee] hover:opacity-80 transition-opacity"
-              >
-                {email ? 'Change' : 'Bind'}
-              </button>
+        <div className="flex gap-[20px] items-start bg-white rounded-[32px] pr-[24px]">
+          {/* Account info card */}
+          <div className="flex-1  p-[24px] flex flex-col gap-[24px]">
+            {/* Login Email */}
+            <div className="flex flex-col gap-[8px]">
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">Login Email</p>
+              <div className="flex items-center gap-[8px]">
+                <p className="text-[16px] leading-[24px] text-[#1c1c26]">{email || '—'}</p>
+                <button
+                  onClick={() => setShowChangeEmail(true)}
+                  className="text-[14px] leading-[22px] text-[#5e85ee] hover:opacity-80 transition-opacity"
+                >
+                  {email ? 'Change' : 'Bind'}
+                </button>
+              </div>
+            </div>
+
+            {/* UID */}
+            <div className="flex flex-col gap-[8px]">
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">UID</p>
+              <div className="flex items-center gap-[8px]">
+                <p className="text-[16px] leading-[24px] text-[#1c1c26]">
+                  {uid ? (showUid ? uid : '••••••••••••••') : '—'}
+                </p>
+                {uid && (
+                  <button
+                    onClick={() => setShowUid(v => !v)}
+                    className="flex items-center text-[#8d8d93] hover:text-[#1c1c26] transition-colors"
+                  >
+                    {showUid
+                      ? <IconEye className="h-[20px] w-[20px]" />
+                      : <IconEyeOff className="h-[20px] w-[20px]" />
+                    }
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Login address */}
+            <div className="flex flex-col gap-[8px]">
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">Login address</p>
+              <div className="flex items-center gap-[8px]">
+                <p className="text-[16px] leading-[24px] text-[#1c1c26]">
+                  {walletAddress
+                    ? (showAddress ? walletAddress : maskAddress(walletAddress))
+                    : '—'}
+                </p>
+                {walletAddress && (
+                  <button
+                    onClick={() => setShowAddress(v => !v)}
+                    className="flex items-center text-[#8d8d93] hover:text-[#1c1c26] transition-colors"
+                  >
+                    {showAddress
+                      ? <IconEye className="h-[20px] w-[20px]" />
+                      : <IconEyeOff className="h-[20px] w-[20px]" />
+                    }
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* UID */}
-          <div className="flex flex-col gap-[8px]">
-            <p className="text-[14px] leading-[22px] text-[#8d8d93]">UID</p>
-            <div className="flex items-center gap-[8px]">
-              <p className="text-[16px] leading-[24px] text-[#1c1c26]">
-                {uid ? (showUid ? uid : '••••••••••••••') : '—'}
+          {/* Personal Token card */}
+          <div className="w-[420px] shrink-0 bg-[rgba(94,133,238,0.08)] rounded-[20px] p-[20px] flex flex-col gap-[16px] m-[auto]">
+            {/* Header */}
+            <div className="flex flex-col gap-[4px]">
+              <div className="flex items-center justify-between">
+                <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26]">Personal Token</p>
+                {tokenUpdatedAt && (
+                  <span className="flex items-center border border-[rgba(0,0,0,0.12)] rounded-[100px] px-[10px] py-[2px] text-[12px] leading-[20px] whitespace-nowrap">
+                    <span className="text-[#8d8d93]">Last updated </span>
+                    <span className="text-[#1c1c26] ml-[2px]">
+                      {tokenUpdatedAt.toLocaleDateString('zh-CN').replace(/\//g, '/')}
+                    </span>
+                  </span>
+                )}
+              </div>
+              <p className="text-[13px] leading-[20px] text-[#606067]">
+                This is your organization access credential. Keep it secure to avoid claim issues.
               </p>
-              {uid && (
+            </div>
+
+            {/* Token display */}
+            <div className="bg-white rounded-[10px] px-[12px] py-[8px] flex items-center justify-between gap-[8px]">
+              <p className="text-[14px] font-bold leading-[22px] text-[#1c1c26] flex-1 truncate text-center">
+                {personalToken
+                  ? (showToken ? personalToken : '••••••••••')
+                  : '——'}
+              </p>
+              {personalToken && (
                 <button
-                  onClick={() => setShowUid(v => !v)}
-                  className="flex items-center text-[#8d8d93] hover:text-[#1c1c26] transition-colors"
+                  onClick={() => setShowToken(v => !v)}
+                  className="shrink-0 text-[#8d8d93] hover:text-[#1c1c26] transition-colors"
                 >
-                  {showUid
-                    ? <IconEye className="h-[20px] w-[20px]" />
-                    : <IconEyeOff className="h-[20px] w-[20px]" />
+                  {showToken
+                    ? <IconEye className="h-[16px] w-[16px]" />
+                    : <IconEyeOff className="h-[16px] w-[16px]" />
                   }
                 </button>
               )}
             </div>
-          </div>
 
-          {/* Login address */}
-          <div className="flex flex-col gap-[8px]">
-            <p className="text-[14px] leading-[22px] text-[#8d8d93]">Login address</p>
-            <div className="flex items-center gap-[8px]">
-              <p className="text-[16px] leading-[24px] text-[#1c1c26]">
-                {walletAddress
-                  ? (showAddress ? walletAddress : maskAddress(walletAddress))
-                  : '—'}
-              </p>
-              {walletAddress && (
-                <button
-                  onClick={() => setShowAddress(v => !v)}
-                  className="flex items-center text-[#8d8d93] hover:text-[#1c1c26] transition-colors"
-                >
-                  {showAddress
-                    ? <IconEye className="h-[20px] w-[20px]" />
-                    : <IconEyeOff className="h-[20px] w-[20px]" />
-                  }
-                </button>
-              )}
-            </div>
+            {/* Generate button */}
+            <button
+              onClick={handleGenerateToken}
+              disabled={tokenLoading}
+              className="w-full flex items-center justify-center gap-[6px] bg-[#5e85ee] rounded-[12px] py-[8px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              {tokenLoading && <IconRefresh className="h-[14px] w-[14px] animate-spin" />}
+              Generate
+            </button>
           </div>
         </div>
       </section>
