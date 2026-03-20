@@ -1,6 +1,11 @@
 import api from '@/apis'
+import { getMetaPublicKey } from '@/lib/stealth-key'
+import { useToast } from '@/components/ui/use-toast'
 import ChangeEmailDialog from '@/views/employee/components/change-email-dialog'
+import type { Provider } from '@reown/appkit/react'
+import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconChevronDown, IconEye, IconEyeOff, IconRefresh } from '@tabler/icons-react'
+import { ethers } from 'ethers'
 import { useEffect, useState } from 'react'
 
 const LANGUAGES = ['English']
@@ -11,6 +16,10 @@ function maskAddress(address: string) {
 }
 
 export default function EmployeeSettings() {
+  const { open } = useAppKit()
+  const { isConnected, address } = useAppKitAccount()
+  const { walletProvider } = useAppKitProvider<Provider>('eip155')
+  const { toast } = useToast()
   const [showChangeEmail, setShowChangeEmail] = useState(false)
   const [showUid, setShowUid] = useState(true)
   const [showAddress, setShowAddress] = useState(false)
@@ -50,13 +59,34 @@ export default function EmployeeSettings() {
   }, [])
 
   const handleGenerateToken = async () => {
+    if (!isConnected || !address || !walletProvider) {
+      open({ view: 'Connect', namespace: 'eip155' })
+      return
+    }
     setTokenLoading(true)
     try {
+      // Step 1: get signMessage from server
+      const { signMessage } = await api.auth.getMetaPubSignMessage()
+
+      // Step 2: sign → derive metaPriv → derive metaPub
+      const signature = await walletProvider.request<string>({
+        method: 'personal_sign',
+        params: [signMessage, address]
+      })
+      const metaPriv = ethers.keccak256(ethers.getBytes(signature))
+      const metaPub = getMetaPublicKey(metaPriv)
+
+      // Step 3: submit
+      await api.auth.submitMetaPub({ address, signMessage, signature, metaPub })
+
+      // Step 4: fetch updated token
       const data = await api.auth.getMySignMessage()
       setPersonalToken(data.signMessage)
       setTokenUpdatedAt(new Date(data.updatedAt))
       setShowToken(true)
-    } catch {
+      toast({ description: 'Personal token generated successfully.' })
+    } catch (err: any) {
+      toast({ description: err?.response?.data?.message || 'Failed to generate token. Please try again.', variant: 'destructive' })
     } finally {
       setTokenLoading(false)
     }
