@@ -6,14 +6,18 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { getRouteMeta } from '@/router'
 import useHeaderStore from '@/stores/header'
-import { IconBadgeCc, IconBell, IconLogout } from '@tabler/icons-react'
+import useOrganizationStore from '@/stores/organization'
 import { useDisconnect } from '@reown/appkit/react'
+import { IconBell, IconLogout, IconSwitchHorizontal } from '@tabler/icons-react'
 import { ChevronLeft } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 export default function AppHeader() {
@@ -21,6 +25,19 @@ export default function AppHeader() {
   const navigate = useNavigate()
   const { disconnect } = useDisconnect()
   const { steps, breadcrumb, backUrl } = useHeaderStore()
+  const { organizations, getOrganizations, setCurrentOrg } = useOrganizationStore()
+
+  useEffect(() => {
+    if (organizations.length === 0) getOrganizations().catch(() => { })
+  }, [])
+
+  function handleRoleSelect(orgId: string, role: string) {
+    const item = organizations.find(o => o.organization.orgId === orgId)
+    if (!item) return
+    setCurrentOrg(orgId, item.member)
+    const isAdmin = ['Owner', 'Admin', 'Operator'].includes(role)
+    navigate(isAdmin ? '/orgs/dashboard' : '/member/dashboard')
+  }
 
   const meta = useMemo(() => {
     const routeMeta = getRouteMeta(location.pathname) ?? {}
@@ -120,13 +137,30 @@ export default function AppHeader() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => navigate('/account/settings/account', { state: { from: location.pathname } })}
-                className="cursor-pointer"
-              >
-                <IconBadgeCc className="mr-2 h-4 w-4" />
-                Account Settings
-              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="cursor-pointer">
+                  <IconSwitchHorizontal className="mr-2 h-4 w-4" />
+                  Change Role
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="rounded-[12px] min-w-[200px]">
+                  {organizations.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-[#8d8d93]">No organizations</div>
+                  ) : (
+                    organizations.map(({ organization, member }) =>
+                      member.roles.map(({ role }) => (
+                        <DropdownMenuItem
+                          key={`${organization.orgId}-${role}`}
+                          onClick={() => handleRoleSelect(organization.orgId, role)}
+                          className="cursor-pointer flex flex-col items-start gap-0"
+                        >
+                          <span className="text-[13px] font-medium text-[#1c1c26]">{organization.name}</span>
+                          <span className="text-[12px] text-[#8d8d93]">{role}</span>
+                        </DropdownMenuItem>
+                      ))
+                    )
+                  )}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-500 focus:text-red-500">

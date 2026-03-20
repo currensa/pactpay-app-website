@@ -26,7 +26,7 @@ export interface InviteCode {
 
 export interface MemberRole {
   id: string
-  role: 'Owner' | 'Admin' | 'Operator' | 'Employee'
+  role: 'Owner' | 'Admin' | 'Operator' | 'Member'
   createdAt: string
 }
 

@@ -217,7 +217,7 @@ export default function ClaimPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/employee/dashboard')} aria-label="Back">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/member/dashboard')} aria-label="Back">
           <IconArrowLeft className="size-5" />
         </Button>
         <h1 className="text-2xl font-bold">Claim Payroll</h1>

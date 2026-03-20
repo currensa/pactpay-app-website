@@ -181,9 +181,9 @@ export class TransactionApi {
   }
 
   // 交易计划列表查询
-  async getTransactionPlans(page: number = 1, pageSize: number = 20) {
+  async getTransactionPlans(page: number = 1, pageSize: number = 20, transactionStatus?: string) {
     const res = await this.request.get<TransactionPlansResponse>(`/transaction/${this.orgId}`, {
-      params: { page, pageSize }
+      params: { page, pageSize, ...(transactionStatus && transactionStatus !== 'all' ? { transactionStatus } : {}) }
     })
     return res.data
   }

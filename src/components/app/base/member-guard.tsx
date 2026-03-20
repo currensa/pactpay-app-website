@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 /**
- * Guards employee (C端) routes.
- * Ensures the user has submitted metaPub before accessing employee pages.
+ * Guards member (C端) routes.
+ * Ensures the user has submitted metaPub before accessing member pages.
  * If not submitted, redirects back to login to show the bind-wallet step.
  */
-export default function EmployeeGuard({ children }: { children: React.ReactNode }) {
+export default function MemberGuard({ children }: { children: React.ReactNode }) {
   const { checkMetaPub, metaPubSubmitted } = useAuthStore()
   const navigate = useNavigate()
   const [checking, setChecking] = useState(true)

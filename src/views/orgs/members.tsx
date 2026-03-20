@@ -16,9 +16,9 @@ import { useToast } from '@/components/ui/use-toast'
 import { getMemberStatusDisplayName, memberStatus } from '@/enums/org'
 import useOrganizationStore from '@/stores/organization'
 import { getMemberRoles, getPrimaryRole, MemberRole, Permission, useHasPermission } from '@/utils/permissions'
-import { StatusBadge } from '@/views/orgs/components/status-badge'
 import type { SortDirection, SortField } from '@/views/orgs/components/member-detail'
 import { MemberDetailContent } from '@/views/orgs/components/member-detail'
+import { StatusBadge } from '@/views/orgs/components/status-badge'
 import { AlertCircle, Check, CheckCircle, ChevronDown, ChevronsUpDown, ChevronUp, Copy, Download, Edit2, Plus, RefreshCw, Search, Send, Upload, X, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
@@ -569,7 +569,7 @@ export default function MemberPage(
     return <ChevronsUpDown className="h-[14px] w-[14px] text-[#8d8d93]" />
   }
 
-  const ROLES: Array<MemberRole | 'All'> = ['All', 'Owner', 'Admin', 'Operator', 'Employee']
+  const ROLES: Array<MemberRole | 'All'> = ['All', 'Owner', 'Admin', 'Operator', 'Member']
   const STATUSES: Array<memberStatus | 'All'> = ['All', memberStatus.ACTIVE, memberStatus.ACTIVATION, memberStatus.REVIEW]
 
   return (

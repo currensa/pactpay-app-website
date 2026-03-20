@@ -6,7 +6,7 @@
 - **Build:** Vite + `@tailwindcss/vite` (Tailwind v4, no `tailwind.config.js`)
 - **Styling:** Tailwind CSS utility classes — inline, no CSS Modules or styled-components
 - **UI library:** shadcn/ui components in `src/components/ui/`
-- **Icons:** `@tabler/icons-react` (employee/settings pages), `lucide-react` (org/admin pages)
+- **Icons:** `@tabler/icons-react` (member/settings pages), `lucide-react` (org/admin pages)
 - **Routing:** react-router-dom v6 (`useNavigate`, `useLocation`)
 - **State:** Zustand stores in `src/stores/`
 - **HTTP:** Axios via custom API class instances in `src/apis/`
@@ -41,7 +41,7 @@ Figma designs are authored at a slightly larger scale than the target screen siz
 
 - **shadcn/ui primitives:** `src/components/ui/` — Button, Input, Table, Dialog, Drawer, Badge, etc.
 - **App shell / layout:** `src/components/app/` — sidebar, header, layout wrappers
-- **Page views:** `src/views/` — organized by role (`employee/`, `orgs/`, `admin/`)
+- **Page views:** `src/views/` — organized by role (`member/`, `orgs/`, `admin/`)
 - **Page-scoped components:** `src/views/<section>/components/`
 
 Prefer extending or composing existing components over creating new ones.
@@ -69,7 +69,7 @@ Prefer extending or composing existing components over creating new ones.
 ## Icon Rules
 
 - **IMPORTANT: Do not install new icon packages.**
-- Employee/settings/account views → use `@tabler/icons-react` (e.g. `IconCheck`, `IconPencil`, `IconX`)
+- Member/settings/account views → use `@tabler/icons-react` (e.g. `IconCheck`, `IconPencil`, `IconX`)
 - Org/admin/members views → use `lucide-react` (e.g. `Check`, `ChevronDown`, `Plus`, `X`)
 - Match which library is already imported in the file being edited.
 - If the Figma MCP server returns a `localhost` SVG asset, use that source directly.

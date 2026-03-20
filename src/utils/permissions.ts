@@ -39,7 +39,7 @@ import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 // 与后端 OrganizationMemberRole 枚举保持一致
-export type MemberRole = 'Owner' | 'Admin' | 'Operator' | 'Employee'
+export type MemberRole = 'Owner' | 'Admin' | 'Operator' | 'Member'
 
 export enum Permission {
   // 组织管理（仅 Admin+）
@@ -64,8 +64,8 @@ export enum Permission {
   REACTION_TRANSACTION = 'reaction_transaction',// Admin + Operator
 
   // 数据查看
-  VIEW_HISTORY         = 'view_history',        // Admin + Operator + Employee
-  VIEW_DASHBOARD       = 'view_dashboard',      // Admin + Operator + Employee
+  VIEW_HISTORY         = 'view_history',        // Admin + Operator + Member
+  VIEW_DASHBOARD       = 'view_dashboard',      // Admin + Operator + Member
   EXPORT_DATA          = 'export_data',          // Admin + Operator
 }
 
@@ -110,7 +110,7 @@ const rolePermissionsMap: Record<MemberRole, Permission[]> = {
     Permission.EXPORT_DATA,
   ],
 
-  Employee: [
+  Member: [
     Permission.VIEW_HISTORY,
     Permission.VIEW_DASHBOARD,
   ],
@@ -129,19 +129,19 @@ export function hasPermission(userRoles: MemberRole[], permission: Permission): 
 
 // ─── 角色层级工具（用于判断"能否操作某成员"） ───────────────────────────────
 
-/** 优先级：Owner > Admin > Operator > Employee */
+/** 优先级：Owner > Admin > Operator > Member */
 export function getPrimaryRole(roles?: MemberRole[]): MemberRole {
-  const priority: MemberRole[] = ['Owner', 'Admin', 'Operator', 'Employee']
+  const priority: MemberRole[] = ['Owner', 'Admin', 'Operator', 'Member']
   for (const role of priority) {
     if (roles?.includes(role)) return role
   }
-  return 'Employee'
+  return 'Member'
 }
 
 /**
  * 从 API 返回的角色对象数组中提取最高权限角色名。
  * 接受 `{ role: string }[]` 结构（如 OrganizationMember['roles']）。
- * 优先级：Owner > Admin > Operator > Employee
+ * 优先级：Owner > Admin > Operator > Member
  */
 export function getHighestRole(roles?: { role: string }[]): MemberRole {
   return getPrimaryRole(roles?.map(r => r.role as MemberRole))
@@ -150,15 +150,15 @@ export function getHighestRole(roles?: { role: string }[]): MemberRole {
 /**
  * 判断当前用户是否可以对目标成员执行管理操作（基于角色层级）。
  * 只能操作比自己角色低的人：
- *   Owner    → 可管理 Admin / Operator / Employee
- *   Admin    → 可管理 Operator / Employee
- *   Operator → 可管理 Employee
+ *   Owner    → 可管理 Admin / Operator / Member
+ *   Admin    → 可管理 Operator / Member
+ *   Operator → 可管理 Member
  */
 export function canManageMember(currentUserRoles: MemberRole[], targetMemberRoles: MemberRole[]): boolean {
   const currentPrimary = getPrimaryRole(currentUserRoles)
   const targetPrimary  = getPrimaryRole(targetMemberRoles)
 
-  const hierarchy: MemberRole[] = ['Owner', 'Admin', 'Operator', 'Employee']
+  const hierarchy: MemberRole[] = ['Owner', 'Admin', 'Operator', 'Member']
   return hierarchy.indexOf(currentPrimary) < hierarchy.indexOf(targetPrimary)
 }
 
@@ -168,7 +168,7 @@ export function canManageMember(currentUserRoles: MemberRole[], targetMemberRole
  */
 export function getAssignableRoles(currentUserRoles: MemberRole[]): MemberRole[] {
   const primary = getPrimaryRole(currentUserRoles)
-  const hierarchy: MemberRole[] = ['Owner', 'Admin', 'Operator', 'Employee']
+  const hierarchy: MemberRole[] = ['Owner', 'Admin', 'Operator', 'Member']
   const idx = hierarchy.indexOf(primary)
   // 只返回严格低于自身的角色，且排除 Owner（Owner 不可通过此界面分配）
   return hierarchy.slice(idx + 1)
@@ -207,9 +207,9 @@ export function getMemberRoles(member: OrganizationMember | null | undefined): M
 }
 
 export function getRoleDisplayNames(): Record<MemberRole, string> {
-  return { Owner: 'Owner', Admin: 'Admin', Operator: 'Operator', Employee: 'Employee' }
+  return { Owner: 'Owner', Admin: 'Admin', Operator: 'Operator', Member: 'Member' }
 }
 
 export function getRoleDisplayNamesCN(): Record<MemberRole, string> {
-  return { Owner: '所有者', Admin: '管理员', Operator: '操作员', Employee: '员工' }
+  return { Owner: '所有者', Admin: '管理员', Operator: '操作员', Member: '员工' }
 }

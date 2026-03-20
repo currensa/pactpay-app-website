@@ -212,7 +212,7 @@ function IncomeDistributionCard({ data }: { data: DistributionItem[] }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function EmployeeDashboard() {
+export default function MemberDashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -240,7 +240,7 @@ export default function EmployeeDashboard() {
   }
 
   const handleOrganizationClick = (organization: string) => {
-    navigate('/employee/orgdetail', { state: { orgName: organization, orgId: '', memberId: '' } })
+    navigate('/member/orgdetail', { state: { orgName: organization, orgId: '', memberId: '' } })
   }
 
   return (
@@ -258,7 +258,7 @@ export default function EmployeeDashboard() {
           tokens={pendingTokens}
           claimButton={
             <button
-              onClick={() => navigate('/employee/claim')}
+              onClick={() => navigate('/member/claim')}
               disabled={payrollLoading || pendingCount === 0}
               className="flex items-center justify-center rounded-[12px] bg-[#5e85ee] px-[14px] py-[10px] text-[14px] leading-[22px] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
             >

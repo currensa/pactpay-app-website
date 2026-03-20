@@ -1,31 +1,16 @@
 import { AxiosInstance } from 'axios'
 
-export interface MemberStatistics {
-  totalMembers: number
-  newMembersThisMonth: number
-}
-
-export interface TransactionStatistics {
-  totalReady: number
-  readyToExecuteToday: number
-}
-
-export interface PaymentStatisticsByCurrency {
-  currency: string
+export interface TokenAmount {
   caipChainId: string
-  totalPaidThisMonth: string
-  totalPaidLastMonth: string
-  changePercentage: string
-}
-
-export interface PaymentStatistics {
-  currencies: PaymentStatisticsByCurrency[]
+  tokenAddress: string
+  amount: string
 }
 
 export interface DashboardStatistics {
-  memberStatistics: MemberStatistics
-  transactionStatistics: TransactionStatistics
-  paymentStatistics: PaymentStatistics
+  totalMembers: number
+  totalPaid: TokenAmount[]
+  yearToDate: TokenAmount[]
+  thisMonth: TokenAmount[]
 }
 
 export class StatisticsApi {

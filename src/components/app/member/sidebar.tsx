@@ -6,14 +6,14 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const TOP_ITEMS: OrgNavItem[] = [
-  { title: 'Dashboard', key: 'dashboard', url: '/employee/dashboard', icon: IconLayoutDashboard },
+  { title: 'Dashboard', key: 'dashboard', url: '/member/dashboard', icon: IconLayoutDashboard },
 ]
 
 const BOTTOM_ITEMS: OrgNavItem[] = [
-  { title: 'Settings', key: 'settings', url: '/employee/settings', icon: IconSettings },
+  { title: 'Settings', key: 'settings', url: '/member/settings', icon: IconSettings },
 ]
 
-export default function EmployeeSidebar() {
+export default function MemberSidebar() {
   const navigate = useNavigate()
   const [navItems, setNavItems] = useState<OrgNavItem[]>([...TOP_ITEMS, ...BOTTOM_ITEMS])
 
@@ -26,10 +26,10 @@ export default function EmployeeSidebar() {
 
       const orgChildren = data.map(({ organization, member }) => ({
         title: organization.orgName,
-        url: '/employee/orgdetail',
+        url: '/member/orgdetail',
         logoUrl: organization.logoUrl,
         onClick: () =>
-          navigate('/employee/orgdetail', {
+          navigate('/member/orgdetail', {
             state: {
               orgId: organization.orgId,
               orgName: organization.orgName,
@@ -46,7 +46,7 @@ export default function EmployeeSidebar() {
         {
           title: 'Organizations',
           key: 'organizations',
-          url: '/employee/orgdetail',
+          url: '/member/orgdetail',
           icon: IconBuilding,
           children: orgChildren
         },

@@ -1,10 +1,10 @@
 import pactpayFont from '@/assets/pactpayFont.svg'
 import pactpayIcon from '@/assets/pactpayIcon.svg'
+import { OrganizationSwitcher } from '@/components/app/base/switcher'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import type { OrgNavItem } from '@/router'
 import {
-  IconArrowsLeftRight,
   IconChevronDown,
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand
@@ -14,13 +14,11 @@ import { useLocation, useNavigate } from 'react-router-dom'
 
 interface AppSidebarProps {
   navItems: OrgNavItem[]
-  /** 左上角切换按钮点击回调，默认跳转 selectOrg 步骤 */
-  onSwitchClick?: () => void
   /** 隐藏左上角切换组织按钮 */
   hideSwitchButton?: boolean
 }
 
-export default function AppSidebar({ navItems, onSwitchClick, hideSwitchButton }: AppSidebarProps) {
+export default function AppSidebar({ navItems, hideSwitchButton }: AppSidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
@@ -64,15 +62,7 @@ export default function AppSidebar({ navItems, onSwitchClick, hideSwitchButton }
               </span>
             )}
           </div>
-          {!collapsed && !hideSwitchButton && (
-            <button
-              onClick={onSwitchClick ?? (() => navigate('/account/login', { state: { step: 'selectOrg' } }))}
-              className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white transition-colors hover:bg-[#f5f5f5]"
-              title="Switch Organization"
-            >
-              <IconArrowsLeftRight className="h-[20px] w-[20px] text-[#1c1c26]" />
-            </button>
-          )}
+          {!collapsed && !hideSwitchButton && <OrganizationSwitcher />}
         </div>
 
         {/* Nav items */}

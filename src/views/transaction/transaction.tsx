@@ -2,9 +2,7 @@ import apis from '@/apis'
 import { TransactionPlan } from '@/apis/transaction.api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
@@ -13,7 +11,7 @@ import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { Permission, useHasPermission } from '@/utils/permissions'
 import { formatUnits } from 'ethers'
-import { ChevronsUpDown, Plus, Search } from 'lucide-react'
+import { ChevronDown, ChevronUp, ChevronsUpDown, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -58,6 +56,19 @@ export default function Transaction() {
   const hasPermission = useHasPermission()
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
+  const [sortField, setSortField] = useState<'payDay' | 'status' | null>(null)
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null)
+
+  const handleSort = (field: 'payDay' | 'status') => {
+    if (sortField === field) {
+      if (sortDirection === 'asc') setSortDirection('desc')
+      else if (sortDirection === 'desc') { setSortField(null); setSortDirection(null) }
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
   const [currentPage, setCurrentPage] = useState(1)
 
   const [depositConfirmDialogOpen, setDepositConfirmDialogOpen] = useState(false)
@@ -128,9 +139,9 @@ export default function Transaction() {
     }
   }
 
-  const fetchTransactionPlans = async () => {
+  const fetchTransactionPlans = async (status = statusFilter) => {
     try {
-      const response = await apis.transaction.getTransactionPlans()
+      const response = await apis.transaction.getTransactionPlans(1, itemsPerPage, status)
       setRawTransactionPlans(response.data)
       const transformedTransactions = response.data.map(transformTransactionPlan)
       setTransactions(transformedTransactions)
@@ -141,7 +152,12 @@ export default function Transaction() {
     }
   }
 
-  useEffect(() => { setCurrentPage(1) }, [searchQuery, statusFilter])
+  useEffect(() => { setCurrentPage(1) }, [searchQuery])
+
+  useEffect(() => {
+    fetchTransactionPlans(statusFilter)
+    setCurrentPage(1)
+  }, [statusFilter])
 
   const handleDepositClick = (transaction: Transaction) => {
     const plan = rawTransactionPlans.find(p => p.id === transaction.id) ?? null
@@ -202,58 +218,101 @@ export default function Transaction() {
     navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(transactionId)}`)
   }
 
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = transaction.name.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || transaction.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  const filteredTransactions = transactions
+    .filter(transaction =>
+      transaction.name.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .sort((a, b) => {
+      if (!sortField || !sortDirection) return 0
+      if (sortField === 'payDay') {
+        const dateA = new Date(a.executionDate).getTime()
+        const dateB = new Date(b.executionDate).getTime()
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA
+      }
+      if (sortField === 'status') {
+        const order: Record<string, number> = {
+          [PayrollTransactionStatus.PENDING]: 0,
+          [PayrollTransactionStatus.READY]: 1,
+          [PayrollTransactionStatus.COMPLETE]: 2,
+        }
+        const diff = (order[a.status] ?? 99) - (order[b.status] ?? 99)
+        return sortDirection === 'asc' ? diff : -diff
+      }
+      return 0
+    })
 
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex)
 
+  const SortIcon = ({ field }: { field: 'payDay' | 'status' }) => {
+    if (sortField === field) {
+      return sortDirection === 'asc'
+        ? <ChevronUp className="h-[14px] w-[14px] text-[#1c1c26]" />
+        : <ChevronDown className="h-[14px] w-[14px] text-[#1c1c26]" />
+    }
+    return <ChevronsUpDown className="h-[14px] w-[14px] text-[#8d8d93]" />
+  }
+
+  const STATUS_OPTIONS = [
+    { value: 'all', label: 'All Statuses' },
+    { value: PayrollTransactionStatus.READY, label: 'Ready' },
+    { value: PayrollTransactionStatus.PENDING, label: 'Pending' },
+    { value: PayrollTransactionStatus.COMPLETE, label: 'Complete' },
+  ]
+
   return (
-    <div className="bg-white rounded-[32px] p-6 flex flex-col gap-6 h-full">
+    <div className="bg-white rounded-[32px] p-[20px] flex flex-col gap-[16px] h-full">
 
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-[10px]">
           {/* Search */}
-          <div className="relative">
-            <Input
-              placeholder="Search transactions..."
+          <div className="flex h-[36px] w-[260px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]">
+            <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-[300px] h-[42px] pl-4 pr-10 rounded-[12px] border-[rgba(0,0,0,0.12)] text-[13px] placeholder:text-[#8d8d93]"
+              placeholder="Search transactions..."
+              className="flex-1 bg-transparent text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#8d8d93] outline-none"
             />
-            <Search size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8d8d93]" />
+            <Search className="h-[16px] w-[16px] text-[#8d8d93] shrink-0" />
           </div>
 
           {/* Status filter */}
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[130px] h-[42px] rounded-[12px] border-[rgba(0,0,0,0.12)] text-[13px] text-[#8d8d93]">
-              {statusFilter === 'all' && 'Status'}
-              {statusFilter === PayrollTransactionStatus.READY && 'Ready'}
-              {statusFilter === PayrollTransactionStatus.PENDING && 'Pending'}
-              {statusFilter === PayrollTransactionStatus.COMPLETE && 'Complete'}
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value={PayrollTransactionStatus.READY}>Ready</SelectItem>
-              <SelectItem value={PayrollTransactionStatus.PENDING}>Pending</SelectItem>
-              <SelectItem value={PayrollTransactionStatus.COMPLETE}>Complete</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="relative">
+            <button
+              onClick={() => setStatusDropdownOpen(v => !v)}
+              className="flex h-[36px] w-[130px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]"
+            >
+              <span className={`text-[13px] leading-[20px] ${statusFilter === 'all' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
+                {STATUS_OPTIONS.find(o => o.value === statusFilter)?.label ?? 'Status'}
+              </span>
+              <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {statusDropdownOpen && (
+              <div className="absolute left-0 top-full z-20 mt-[4px] w-[160px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg overflow-hidden">
+                {STATUS_OPTIONS.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => { setStatusFilter(o.value); setStatusDropdownOpen(false) }}
+                    className={`w-full px-[12px] py-[8px] text-left text-[13px] leading-[20px] hover:bg-[#f5f5f5] transition-colors ${statusFilter === o.value ? 'text-[#5e85ee]' : 'text-[#1c1c26]'}`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {hasPermission(Permission.CREATE_TRANSACTION) && (
-          <Button
+          <button
             onClick={() => navigate('/orgs/transaction/create')}
-            className="bg-[#5e85ee] rounded-[12px] h-[42px] px-4 text-[13px] font-normal text-white hover:bg-[#5e85ee]/90 gap-[6px]"
+            className="flex items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity"
           >
-            <Plus size={14} />
+            <Plus className="h-[14px] w-[14px]" />
             New Transaction
-          </Button>
+          </button>
         )}
       </div>
 
@@ -261,18 +320,22 @@ export default function Transaction() {
       <div className="overflow-x-auto flex-1">
         <Table>
           <TableHeader>
-            <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
-              <TableHead className="text-[#8d8d93] text-[13px] font-normal pl-5 pb-3 w-[220px]">Transaction</TableHead>
-              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[140px]">Network</TableHead>
-              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[100px]">Members</TableHead>
-              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[120px]">Amount</TableHead>
-              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[90px]">Status</TableHead>
-              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[120px]">
-                <button className="flex items-center gap-1 hover:text-[#1c1c26] transition-colors">
-                  Pay Day <ChevronsUpDown size={13} />
+            <TableRow>
+              <TableHead>Transaction</TableHead>
+              <TableHead>Network</TableHead>
+              <TableHead>Members</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>
+                <button onClick={() => handleSort('status')} className="flex items-center gap-[4px]">
+                  Status <SortIcon field="status" />
                 </button>
               </TableHead>
-              <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3">Action</TableHead>
+              <TableHead>
+                <button onClick={() => handleSort('payDay')} className="flex items-center gap-[4px]">
+                  Pay Day <SortIcon field="payDay" />
+                </button>
+              </TableHead>
+              <TableHead>Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -290,7 +353,7 @@ export default function Transaction() {
                   <TableRow
                     key={transaction.id}
                     className={cn(
-                      'relative border-b border-[rgba(0,0,0,0.06)] hover:bg-[#f5f5f5]/60',
+                      'relative',
                       isPending && 'bg-[rgba(255,168,0,0.04)]'
                     )}
                   >
@@ -300,20 +363,16 @@ export default function Transaction() {
                         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[22px] bg-[#ffa800] rounded-r-[2px]" />
                       </td>
                     )}
-                    <TableCell className="pl-5 text-[13px] text-[#1c1c26] leading-[22px]">
-                      {transaction.name}
-                    </TableCell>
-                    <TableCell className="text-[13px] text-[#1c1c26] leading-[22px]">{transaction.network}</TableCell>
-                    <TableCell className="text-[13px] text-[#1c1c26] leading-[22px]">{transaction.members}</TableCell>
-                    <TableCell className="text-[13px] text-[#1c1c26] leading-[22px]">
+                    <TableCell>{transaction.name}</TableCell>
+                    <TableCell>{transaction.network}</TableCell>
+                    <TableCell>{transaction.members}</TableCell>
+                    <TableCell>
                       {transaction.totalAmount} {transaction.currency}
                     </TableCell>
                     <TableCell>
                       <TransactionStatusBadge status={transaction.status} />
                     </TableCell>
-                    <TableCell className="text-[13px] text-[#1c1c26] leading-[22px]">
-                      {transaction.executionDate}
-                    </TableCell>
+                    <TableCell>{transaction.executionDate}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         {isComplete

@@ -25,14 +25,14 @@ interface MemberDetailContentProps {
 /**
  * Backend role constraints:
  *   - Owner cannot be set/removed via this interface
- *   - Non-Owner members MUST include Employee
+ *   - Non-Owner members MUST include Member
  *   - Admin and Operator are mutually exclusive
- * Valid combinations exposed to UI: Employee | Admin+Employee | Operator+Employee
+ * Valid combinations exposed to UI: Member | Admin+Member | Operator+Member
  */
-type RoleOption = 'Employee' | 'Admin' | 'Operator'
+type RoleOption = 'Member' | 'Admin' | 'Operator'
 
 const ROLE_OPTIONS: { value: RoleOption; label: string; description: string }[] = [
-  { value: 'Employee', label: 'Employee', description: 'View payroll details and submit claims' },
+  { value: 'Member', label: 'Member', description: 'View payroll details and submit claims' },
   { value: 'Operator', label: 'Operator', description: 'Create transactions and manage members' },
   { value: 'Admin', label: 'Admin', description: 'Full management except Owner operations' },
 ]
@@ -40,13 +40,13 @@ const ROLE_OPTIONS: { value: RoleOption; label: string; description: string }[] 
 function getEffectiveRoleOption(roles: string[]): RoleOption {
   if (roles.includes('Admin')) return 'Admin'
   if (roles.includes('Operator')) return 'Operator'
-  return 'Employee'
+  return 'Member'
 }
 
 function roleOptionToBackendRoles(option: RoleOption): BackendRole[] {
-  if (option === 'Admin') return ['Admin', 'Employee']
-  if (option === 'Operator') return ['Operator', 'Employee']
-  return ['Employee']
+  if (option === 'Admin') return ['Admin', 'Member']
+  if (option === 'Operator') return ['Operator', 'Member']
+  return ['Member']
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
