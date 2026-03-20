@@ -1,81 +1,101 @@
 // 左上角组织切换器
-import { ArrowRightLeft, ChevronsUpDown } from 'lucide-react'
-import * as React from 'react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { cn } from '@/lib/utils'
+import useOrganizationStore from '@/stores/organization'
+import { IconArrowsLeftRight } from '@tabler/icons-react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu'
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
-
-export function OrganizationSwitcher({
-  organizations
-}: {
-  organizations: {
-    name: string
-    logo: React.ElementType
-    plan: string
-  }[]
-}) {
-  const { isMobile } = useSidebar()
+export function OrganizationSwitcher() {
   const navigate = useNavigate()
-  const [activeTeam, setActiveTeam] = React.useState(organizations[0])
+  const [open, setOpen] = useState(false)
 
-  if (!activeTeam) {
-    return null
+  const { organizations, currentOrgId, setCurrentOrg, getOrganizations } = useOrganizationStore()
+
+  useEffect(() => {
+    if (organizations.length === 0) {
+      getOrganizations()
+    }
+  }, [])
+
+  // 只显示有管理权限（Owner / Admin / Operator）的组织
+  const adminOrgs = organizations.filter(({ member }) =>
+    member.roles.some(r => ['Owner', 'Admin', 'Operator'].includes(r.role))
+  )
+
+  const handleSwitch = (orgId: string, member: typeof organizations[0]['member']) => {
+    setCurrentOrg(orgId, member)
+    navigate('/orgs/dashboard')
+    setOpen(false)
   }
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                <activeTeam.logo className="size-4" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{activeTeam.name}</span>
-                <span className="truncate text-xs">{activeTeam.plan}</span>
-              </div>
-              <ChevronsUpDown className="ml-auto" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            align="start"
-            side={isMobile ? 'bottom' : 'right'}
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="text-muted-foreground text-xs">Teams</DropdownMenuLabel>
-            {organizations.map((team, index) => (
-              <DropdownMenuItem key={team.name} onClick={() => setActiveTeam(team)} className="gap-2 p-2">
-                <div className="flex size-6 items-center justify-center rounded-md border">
-                  <team.logo className="size-3.5 shrink-0" />
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white transition-colors hover:bg-[#f5f5f5]"
+          title="Switch Organization"
+        >
+          <IconArrowsLeftRight className="h-[20px] w-[20px] text-[#1c1c26]" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="right"
+        align="start"
+        sideOffset={12}
+        className="w-[272px] rounded-[20px] border border-[rgba(0,0,0,0.08)] p-[4px] shadow-[0px_12px_26px_0px_rgba(0,0,0,0.08)]"
+      >
+        {adminOrgs.length === 0 ? (
+          <p className="px-[18px] py-[12px] text-[13px] text-[#8d8d93]">No admin organizations</p>
+        ) : (
+          <div className="flex flex-col">
+            {adminOrgs.map(({ organization, member }, index) => {
+              const isActive = organization.orgId === currentOrgId
+              const desc = organization.desc
+                ? organization.desc.length > 25
+                  ? organization.desc.slice(0, 25) + '…'
+                  : organization.desc
+                : null
+
+              return (
+                <div key={organization.orgId}>
+                  {index > 0 && <div className="mx-[4px] h-px bg-[rgba(0,0,0,0.08)]" />}
+                  <button
+                    onClick={() => handleSwitch(organization.orgId, member)}
+                    className={cn(
+                      'flex w-full items-center gap-[10px] rounded-[14px] px-[16px] py-[10px] text-left transition-colors',
+                      isActive ? 'bg-[#f5f5f5]' : 'hover:bg-[#f5f5f5]'
+                    )}
+                  >
+                    {/* Logo */}
+                    {organization.logoUrl ? (
+                      <img
+                        src={organization.logoUrl}
+                        alt=""
+                        className="h-[36px] w-[36px] shrink-0 rounded-[10px] object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[10px] bg-[#f5f5f5] text-[14px] font-bold text-[#8d8d93]">
+                        {organization.orgName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+
+                    {/* Info */}
+                    <div className="flex min-w-0 flex-col gap-[1px]">
+                      <span className="truncate font-bold text-[15px] leading-[22px] text-[#1c1c26]">
+                        {organization.orgName}
+                      </span>
+                      {desc && (
+                        <span className="text-[12px] leading-[18px] text-[#606067]">{desc}</span>
+                      )}
+                    </div>
+                  </button>
                 </div>
-                {team.name}
-                <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2" onClick={() => navigate('/account/login')}>
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <ArrowRightLeft className="size-4" />
-              </div>
-              <div className="text-muted-foreground font-medium">Switch organization</div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+              )
+            })}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
   )
 }
