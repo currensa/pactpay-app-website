@@ -1,7 +1,7 @@
 import api from '@/apis'
-import { getMetaPublicKey } from '@/lib/stealth-key'
 import { useToast } from '@/components/ui/use-toast'
-import ChangeEmailDialog from '@/views/employee/components/change-email-dialog'
+import { getMetaPublicKey } from '@/lib/stealth-key'
+import ChangeEmailDialog from '@/views/member/components/change-email-dialog'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconChevronDown, IconEye, IconEyeOff, IconRefresh } from '@tabler/icons-react'
@@ -15,7 +15,7 @@ function maskAddress(address: string) {
   return address.slice(0, 3) + '*'.repeat(Math.max(address.length - 6, 5)) + address.slice(-3)
 }
 
-export default function EmployeeSettings() {
+export default function MemberSettings() {
   const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')

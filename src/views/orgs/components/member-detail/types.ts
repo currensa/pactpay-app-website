@@ -5,7 +5,7 @@ export type SortField = 'name' | 'serviceFee' | 'lastPayment' | null
 export type SortDirection = 'asc' | 'desc' | null
 
 /** Backend role values (authoritative) */
-export type BackendRole = 'Owner' | 'Admin' | 'Operator' | 'Employee'
+export type BackendRole = 'Owner' | 'Admin' | 'Operator' | 'Member'
 
 export interface DrawerChanges {
   showName?: string

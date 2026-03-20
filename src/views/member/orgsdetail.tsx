@@ -4,7 +4,7 @@ import { IconCheck, IconCircleX, IconPencil, IconX } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 
-export default function EmployeeOrgsDetail() {
+export default function MemberOrgsDetail() {
   const location = useLocation()
   const { orgId = '', memberId = '' } = location.state || {}
   const { toast } = useToast()
@@ -104,8 +104,8 @@ export default function EmployeeOrgsDetail() {
             {avatarUrl
               ? <img src={avatarUrl} alt={showName} className="h-full w-full object-cover" />
               : <span className="flex h-full w-full items-center justify-center text-[36px] font-bold text-[#8d8d93]">
-                  {showName?.[0]?.toUpperCase() || '?'}
-                </span>
+                {showName?.[0]?.toUpperCase() || '?'}
+              </span>
             }
             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <IconPencil className="h-[24px] w-[24px] text-white" />

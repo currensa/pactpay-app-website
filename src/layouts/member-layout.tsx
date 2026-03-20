@@ -1,15 +1,15 @@
 import AppHeader from '@/components/app/base/app-header'
 import AuthChecker from '@/components/app/base/auth-checker'
-import EmployeeGuard from '@/components/app/base/employee-guard'
-import EmployeeSidebar from '@/components/app/employee/sidebar'
+import MemberGuard from '@/components/app/base/member-guard'
+import MemberSidebar from '@/components/app/member/sidebar'
 import { Outlet } from 'react-router-dom'
 
-export default function EmployeeLayout() {
+export default function MemberLayout() {
   return (
     <AuthChecker>
-      <EmployeeGuard>
+      <MemberGuard>
         <div className="flex h-screen overflow-hidden bg-[#f5f5f5] gap-[24px] p-[24px]">
-          <EmployeeSidebar />
+          <MemberSidebar />
           <div className="flex flex-1 flex-col min-w-0 gap-[24px] overflow-hidden">
             <AppHeader />
             <main className="flex-1 overflow-y-auto">
@@ -17,7 +17,7 @@ export default function EmployeeLayout() {
             </main>
           </div>
         </div>
-      </EmployeeGuard>
+      </MemberGuard>
     </AuthChecker>
   )
 }

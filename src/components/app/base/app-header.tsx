@@ -36,7 +36,7 @@ export default function AppHeader() {
     if (!item) return
     setCurrentOrg(orgId, item.member)
     const isAdmin = ['Owner', 'Admin', 'Operator'].includes(role)
-    navigate(isAdmin ? '/orgs/dashboard' : '/employee/dashboard')
+    navigate(isAdmin ? '/orgs/dashboard' : '/member/dashboard')
   }
 
   const meta = useMemo(() => {

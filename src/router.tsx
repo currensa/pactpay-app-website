@@ -1,4 +1,4 @@
-import EmployeeLayout from '@/layouts/employee-layout'
+import MemberLayout from '@/layouts/member-layout'
 import OrgLayout from '@/layouts/org-layout'
 import {
   IconAlignBoxBottomRight,
@@ -32,10 +32,10 @@ export interface OrgNavItem {
 const Login = lazy(() => import('@/views/account/login'))
 const JoinInvite = lazy(() => import('@/views/account/join-invite'))
 
-const EmployeeDashboard = lazy(() => import('@/views/employee/dashboard'))
-const EmployeeOrgsDetail = lazy(() => import('@/views/employee/orgsdetail'))
-const EmployeeClaim = lazy(() => import('@/views/employee/claim'))
-const EmployeeSettings = lazy(() => import('@/views/employee/settings'))
+const MemberDashboard = lazy(() => import('@/views/member/dashboard'))
+const MemberOrgsDetail = lazy(() => import('@/views/member/orgsdetail'))
+const MemberClaim = lazy(() => import('@/views/member/claim'))
+const MemberSettings = lazy(() => import('@/views/member/settings'))
 
 const Dashboard = lazy(() => import('@/views/orgs/dashboard'))
 const Members = lazy(() => import('@/views/orgs/members'))
@@ -105,16 +105,16 @@ const routes: RouteItem[] = [
     ] as RouteItem[]
   },
   {
-    path: 'employee',
+    path: 'member',
     children: [
       {
-        element: <EmployeeLayout />,
+        element: <MemberLayout />,
         children: [
-          { index: true, element: <Navigate to="employee/dashboard" /> },
-          { path: 'dashboard', navIcon: IconLayoutDashboard, element: <EmployeeDashboard />, meta: { title: 'Dashboard', subtitle: "Monitor your organization's key metrics and activities" } },
-          { path: 'orgdetail', element: <EmployeeOrgsDetail />, meta: { title: 'TechCorp Inc.' } },
-          { path: 'claim', element: <EmployeeClaim />, meta: { title: 'Claim Payroll' } },
-          { path: 'settings', navIcon: IconSettings, element: <EmployeeSettings />, meta: { title: 'Settings', subtitle: 'Manage your account settings' } }
+          { index: true, element: <Navigate to="member/dashboard" /> },
+          { path: 'dashboard', navIcon: IconLayoutDashboard, element: <MemberDashboard />, meta: { title: 'Dashboard', subtitle: "Monitor your organization's key metrics and activities" } },
+          { path: 'orgdetail', element: <MemberOrgsDetail />, meta: { title: 'TechCorp Inc.' } },
+          { path: 'claim', element: <MemberClaim />, meta: { title: 'Claim Payroll' } },
+          { path: 'settings', navIcon: IconSettings, element: <MemberSettings />, meta: { title: 'Settings', subtitle: 'Manage your account settings' } }
         ]
       }
     ] as RouteItem[]
@@ -150,10 +150,10 @@ export function getRouteMeta(path: string) {
   return findMeta(routes, path)
 }
 
-/** 从路由配置动态生成 employee 侧边栏静态菜单（不含动态组织子菜单），hideInMenu 的路由自动过滤 */
-export function getEmployeeNavItems(): OrgNavItem[] {
-  const employeeRoute = routes.find(r => r.path === 'employee')
-  const layoutRoute = employeeRoute?.children?.[0] as RouteItem | undefined
+/** 从路由配置动态生成 member 侧边栏静态菜单（不含动态组织子菜单），hideInMenu 的路由自动过滤 */
+export function getMemberNavItems(): OrgNavItem[] {
+  const memberRoute = routes.find(r => r.path === 'member')
+  const layoutRoute = memberRoute?.children?.[0] as RouteItem | undefined
   if (!layoutRoute?.children) return []
 
   const result: OrgNavItem[] = []
@@ -162,7 +162,7 @@ export function getEmployeeNavItems(): OrgNavItem[] {
     result.push({
       title: route.meta?.title ?? route.path,
       key: route.path,
-      url: `/employee/${route.path}`,
+      url: `/member/${route.path}`,
       icon: route.navIcon,
     })
   }

@@ -1,8 +1,8 @@
-import useOrganizationStore from '@/stores/organization'
 import {
   Organization,
   OrganizationMember
 } from '@/apis/orgnization.api'
+import useOrganizationStore from '@/stores/organization'
 import { IconLoader2, IconPlus, IconUser } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 
@@ -13,7 +13,7 @@ interface OrganizationResponseItem {
 
 function hasAdminRole(member: OrganizationMember) {
   return member.roles.some(
-    r => r.role !== 'Employee' && (r.role as string) !== 'Member'
+    r => r.role !== 'Member' && (r.role as string) !== 'Member'
   )
 }
 
@@ -27,13 +27,13 @@ function formatDate(dateString: string) {
 
 interface SelectOrganizationProps {
   onCreateNew?: () => void
-  onEnterAsEmployee?: () => void
+  onEnterAsMember?: () => void
   onSelectAdminOrg?: (orgId: string, member: OrganizationMember) => void
 }
 
 export default function SelectOrganization({
   onCreateNew,
-  onEnterAsEmployee,
+  onEnterAsMember,
   onSelectAdminOrg,
 }: SelectOrganizationProps) {
   const organizations = useOrganizationStore(s => s.organizations)
@@ -46,7 +46,7 @@ export default function SelectOrganization({
   }, [])
 
   const adminOrgs = organizations.filter(item => hasAdminRole(item.member))
-  const hasEmployeeOrgs = organizations.some(item => !hasAdminRole(item.member))
+  const hasMemberOrgs = organizations.some(item => !hasAdminRole(item.member))
 
   const handleSelect = (item: OrganizationResponseItem) => {
     onSelectAdminOrg?.(item.organization.orgId, item.member)
@@ -118,15 +118,15 @@ export default function SelectOrganization({
         </div>
 
         <div className="flex shrink-0 flex-col gap-[12px]">
-          {/* C端入口: enter as employee */}
-          {(hasEmployeeOrgs || onEnterAsEmployee) && (
+          {/* C端入口: enter as member */}
+          {(hasMemberOrgs || onEnterAsMember) && (
             <button
               type="button"
-              onClick={onEnterAsEmployee}
+              onClick={onEnterAsMember}
               className="flex items-center justify-center gap-[8px] rounded-full border border-[#d9d9db] bg-white px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-[#1c1c26] transition-opacity hover:opacity-90"
             >
               <IconUser className="size-[24px]" />
-              Enter as Employee
+              Enter as Member
             </button>
           )}
 

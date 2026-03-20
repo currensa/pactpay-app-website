@@ -1,14 +1,14 @@
 import api from '@/apis'
 import { cn } from '@/lib/utils'
-import { getEmployeeNavItems, type OrgNavItem } from '@/router'
+import { getMemberNavItems, type OrgNavItem } from '@/router'
 import { IconBuilding } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
-export default function EmployeeNavMenus() {
+export default function MemberNavMenus() {
   const navigate = useNavigate()
   const location = useLocation()
-  const staticItems = getEmployeeNavItems()
+  const staticItems = getMemberNavItems()
   const [orgChildren, setOrgChildren] = useState<OrgNavItem['children']>([])
 
   useEffect(() => {
@@ -17,9 +17,9 @@ export default function EmployeeNavMenus() {
       setOrgChildren(
         data.map(({ organization, member }) => ({
           title: organization.orgName,
-          url: '/employee/orgdetail',
+          url: '/member/orgdetail',
           onClick: () =>
-            navigate('/employee/orgdetail', {
+            navigate('/member/orgdetail', {
               state: {
                 orgId: organization.orgId,
                 orgName: organization.orgName,

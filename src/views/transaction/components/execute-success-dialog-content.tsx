@@ -43,7 +43,7 @@ export function ExecuteSuccessDialogContent({
         </div>
         <div>
           <p className="text-[13px] font-medium text-[#1c1c26] leading-[22px]">Deposit Confirmed</p>
-          <p className="text-[12px] text-[#606067] leading-[20px]">Employees can now claim their payments.</p>
+          <p className="text-[12px] text-[#606067] leading-[20px]">Members can now claim their payments.</p>
         </div>
       </div>
 

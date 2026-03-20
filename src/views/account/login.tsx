@@ -7,11 +7,11 @@ import BindWallet from './components/bind-wallet'
 import CreateOrgStep1 from './components/create-org-step1'
 import IdentitySelection from './components/identity-selection'
 import IntroSection from './components/intro-section'
-import { INVITE_CODE_SESSION_KEY } from './join-invite'
 import JoinOrganization from './components/join-organization'
 import LoginForm from './components/login-form'
 import SelectOrganization from './components/select-organization'
 import WelcomeSection from './components/welcome-section'
+import { INVITE_CODE_SESSION_KEY } from './join-invite'
 
 type FlowStep =
   | 'welcome'
@@ -25,7 +25,7 @@ type FlowStep =
 
 /** Admin roles: Owner / Admin / Operator */
 function hasAdminRole(roles: { role: string }[]) {
-  return roles.some(r => r.role !== 'Employee' && r.role !== 'Member')
+  return roles.some(r => r.role !== 'Member' && r.role !== 'Member')
 }
 
 export default function Login() {
@@ -68,8 +68,8 @@ export default function Login() {
       const adminOrgs = orgs.filter(item => hasAdminRole(item.member.roles))
 
       if (adminOrgs.length === 0) {
-        // Only employee-role orgs → go to C端 (with metaPub gate)
-        await enterEmployeeSide()
+        // Only member-role orgs → go to C端 (with metaPub gate)
+        await enterMemberSide()
       } else {
         // Has at least one admin org → show selection
         setCurrentStep('selectOrg')
@@ -79,13 +79,13 @@ export default function Login() {
     }
   }
 
-  /** Enter employee (C端) side: check metaPub first */
-  const enterEmployeeSide = async () => {
+  /** Enter member (C端) side: check metaPub first */
+  const enterMemberSide = async () => {
     const submitted = await checkMetaPub()
     if (!submitted) {
       setCurrentStep('bindWallet')
     } else {
-      navigate('/employee/dashboard', { replace: true })
+      navigate('/member/dashboard', { replace: true })
     }
   }
 
@@ -106,12 +106,12 @@ export default function Login() {
   const handleJoinOrgSuccess = async () => {
     // Re-fetch orgs so the store is up-to-date
     await getOrganizations()
-    await enterEmployeeSide()
+    await enterMemberSide()
   }
 
-  const handleEnterAsEmployee = async () => {
+  const handleEnterAsMember = async () => {
     setCurrentStep('checking')
-    await enterEmployeeSide()
+    await enterMemberSide()
   }
 
   const handleSelectAdminOrg = (orgId: string, member: import('@/apis/orgnization.api').OrganizationMember) => {
@@ -120,7 +120,7 @@ export default function Login() {
   }
 
   const handleBindWalletSuccess = () => {
-    navigate('/employee/dashboard', { replace: true })
+    navigate('/member/dashboard', { replace: true })
   }
 
   // --- Render ---
@@ -148,7 +148,7 @@ export default function Login() {
         return (
           <SelectOrganization
             onCreateNew={() => setCurrentStep('createOrgStep1')}
-            onEnterAsEmployee={handleEnterAsEmployee}
+            onEnterAsMember={handleEnterAsMember}
             onSelectAdminOrg={handleSelectAdminOrg}
           />
         )

@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { getMemberRoles, getPrimaryRole, MemberRole } from '@/utils/permissions'
-import { Check, Mail, MoreHorizontal, Plus, Shield, ShieldAlert, ShieldCheck, User, Users } from 'lucide-react'
+import { Mail, Plus, Shield, ShieldAlert, ShieldCheck, User, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface Member {
@@ -48,7 +48,7 @@ const ROLE_DETAILS: Record<MemberRole, { description: string; icon: any; color: 
     icon: User,
     color: 'text-green-600 bg-green-50 border-green-100'
   },
-  Employee: {
+  Member: {
     description: 'Basic access to view personal dashboard and assigned transactions.',
     icon: Users,
     color: 'text-gray-600 bg-gray-50 border-gray-100'
@@ -60,7 +60,7 @@ export default function RoleManagementPage() {
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
-  const [selectedRole, setSelectedRole] = useState<MemberRole>('Employee')
+  const [selectedRole, setSelectedRole] = useState<MemberRole>('Member')
   const [inviteEmail, setInviteEmail] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -111,7 +111,7 @@ export default function RoleManagementPage() {
       // based on the existing code in members.tsx, but we'll assume it's part of the flow or will be added.
       // For now, we follow the existing pattern of sending email invitation.
       await apis.organization.sendEmailInvitation(inviteEmail)
-      
+
       toast({
         title: 'Success',
         description: `Invitation sent to ${inviteEmail} for role ${selectedRole}.`
@@ -200,8 +200,8 @@ export default function RoleManagementPage() {
                     </div>
                   )}
                 </div>
-                <Button 
-                  className="w-full mt-6" 
+                <Button
+                  className="w-full mt-6"
                   variant="outline"
                   onClick={() => handleOpenInvite(role)}
                 >

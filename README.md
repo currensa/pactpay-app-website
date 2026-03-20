@@ -33,15 +33,15 @@ npm run dev
 src/
 ├── apis/           # HTTP 接口封装（account / organization / transaction）
 ├── components/     # 通用组件
-│   └── app/base/  # AuthChecker / EmployeeGuard 等路由守卫
-├── layouts/        # OrgLayout（B端）/ EmployeeLayout（C端）/ AccountLayout
+│   └── app/base/  # AuthChecker / MemberGuard 等路由守卫
+├── layouts/        # OrgLayout（B端）/ MemberLayout（C端）/ AccountLayout
 ├── lib/            # stealth-key 密码学工具
 ├── router.tsx      # 路由定义
 ├── stores/         # Zustand 状态（auth / organization）
 └── views/
     ├── account/    # 登录 / 注册 / 设置
     ├── orgs/       # B端：组织管理、成员、发薪等
-    ├── employee/   # C端：员工工资明细、claim
+    ├── member/   # C端：员工工资明细、claim
     └── transaction/
 ```
 
@@ -53,7 +53,7 @@ src/
 | --- | --- | --- |
 | `/account/login` | — | 登录入口（含完整登录流程） |
 | `/orgs/*` | B端 | 组织管理（需 token + currentOrgId） |
-| `/employee/*` | C端 | 员工端（需 token + metaPub 已提交） |
+| `/member/*` | C端 | 员工端（需 token + metaPub 已提交） |
 | `/account/settings/*` | — | 账户设置 |
 
 ---
@@ -78,12 +78,12 @@ welcome → login → checking → ...
        │
        └─ 有组织
             ├─ 包含管理员角色组织（Owner/Admin/Operator）
-            │    └─ selectOrg（展示管理员组织列表 + "Enter as Employee" 按钮）
+            │    └─ selectOrg（展示管理员组织列表 + "Enter as Member" 按钮）
             │         ├─ 选择组织 → setCurrentOrg → B端 /orgs/dashboard
-            │         ├─ "Enter as Employee" → [检查 metaPub]
+            │         ├─ "Enter as Member" → [检查 metaPub]
             │         └─ "Create New Organization" → createOrgStep1
             │
-            └─ 全部为 Employee 角色
+            └─ 全部为 Member 角色
                  └─ [检查 metaPub]
 ```
 
@@ -91,8 +91,8 @@ welcome → login → checking → ...
 
 ```
 GET /api/auth/meta-pub
-  ├─ submitted: true  → /employee/dashboard
-  └─ submitted: false → bindWallet（连接钱包 + 生成并提交 metaKey）→ /employee/dashboard
+  ├─ submitted: true  → /member/dashboard
+  └─ submitted: false → bindWallet（连接钱包 + 生成并提交 metaKey）→ /member/dashboard
 ```
 
 - B端路径（创建组织 / 选择管理员组织）**不需要** metaPub 检查，直接进入 `/orgs/dashboard`。
@@ -103,7 +103,7 @@ GET /api/auth/meta-pub
 | --- | --- | --- |
 | `AuthChecker` | 两端 Layout | token 不存在 → 跳转 `/account/login` |
 | `OrgGuard` | `OrgLayout` | `currentOrgId` 不存在 → 跳转 `/account/login` |
-| `EmployeeGuard` | `EmployeeLayout` | 调用 `GET /api/auth/meta-pub`，未提交 → 跳转登录并展示 bindWallet 步骤 |
+| `MemberGuard` | `MemberLayout` | 调用 `GET /api/auth/meta-pub`，未提交 → 跳转登录并展示 bindWallet 步骤 |
 
 当从 C端布局直接跳转登录时，Router state 携带 `{ step: 'bindWallet' }`，登录页初始渲染即展示 BindWallet 步骤。
 

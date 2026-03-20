@@ -16,7 +16,7 @@
 - `Org Admin` - 组织管理员
 - `Pay Admin` - 支付管理员
 - `Operator` - 操作员
-- `Employee` - 员工（原 Member，只能修改自己的信息）
+- `Member` - 员工（原 Member，只能修改自己的信息）
 
 ## 核心功能
 
@@ -49,7 +49,7 @@
 ## 权限矩阵
 
 ### 组织管理
-| 功能 | Owner | Org Admin | Pay Admin | Operator | Employee |
+| 功能 | Owner | Org Admin | Pay Admin | Operator | Member |
 |------|-------|-----------|-----------|----------|----------|
 | 创建/删除组织 | ✅ | ❌ | ❌ | ❌ | ❌ |
 | 修改组织基本信息 | ✅ | ✅ | ❌ | ❌ | ❌ |
@@ -59,7 +59,7 @@
 | 设定/更改 Operator | ✅ | ✅ | ❌ | ❌ | ❌ |
 
 ### 成员管理
-| 功能 | Owner | Org Admin | Pay Admin | Operator | Employee |
+| 功能 | Owner | Org Admin | Pay Admin | Operator | Member |
 |------|-------|-----------|-----------|----------|----------|
 | 审批成员加入/退出 | ✅ | ✅ | ❌ | ✅ | ❌ |
 | 邀请成员 | ✅ | ✅ | ❌ | ✅ | ❌ |
@@ -68,14 +68,14 @@
 | 设置/修改成员信息 | ✅ | ✅ | ❌ | ✅ | ❌ |
 
 ### Transaction 管理
-| 功能 | Owner | Org Admin | Pay Admin | Operator | Employee |
+| 功能 | Owner | Org Admin | Pay Admin | Operator | Member |
 |------|-------|-----------|-----------|----------|----------|
 | 创建 Transaction | ✅ | ✅ | ✅ | ✅ | ❌ |
 | 修改/删除 Transaction | ✅ | ✅ | ✅ | ✅ | ❌ |
 | 查看 Transaction 列表 | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 ### 支付管理
-| 功能 | Owner | Org Admin | Pay Admin | Operator | Employee |
+| 功能 | Owner | Org Admin | Pay Admin | Operator | Member |
 |------|-------|-----------|-----------|----------|----------|
 | 绑定/解绑 Safe Wallet | ✅ | ❌ | ✅ | ❌ | ❌ |
 | 修改 Network | ✅ | ❌ | ✅ | ❌ | ❌ |
@@ -86,7 +86,7 @@
 | 增删 Signer | ✅ | ❌ | ✅ | ❌ | ❌ |
 
 ### 数据查看
-| 功能 | Owner | Org Admin | Pay Admin | Operator | Employee |
+| 功能 | Owner | Org Admin | Pay Admin | Operator | Member |
 |------|-------|-----------|-----------|----------|----------|
 | 查看数据看板 | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 导出历史数据 | ✅ | ✅ | ✅ | ✅ | ❌ |
@@ -123,7 +123,7 @@ if (hasPermission(userRoles, Permission.APPROVE_MEMBER)) {
 import { canManageMember } from '@/utils/permissions'
 
 const currentUserRoles: MemberRole[] = ['Org Admin']
-const targetMemberRoles: MemberRole[] = ['Employee']
+const targetMemberRoles: MemberRole[] = ['Member']
 
 if (canManageMember(currentUserRoles, targetMemberRoles)) {
   // 显示管理操作
@@ -145,11 +145,11 @@ const primaryRole = getPrimaryRole(roles)
 
 1. **当前用户角色获取**：在所有更新的文件中，当前用户角色都是硬编码的（例如 `['Owner']`），需要后续从 context 或 store 中获取实际的用户角色。相关代码都标注了 `// TODO: 从 context 获取`。
 
-2. **Employee 权限**：Employee 只能查看数据和修改自己的信息，不能管理其他成员或执行管理操作。
+2. **Member 权限**：Member 只能查看数据和修改自己的信息，不能管理其他成员或执行管理操作。
 
 3. **多角色权限并集**：当用户拥有多个角色时，系统会取所有角色权限的并集，即只要任一角色有某权限，用户就拥有该权限。
 
-4. **角色优先级**：显示主要角色时的优先级为 `Owner > Org Admin > Pay Admin > Operator > Employee`。
+4. **角色优先级**：显示主要角色时的优先级为 `Owner > Org Admin > Pay Admin > Operator > Member`。
 
 5. **Owner 特殊性**：Owner 角色不能通过成员详情页面设置，需要通过特殊的"转让 Owner"功能来变更。
 
