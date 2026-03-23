@@ -156,7 +156,13 @@ export class OrgnizationApi {
   }
   // 获取我加入的公司列表
   async getOrganizations() {
-    const res = await this.request.get<{ organization: Organization; member: OrganizationMember }[]>('/orgs')
+    const res = await this.request.get<{
+      organization: Organization
+      member: OrganizationMember
+      payrollConfig: OrgPayrollConfig | null
+      lastPayout: string | null
+      memberCount: number
+    }[]>('/orgs')
     return res.data
   }
   // 获取公司详情

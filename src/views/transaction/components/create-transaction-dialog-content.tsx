@@ -134,7 +134,14 @@ export function CreateTransactionDialogContent({
     return `${date.getFullYear()} / ${String(date.getMonth() + 1).padStart(2, '0')} / ${String(date.getDate()).padStart(2, '0')}`
   }
 
+  const eligibleMembers = useMemo(
+    () => organizationMembers.filter(m => !!m.metaPub),
+    [organizationMembers]
+  )
+
   const handleMemberToggle = (memberId: string) => {
+    const member = organizationMembers.find(m => m.id === memberId)
+    if (!member?.metaPub) return
     const newSelected = new Set(selectedMembers)
     if (newSelected.has(memberId)) newSelected.delete(memberId)
     else newSelected.add(memberId)
@@ -142,13 +149,13 @@ export function CreateTransactionDialogContent({
   }
 
   const handleSelectAll = () => {
-    if (selectedMembers.size === organizationMembers.length) setSelectedMembers(new Set())
-    else setSelectedMembers(new Set(organizationMembers.map(m => m.id)))
+    if (selectedMembers.size === eligibleMembers.length) setSelectedMembers(new Set())
+    else setSelectedMembers(new Set(eligibleMembers.map(m => m.id)))
   }
 
   const handleInvertSelection = () => {
     const newSelected = new Set<string>()
-    organizationMembers.forEach(member => {
+    eligibleMembers.forEach(member => {
       if (!selectedMembers.has(member.id)) newSelected.add(member.id)
     })
     setSelectedMembers(newSelected)
@@ -183,10 +190,10 @@ export function CreateTransactionDialogContent({
     })
   }, [transactionDetailMembers, selectedMembers, organizationMembers, memberAmounts])
 
-  const canProceedToStep2 = selectedMembers.size > 0 && !currencyMismatch && !!derivedCurrency
+  const canProceedToStep2 = selectedMembers.size > 0 && totalAmount > 0
 
   const isSelected = (id: string) => selectedMembers.has(id)
-  const allSelected = organizationMembers.length > 0 && selectedMembers.size === organizationMembers.length
+  const allSelected = eligibleMembers.length > 0 && selectedMembers.size === eligibleMembers.length
   const someSelected = selectedMembers.size > 0 && !allSelected
 
   return (
@@ -246,12 +253,13 @@ export function CreateTransactionDialogContent({
                   <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3">
                     Service Fee{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
                   </TableHead>
+                  <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[160px]">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {membersLoading || (isCreatingFromReaction && reactionSourceLoading) ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-[#8d8d93] text-[13px]">
+                    <TableCell colSpan={6} className="h-24 text-center text-[#8d8d93] text-[13px]">
                       <div className="flex items-center justify-center gap-2">
                         <IconLoader2 className="h-4 w-4 animate-spin" />
                         {isCreatingFromReaction && reactionSourceLoading ? 'Loading re-action data...' : 'Loading members...'}
@@ -260,19 +268,26 @@ export function CreateTransactionDialogContent({
                   </TableRow>
                 ) : organizationMembers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-[#8d8d93] text-[13px]">No members found.</TableCell>
+                    <TableCell colSpan={6} className="h-24 text-center text-[#8d8d93] text-[13px]">No members found.</TableCell>
                   </TableRow>
                 ) : (
                   organizationMembers.map(member => {
                     const checked = isSelected(member.id)
+                    const hasMetaPub = !!member.metaPub
                     return (
                       <TableRow
                         key={member.id}
-                        className="border-b border-[rgba(0,0,0,0.06)] hover:bg-[#f5f5f5]/60 cursor-pointer"
+                        className={cn(
+                          'border-b border-[rgba(0,0,0,0.06)]',
+                          hasMetaPub ? 'hover:bg-[#f5f5f5]/60 cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                        )}
                         onClick={() => handleMemberToggle(member.id)}
                       >
                         <TableCell className="py-[14px]">
-                          <div className={cn('w-[14px] h-[14px] rounded-[3px] border flex items-center justify-center shrink-0', checked ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]')}>
+                          <div className={cn(
+                            'w-[14px] h-[14px] rounded-[3px] border flex items-center justify-center shrink-0',
+                            !hasMetaPub ? 'bg-[#f5f5f5] border-[rgba(0,0,0,0.1)]' : checked ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]'
+                          )}>
                             {checked && (
                               <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                             )}
@@ -292,14 +307,26 @@ export function CreateTransactionDialogContent({
                           <input
                             type="number"
                             min="0"
+                            disabled={!hasMetaPub}
                             value={memberAmounts[member.id] ?? ''}
                             onChange={e => handleAmountChange(member.id, e.target.value)}
                             placeholder="0"
                             className={cn(
-                              'w-[140px] h-[34px] rounded-[10px] px-3 text-[13px] text-[#1c1c26] leading-[22px] outline-none border-0',
+                              'w-[140px] h-[34px] rounded-[10px] px-3 text-[13px] text-[#1c1c26] leading-[22px] outline-none border-0 disabled:cursor-not-allowed',
                               checked ? 'bg-[#f5f5f5]' : 'bg-transparent'
                             )}
                           />
+                        </TableCell>
+                        <TableCell className="py-[14px]">
+                          {hasMetaPub ? (
+                            <span className="inline-flex rounded-[8px] bg-[rgba(93,221,34,0.12)] px-[8px] py-[3px] text-[12px] font-medium text-[#3da813]">
+                              ready
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded-[8px] bg-[rgba(255,168,0,0.12)] px-[8px] py-[3px] text-[12px] font-medium text-[#ffa800]">
+                              No wallet bound
+                            </span>
+                          )}
                         </TableCell>
                       </TableRow>
                     )

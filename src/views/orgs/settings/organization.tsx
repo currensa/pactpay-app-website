@@ -1,8 +1,8 @@
 import api from '@/apis'
-import { Organization, OrgPayrollConfig } from '@/apis/orgnization.api'
 import { ChainAssetResponse } from '@/apis/chain-asset.api'
-import useChainAssetStore from '@/stores/chain-asset'
+import { Organization, OrgPayrollConfig } from '@/apis/orgnization.api'
 import { useToast } from '@/components/ui/use-toast'
+import useChainAssetStore from '@/stores/chain-asset'
 import { Check, ChevronDown, Upload, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -271,7 +271,7 @@ export default function OrganizationSettings() {
                 <ChevronDown className={`h-[16px] w-[16px] text-[#606067] shrink-0 transition-transform ${chainDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {chainDropdownOpen && chains.length > 0 && (
-                <div className="absolute left-0 top-full mt-[4px] w-full z-20 bg-white rounded-[16px] border border-[rgba(0,0,0,0.12)] shadow-lg overflow-hidden">
+                <div className="absolute left-0 bottom-full mb-[4px] w-full z-20 bg-white rounded-[16px] border border-[rgba(0,0,0,0.12)] shadow-lg overflow-hidden">
                   {chains.map(chain => (
                     <button
                       key={chain.caipChainId}
@@ -315,7 +315,7 @@ export default function OrganizationSettings() {
                 <ChevronDown className={`h-[16px] w-[16px] text-[#606067] shrink-0 transition-transform ${tokenDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {tokenDropdownOpen && assetsForChain.length > 0 && (
-                <div className="absolute left-0 top-full mt-[4px] w-full z-20 bg-white rounded-[16px] border border-[rgba(0,0,0,0.12)] shadow-lg overflow-hidden">
+                <div className="absolute left-0 bottom-full mb-[4px] w-full z-20 bg-white rounded-[16px] border border-[rgba(0,0,0,0.12)] shadow-lg overflow-hidden">
                   {assetsForChain.map(item => {
                     const tokenValue = item.contractAddress || item.asset.symbol
                     return (

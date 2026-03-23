@@ -1,28 +1,37 @@
-import {
-  Organization,
-  OrganizationMember
-} from '@/apis/orgnization.api'
+import { OrgPayrollConfig, Organization, OrganizationMember } from '@/apis/orgnization.api'
 import useOrganizationStore from '@/stores/organization'
-import { IconLoader2, IconPlus, IconUser } from '@tabler/icons-react'
+import { IconLoader2, IconPlus, IconUsers } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 
-interface OrganizationResponseItem {
+interface OrgResponseItem {
   organization: Organization
   member: OrganizationMember
+  payrollConfig: OrgPayrollConfig | null
+  lastPayout: string | null
+  memberCount: number
 }
 
 function hasAdminRole(member: OrganizationMember) {
-  return member.roles.some(
-    r => r.role !== 'Member' && (r.role as string) !== 'Member'
-  )
+  return member.roles.some(r => r.role !== 'Member')
 }
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
   })
+}
+
+function getNetworkLabel(caipChainId: string) {
+  const map: Record<string, string> = {
+    'eip155:1': 'Ethereum',
+    'eip155:137': 'Polygon',
+    'eip155:56': 'BNB Chain',
+    'eip155:11155111': 'Sepolia',
+    'eip155:80001': 'Mumbai',
+  }
+  return map[caipChainId] ?? caipChainId
 }
 
 interface SelectOrganizationProps {
@@ -36,7 +45,7 @@ export default function SelectOrganization({
   onEnterAsMember,
   onSelectAdminOrg,
 }: SelectOrganizationProps) {
-  const organizations = useOrganizationStore(s => s.organizations)
+  const organizations = useOrganizationStore(s => s.organizations) as OrgResponseItem[]
   const getOrganizations = useOrganizationStore(s => s.getOrganizations)
   const [loading, setLoading] = useState(!organizations.length)
 
@@ -46,15 +55,6 @@ export default function SelectOrganization({
   }, [])
 
   const adminOrgs = organizations.filter(item => hasAdminRole(item.member))
-  const hasMemberOrgs = organizations.some(item => !hasAdminRole(item.member))
-
-  const handleSelect = (item: OrganizationResponseItem) => {
-    onSelectAdminOrg?.(item.organization.orgId, item.member)
-  }
-
-  const handleCreateNew = () => {
-    onCreateNew?.()
-  }
 
   if (loading) {
     return (
@@ -66,77 +66,91 @@ export default function SelectOrganization({
   }
 
   return (
-    <div className="flex h-full w-full flex-col gap-[80px] px-4 py-8 lg:px-[60px] lg:py-[40px]">
-      <h1 className="shrink-0 max-w-[480px] text-[32px] font-bold leading-[48px] text-[#1c1c26]">
-        Select Organization
-      </h1>
+    <div className="flex h-full w-full flex-col px-4 py-8 lg:px-[60px] lg:py-[40px]">
+      {/* Header row */}
+      <div className="mb-8 flex items-start justify-between">
+        <h1 className="max-w-[480px] text-[28px] font-bold leading-[42px] text-[#1c1c26]">
+          Select Organization
+        </h1>
+        <button
+          type="button"
+          onClick={onEnterAsMember}
+          className="flex shrink-0 items-center gap-[6px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[16px] py-[8px] text-[14px] font-semibold text-[#1c1c26] transition-all hover:border-[#5e85ee] hover:text-[#5e85ee]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+          </svg>
+          Member Dashboard
+        </button>
+      </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-[32px]">
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-[24px] pb-4">
-            {adminOrgs.map(item => {
-              const lastPayment = item.member.lastPayment
-                ? formatDate(item.member.lastPayment)
-                : 'N/A'
-              const roles = item.member.roles ?? []
-              return (
-                <button
-                  key={item.organization.orgId}
-                  type="button"
-                  onClick={() => handleSelect(item)}
-                  className="flex w-full flex-col gap-[16px] rounded-[24px] border border-[rgba(0,0,0,0.12)] bg-white p-[24px] text-left transition-all hover:border-[#5e85ee] hover:shadow-md"
-                >
-                  <div className="flex items-center justify-between">
-                    <p className="shrink-0 text-[24px] font-bold leading-[36px] text-[#1c1c26]">
-                      {item.organization.orgName}
-                    </p>
-                  </div>
-                  <div className="flex w-full flex-col gap-[4px] text-[16px] font-normal leading-[24px] text-[#606067]">
-                    <p>Last Payment: {lastPayment}</p>
-                    <div className="flex flex-wrap items-center gap-[8px]">
-                      <span>Roles:</span>
-                      {roles.length > 0 ? (
-                        <span className="flex flex-wrap gap-[6px]">
-                          {roles.map(r => (
-                            <span
-                              key={r.id}
-                              className="inline-flex rounded-full bg-[#e8ecf7] px-[12px] py-[4px] text-[14px] font-medium leading-[20px] text-[#5e85ee]"
-                            >
-                              {r.role}
-                            </span>
-                          ))}
-                        </span>
-                      ) : (
-                        <span>—</span>
-                      )}
+      {/* Horizontal scrollable card list */}
+      <div className="min-h-0 flex-1 overflow-x-auto pb-2">
+        <div className="flex gap-[16px]" style={{ minWidth: 'max-content' }}>
+          {adminOrgs.map(item => {
+            const network = item.payrollConfig
+              ? getNetworkLabel(item.payrollConfig.caipChainId)
+              : null
+            const lastPayout = item.lastPayout ? formatDate(item.lastPayout) : null
+            const memberCount = item.memberCount ?? null
+
+            return (
+              <button
+                key={item.organization.orgId}
+                type="button"
+                onClick={() => onSelectAdminOrg?.(item.organization.orgId, item.member)}
+                className="flex w-[240px] shrink-0 flex-col gap-[20px] rounded-[24px] border border-[rgba(0,0,0,0.12)] bg-white p-[20px] text-left transition-all hover:border-[#5e85ee] hover:shadow-md"
+              >
+                {/* Org name */}
+                <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26] line-clamp-2">
+                  {item.organization.orgName}
+                </p>
+
+                {/* Meta info */}
+                <div className="flex flex-col gap-[10px]">
+                  {network && (
+                    <div className="flex items-center gap-[6px]">
+                      <span className="inline-flex rounded-[8px] bg-[rgba(94,133,238,0.1)] px-[10px] py-[3px] text-[12px] font-medium text-[#5e85ee]">
+                        {network}
+                      </span>
                     </div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
+                  )}
 
-        <div className="flex shrink-0 flex-col gap-[12px]">
-          {/* C端入口: enter as member */}
-          {(hasMemberOrgs || onEnterAsMember) && (
-            <button
-              type="button"
-              onClick={onEnterAsMember}
-              className="flex items-center justify-center gap-[8px] rounded-full border border-[#d9d9db] bg-white px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-[#1c1c26] transition-opacity hover:opacity-90"
-            >
-              <IconUser className="size-[24px]" />
-              Enter as Member
-            </button>
-          )}
+                  {lastPayout && (
+                    <div className="flex flex-col gap-[2px]">
+                      <span className="text-[11px] font-medium uppercase tracking-wide text-[#8d8d93]">
+                        Last Payout
+                      </span>
+                      <span className="text-[13px] font-medium text-[#1c1c26]">
+                        {lastPayout}
+                      </span>
+                    </div>
+                  )}
 
+                  {memberCount != null && (
+                    <div className="flex items-center gap-[6px] text-[13px] text-[#606067]">
+                      <IconUsers className="size-[14px] shrink-0 text-[#8d8d93]" />
+                      <span>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
+                    </div>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+
+          {/* Create New Organization card */}
           <button
             type="button"
-            onClick={handleCreateNew}
-            className="flex items-center justify-center gap-[8px] rounded-full bg-[#875dff] px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90"
+            onClick={onCreateNew}
+            className="flex w-[240px] shrink-0 flex-col items-center justify-center gap-[10px] rounded-[24px] border border-dashed border-[rgba(0,0,0,0.18)] bg-[#fafafa] p-[20px] text-left transition-all hover:border-[#5e85ee] hover:bg-[rgba(94,133,238,0.04)]"
           >
-            <IconPlus className="size-[24px]" />
-            Create New Organization
+            <div className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-[rgba(94,133,238,0.12)]">
+              <IconPlus className="size-[20px] text-[#5e85ee]" />
+            </div>
+            <span className="text-[14px] font-semibold text-[#5e85ee]">
+              Create New Organization
+            </span>
           </button>
         </div>
       </div>
