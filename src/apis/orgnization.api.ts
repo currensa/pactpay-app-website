@@ -140,6 +140,23 @@ export interface OrgPayrollConfig {
   updatedAt: string
 }
 
+export interface ActivityLog {
+  id: string
+  eventType: string
+  orgId: string
+  memberId: string | null
+  actorId: string | null
+  payload: Record<string, unknown> | null
+  createdAt: string
+}
+
+export interface ActivityLogsResponse {
+  data: ActivityLog[]
+  total: number
+  page: number
+  pageSize: number
+}
+
 export class OrgnizationApi {
   constructor(private readonly request: AxiosInstance) {}
 
@@ -274,6 +291,16 @@ export class OrgnizationApi {
   // 更新组织发薪配置
   async upsertOrgPayrollConfig(payload: { caipChainId: string; token: string }) {
     const res = await this.request.patch<OrgPayrollConfig>(`/orgs/${this.orgId}/payroll-config`, payload)
+    return res.data
+  }
+
+  // 查询成员行为日志
+  async getMemberActivityLogs(memberId: string, params: { page?: number; pageSize?: number; orgId?: string } = {}) {
+    const { page = 1, pageSize = 20, ...rest } = params
+    const res = await this.request.get<ActivityLogsResponse>(
+      `/orgs/${this.orgId}/members/${memberId}/activity-logs`,
+      { params: { page, pageSize, ...rest } },
+    )
     return res.data
   }
 }
