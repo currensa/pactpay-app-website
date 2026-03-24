@@ -113,7 +113,7 @@ const routes: RouteItem[] = [
           { index: true, element: <Navigate to="member/dashboard" /> },
           { path: 'dashboard', navIcon: IconLayoutDashboard, element: <MemberDashboard />, meta: { title: 'Dashboard', subtitle: "Monitor your organization's key metrics and activities" } },
           { path: 'orgdetail', element: <MemberOrgsDetail />, meta: { title: 'TechCorp Inc.' } },
-          { path: 'claim', element: <MemberClaim />, meta: { title: 'Claim Payroll' } },
+          { path: 'claim', element: <MemberClaim />, meta: { title: 'Claim', subtitle: 'Merge claim: all pending funds in one transaction. Gas is paid by the platform.' } },
           { path: 'settings', navIcon: IconSettings, element: <MemberSettings />, meta: { title: 'Settings', subtitle: 'Manage your account settings' } }
         ]
       }
