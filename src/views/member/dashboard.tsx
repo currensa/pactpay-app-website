@@ -9,30 +9,28 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Cell, Pie, PieChart, Tooltip } from 'recharts'
 
-interface TokenItem { symbol: string; amount: number }
+interface TokenItem { symbol: string; amount: number; iconUrl?: string | null }
 interface DistributionItem { name: string; value: number; color: string; caipChainId: string; tokenAddress: string; rawAmount: number }
 
 const DISTRIBUTION_COLORS = ['#1c1c26', '#5e85ee', '#ffa800', '#c2d5fe', '#feeee2', '#8247e5', '#26a17b']
 
 // ─── Token icon ───────────────────────────────────────────────────────────────
 
-const TOKEN_META: Record<string, { bg: string; label: string }> = {
-  USDT: { bg: '#26a17b', label: 'T' },
-  USDC: { bg: '#2775ca', label: 'C' },
-  ETH: { bg: '#627eea', label: 'E' },
-  BNB: { bg: '#f3ba2f', label: 'B' },
-  SOL: { bg: '#9945ff', label: 'S' },
-  MATIC: { bg: '#8247e5', label: 'M' },
-}
-
-function TokenIcon({ symbol }: { symbol: string }) {
-  const meta = TOKEN_META[symbol] ?? { bg: '#8d8d93', label: symbol[0] }
+function TokenIcon({ symbol, iconUrl }: { symbol: string; iconUrl?: string | null }) {
+  if (iconUrl) {
+    return (
+      <img
+        src={iconUrl}
+        alt={symbol}
+        className="h-[32px] w-[32px] shrink-0 rounded-full object-cover"
+      />
+    )
+  }
   return (
     <div
-      className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full"
-      style={{ backgroundColor: meta.bg }}
+      className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[#8d8d93]"
     >
-      <span className="text-[12px] font-bold text-white">{meta.label}</span>
+      <span className="text-[12px] font-bold text-white">{(symbol[0] ?? '?').toUpperCase()}</span>
     </div>
   )
 }
@@ -43,7 +41,7 @@ function TokenRow({ item }: { item: TokenItem }) {
   return (
     <div className="flex items-center justify-between bg-[#f5f5f5] rounded-[16px] px-[16px] py-[10px] w-full shrink-0">
       <div className="flex items-center gap-[6px]">
-        <TokenIcon symbol={item.symbol} />
+        <TokenIcon symbol={item.symbol} iconUrl={item.iconUrl} />
         <p className="text-[16px] leading-[24px] text-black">{item.symbol}</p>
       </div>
       <p className="text-[18px] leading-[28px] font-bold text-[#1c1c26]">
@@ -198,7 +196,7 @@ export default function MemberDashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  const { fetchChainAssets, getTokenSymbol, getTokenDecimals } = useChainAssetStore()
+  const { fetchChainAssets, getTokenSymbol, getTokenDecimals, getTokenIconUrl } = useChainAssetStore()
   const { address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
 
@@ -221,11 +219,13 @@ export default function MemberDashboard() {
       setClaimedTokens(data.claimed.map(item => ({
         symbol: getTokenSymbol(item.caipChainId, item.tokenAddress) ?? item.tokenAddress.slice(0, 6),
         amount: Number(item.totalAmount) / Math.pow(10, getTokenDecimals(item.caipChainId, item.tokenAddress)),
+        iconUrl: getTokenIconUrl(item.caipChainId, item.tokenAddress),
       })))
 
       setPendingTokens(data.pendingClaim.map(item => ({
         symbol: getTokenSymbol(item.caipChainId, item.tokenAddress) ?? item.tokenAddress.slice(0, 6),
         amount: Number(item.totalAmount) / Math.pow(10, getTokenDecimals(item.caipChainId, item.tokenAddress)),
+        iconUrl: getTokenIconUrl(item.caipChainId, item.tokenAddress),
       })))
 
       const totalDist = data.incomeDistribution.reduce((s, d) => s + Number(d.totalAmount), 0) || 1

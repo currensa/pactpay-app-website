@@ -26,8 +26,8 @@ function formatPayPeriod(iso: string) {
 }
 
 function statusVariant(status: string): 'success' | 'warning' | 'default' {
-  if (status === 'complete') return 'success'
-  if (status === 'ready') return 'warning'
+  if (status === 'claimed') return 'success'
+  if (status === 'pending') return 'warning'
   return 'default'
 }
 
@@ -90,7 +90,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
             memberId: memberItem?.member?.memberId ?? memberId ?? '',
             amount,
             token,
-            status: tx.transactionStatus,
+            status: memberItem.status,
           }
         })
       )

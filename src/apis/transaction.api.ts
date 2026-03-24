@@ -93,6 +93,8 @@ export interface TransactionItemMember {
 export interface TransactionItem {
   amount: string
   id:string
+  status:string
+  txHash:string
   member: TransactionItemMember
 }
 
