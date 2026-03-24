@@ -399,7 +399,7 @@ export default function Transaction() {
                         >
                           View Details
                         </button>
-                        {hasPermission(Permission.MODIFY_TRANSACTION) && (
+                        {hasPermission(Permission.MODIFY_TRANSACTION) && !isComplete && (
                           <button
                             className="text-[#d92b2b] text-[13px] hover:opacity-70 transition-opacity whitespace-nowrap"
                             onClick={() => handleDeleteClick(transaction)}
