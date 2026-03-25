@@ -18,6 +18,7 @@ import {
   DeleteConfirmDialogContent,
   ExecuteConfirmDialogContent,
   ExecuteSuccessDialogContent,
+  RefundConfirmDialogContent,
 } from './components'
 import type { Transaction } from './components/types'
 
@@ -84,6 +85,12 @@ export default function Transaction() {
 
   const [reactionConfirmDialogOpen, setReactionConfirmDialogOpen] = useState(false)
   const [transactionToReaction, setTransactionToReaction] = useState<Transaction | null>(null)
+
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false)
+  const [refundingTransaction, setRefundingTransaction] = useState<Transaction | null>(null)
+  const [refundingTransactionPlan, setRefundingTransactionPlan] = useState<TransactionPlan | null>(null)
+  const [refundSuccessDialogOpen, setRefundSuccessDialogOpen] = useState(false)
+  const [lastRefundTxHash, setLastRefundTxHash] = useState('')
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [rawTransactionPlans, setRawTransactionPlans] = useState<TransactionPlan[]>([])
@@ -212,6 +219,24 @@ export default function Transaction() {
     setReactionConfirmDialogOpen(false)
     setTransactionToReaction(null)
     navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(transactionId)}`)
+  }
+
+  const planHasUnclaimedItems = (plan: TransactionPlan) =>
+    plan.items.some(item => item.status !== 'claimed')
+
+  const handleRefundClick = (transaction: Transaction) => {
+    const plan = rawTransactionPlans.find(p => p.id === transaction.id) ?? null
+    setRefundingTransaction(transaction)
+    setRefundingTransactionPlan(plan)
+    setRefundDialogOpen(true)
+  }
+
+  const handleRefundSuccess = async (txHash: string) => {
+    setRefundDialogOpen(false)
+    setLastRefundTxHash(txHash)
+    setRefundSuccessDialogOpen(true)
+    await new Promise(r => setTimeout(r, 2000))
+    await fetchTransactionPlans()
   }
 
   const filteredTransactions = transactions
@@ -371,16 +396,29 @@ export default function Transaction() {
                     <TableCell>{transaction.executionDate}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        {isComplete
-                          ? hasPermission(Permission.REACTION_TRANSACTION) && (
+                        {isComplete ? (
+                          <>
+                            {hasPermission(Permission.REACTION_TRANSACTION) && (
                               <button
                                 className="text-[#5e85ee] text-[13px] hover:opacity-70 transition-opacity whitespace-nowrap"
                                 onClick={() => handleReactionClick(transaction)}
                               >
                                 Create again
                               </button>
-                            )
-                          : hasPermission(Permission.EXECUTE_TRANSACTION) && (
+                            )}
+                            {(() => {
+                              const plan = rawTransactionPlans.find(p => p.id === transaction.id)
+                              return plan && planHasUnclaimedItems(plan) ? (
+                                <button
+                                  className="text-[#ffa800] text-[13px] hover:opacity-70 transition-opacity whitespace-nowrap"
+                                  onClick={() => handleRefundClick(transaction)}
+                                >
+                                  Refund
+                                </button>
+                              ) : null
+                            })()}
+                          </>
+                        ) : hasPermission(Permission.EXECUTE_TRANSACTION) && (
                               <button
                                 className="bg-[#5e85ee] text-white text-[13px] px-[10px] py-[5px] rounded-[12px] hover:bg-[#5e85ee]/90 transition-opacity whitespace-nowrap"
                                 onClick={() => handleDepositClick(transaction)}
@@ -453,6 +491,38 @@ export default function Transaction() {
             onCancel={() => { setDeleteConfirmDialogOpen(false); setTransactionToDelete(null) }}
             onConfirm={handleConfirmDelete}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
+        <DialogContent>
+          <RefundConfirmDialogContent
+            transaction={refundingTransaction}
+            transactionPlan={refundingTransactionPlan}
+            onCancel={() => { setRefundDialogOpen(false); setRefundingTransaction(null); setRefundingTransactionPlan(null) }}
+            onSuccess={handleRefundSuccess}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={refundSuccessDialogOpen} onOpenChange={setRefundSuccessDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refund Submitted</DialogTitle>
+            <DialogDescription>
+              Your refund transaction has been submitted successfully.
+            </DialogDescription>
+          </DialogHeader>
+          {lastRefundTxHash && (
+            <p className="text-[13px] text-[#606067] break-all">
+              Tx: <span className="font-mono text-[#1c1c26]">{lastRefundTxHash}</span>
+            </p>
+          )}
+          <div className="flex justify-end pt-2">
+            <Button onClick={() => { setRefundSuccessDialogOpen(false); setRefundingTransaction(null); setLastRefundTxHash('') }}>
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
