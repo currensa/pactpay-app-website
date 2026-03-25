@@ -282,6 +282,24 @@ export class TransactionApi {
     return res.data
   }
 
+  // 预览服务费
+  async getFeePreview(members: { memberId: string; amount: string }[]) {
+    const res = await this.request.post<{
+      billableMemberCount: number
+      totalMemberCount: number
+      plan: {
+        id: string
+        name: string
+        pricePerMember: number
+        originalPricePerMember: number
+        description: string
+      }
+      originalFee: number
+      discountedFee: number
+    }>(`/transaction/${this.orgId}/plan/fee-preview`, members)
+    return res.data
+  }
+
   // 获取今日待执行交易列表
   async getReadyToExecuteTodayList(page: number = 1, pageSize: number = 20) {
     const today = new Date().toISOString().split('T')[0]

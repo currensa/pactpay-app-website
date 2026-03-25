@@ -1,13 +1,29 @@
+import apis from '@/apis'
 import { OrganizationMember } from '@/apis/orgnization.api'
 import { DatePickerInput } from '@/components/ui/datePickerInput'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
 import { IconLoader2 } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
+
+interface FeePreview {
+  billableMemberCount: number
+  totalMemberCount: number
+  plan: {
+    id: string
+    name: string
+    pricePerMember: number
+    originalPricePerMember: number
+    description: string
+  }
+  originalFee: number
+  discountedFee: number
+}
 
 interface CreateTransactionDialogContentProps {
   variant?: 'dialog' | 'page'
@@ -43,6 +59,8 @@ export function CreateTransactionDialogContent({
   const [memberAmounts, setMemberAmounts] = useState<Record<string, string>>({})
   const [transactionName, setTransactionName] = useState('')
   const [executionDate, setExecutionDate] = useState('')
+  const [feePreview, setFeePreview] = useState<FeePreview | null>(null)
+  const [feeLoading, setFeeLoading] = useState(false)
   const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
   const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
   const getTokenSymbol = useChainAssetStore(s => s.getTokenSymbol)
@@ -97,6 +115,27 @@ export function CreateTransactionDialogContent({
     if (initialExecutionDate) setExecutionDate(initialExecutionDate)
   }, [transactionDetailMembers, organizationMembers, isCreatingFromReaction, initialExecutionDate])
 
+  // 实时计算服务费（防抖 500ms）
+  useEffect(() => {
+    if (organizationMembers.length === 0) return
+    const timer = setTimeout(async () => {
+      setFeeLoading(true)
+      try {
+        const payload = organizationMembers.map(m => ({
+          memberId: m.memberId,
+          amount: selectedMembers.has(m.id) ? (memberAmounts[m.id] || '0') : '0',
+        }))
+        const result = await apis.transaction.getFeePreview(payload)
+        setFeePreview(result)
+      } catch {
+        // silently ignore fee preview errors
+      } finally {
+        setFeeLoading(false)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [selectedMembers, memberAmounts, organizationMembers])
+
   // 从已选成员的 payoutIntents[0] 推导出唯一 caipChainId+token，以及用于显示的 symbol
   const { derivedCurrency, derivedTokenAddress, derivedCaipChainId, currencyMismatch } = useMemo(() => {
     const intents = Array.from(selectedMembers)
@@ -107,7 +146,6 @@ export function CreateTransactionDialogContent({
       return { derivedCurrency: '', derivedTokenAddress: '', derivedCaipChainId: '', currencyMismatch: false }
     }
 
-    // 检查所有已选成员的 caipChainId+token 是否一致
     const keys = Array.from(new Set(intents.map(i => `${i.caipChainId}:${i.token}`)))
     if (keys.length > 1) {
       return { derivedCurrency: '', derivedTokenAddress: '', derivedCaipChainId: '', currencyMismatch: true }
@@ -190,11 +228,131 @@ export function CreateTransactionDialogContent({
     })
   }, [transactionDetailMembers, selectedMembers, organizationMembers, memberAmounts])
 
-  const canProceedToStep2 = selectedMembers.size > 0 && totalAmount > 0
+  const canProceedToStep2 =
+    selectedMembers.size > 0 &&
+    !currencyMismatch &&
+    Array.from(selectedMembers).every(id => parseFloat(memberAmounts[id] || '0') > 0)
+
+  const nextTooltipMsg = (() => {
+    if (selectedMembers.size === 0) return 'Please select at least one member'
+    if (currencyMismatch) return 'Selected members have different currencies'
+    if (!Array.from(selectedMembers).every(id => parseFloat(memberAmounts[id] || '0') > 0))
+      return 'All selected members must have an amount greater than 0'
+    return ''
+  })()
 
   const isSelected = (id: string) => selectedMembers.has(id)
   const allSelected = eligibleMembers.length > 0 && selectedMembers.size === eligibleMembers.length
   const someSelected = selectedMembers.size > 0 && !allSelected
+
+  // ── Shared table ─────────────────────────────────────────────────────────
+  const memberTable = (
+    <div className="flex-1 overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
+            <TableHead className="w-10 pb-3">
+              <div
+                className={cn(
+                  'w-[14px] h-[14px] rounded-[3px] border cursor-pointer flex items-center justify-center shrink-0',
+                  allSelected || someSelected ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]'
+                )}
+                onClick={handleSelectAll}
+              >
+                {(allSelected || someSelected) && (
+                  <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                )}
+              </div>
+            </TableHead>
+            <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">Member</TableHead>
+            <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">Email</TableHead>
+            <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[180px]">Role</TableHead>
+            <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3">
+              Amount{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
+            </TableHead>
+            <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[160px]">Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {membersLoading || (isCreatingFromReaction && reactionSourceLoading) ? (
+            <TableRow>
+              <TableCell colSpan={6} className="h-24 text-center text-[#8d8d93] text-[13px]">
+                <div className="flex items-center justify-center gap-2">
+                  <IconLoader2 className="h-4 w-4 animate-spin" />
+                  {isCreatingFromReaction && reactionSourceLoading ? 'Loading re-action data...' : 'Loading members...'}
+                </div>
+              </TableCell>
+            </TableRow>
+          ) : organizationMembers.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="h-24 text-center text-[#8d8d93] text-[13px]">No members found.</TableCell>
+            </TableRow>
+          ) : (
+            organizationMembers.map(member => {
+              const checked = isSelected(member.id)
+              const hasMetaPub = !!member.metaPub
+              return (
+                <TableRow
+                  key={member.id}
+                  className={cn(
+                    'border-b border-[rgba(0,0,0,0.06)]',
+                    hasMetaPub ? 'hover:bg-[#f5f5f5]/60 cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                  )}
+                  onClick={() => handleMemberToggle(member.id)}
+                >
+                  <TableCell className="py-[14px]">
+                    <div className={cn(
+                      'w-[14px] h-[14px] rounded-[3px] border flex items-center justify-center shrink-0',
+                      !hasMetaPub ? 'bg-[#f5f5f5] border-[rgba(0,0,0,0.1)]' : checked ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]'
+                    )}>
+                      {checked && (
+                        <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="py-[14px]">
+                    <div className="flex items-center gap-[6px]">
+                      <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee]">
+                        {(member.showName || '?')[0].toUpperCase()}
+                      </div>
+                      <span className="text-[13px] text-[#1c1c26] leading-[22px]">{member.showName || '-'}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{member.email || '-'}</TableCell>
+                  <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{member.roles[0]?.role || '-'}</TableCell>
+                  <TableCell className="py-[14px]" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="number"
+                      min="0"
+                      disabled={!hasMetaPub}
+                      value={memberAmounts[member.id] ?? ''}
+                      onChange={e => handleAmountChange(member.id, e.target.value)}
+                      placeholder="0"
+                      className={cn(
+                        'w-[140px] h-[34px] rounded-[10px] px-3 text-[13px] text-[#1c1c26] leading-[22px] outline-none border-0 disabled:cursor-not-allowed',
+                        checked ? 'bg-[#f5f5f5]' : 'bg-transparent'
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell className="py-[14px]">
+                    {hasMetaPub ? (
+                      <span className="inline-flex rounded-[8px] bg-[rgba(93,221,34,0.12)] px-[8px] py-[3px] text-[12px] font-medium text-[#3da813]">
+                        ready
+                      </span>
+                    ) : (
+                      <span className="inline-flex rounded-[8px] bg-[rgba(255,168,0,0.12)] px-[8px] py-[3px] text-[12px] font-medium text-[#ffa800]">
+                        No wallet bound
+                      </span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )
+            })
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  )
 
   return (
     <div className="flex flex-col h-full">
@@ -223,162 +381,174 @@ export function CreateTransactionDialogContent({
 
       {/* ── Step 1: Select members & amounts ─────────────────────────────── */}
       {currentStep === 1 && (
-        <div className="flex flex-col flex-1 overflow-hidden">
-          {currencyMismatch && (
-            <p className="text-[#d92b2b] text-[13px] mb-3">
-              Selected members have different currencies. All members in a transaction must share the same currency.
-            </p>
-          )}
-
-          <div className="flex-1 overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
-                  <TableHead className="w-10 pb-3">
-                    <div
-                      className={cn(
-                        'w-[14px] h-[14px] rounded-[3px] border cursor-pointer flex items-center justify-center shrink-0',
-                        allSelected ? 'bg-[#5e85ee] border-[#5e85ee]' : someSelected ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]'
-                      )}
-                      onClick={handleSelectAll}
-                    >
-                      {(allSelected || someSelected) && (
-                        <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                      )}
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">Member</TableHead>
-                  <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">Email</TableHead>
-                  <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[180px]">Role</TableHead>
-                  <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3">
-                    Service Fee{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
-                  </TableHead>
-                  <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[160px]">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {membersLoading || (isCreatingFromReaction && reactionSourceLoading) ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-[#8d8d93] text-[13px]">
-                      <div className="flex items-center justify-center gap-2">
-                        <IconLoader2 className="h-4 w-4 animate-spin" />
-                        {isCreatingFromReaction && reactionSourceLoading ? 'Loading re-action data...' : 'Loading members...'}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : organizationMembers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center text-[#8d8d93] text-[13px]">No members found.</TableCell>
-                  </TableRow>
-                ) : (
-                  organizationMembers.map(member => {
-                    const checked = isSelected(member.id)
-                    const hasMetaPub = !!member.metaPub
-                    return (
-                      <TableRow
-                        key={member.id}
-                        className={cn(
-                          'border-b border-[rgba(0,0,0,0.06)]',
-                          hasMetaPub ? 'hover:bg-[#f5f5f5]/60 cursor-pointer' : 'opacity-40 cursor-not-allowed'
-                        )}
-                        onClick={() => handleMemberToggle(member.id)}
-                      >
-                        <TableCell className="py-[14px]">
-                          <div className={cn(
-                            'w-[14px] h-[14px] rounded-[3px] border flex items-center justify-center shrink-0',
-                            !hasMetaPub ? 'bg-[#f5f5f5] border-[rgba(0,0,0,0.1)]' : checked ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]'
-                          )}>
-                            {checked && (
-                              <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-[14px]">
-                          <div className="flex items-center gap-[6px]">
-                            <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee]">
-                              {(member.showName || '?')[0].toUpperCase()}
-                            </div>
-                            <span className="text-[13px] text-[#1c1c26] leading-[22px]">{member.showName || '-'}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{member.email || '-'}</TableCell>
-                        <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{member.roles[0]?.role || '-'}</TableCell>
-                        <TableCell className="py-[14px]" onClick={e => e.stopPropagation()}>
-                          <input
-                            type="number"
-                            min="0"
-                            disabled={!hasMetaPub}
-                            value={memberAmounts[member.id] ?? ''}
-                            onChange={e => handleAmountChange(member.id, e.target.value)}
-                            placeholder="0"
-                            className={cn(
-                              'w-[140px] h-[34px] rounded-[10px] px-3 text-[13px] text-[#1c1c26] leading-[22px] outline-none border-0 disabled:cursor-not-allowed',
-                              checked ? 'bg-[#f5f5f5]' : 'bg-transparent'
-                            )}
-                          />
-                        </TableCell>
-                        <TableCell className="py-[14px]">
-                          {hasMetaPub ? (
-                            <span className="inline-flex rounded-[8px] bg-[rgba(93,221,34,0.12)] px-[8px] py-[3px] text-[12px] font-medium text-[#3da813]">
-                              ready
-                            </span>
-                          ) : (
-                            <span className="inline-flex rounded-[8px] bg-[rgba(255,168,0,0.12)] px-[8px] py-[3px] text-[12px] font-medium text-[#ffa800]">
-                              No wallet bound
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
+        <>
+          {/* Page variant: two-panel layout */}
+          {variant === 'page' ? (
+            <div className="flex gap-[28px] flex-1 min-h-0">
+              {/* Left: table card */}
+              <div className="bg-white rounded-[32px] p-[22px] flex-1 flex flex-col overflow-hidden min-w-0">
+                {currencyMismatch && (
+                  <p className="text-[#d92b2b] text-[13px] mb-3">
+                    Selected members have different currencies. All members in a transaction must share the same currency.
+                  </p>
                 )}
-              </TableBody>
-            </Table>
-          </div>
+                {memberTable}
+                {/* Footer: select controls only */}
+                <div className="flex items-center gap-[10px] pt-5 shrink-0">
+                  <button
+                    onClick={handleSelectAll}
+                    className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={handleInvertSelection}
+                    className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+                  >
+                    Invert Selection
+                  </button>
+                  {currencyMismatch ? (
+                    <span className="text-[13px] text-[#d92b2b]">Currency mismatch</span>
+                  ) : selectedMembers.size > 0 && derivedCurrency ? (
+                    <span className="text-[13px] text-[#606067]">{selectedMembers.size} members · {totalAmount} {derivedCurrency}</span>
+                  ) : null}
+                </div>
+              </div>
 
-          {/* Step 1 footer */}
-          <div className="flex items-center justify-between pt-5 shrink-0">
-            <div className="flex items-center gap-[10px]">
-              <button
-                onClick={handleSelectAll}
-                className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
-              >
-                Select All
-              </button>
-              <button
-                onClick={handleInvertSelection}
-                className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
-              >
-                Invert Selection
-              </button>
-              {currencyMismatch ? (
-                <span className="text-[13px] text-[#d92b2b]">Currency mismatch</span>
-              ) : selectedMembers.size > 0 && derivedCurrency ? (
-                <span className="text-[13px] text-[#606067]">{selectedMembers.size} members · {totalAmount} {derivedCurrency}</span>
-              ) : null}
+              {/* Right: fee panel */}
+              <div className="bg-white rounded-[32px] p-[22px] w-[300px] shrink-0 flex flex-col gap-[20px]">
+                <p
+                  className="text-[16px] text-[#1c1c26] font-medium leading-[26px]"
+                  style={{ fontFamily: 'Poppins, sans-serif' }}
+                >
+                  Your Service Fee &amp; Gas
+                </p>
+
+                <div className="flex flex-col flex-1">
+                  {feeLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <IconLoader2 className="size-5 animate-spin text-[#8d8d93]" />
+                    </div>
+                  ) : feePreview ? (
+                    <div className="flex flex-col gap-[8px]">
+                      {/* Price row */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-baseline gap-[3px]">
+                          <span className="text-[14px] text-[#8d8d93] line-through leading-[24px]">
+                            {feePreview.plan.originalPricePerMember}U
+                          </span>
+                          <span className="text-[22px] font-bold text-[#1c1c26] leading-[34px]">
+                            {feePreview.plan.pricePerMember}U
+                          </span>
+                        </div>
+                        <span className="text-[14px] text-[#1c1c26] leading-[24px]">
+                          x {feePreview.billableMemberCount}
+                        </span>
+                      </div>
+                      {/* Subtotal row */}
+                      <div className="border-t border-[rgba(0,0,0,0.12)] flex items-center justify-between py-[14px]">
+                        <span className="text-[14px] text-[#1c1c26] leading-[24px]">Subtotal</span>
+                        <span className="text-[14px] text-[#1c1c26] leading-[24px]">
+                          {feePreview.discountedFee} {payrollTokenSymbol || 'USDC'}
+                        </span>
+                      </div>
+                      {/* Plan description */}
+                      <p className="text-[12px] text-[#8d8d93] leading-[18px]">
+                        {feePreview.plan.description}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-[13px] text-[#8d8d93] py-6 text-center">
+                      Select members to preview fee
+                    </p>
+                  )}
+                </div>
+
+                {/* Next button at bottom of panel */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="mt-auto w-full">
+                      <button
+                        onClick={handleNext}
+                        disabled={!canProceedToStep2}
+                        className="h-[38px] w-full rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-25 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </span>
+                  </TooltipTrigger>
+                  {nextTooltipMsg && (
+                    <TooltipContent side="top">{nextTooltipMsg}</TooltipContent>
+                  )}
+                </Tooltip>
+              </div>
             </div>
-            <div className="flex items-center gap-[10px]">
-              <button
-                onClick={onCancel}
-                className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleNext}
-                disabled={!canProceedToStep2}
-                className="h-[38px] px-4 rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-25 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
+          ) : (
+            /* Dialog variant: original single-column layout */
+            <div className="flex flex-col flex-1 overflow-hidden">
+              {currencyMismatch && (
+                <p className="text-[#d92b2b] text-[13px] mb-3">
+                  Selected members have different currencies. All members in a transaction must share the same currency.
+                </p>
+              )}
+              {memberTable}
+              {/* Footer */}
+              <div className="flex items-center justify-between pt-5 shrink-0">
+                <div className="flex items-center gap-[10px]">
+                  <button
+                    onClick={handleSelectAll}
+                    className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+                  >
+                    Select All
+                  </button>
+                  <button
+                    onClick={handleInvertSelection}
+                    className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+                  >
+                    Invert Selection
+                  </button>
+                  {currencyMismatch ? (
+                    <span className="text-[13px] text-[#d92b2b]">Currency mismatch</span>
+                  ) : selectedMembers.size > 0 && derivedCurrency ? (
+                    <span className="text-[13px] text-[#606067]">{selectedMembers.size} members · {totalAmount} {derivedCurrency}</span>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-[10px]">
+                  <button
+                    onClick={onCancel}
+                    className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <button
+                          onClick={handleNext}
+                          disabled={!canProceedToStep2}
+                          className="h-[38px] px-4 rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-25 disabled:cursor-not-allowed"
+                        >
+                          Next
+                        </button>
+                      </span>
+                    </TooltipTrigger>
+                    {nextTooltipMsg && (
+                      <TooltipContent side="top">{nextTooltipMsg}</TooltipContent>
+                    )}
+                  </Tooltip>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
 
       {/* ── Step 2: Date, preview & member details ───────────────────────── */}
       {currentStep === 2 && (
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className={cn(
+          'flex flex-col flex-1 overflow-hidden',
+          variant === 'page' && 'bg-white rounded-[32px] p-[22px]'
+        )}>
           <div className="flex flex-1 gap-[20px] overflow-hidden min-h-0">
             {/* Left column */}
             <div className="flex flex-col flex-1 gap-[28px] overflow-y-auto min-w-0">
@@ -434,6 +604,12 @@ export function CreateTransactionDialogContent({
                     <span className="text-[13px] text-[#8d8d93] leading-[22px]">Total Amount</span>
                     <span className="text-[13px] text-[#1c1c26] leading-[22px]">{totalAmount} {derivedCurrency || '-'}</span>
                   </div>
+                  {feePreview && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] text-[#8d8d93] leading-[22px]">Service Fee &amp; Gas</span>
+                      <span className="text-[13px] text-[#1c1c26] leading-[22px]">{feePreview.discountedFee} {payrollTokenSymbol || 'USDC'}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -476,18 +652,20 @@ export function CreateTransactionDialogContent({
           {/* Step 2 footer */}
           <div className="flex items-center justify-between pt-5 shrink-0">
             <button
-              onClick={onCancel}
+              onClick={variant === 'page' ? handlePrevious : onCancel}
               className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
             >
-              Back
+              {variant === 'page' ? 'Back' : 'Cancel'}
             </button>
             <div className="flex items-center gap-[10px]">
-              <button
-                onClick={handlePrevious}
-                className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
-              >
-                Previous
-              </button>
+              {variant !== 'page' && (
+                <button
+                  onClick={handlePrevious}
+                  className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+                >
+                  Previous
+                </button>
+              )}
               <button
                 onClick={handleCreateTransaction}
                 disabled={!transactionName || !executionDate}

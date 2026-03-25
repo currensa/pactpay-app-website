@@ -116,7 +116,7 @@ export default function CreateTransaction() {
   }
 
   return (
-    <div className="bg-white rounded-[32px] p-6 flex flex-col gap-6 h-full">
+    <div className="h-full">
       <CreateTransactionDialogContent
         variant="page"
         isCreatingFromReaction={isCreatingFromReaction}

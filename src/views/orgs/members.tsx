@@ -467,7 +467,7 @@ export default function MemberPage(
   const handleConfirmBatchImport = async () => {
     const emailIdx = batchHeaders.findIndex(h => h.toLowerCase() === 'email')
     const nameIdx = batchHeaders.findIndex(h => ['name', 'showname'].includes(h.toLowerCase()))
-    const amountIdx = batchHeaders.findIndex(h => ['fee', 'amount', 'servicefee', 'service fee'].includes(h.toLowerCase()))
+    const amountIdx = batchHeaders.findIndex(h => ['fee', 'amount', 'servicefee'].includes(h.toLowerCase()))
 
     const validRows = batchPreviewRows.filter(r => r.valid)
     if (validRows.length === 0) return
@@ -525,13 +525,13 @@ export default function MemberPage(
     URL.revokeObjectURL(url)
   }
 
-  // 内联编辑 Service Fee
+  // 内联编辑 Amount
   const handleEditServiceFee = async (member: OrganizationMember, value: string) => {
     const numValue = parseFloat(value)
     if (isNaN(numValue) || numValue < 0) {
       toast({
         title: 'Error',
-        description: 'Service Fee must be a positive number',
+        description: 'Amount must be a positive number',
         variant: 'destructive'
       })
       return
@@ -548,12 +548,12 @@ export default function MemberPage(
       ))
       toast({
         title: 'Success',
-        description: `Service Fee updated to ${numValue}`
+        description: `Amount updated to ${numValue}`
       })
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error?.response?.data?.message || 'Failed to update service fee',
+        description: error?.response?.data?.message || 'Failed to update amount',
         variant: 'destructive'
       })
     }
@@ -776,7 +776,7 @@ export default function MemberPage(
               <TableHead>Role</TableHead>
               <TableHead>
                 <button onClick={() => handleSort('serviceFee')} className="flex items-center gap-[4px]">
-                  Service Fee{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''} <SortIcon field="serviceFee" />
+                  Amount<SortIcon field="serviceFee" />
                 </button>
               </TableHead>
               <TableHead>Status</TableHead>
@@ -823,7 +823,7 @@ export default function MemberPage(
                   <TableCell className="max-w-[200px] truncate">{member.email || '—'}</TableCell>
                   {/* Role */}
                   <TableCell>{getPrimaryRole(getMemberRoles(member)) || '—'}</TableCell>
-                  {/* Service Fee */}
+                  {/* Amount */}
                   <TableCell onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-[4px]">
                       {editingField === member.id ? (
@@ -846,7 +846,7 @@ export default function MemberPage(
                           </span>
                           <button
                             onClick={() => { setEditingField(member.id); setEditingValue(member.payoutIntent?.amount ?? '') }}
-                            className="text-[#8d8d93] hover:text-[#5e85ee] transition-colors"
+                            className="text-[#8d8d93] hover:text-[#5e85ee] transition-colors ml-[4px]"
                           >
                             <Edit2 className="h-[15px] w-[15px]" />
                           </button>
