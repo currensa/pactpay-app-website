@@ -93,6 +93,8 @@ export interface TransactionItemMember {
 export interface TransactionItem {
   amount: string
   id:string
+  status:string
+  txHash:string
   member: TransactionItemMember
 }
 
@@ -220,6 +222,9 @@ export class TransactionApi {
     status?: 'pending' | 'submitted' | 'claimed' | 'failed'
     page?: number
     pageSize?: number
+    walletToken?: string
+    caipChainId?: string
+    tokenAddress?: string
   } = {}) {
     const res = await this.request.get<{ data: StealthPayrollItem[]; total: number }>(
       `/transaction/my-payroll-items`,
@@ -246,6 +251,34 @@ export class TransactionApi {
         lastPayment: string | null
       }[]
     }>(`/transaction/${this.orgId}/members/${memberId}/payment-statistics`)
+    return res.data
+  }
+
+  // 获取成员工资历史（跨组织）
+  async getMemberPayrollHistory(orgId: string, memberId: string, params: { page?: number; pageSize?: number } = {}) {
+    const res = await this.request.get<TransactionListResponse>(
+      `/transaction/${orgId}/members/${memberId}/payroll-history`,
+      { params }
+    )
+    return res.data
+  }
+
+    // 获取成员自己工资历史（跨组织）
+    async getMyPayrollHistory(params: { orgId?: string; page?: number; pageSize?: number } = {}) {
+      const res = await this.request.get<TransactionListResponse>(
+        `/transaction/my-payroll-history`,
+        { params }
+      )
+      return res.data
+    }
+
+  // 获取成员收入汇总（Dashboard 顶部三张卡片）
+  async getMySummary() {
+    const res = await this.request.get<{
+      claimed: { tokenAddress: string; caipChainId: string; totalAmount: string }[]
+      pendingClaim: { tokenAddress: string; caipChainId: string; totalAmount: string }[]
+      incomeDistribution: { orgId: string; orgName: string; totalAmount: string; caipChainId: string; tokenAddress: string }[]
+    }>('/transaction/my-summary')
     return res.data
   }
 

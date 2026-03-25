@@ -1,12 +1,15 @@
 import api from '@/apis'
 import { useToast } from '@/components/ui/use-toast'
+import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
 import { IconCheck, IconCircleX, IconPencil, IconX } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 
 export default function MemberOrgsDetail() {
   const location = useLocation()
-  const { orgId = '', memberId = '' } = location.state || {}
+  const [searchParams] = useSearchParams()
+  const { orgId: stateOrgId = '', memberId = '' } = location.state || {}
+  const orgId = searchParams.get('orgId') || stateOrgId
   const { toast } = useToast()
 
   const [showName, setShowName] = useState('')
@@ -193,6 +196,12 @@ export default function MemberOrgsDetail() {
             Leave organization
           </button>
         </div>
+      </div>
+
+      {/* Data Summary */}
+      <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">Data Summary</p>
+      <div className="bg-white rounded-[32px] p-[16px]">
+        <PayrollHistoryTable orgId={orgId} memberId={memberId} />
       </div>
     </div>
   )

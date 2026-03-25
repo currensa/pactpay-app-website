@@ -1,25 +1,51 @@
 import apis from '@/apis'
-import type { BatchClaimResponse, StealthPayrollItem } from '@/apis/transaction.api'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Pagination } from '@/components/ui/pagination'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import type { BatchClaimResponse } from '@/apis/transaction.api'
 import { useToast } from '@/components/ui/use-toast'
 import { recoverStealthPrivateKey } from '@/lib/stealth-key'
 import useChainAssetStore from '@/stores/chain-asset'
+import useHeaderStore from '@/stores/header'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
-import { IconArrowLeft, IconLoader2 } from '@tabler/icons-react'
-import { ethers, formatUnits } from 'ethers'
-import { useEffect, useState } from 'react'
+import { IconLoader2 } from '@tabler/icons-react'
+import { ethers } from 'ethers'
+import { ChevronDown } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { privateKeyToAccount } from 'viem/accounts'
 
-const PAGE_SIZE = 10
+// ─── Token icon ───────────────────────────────────────────────────────────────
 
-type StatusTab = 'pending' | 'failed'
+const TOKEN_META: Record<string, { bg: string; label: string }> = {
+  USDT: { bg: '#26a17b', label: 'T' },
+  USDC: { bg: '#2775ca', label: 'C' },
+  ETH: { bg: '#627eea', label: 'E' },
+  BNB: { bg: '#f3ba2f', label: 'B' },
+  SOL: { bg: '#9945ff', label: 'S' },
+  MATIC: { bg: '#8247e5', label: 'M' },
+}
+
+function TokenIcon({ symbol }: { symbol: string }) {
+  const meta = TOKEN_META[symbol] ?? { bg: '#8d8d93', label: (symbol[0] ?? '?').toUpperCase() }
+  return (
+    <div
+      className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full"
+      style={{ backgroundColor: meta.bg }}
+    >
+      <span className="text-[12px] font-bold text-white">{meta.label}</span>
+    </div>
+  )
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface PendingToken {
+  tokenAddress: string
+  caipChainId: string
+  symbol: string
+  amount: number
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 async function deriveMetaPrivKey(walletProvider: Provider, address: string): Promise<`0x${string}`> {
   const { signMessage } = await apis.auth.getMySignMessage()
@@ -30,77 +56,91 @@ async function deriveMetaPrivKey(walletProvider: Provider, address: string): Pro
   return ethers.keccak256(ethers.getBytes(sig)) as `0x${string}`
 }
 
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function ClaimPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
+  const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, chains } = useChainAssetStore()
+  const { setHeader, clearHeader } = useHeaderStore()
 
-  const [activeTab, setActiveTab] = useState<StatusTab>('pending')
-  const [items, setItems] = useState<StealthPayrollItem[]>([])
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const walletToken = sessionStorage.getItem('metapub-verify-token') ?? undefined
+
+  const [summaryLoading, setSummaryLoading] = useState(false)
+  const [allPending, setAllPending] = useState<PendingToken[]>([])
+  const [selectedChain, setSelectedChain] = useState('')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
   const [recipient, setRecipient] = useState('')
   const [claiming, setClaiming] = useState(false)
   const [claimResult, setClaimResult] = useState<BatchClaimResponse | null>(null)
-  const { getTokenDecimals, getTokenSymbol, fetchChainAssets, fetchChains } = useChainAssetStore()
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Derived
+  const availableChainIds = [...new Set(allPending.map(p => p.caipChainId))]
+  const availableChains = chains.filter(c => availableChainIds.includes(c.caipChainId))
+  const pendingForChain = selectedChain ? allPending.filter(p => p.caipChainId === selectedChain) : []
+  const selectedChainName = chains.find(c => c.caipChainId === selectedChain)?.name ?? ''
 
   useEffect(() => {
-    if (address) setRecipient(address)
-  }, [address])
-
-  useEffect(() => {
-    fetchChainAssets()
-    fetchChains()
+    if (!walletToken) {
+      toast({
+        title: 'Unauthorized',
+        description: 'Wallet verification required. Please click "Claim all" again.',
+        variant: 'destructive',
+      })
+      navigate('/member/dashboard')
+      return
+    }
+    setHeader({ backUrl: '/member/dashboard' })
+    Promise.all([fetchChainAssets(), fetchChains()]).then(() => loadSummary())
+    return () => clearHeader()
   }, [])
 
   useEffect(() => {
-    loadItems(activeTab, page)
-  }, [activeTab, page])
+    if (address && !recipient) setRecipient(address)
+  }, [address])
 
-  const loadItems = async (status: StatusTab, p: number) => {
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const loadSummary = async () => {
     try {
-      setLoading(true)
-      setSelectedIds(new Set())
-      const data = await apis.transaction.getMyPayrollItems({ status, page: p, pageSize: PAGE_SIZE })
-      setItems(data.data ?? [])
-      setTotal(data.total ?? 0)
+      setSummaryLoading(true)
+      const data = await apis.transaction.getMySummary()
+      const tokens: PendingToken[] = data.pendingClaim.map(item => ({
+        tokenAddress: item.tokenAddress,
+        caipChainId: item.caipChainId,
+        symbol: getTokenSymbol(item.caipChainId, item.tokenAddress) ?? item.tokenAddress.slice(0, 6),
+        amount: Number(item.totalAmount) / Math.pow(10, getTokenDecimals(item.caipChainId, item.tokenAddress)),
+      }))
+      setAllPending(tokens)
+      if (tokens.length > 0 && !selectedChain) setSelectedChain(tokens[0].caipChainId)
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error?.response?.data?.message || 'Failed to load payroll items.',
+        description: error?.response?.data?.message || 'Failed to load pending summary.',
         variant: 'destructive',
       })
     } finally {
-      setLoading(false)
+      setSummaryLoading(false)
     }
   }
 
-  const handleTabChange = (tab: StatusTab) => {
-    setActiveTab(tab)
-    setPage(1)
-    setClaimResult(null)
-  }
-
-  const handlePageChange = (p: number) => setPage(p)
-
-  const toggleItem = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const toggleAll = () => {
-    if (selectedIds.size === items.length) setSelectedIds(new Set())
-    else setSelectedIds(new Set(items.map(i => i.id)))
-  }
-
   const handleClaim = async () => {
+    if (!selectedChain) {
+      toast({ description: 'Please select a network.', variant: 'destructive' })
+      return
+    }
     if (!recipient.trim()) {
       toast({ description: 'Please enter a recipient address.', variant: 'destructive' })
       return
@@ -109,18 +149,36 @@ export default function ClaimPage() {
       toast({ description: 'Please connect your wallet first.', variant: 'destructive' })
       return
     }
-    const selected = items.filter(i => selectedIds.has(i.id))
-    if (selected.length === 0) {
-      toast({ description: 'No items selected.' })
-      return
-    }
 
     try {
       setClaiming(true)
+      setClaimResult(null)
 
-      const chains = await apis.chainAsset.getChains()
+      // Fetch all pending payroll items for the selected chain (paginate through all)
+      const PAGE_SIZE = 100
+      let page = 1
+      const items = []
+      while (true) {
+        const data = await apis.transaction.getMyPayrollItems({
+          status: 'pending',
+          caipChainId: selectedChain,
+          walletToken,
+          page,
+          pageSize: PAGE_SIZE,
+        })
+        items.push(...(data.data ?? []))
+        if (items.length >= (data.total ?? 0)) break
+        page++
+      }
+
+      if (items.length === 0) {
+        toast({ description: 'No pending items found for this network.' })
+        return
+      }
+
+      const chainList = await apis.chainAsset.getChains()
       const caipToChain: Record<string, { chainIdNum: number; vaultAddress: string }> = {}
-      for (const chain of chains) {
+      for (const chain of chainList) {
         if (chain.vaultAddress) {
           caipToChain[chain.caipChainId] = {
             chainIdNum: parseInt(chain.chainId, 10),
@@ -133,26 +191,27 @@ export default function ClaimPage() {
       const deadline = Math.floor(Date.now() / 1000) + 3600
       const fee = '0'
 
-      const signedItems: { payrollItemId: string; recipient: string; fee: string; deadline: number; signature: string }[] = []
+      const signedItems: {
+        payrollItemId: string
+        recipient: string
+        fee: string
+        deadline: number
+        signature: string
+      }[] = []
       const skipped: string[] = []
 
-      for (const item of selected) {
+      for (const item of items) {
         try {
           const stealthPrivHex = recoverStealthPrivateKey(metaPrivKey, item.batch.ephemeralPub)
           const stealthAccount = privateKeyToAccount(stealthPrivHex as `0x${string}`)
 
           if (stealthAccount.address.toLowerCase() !== item.stealthAddress.toLowerCase()) {
-            console.warn(`[claim] stealthAddress mismatch for item ${item.id}`)
             skipped.push(item.id)
             continue
           }
 
           const chainInfo = caipToChain[item.batch.caipChainId]
-          if (!chainInfo) {
-            console.warn(`[claim] chain info not found for caipChainId=${item.batch.caipChainId}`)
-            skipped.push(item.id)
-            continue
-          }
+          if (!chainInfo) { skipped.push(item.id); continue }
 
           const domain = {
             name: 'StealthPay',
@@ -183,8 +242,7 @@ export default function ClaimPage() {
 
           const signature = await stealthAccount.signTypedData({ domain, types, primaryType: 'ClaimRequest', message })
           signedItems.push({ payrollItemId: item.id, recipient: recipient.trim(), fee, deadline, signature })
-        } catch (err) {
-          console.error(`[claim] failed to sign item ${item.id}:`, err)
+        } catch {
           skipped.push(item.id)
         }
       }
@@ -200,11 +258,11 @@ export default function ClaimPage() {
 
       const result = await apis.transaction.batchClaim({ items: signedItems })
       setClaimResult(result)
-      await loadItems(activeTab, page)
+      await loadSummary()
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error?.message || error?.response?.data?.message || 'Failed to submit batch claim.',
+        description: error?.message || error?.response?.data?.message || 'Failed to submit claim.',
         variant: 'destructive',
       })
     } finally {
@@ -212,178 +270,137 @@ export default function ClaimPage() {
     }
   }
 
-  const totalPages = Math.ceil(total / PAGE_SIZE)
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/member/dashboard')} aria-label="Back">
-          <IconArrowLeft className="size-5" />
-        </Button>
-        <h1 className="text-2xl font-bold">Claim Payroll</h1>
-      </div>
+    <div className="flex flex-col gap-[24px]">
+      <div className="bg-white rounded-[32px] p-[24px] flex flex-col gap-[24px]">
 
-      {/* Recipient Address */}
-      <div className="max-w-lg space-y-1">
-        <Label htmlFor="recipient">Recipient Address</Label>
-        <Input
-          id="recipient"
-          placeholder="0x..."
-          value={recipient}
-          onChange={e => setRecipient(e.target.value)}
-          className="font-mono"
-        />
-        <p className="text-muted-foreground text-xs">Funds will be sent to this address.</p>
-      </div>
+        {/* Network selector */}
+        <div className="flex flex-col gap-[8px] max-w-[700px]">
+          <p className="text-[14px] leading-[22px] font-semibold text-[#1c1c26]">Network *</p>
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen(v => !v)}
+              disabled={summaryLoading}
+              className="w-full bg-[#f5f5f5] rounded-[12px] px-[16px] py-[12px] flex items-center justify-between text-[14px] leading-[22px] disabled:opacity-50 outline-none"
+            >
+              <span className={selectedChainName ? 'text-[#1c1c26]' : 'text-[#bbbbbe]'}>
+                {selectedChainName || 'Select'}
+              </span>
+              <ChevronDown className="h-[20px] w-[20px] text-[#606067] shrink-0" />
+            </button>
+            {dropdownOpen && availableChains.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-[4px] bg-white rounded-[12px] border border-[rgba(0,0,0,0.12)] shadow-lg z-10 overflow-hidden">
+                {availableChains.map(chain => (
+                  <button
+                    key={chain.caipChainId}
+                    onClick={() => { setSelectedChain(chain.caipChainId); setDropdownOpen(false) }}
+                    className={`w-full px-[16px] py-[10px] text-left text-[14px] leading-[22px] hover:bg-[#f5f5f5] transition-colors ${
+                      selectedChain === chain.caipChainId ? 'text-[#5e85ee] font-medium' : 'text-[#1c1c26]'
+                    }`}
+                  >
+                    {chain.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
 
-      {/* Claim result */}
-      {claimResult && (
-        <div className="space-y-3">
-          {claimResult.succeeded.length > 0 && (
-            <div className="rounded-lg border border-green-200 bg-green-50 p-4 space-y-2">
-              <p className="text-sm font-semibold text-green-800">
-                {claimResult.succeeded.length} item{claimResult.succeeded.length !== 1 ? 's' : ''} succeeded
+        {/* Pending to claim */}
+        <div className="flex flex-col gap-[8px] max-w-[700px]">
+          <p className="text-[14px] leading-[22px] font-semibold text-[#1c1c26]">Pending to claim</p>
+          <div className="flex flex-col gap-[16px]">
+            {summaryLoading ? (
+              <div className="flex items-center gap-[8px] py-[8px] text-[14px] text-[#8d8d93]">
+                <IconLoader2 className="h-[16px] w-[16px] animate-spin" />
+                Loading...
+              </div>
+            ) : pendingForChain.length === 0 ? (
+              <p className="text-[14px] leading-[22px] text-[#8d8d93] py-[4px]">
+                {selectedChain ? 'No pending items for this network.' : 'Select a network to view pending items.'}
               </p>
-              <ul className="space-y-1">
+            ) : (
+              pendingForChain.map(token => (
+                <div
+                  key={token.tokenAddress}
+                  className="bg-[#f5f5f5] rounded-[16px] px-[16px] py-[10px] flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-[6px]">
+                    <TokenIcon symbol={token.symbol} />
+                    <p className="text-[16px] leading-[24px] text-black">{token.symbol}</p>
+                  </div>
+                  <p className="text-[18px] leading-[28px] font-bold text-[#1c1c26]">
+                    {token.amount.toLocaleString()}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Receive Address */}
+        <div className="flex flex-col gap-[8px] max-w-[700px]">
+          <p className="text-[14px] leading-[22px] font-semibold text-[#1c1c26]">Receive Address *</p>
+          <div className="flex flex-col gap-[2px]">
+            <input
+              value={recipient}
+              onChange={e => setRecipient(e.target.value)}
+              placeholder="0x..."
+              className="bg-[#f5f5f5] rounded-[12px] px-[16px] py-[12px] text-[14px] leading-[22px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none w-full"
+            />
+            <p className="text-[14px] leading-[22px] text-[#8d8d93]">
+              Pending funds will be sent to this address. Make sure it supports the selected network and token(s).
+            </p>
+          </div>
+        </div>
+
+        {/* Claim button */}
+        <div>
+          <button
+            onClick={handleClaim}
+            disabled={claiming || summaryLoading || !selectedChain || pendingForChain.length === 0}
+            className="flex items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[14px] py-[10px] text-[14px] leading-[22px] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+          >
+            {claiming && <IconLoader2 className="h-[14px] w-[14px] animate-spin" />}
+            Claim
+          </button>
+        </div>
+
+        {/* Claim result */}
+        {claimResult && (
+          <div className="flex flex-col gap-[12px] max-w-[700px]">
+            {claimResult.succeeded.length > 0 && (
+              <div className="rounded-[16px] bg-[rgba(93,221,34,0.12)] p-[16px] flex flex-col gap-[8px]">
+                <p className="text-[14px] font-semibold text-[#1c1c26]">
+                  {claimResult.succeeded.length} item(s) claimed successfully
+                </p>
                 {claimResult.succeeded.map(s => (
-                  <li key={s.payrollItemId} className="flex items-center justify-between text-sm">
-                    <span className="text-green-700">{s.transactionName || s.payrollItemId}</span>
+                  <div key={s.payrollItemId} className="flex items-center justify-between text-[13px]">
+                    <span className="text-[#606067]">{s.transactionName || s.payrollItemId}</span>
                     <a
                       href={s.txUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-green-600 underline hover:text-green-800 font-mono"
+                      className="text-[#5e85ee] underline hover:opacity-80"
                     >
-                      View on Explorer ↗
+                      View ↗
                     </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {claimResult.failed.length > 0 && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 space-y-2">
-              <p className="text-sm font-semibold text-red-800">
-                {claimResult.failed.length} item{claimResult.failed.length !== 1 ? 's' : ''} failed
-              </p>
-              <ul className="space-y-1">
-                {claimResult.failed.map(f => (
-                  <li key={f.payrollItemId} className="text-sm text-red-700">
-                    <span className="font-mono text-xs">{f.payrollItemId}</span>
-                    {' — '}{f.reason}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tabs + table */}
-      <div className="rounded-lg border">
-        {/* Tab bar + actions */}
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <div className="flex items-center gap-1">
-            {(['pending', 'failed'] as StatusTab[]).map(tab => (
-              <button
-                key={tab}
-                onClick={() => handleTabChange(tab)}
-                className={`rounded-md px-3 py-1 text-sm font-medium capitalize transition-colors ${activeTab === tab
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
-                  }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs">{total} item{total !== 1 ? 's' : ''}</span>
-            <Button variant="outline" size="sm" onClick={() => loadItems(activeTab, page)} disabled={loading}>
-              {loading ? <IconLoader2 className="size-4 animate-spin" /> : 'Refresh'}
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleClaim}
-              disabled={claiming || loading || selectedIds.size === 0 || !address}
-            >
-              {claiming ? 'Signing & Claiming...' : `Claim Selected (${selectedIds.size})`}
-            </Button>
-          </div>
-        </div>
-
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-10">
-                <input
-                  type="checkbox"
-                  checked={items.length > 0 && selectedIds.size === items.length}
-                  onChange={toggleAll}
-                  className="accent-primary h-4 w-4 cursor-pointer"
-                />
-              </TableHead>
-              <TableHead>Organization</TableHead>
-              <TableHead>Transaction</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Pay Period</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-muted-foreground h-24 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <IconLoader2 className="size-4 animate-spin" />
-                    Loading...
                   </div>
-                </TableCell>
-              </TableRow>
-            ) : items.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-muted-foreground h-24 text-center">
-                  No {activeTab} payroll items.
-                </TableCell>
-              </TableRow>
-            ) : (
-              items.map(item => (
-                <TableRow key={item.id} className="cursor-pointer" onClick={() => toggleItem(item.id)}>
-                  <TableCell onClick={e => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(item.id)}
-                      onChange={() => toggleItem(item.id)}
-                      className="accent-primary h-4 w-4 cursor-pointer"
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">{item.organizationName ?? '-'}</TableCell>
-                  <TableCell>{item.transactionName ?? '-'}</TableCell>
-                  <TableCell className="font-medium">
-                    {formatUnits(BigInt(item.amount || '0'), getTokenDecimals(item.batch.caipChainId, item.batch.tokenAddress))}{' '}
-                    {getTokenSymbol(item.batch.caipChainId, item.batch.tokenAddress) ?? ''}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {item.batch?.payPeriod ? new Date(item.batch.payPeriod).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell>
-                    {item.status === 'failed'
-                      ? <Badge variant="destructive">Failed</Badge>
-                      : <Badge variant="warning">Pending</Badge>
-                    }
-                  </TableCell>
-                </TableRow>
-              ))
+                ))}
+              </div>
             )}
-          </TableBody>
-        </Table>
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t px-4 py-3">
-            <span className="text-muted-foreground text-sm">
-              Page {page} of {totalPages}
-            </span>
-            <Pagination currentPage={page} totalPages={totalPages} onPageChange={handlePageChange} />
+            {claimResult.failed.length > 0 && (
+              <div className="rounded-[16px] bg-[rgba(217,43,43,0.08)] p-[16px] flex flex-col gap-[8px]">
+                <p className="text-[14px] font-semibold text-[#d92b2b]">
+                  {claimResult.failed.length} item(s) failed
+                </p>
+                {claimResult.failed.map(f => (
+                  <p key={f.payrollItemId} className="text-[13px] text-[#606067]">
+                    {f.payrollItemId} — {f.reason}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

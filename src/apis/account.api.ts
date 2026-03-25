@@ -54,6 +54,13 @@ export class AccountApi {
     return res.data
   }
 
+  async verifyMetaPub(payload: { address: string; signature: string }) {
+    const res = await this.request.post<
+      { verified: true; token: string } | { verified: false; reason: string }
+    >('/auth/meta-pub/verify', payload)
+    return res.data
+  }
+
   async submitMetaPub(payload: SubmitMetaPubRequest) {
     const res = await this.request.post<{ success: boolean }>('/auth/meta-pub', payload)
     return res.data

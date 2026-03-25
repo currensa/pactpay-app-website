@@ -3,7 +3,13 @@ import { Organization, OrganizationMember } from '@/apis/orgnization.api';
 import useChainAssetStore from '@/stores/chain-asset';
 import { create } from 'zustand';
 
-export type UserOrgItem = { organization: Organization; member: OrganizationMember }
+export type UserOrgItem = {
+  organization: Organization
+  member: OrganizationMember
+  payrollConfig: import('@/apis/orgnization.api').OrgPayrollConfig | null
+  lastPayout: string | null
+  memberCount: number
+}
 
 interface OrganizationState {
   organizations: UserOrgItem[]

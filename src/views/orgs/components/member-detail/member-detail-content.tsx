@@ -12,6 +12,7 @@ import * as SelectPrimitive from '@radix-ui/react-select'
 import { ChevronDown, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { BackendRole, DrawerChanges } from './types'
+import { formatActivityDescription, formatActivityTime } from '@/utils/activity'
 
 interface MemberDetailContentProps {
   selectedMember: OrganizationMember
@@ -71,6 +72,10 @@ export function MemberDetailContent({
   const [editingFee, setEditingFee] = useState(false)
   const feeInputRef = useRef<HTMLInputElement>(null)
   const [paymentStats, setPaymentStats] = useState<{ tokenAddress: string; caipChainId: string; totalReceived: string; paymentCount: number; lastPayment: string | null }[]>([])
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([])
+  const [activityPage, setActivityPage] = useState(1)
+  const [activityTotal, setActivityTotal] = useState(0)
+  const activityPageSize = 10
   const { getTokenSymbol, getTokenDecimals, fetchChainAssets } = useChainAssetStore()
 
   const hasUnsavedChanges = Object.keys(drawerChanges).length > 0
@@ -79,11 +84,31 @@ export function MemberDetailContent({
     setDrawerChanges({})
     setEditingFee(false)
     setPaymentStats([])
+    setActivityLogs([])
+    setActivityPage(1)
+    setActivityTotal(0)
     Promise.all([
       fetchChainAssets(),
       apis.transaction.getMemberPaymentStatistics(selectedMember.memberId),
-    ]).then(([, res]) => setPaymentStats(res.statistics)).catch(() => { })
+      apis.organization.getMemberActivityLogs(selectedMember.memberId, { page: 1, pageSize: activityPageSize }),
+    ]).then(([, statsRes, logsRes]) => {
+      setPaymentStats(statsRes.statistics)
+      setActivityLogs(logsRes.data)
+      setActivityTotal(logsRes.total)
+    }).catch(() => { })
   }, [selectedMember.memberId])
+
+  const handleLoadMoreActivity = async () => {
+    const nextPage = activityPage + 1
+    try {
+      const res = await apis.organization.getMemberActivityLogs(selectedMember.memberId, {
+        page: nextPage,
+        pageSize: activityPageSize,
+      })
+      setActivityLogs(prev => [...prev, ...res.data])
+      setActivityPage(nextPage)
+    } catch { }
+  }
 
   useEffect(() => {
     if (editingFee) feeInputRef.current?.focus()
@@ -292,6 +317,32 @@ export function MemberDetailContent({
             </div>
           )
         })()}
+        {/* Activity Log */}
+        {activityLogs.length > 0 && (
+          <div className="flex flex-col gap-4">
+            <p className="font-bold text-[#1c1c26] text-[14px] leading-6">Activity Log</p>
+            <div className="flex flex-col gap-4">
+              {activityLogs.map(log => (
+                <div key={log.id} className="flex flex-col gap-[2px]">
+                  <span className="text-[#8d8d93] text-[14px] leading-[22px]">
+                    {formatActivityTime(log.createdAt)}
+                  </span>
+                  <span className="text-[#1c1c26] text-[16px] leading-[24px]">
+                    {formatActivityDescription(log)}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {activityLogs.length < activityTotal && (
+              <button
+                className="text-[#5e85ee] text-[13px] leading-[22px] hover:opacity-70 transition-opacity text-left"
+                onClick={handleLoadMoreActivity}
+              >
+                Load more
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Footer */}

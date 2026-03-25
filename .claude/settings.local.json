@@ -5,7 +5,9 @@
       "mcp__plugin_figma_figma__get_design_context",
       "Bash(npx shadcn@latest add popover --yes)",
       "mcp__plugin_figma_figma__get_screenshot",
-      "mcp__plugin_figma_figma__create_design_system_rules"
+      "mcp__plugin_figma_figma__create_design_system_rules",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r \"currentPage\\\\|totalPages\" /c/Users/zhong/Desktop/project/pactpay-app-website/src --include=*.tsx --include=*.ts)"
     ]
   }
 }

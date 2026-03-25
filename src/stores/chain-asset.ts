@@ -34,6 +34,8 @@ interface ChainAssetState {
   getChain: (caipChainId: string) => Chain | null
   /** 根据 caipChainId + token 合约地址返回 decimals，找不到时返回 18。 */
   getTokenDecimals: (caipChainId: string, token: string) => number
+  /** 根据 caipChainId + token 合约地址返回 asset.iconUrl，找不到时返回 null。 */
+  getTokenIconUrl: (caipChainId: string, token: string) => string | null
   reset: () => void
 }
 
@@ -92,6 +94,17 @@ const useChainAssetStore = create<ChainAssetState>((set, get) => ({
           : a.contractAddress?.toLowerCase() === token?.toLowerCase())
     )
     return match?.decimals ?? 18
+  },
+
+  getTokenIconUrl: (caipChainId: string, token: string) => {
+    const match = get().chainAssets.find(
+      a =>
+        a.caipChainId === caipChainId &&
+        (a.isNative
+          ? token === '' || token === '0x0000000000000000000000000000000000000000'
+          : a.contractAddress?.toLowerCase() === token?.toLowerCase())
+    )
+    return match?.asset.iconUrl ?? null
   },
 
   reset: () => set({ chainAssets: [], chains: [] }),

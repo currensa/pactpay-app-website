@@ -37,7 +37,16 @@ export default function Login() {
 
   // Support redirects from layout guards: navigate('/account/login', { state: { step: 'bindWallet' } })
   const initialStep: FlowStep = (location.state as any)?.step ?? 'welcome'
-  const [currentStep, setCurrentStep] = useState<FlowStep>(initialStep)
+  const [stepHistory, setStepHistory] = useState<FlowStep[]>([initialStep])
+  const currentStep = stepHistory[stepHistory.length - 1]
+
+  const setCurrentStep = (step: FlowStep) => {
+    setStepHistory(prev => [...prev, step])
+  }
+
+  const goBack = () => {
+    setStepHistory(prev => (prev.length > 1 ? prev.slice(0, -1) : prev))
+  }
 
   // Clear location state so a refresh doesn't re-trigger the step
   useEffect(() => {
@@ -156,7 +165,7 @@ export default function Login() {
       case 'createOrgStep1':
         return (
           <CreateOrgStep1
-            onBack={() => setCurrentStep('identity')}
+            onBack={goBack}
             onNext={handleCreateOrgSuccess}
           />
         )
@@ -165,7 +174,7 @@ export default function Login() {
         return (
           <JoinOrganization
             initialCode={sessionStorage.getItem(INVITE_CODE_SESSION_KEY) ?? undefined}
-            onBack={() => setCurrentStep('identity')}
+            onBack={goBack}
             onJoin={handleJoinOrgSuccess}
           />
         )

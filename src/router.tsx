@@ -36,6 +36,7 @@ const MemberDashboard = lazy(() => import('@/views/member/dashboard'))
 const MemberOrgsDetail = lazy(() => import('@/views/member/orgsdetail'))
 const MemberClaim = lazy(() => import('@/views/member/claim'))
 const MemberSettings = lazy(() => import('@/views/member/settings'))
+const NotificationsPage = lazy(() => import('@/views/notifications'))
 
 const Dashboard = lazy(() => import('@/views/orgs/dashboard'))
 const Members = lazy(() => import('@/views/orgs/members'))
@@ -96,6 +97,7 @@ const routes: RouteItem[] = [
       { path: 'transaction/create', element: <CreateTransaction />, meta: { title: 'Create New Transaction', hideInMenu: true } },
       { path: 'transaction/:id', element: <TransactionDetailPage />, meta: { title: 'Transaction Detail', hideInMenu: true } },
       { path: 'analytics', navIcon: IconAlignBoxBottomRight, element: <Analytics />, meta: { title: 'Analytics', subtitle: 'Track your payment analytics', hideInMenu: false } },
+      { path: 'notifications', element: <NotificationsPage orgId={localStorage.getItem('organizationId') ?? undefined} />, meta: { title: 'Notifications', subtitle: 'Showing notifications for Engineering Team', hideInMenu: true } },
       {
         path: 'settings',
         navIcon: IconSettings,
@@ -113,7 +115,8 @@ const routes: RouteItem[] = [
           { index: true, element: <Navigate to="member/dashboard" /> },
           { path: 'dashboard', navIcon: IconLayoutDashboard, element: <MemberDashboard />, meta: { title: 'Dashboard', subtitle: "Monitor your organization's key metrics and activities" } },
           { path: 'orgdetail', element: <MemberOrgsDetail />, meta: { title: 'TechCorp Inc.' } },
-          { path: 'claim', element: <MemberClaim />, meta: { title: 'Claim Payroll' } },
+          { path: 'claim', element: <MemberClaim />, meta: { title: 'Claim', subtitle: 'Merge claim: all pending funds in one transaction. Gas is paid by the platform.' } },
+          { path: 'notifications', element: <NotificationsPage />, meta: { title: 'Notifications', subtitle: 'Showing notifications for Engineering Team', hideInMenu: true } },
           { path: 'settings', navIcon: IconSettings, element: <MemberSettings />, meta: { title: 'Settings', subtitle: 'Manage your account settings' } }
         ]
       }
