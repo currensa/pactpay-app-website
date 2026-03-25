@@ -12,6 +12,13 @@ export const vaultAbi = [
   },
   {
     type: 'function',
+    name: 'refund',
+    inputs: [{ name: 'root', type: 'bytes32', internalType: 'bytes32' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'payrolls',
     inputs: [{ name: '', type: 'bytes32', internalType: 'bytes32' }],
     outputs: [

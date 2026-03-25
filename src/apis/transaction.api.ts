@@ -36,9 +36,6 @@ export interface StealthPayrollItem {
   }
 }
 
-export interface ConfirmDepositPayload {
-  depositTxHash: string
-}
 
 export interface BatchClaimItem {
   payrollItemId: string
@@ -208,15 +205,6 @@ export class TransactionApi {
     return res.data
   }
 
-  // HR 确认 deposit（StealthPay）
-  async confirmDeposit(batchId: string, depositTxHash: string) {
-    const res = await this.request.patch<{ success: boolean }>(
-      `/transaction/${this.orgId}/batch/${batchId}/confirm-deposit`,
-      { depositTxHash }
-    )
-    return res.data
-  }
-
   // 员工查询自己的工资明细（StealthPay，跨所有组织）
   async getMyPayrollItems(params: {
     status?: 'pending' | 'submitted' | 'claimed' | 'failed'
@@ -279,6 +267,24 @@ export class TransactionApi {
       pendingClaim: { tokenAddress: string; caipChainId: string; totalAmount: string }[]
       incomeDistribution: { orgId: string; orgName: string; totalAmount: string; caipChainId: string; tokenAddress: string }[]
     }>('/transaction/my-summary')
+    return res.data
+  }
+
+  // 预览服务费
+  async getFeePreview(members: { memberId: string; amount: string }[]) {
+    const res = await this.request.post<{
+      billableMemberCount: number
+      totalMemberCount: number
+      plan: {
+        id: string
+        name: string
+        pricePerMember: number
+        originalPricePerMember: number
+        description: string
+      }
+      originalFee: number
+      discountedFee: number
+    }>(`/transaction/${this.orgId}/plan/fee-preview`, members)
     return res.data
   }
 

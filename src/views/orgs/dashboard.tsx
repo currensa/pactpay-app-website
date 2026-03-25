@@ -150,22 +150,13 @@ export default function Dashboard() {
     setDepositConfirmDialogOpen(true)
   }
 
-  // 链上 deposit 成功后通知后端
   const handleDepositSuccess = async (txHash: string) => {
     if (!depositingTransaction) return
-    try {
-      await apis.transaction.confirmDeposit(depositingTransaction.id, txHash)
-      setDepositConfirmDialogOpen(false)
-      setLastDepositTxHash(txHash)
-      setDepositSuccessDialogOpen(true)
-      await fetchStats()
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.message || 'Failed to confirm execute on server.',
-        variant: 'destructive'
-      })
-    }
+    setDepositConfirmDialogOpen(false)
+    setLastDepositTxHash(txHash)
+    setDepositSuccessDialogOpen(true)
+    await new Promise(r => setTimeout(r, 2000))
+    await fetchStats()
   }
 
   // 查看交易详情

@@ -68,7 +68,6 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
 export function ExecuteConfirmDialogContent({
   executingTransaction,
   transactionPlan,
-  onCancel,
   onSuccess,
 }: ExecuteConfirmDialogContentProps) {
   const { getChainAssetByToken, getChain } = useChainAssetStore()
