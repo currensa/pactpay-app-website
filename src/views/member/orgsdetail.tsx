@@ -3,11 +3,13 @@ import { useToast } from '@/components/ui/use-toast'
 import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
 import { IconCheck, IconCircleX, IconPencil, IconX } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 
 export default function MemberOrgsDetail() {
   const location = useLocation()
-  const { orgId = '', memberId = '' } = location.state || {}
+  const [searchParams] = useSearchParams()
+  const { orgId: stateOrgId = '', memberId = '' } = location.state || {}
+  const orgId = searchParams.get('orgId') || stateOrgId
   const { toast } = useToast()
 
   const [showName, setShowName] = useState('')

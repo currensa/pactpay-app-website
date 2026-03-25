@@ -1,5 +1,6 @@
 import { AccountApi } from './account.api'
 import { ChainAssetApi } from './chain-asset.api'
+import { NotificationApi } from './notification.api'
 import { OrgnizationApi } from './orgnization.api'
 import { StatisticsApi } from './statistics.api'
 import { TransactionApi } from './transaction.api'
@@ -11,5 +12,6 @@ export default {
   organization: new OrgnizationApi(request),
   chainAsset: new ChainAssetApi(request),
   transaction: new TransactionApi(request),
-  statistics: new StatisticsApi(request)
+  statistics: new StatisticsApi(request),
+  notification: new NotificationApi(request),
 }

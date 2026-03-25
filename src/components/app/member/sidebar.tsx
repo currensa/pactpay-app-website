@@ -37,8 +37,11 @@ export default function MemberSidebar() {
               memberId: member.memberId
             }
           }),
-        isActive: (_pathname: string, state: unknown) =>
-          (state as { orgId?: string })?.orgId === organization.orgId
+        isActive: (_pathname: string, state: unknown) => {
+          if ((state as { orgId?: string })?.orgId === organization.orgId) return true
+          const params = new URLSearchParams(window.location.search)
+          return params.get('orgId') === organization.orgId
+        }
       }))
 
       setNavItems([
