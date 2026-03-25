@@ -140,16 +140,12 @@ export default function TransactionDetail() {
   }
 
   const handleExecuteSuccess = async (txHash: string) => {
-    try {
-      await apis.transaction.confirmDeposit(plan.id, txHash)
-      setExecuteOpen(false)
-      setLastTxHash(txHash)
-      setExecuteSuccessOpen(true)
-      const updated = await apis.transaction.getTransactionPlanDetail(plan.id)
-      setPlan(updated)
-    } catch (err: any) {
-      toast({ title: 'Error', description: err?.response?.data?.message ?? 'Failed to confirm execute.', variant: 'destructive' })
-    }
+    setExecuteOpen(false)
+    setLastTxHash(txHash)
+    setExecuteSuccessOpen(true)
+    await new Promise(r => setTimeout(r, 2000))
+    const updated = await apis.transaction.getTransactionPlanDetail(plan.id)
+    setPlan(updated)
   }
 
   const handleConfirmDelete = async () => {

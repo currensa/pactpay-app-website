@@ -168,15 +168,11 @@ export default function Transaction() {
 
   const handleDepositSuccess = async (txHash: string) => {
     if (!depositingTransaction) return
-    try {
-      await apis.transaction.confirmDeposit(depositingTransaction.id, txHash)
-      setDepositConfirmDialogOpen(false)
-      setLastDepositTxHash(txHash)
-      setDepositSuccessDialogOpen(true)
-      await fetchTransactionPlans()
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to confirm execute on server.', variant: 'destructive' })
-    }
+    setDepositConfirmDialogOpen(false)
+    setLastDepositTxHash(txHash)
+    setDepositSuccessDialogOpen(true)
+    await new Promise(r => setTimeout(r, 2000))
+    await fetchTransactionPlans()
   }
 
   const handleViewDetails = (transaction: Transaction) => {

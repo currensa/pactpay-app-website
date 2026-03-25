@@ -36,9 +36,6 @@ export interface StealthPayrollItem {
   }
 }
 
-export interface ConfirmDepositPayload {
-  depositTxHash: string
-}
 
 export interface BatchClaimItem {
   payrollItemId: string
@@ -205,15 +202,6 @@ export class TransactionApi {
   // 删除交易计划
   async deleteTransactionPlan(transaction_id: string) {
     const res = await this.request.delete<string>(`/transaction/${this.orgId}/batch/${transaction_id}`)
-    return res.data
-  }
-
-  // HR 确认 deposit（StealthPay）
-  async confirmDeposit(batchId: string, depositTxHash: string) {
-    const res = await this.request.patch<{ success: boolean }>(
-      `/transaction/${this.orgId}/batch/${batchId}/confirm-deposit`,
-      { depositTxHash }
-    )
     return res.data
   }
 
