@@ -233,6 +233,11 @@ export class OrgnizationApi {
     return res.data
   }
 
+  async leaveOrganization(orgId: string) {
+    const res = await this.request.delete<{ message?: string }>(`/orgs/${orgId}/members/me`)
+    return res.data
+  }
+
   // 更新成员角色
   async updateMemberRoles(memberId: string, roles: string[]) {
     const res = await this.request.patch<string>(`/orgs/${this.orgId}/${memberId}/roles`, {

@@ -3,7 +3,7 @@ import AppSidebar from '@/components/app/base/app-sidebar'
 import type { OrgNavItem } from '@/router'
 import { IconBuilding, IconLayoutDashboard, IconSettings } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 const TOP_ITEMS: OrgNavItem[] = [
   { title: 'Dashboard', key: 'dashboard', url: '/member/dashboard', icon: IconLayoutDashboard },
@@ -15,6 +15,7 @@ const BOTTOM_ITEMS: OrgNavItem[] = [
 
 export default function MemberSidebar() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [navItems, setNavItems] = useState<OrgNavItem[]>([...TOP_ITEMS, ...BOTTOM_ITEMS])
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export default function MemberSidebar() {
         ...BOTTOM_ITEMS,
       ])
     }).catch(console.error)
-  }, [])
+  }, [location.key, navigate])
 
   return <AppSidebar navItems={navItems} hideSwitchButton />
 }
