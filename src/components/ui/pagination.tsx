@@ -1,16 +1,98 @@
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
+import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
-import { Button } from './button'
 
 interface PaginationProps {
   currentPage: number
   totalPages: number
   onPageChange: (page: number) => void
   className?: string
+  totalItems?: number
+  pageSize?: number
+  itemLabel?: string
+  summaryText?: string
 }
 
-export function Pagination({ currentPage, totalPages, onPageChange, className }: PaginationProps) {
+function buildPageNumbers(currentPage: number, totalPages: number) {
+  const pages: Array<number | 'ellipsis'> = []
+
+  if (totalPages <= 5) {
+    for (let page = 1; page <= totalPages; page += 1) {
+      pages.push(page)
+    }
+    return pages
+  }
+
+  if (currentPage <= 3) {
+    return [1, 2, 3, 'ellipsis', totalPages]
+  }
+
+  if (currentPage >= totalPages - 2) {
+    return [1, 'ellipsis', totalPages - 2, totalPages - 1, totalPages]
+  }
+
+  return [1, 'ellipsis', currentPage, 'ellipsis', totalPages]
+}
+
+function buildSummaryText(
+  summaryText: string | undefined,
+  currentPage: number,
+  totalItems: number | undefined,
+  pageSize: number | undefined,
+  itemLabel: string
+) {
+  if (summaryText) return summaryText
+  if (totalItems == null || pageSize == null) return null
+  if (totalItems <= 0) return `Showing 0 of 0 ${itemLabel}`
+
+  const start = (currentPage - 1) * pageSize + 1
+  const end = Math.min(currentPage * pageSize, totalItems)
+
+  return `Showing ${start}-${end} of ${totalItems} ${itemLabel}`
+}
+
+function PaginationButton({
+  children,
+  onClick,
+  active = false,
+  disabled = false,
+  ariaLabel,
+}: {
+  children: ReactNode
+  onClick?: () => void
+  active?: boolean
+  disabled?: boolean
+  ariaLabel?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      className={cn(
+        'relative flex size-[36px] items-center justify-center overflow-hidden rounded-[6px] text-[14px] leading-[22px] transition-colors',
+        active ? 'rounded-[12px] text-[#606067]' : 'text-[#606067] hover:bg-[rgba(28,28,38,0.04)]',
+        disabled && 'cursor-not-allowed text-[#bbbbbe] hover:bg-transparent'
+      )}
+    >
+      {active && <span className="absolute inset-0 rounded-[12px] bg-[#1c1c26] opacity-10" aria-hidden="true" />}
+      <span className="relative z-[1] flex items-center justify-center">{children}</span>
+    </button>
+  )
+}
+
+export function Pagination({
+  currentPage,
+  totalPages,
+  onPageChange,
+  className,
+  totalItems,
+  pageSize,
+  itemLabel = 'items',
+  summaryText,
+}: PaginationProps) {
   const handlePrevious = () => {
     if (currentPage > 1) {
       onPageChange(currentPage - 1)
@@ -23,92 +105,60 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
     }
   }
 
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = []
-    const maxVisible = 5
+  const normalizedTotalPages = Math.max(1, totalPages)
+  const pageNumbers = buildPageNumbers(currentPage, normalizedTotalPages)
+  const resolvedSummaryText = buildSummaryText(summaryText, currentPage, totalItems, pageSize, itemLabel)
 
-    if (totalPages <= maxVisible) {
-      // Show all pages if total pages is less than max visible
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i)
-      }
-    } else {
-      // Always show first page
-      pages.push(1)
-
-      if (currentPage <= 3) {
-        // Near the start
-        for (let i = 2; i <= 4; i++) {
-          pages.push(i)
-        }
-        pages.push('ellipsis')
-        pages.push(totalPages)
-      } else if (currentPage >= totalPages - 2) {
-        // Near the end
-        pages.push('ellipsis')
-        for (let i = totalPages - 3; i <= totalPages; i++) {
-          pages.push(i)
-        }
-      } else {
-        // In the middle
-        pages.push('ellipsis')
-        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-          pages.push(i)
-        }
-        pages.push('ellipsis')
-        pages.push(totalPages)
-      }
-    }
-
-    return pages
-  }
-
-  if (totalPages <= 1) {
+  if (normalizedTotalPages <= 1 && !resolvedSummaryText) {
     return null
   }
 
   return (
-    <div className={cn('flex items-center justify-center gap-2', className)}>
-      <Button variant="outline" size="sm" onClick={handlePrevious} disabled={currentPage === 1} className="h-9 w-9 p-0">
-        <IconChevronLeft className="size-4" />
-        <span className="sr-only">Previous page</span>
-      </Button>
+    <div className={cn('flex flex-col gap-[16px] sm:flex-row sm:items-center sm:justify-between', className)}>
+      {resolvedSummaryText ? (
+        <p className="text-[14px] leading-[22px] text-[#606067]">{resolvedSummaryText}</p>
+      ) : (
+        <div />
+      )}
 
-      <div className="flex items-center gap-1">
-        {getPageNumbers().map((page, index) => {
-          if (page === 'ellipsis') {
-            return (
-              <span key={`ellipsis-${index}`} className="text-muted-foreground px-2">
-                ...
-              </span>
-            )
-          }
+      {normalizedTotalPages > 1 && (
+        <div className="flex items-center gap-[16px] self-end sm:self-auto">
+          <div className="flex items-center gap-[4px]">
+            <PaginationButton onClick={handlePrevious} disabled={currentPage === 1} ariaLabel="Previous page">
+              <IconChevronLeft className="size-[18px]" stroke={1.75} />
+            </PaginationButton>
 
-          const pageNumber = page as number
-          return (
-            <Button
-              key={pageNumber}
-              variant={currentPage === pageNumber ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => onPageChange(pageNumber)}
-              className="h-9 w-9 p-0"
-            >
-              {pageNumber}
-            </Button>
-          )
-        })}
-      </div>
+            {pageNumbers.map((page, index) => {
+              if (page === 'ellipsis') {
+                return (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="flex size-[36px] items-center justify-center text-[14px] leading-[22px] text-[#606067]"
+                    aria-hidden="true"
+                  >
+                    ...
+                  </span>
+                )
+              }
 
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleNext}
-        disabled={currentPage === totalPages}
-        className="h-9 w-9 p-0"
-      >
-        <IconChevronRight className="size-4" />
-        <span className="sr-only">Next page</span>
-      </Button>
+              return (
+                <PaginationButton
+                  key={page}
+                  active={currentPage === page}
+                  onClick={() => onPageChange(page)}
+                  ariaLabel={`Page ${page}`}
+                >
+                  {page}
+                </PaginationButton>
+              )
+            })}
+
+            <PaginationButton onClick={handleNext} disabled={currentPage === normalizedTotalPages} ariaLabel="Next page">
+              <IconChevronRight className="size-[18px]" stroke={1.75} />
+            </PaginationButton>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -163,10 +163,14 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
         </TableBody>
       </Table>
 
-      <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#8d8d93]">Total {total} records</p>
-        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
-      </div>
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={handlePageChange}
+        totalItems={total}
+        pageSize={PAGE_SIZE}
+        itemLabel="records"
+      />
     </div>
   )
 }

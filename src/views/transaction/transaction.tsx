@@ -468,16 +468,17 @@ export default function Transaction() {
       </div>
 
       {/* ── Pagination ──────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between shrink-0">
-        <span className="text-[#606067] text-[13px]">
-          {visibleTransactions.length === 0
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        summaryText={
+          visibleTransactions.length === 0
             ? `Showing 0 of ${totalCount} transactions`
-            : `Showing ${startIndex}-${endIndex} of ${totalCount} transactions`}
-        </span>
-        {totalPages > 1 && (
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-        )}
-      </div>
+            : `Showing ${startIndex}-${endIndex} of ${totalCount} transactions`
+        }
+        className="shrink-0"
+      />
 
       {/* ── Dialogs ─────────────────────────────────────────────────────── */}
       <Dialog open={depositConfirmDialogOpen} onOpenChange={setDepositConfirmDialogOpen}>

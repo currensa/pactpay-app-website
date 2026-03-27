@@ -1,4 +1,5 @@
 import api from '@/apis'
+import type { NotificationPreference, UpdateNotificationPreferencesPayload } from '@/apis/notification.api'
 import { useToast } from '@/components/ui/use-toast'
 import { getMetaPublicKey } from '@/lib/stealth-key'
 import ChangeEmailDialog from '@/views/member/components/change-email-dialog'
@@ -9,6 +10,34 @@ import { ethers } from 'ethers'
 import { useEffect, useState } from 'react'
 
 const LANGUAGES = ['English']
+
+const NOTIFICATION_ITEMS = [
+  { key: 'paymentsClaim', apiKey: 'payments_claim', label: 'Payments & claim' },
+  { key: 'organizationInvitesUpdates', apiKey: 'organization_invites_updates', label: 'Organization invites & updates' },
+  { key: 'securityLogin', apiKey: 'security_login', label: 'Security & login' },
+] as const
+
+type NotificationStateKey = (typeof NOTIFICATION_ITEMS)[number]['key']
+
+type NotificationSettingsState = Record<NotificationStateKey, boolean>
+
+const DEFAULT_NOTIFICATIONS: NotificationSettingsState = {
+  paymentsClaim: true,
+  organizationInvitesUpdates: true,
+  securityLogin: true,
+}
+
+function mapPreferencesToState(preferences: NotificationPreference[]): NotificationSettingsState {
+  const nextState = { ...DEFAULT_NOTIFICATIONS }
+
+  for (const preference of preferences) {
+    const item = NOTIFICATION_ITEMS.find(entry => entry.apiKey === preference.key)
+    if (!item) continue
+    nextState[item.key] = preference.enabled
+  }
+
+  return nextState
+}
 
 function maskAddress(address: string) {
   if (address.length <= 6) return address
@@ -23,11 +52,9 @@ export default function MemberSettings() {
   const [showChangeEmail, setShowChangeEmail] = useState(false)
   const [showUid, setShowUid] = useState(true)
   const [showAddress, setShowAddress] = useState(false)
-  const [notifications, setNotifications] = useState({
-    payments: true,
-    invites: true,
-    security: true,
-  })
+  const [notifications, setNotifications] = useState<NotificationSettingsState>(DEFAULT_NOTIFICATIONS)
+  const [notificationsLoading, setNotificationsLoading] = useState(true)
+  const [updatingNotificationKey, setUpdatingNotificationKey] = useState<NotificationStateKey | null>(null)
   const [language, setLanguage] = useState('English')
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false)
 
@@ -57,6 +84,27 @@ export default function MemberSettings() {
       setTokenUpdatedAt(new Date(data.updatedAt))
     }).catch(() => { })
   }, [])
+
+  useEffect(() => {
+    let active = true
+
+    api.notification.getPreferences()
+      .then(data => {
+        if (!active) return
+        setNotifications(mapPreferencesToState(data.preferences))
+      })
+      .catch((error: any) => {
+        if (!active || error?.response?.status === 401) return
+        toast({ description: error?.response?.data?.message || 'Failed to load notification preferences.', variant: 'destructive' })
+      })
+      .finally(() => {
+        if (active) setNotificationsLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [toast])
 
   const handleGenerateToken = async () => {
     if (!isConnected || !address || !walletProvider) {
@@ -92,8 +140,22 @@ export default function MemberSettings() {
     }
   }
 
-  const toggleNotification = (key: keyof typeof notifications) =>
-    setNotifications(prev => ({ ...prev, [key]: !prev[key] }))
+  const toggleNotification = async (key: NotificationStateKey) => {
+    if (notificationsLoading || updatingNotificationKey) return
+
+    const payload = { [key]: !notifications[key] } as UpdateNotificationPreferencesPayload
+
+    try {
+      setUpdatingNotificationKey(key)
+      const data = await api.notification.updatePreferences(payload)
+      setNotifications(mapPreferencesToState(data.preferences))
+    } catch (error: any) {
+      if (error?.response?.status === 401 || error?.response?.status === 400) return
+      toast({ description: error?.response?.data?.message || 'Failed to update notification preferences.', variant: 'destructive' })
+    } finally {
+      setUpdatingNotificationKey(null)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-[32px]">
@@ -218,27 +280,35 @@ export default function MemberSettings() {
       {/* Notifications */}
       <section className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">Notifications</p>
-        <div className="bg-white rounded-[32px] p-[24px] flex flex-col gap-[16px]">
-          {[
-            { key: 'payments' as const, label: 'Payments & claim' },
-            { key: 'invites' as const, label: 'Organization invites & updates' },
-            { key: 'security' as const, label: 'Security & login' },
-          ].map(({ key, label }, i, arr) => (
-            <div
-              key={key}
-              className={`flex items-center justify-between ${i < arr.length - 1 ? 'pb-[16px] border-b border-[rgba(0,0,0,0.12)]' : ''}`}
-            >
-              <p className="text-[16px] leading-[24px] text-[#1c1c26]">{label}</p>
-              <button
-                onClick={() => toggleNotification(key)}
-                className={`relative h-[28px] w-[50px] rounded-full transition-colors ${notifications[key] ? 'bg-[#5e85ee]' : 'bg-[rgba(0,0,0,0.12)]'}`}
-              >
-                <span
-                  className={`absolute top-[2px] h-[24px] w-[24px] rounded-full bg-white transition-all ${notifications[key] ? 'right-[2px]' : 'left-[2px]'}`}
-                />
-              </button>
+        <div className="bg-white rounded-[32px] p-[24px] flex flex-col gap-[16px] min-h-[152px]">
+          {notificationsLoading ? (
+            <div className="flex flex-1 items-center justify-center">
+              <div className="text-[13px] text-[#8d8d93]">Loading...</div>
             </div>
-          ))}
+          ) : (
+            NOTIFICATION_ITEMS.map(({ key, label }, i, arr) => {
+              const disabled = updatingNotificationKey !== null
+
+              return (
+                <div
+                  key={key}
+                  className={`flex items-center justify-between ${i < arr.length - 1 ? 'pb-[16px] border-b border-[rgba(0,0,0,0.12)]' : ''}`}
+                >
+                  <p className="text-[16px] leading-[24px] text-[#1c1c26]">{label}</p>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => toggleNotification(key)}
+                    className={`relative h-[28px] w-[50px] rounded-full transition-colors ${notifications[key] ? 'bg-[#5e85ee]' : 'bg-[rgba(0,0,0,0.12)]'} ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+                  >
+                    <span
+                      className={`absolute top-[2px] h-[24px] w-[24px] rounded-full bg-white transition-all ${notifications[key] ? 'right-[2px]' : 'left-[2px]'}`}
+                    />
+                  </button>
+                </div>
+              )
+            })
+          )}
         </div>
       </section>
 
