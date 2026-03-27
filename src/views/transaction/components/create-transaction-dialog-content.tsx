@@ -270,7 +270,7 @@ export function CreateTransactionDialogContent({
             <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3">
               Amount{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
             </TableHead>
-            <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[160px]">Status</TableHead>
+            <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[150px] inline-block">Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
