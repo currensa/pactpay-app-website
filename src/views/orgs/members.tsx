@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
+import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { getMemberStatusDisplayName, memberStatus } from '@/enums/org'
@@ -79,7 +80,7 @@ export default function MemberPage(
 
   const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
 
-  const pageSize = 20
+  const pageSize = showInvite ? 20 : 3
   const hasPermission = useHasPermission()
 
 
@@ -897,57 +898,9 @@ export default function MemberPage(
       {!loading && total > 0 && (
         <div className="flex shrink-0 items-center justify-between">
           <p className="text-[13px] leading-[20px] text-[#606067]">{total.toLocaleString()} Members</p>
-          <div className="flex items-center gap-[4px]">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-[6px] text-[#606067] hover:bg-[rgba(0,0,0,0.06)] disabled:opacity-30 transition-colors"
-            >
-              ‹
-            </button>
-            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-              let page: number
-              if (totalPages <= 5) {
-                page = i + 1
-              } else if (currentPage <= 3) {
-                page = i + 1
-              } else if (currentPage >= totalPages - 2) {
-                page = totalPages - 4 + i
-              } else {
-                page = currentPage - 2 + i
-              }
-              return (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`flex h-[30px] w-[30px] items-center justify-center rounded-[10px] text-[13px] leading-[20px] transition-colors ${currentPage === page
-                    ? 'bg-[rgba(28,28,38,0.1)] text-[#606067]'
-                    : 'text-[#606067] hover:bg-[rgba(0,0,0,0.06)]'
-                    }`}
-                >
-                  {page}
-                </button>
-              )
-            })}
-            {totalPages > 5 && currentPage < totalPages - 2 && (
-              <>
-                <span className="flex h-[30px] w-[30px] items-center justify-center text-[#606067]">…</span>
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  className="flex h-[30px] w-[30px] items-center justify-center rounded-[6px] text-[13px] leading-[20px] text-[#606067] hover:bg-[rgba(0,0,0,0.06)] transition-colors"
-                >
-                  {totalPages}
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-[6px] text-[#606067] hover:bg-[rgba(0,0,0,0.06)] disabled:opacity-30 transition-colors"
-            >
-              ›
-            </button>
-          </div>
+          {totalPages > 1 && (
+            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+          )}
         </div>
       )}
 

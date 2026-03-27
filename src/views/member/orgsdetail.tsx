@@ -1,12 +1,14 @@
 import api from '@/apis'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
-import { IconCheck, IconCircleX, IconPencil, IconX } from '@tabler/icons-react'
+import { IconCheck, IconCircleX, IconLoader2, IconPencil, IconX } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function MemberOrgsDetail() {
   const location = useLocation()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { orgId: stateOrgId = '', memberId = '' } = location.state || {}
   const orgId = searchParams.get('orgId') || stateOrgId
@@ -20,6 +22,8 @@ export default function MemberOrgsDetail() {
   const [nameError, setNameError] = useState('')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
+  const [leaving, setLeaving] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -87,6 +91,31 @@ export default function MemberOrgsDetail() {
     setNameInput(showName)
     setNameError('')
     setEditingName(true)
+  }
+
+  async function handleLeaveOrganization() {
+    if (!orgId) return
+
+    try {
+      setLeaving(true)
+      await api.organization.leaveOrganization(orgId)
+
+      if (localStorage.getItem('organizationId') === orgId) {
+        localStorage.removeItem('organizationId')
+        localStorage.removeItem('currentMember')
+      }
+
+      toast({ description: 'Left organization.' })
+      setLeaveDialogOpen(false)
+      navigate('/member/dashboard', { replace: true })
+    } catch (error: any) {
+      toast({
+        description: error?.response?.data?.message || 'Failed to leave organization.',
+        variant: 'destructive'
+      })
+    } finally {
+      setLeaving(false)
+    }
   }
 
   return (
@@ -192,7 +221,11 @@ export default function MemberOrgsDetail() {
           </div>
 
           {/* Leave */}
-          <button className="text-[14px] leading-[22px] text-[#d92b2b] hover:opacity-80 transition-opacity text-left">
+          <button
+            onClick={() => setLeaveDialogOpen(true)}
+            disabled={!orgId || leaving}
+            className="text-[14px] leading-[22px] text-[#d92b2b] hover:opacity-80 transition-opacity text-left disabled:cursor-not-allowed disabled:opacity-50"
+          >
             Leave organization
           </button>
         </div>
@@ -203,6 +236,46 @@ export default function MemberOrgsDetail() {
       <div className="bg-white rounded-[32px] p-[16px]">
         <PayrollHistoryTable orgId={orgId} memberId={memberId} />
       </div>
+
+      <Dialog open={leaveDialogOpen} onOpenChange={open => { if (!leaving) setLeaveDialogOpen(open) }}>
+        <DialogContent className="max-w-[416px] gap-0 rounded-[24px] border-none bg-white p-[24px] shadow-[0px_298px_84px_0px_rgba(0,0,0,0),0px_191px_76px_0px_rgba(0,0,0,0.01),0px_107px_64px_0px_rgba(0,0,0,0.02),0px_48px_48px_0px_rgba(0,0,0,0.03),0px_12px_26px_0px_rgba(0,0,0,0.04)] sm:rounded-[24px] [&>button:last-child]:hidden">
+          <DialogHeader className="flex-row items-center justify-between space-y-0 text-left">
+            <DialogTitle className="font-['Inter',sans-serif] text-[18px] font-bold leading-[28px] text-[#1c1c26]">
+              Leave organization
+            </DialogTitle>
+            <DialogClose
+              disabled={leaving}
+              className="flex h-[24px] w-[24px] items-center justify-center rounded-[8px] text-[#1c1c26] transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <IconX className="h-[16px] w-[16px]" />
+            </DialogClose>
+          </DialogHeader>
+
+          <DialogDescription className="mt-[24px] max-w-[368px] font-['Inter',sans-serif] text-[14px] leading-[22px] text-[#606067]">
+            Leave this organization? You will need an invite to rejoin.
+          </DialogDescription>
+
+          <DialogFooter className="mt-[24px] flex-row justify-end gap-[12px] space-x-0">
+            <button
+              type="button"
+              onClick={() => setLeaveDialogOpen(false)}
+              disabled={leaving}
+              className="rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[16px] py-[10px] font-['Inter',sans-serif] text-[14px] leading-[22px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleLeaveOrganization}
+              disabled={leaving}
+              className="flex min-w-[72px] items-center justify-center gap-[6px] rounded-[12px] bg-[#d92b2b] px-[16px] py-[10px] font-['Inter',sans-serif] text-[14px] leading-[22px] text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {leaving && <IconLoader2 className="h-[14px] w-[14px] animate-spin" />}
+              Leave
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -96,20 +96,28 @@ export default function Transaction() {
   const [rawTransactionPlans, setRawTransactionPlans] = useState<TransactionPlan[]>([])
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
+  const [isReady, setIsReady] = useState(false)
   const itemsPerPage = 10
 
   const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
   const { getTokenSymbol, getTokenDecimals, fetchChainAssets, fetchChains, getChain } = useChainAssetStore()
 
   useEffect(() => {
+    let cancelled = false
+
     const init = async () => {
-      await fetchChainAssets()
-      await fetchChains()
-      await fetchPayrollTokenSymbol()
-      await fetchTransactionPlans()
+      await Promise.all([fetchChainAssets(), fetchChains(), fetchPayrollTokenSymbol()])
+      if (!cancelled) {
+        setIsReady(true)
+      }
     }
+
     init()
-  }, [])
+
+    return () => {
+      cancelled = true
+    }
+  }, [fetchChainAssets, fetchChains, fetchPayrollTokenSymbol])
 
   const transformTransactionPlan = (plan: TransactionPlan): Transaction => {
     const payPeriodDate = new Date(plan.payPeriod)
@@ -146,25 +154,23 @@ export default function Transaction() {
     }
   }
 
-  const fetchTransactionPlans = async (status = statusFilter) => {
+  const fetchTransactionPlans = async (page = currentPage, status = statusFilter) => {
     try {
-      const response = await apis.transaction.getTransactionPlans(1, itemsPerPage, status)
+      const response = await apis.transaction.getTransactionPlans(page, itemsPerPage, status)
       setRawTransactionPlans(response.data)
       const transformedTransactions = response.data.map(transformTransactionPlan)
       setTransactions(transformedTransactions)
-      setTotalPages(Math.ceil(response.total / itemsPerPage))
+      setTotalPages(Math.max(1, Math.ceil(response.total / itemsPerPage)))
       setTotalCount(response.total)
     } catch {
       toast({ title: 'Error', description: 'Failed to load transactions. Please try again.', variant: 'destructive' })
     }
   }
 
-  useEffect(() => { setCurrentPage(1) }, [searchQuery])
-
   useEffect(() => {
-    fetchTransactionPlans(statusFilter)
-    setCurrentPage(1)
-  }, [statusFilter])
+    if (!isReady) return
+    fetchTransactionPlans(currentPage, statusFilter)
+  }, [currentPage, isReady, statusFilter])
 
   const handleDepositClick = (transaction: Transaction) => {
     const plan = rawTransactionPlans.find(p => p.id === transaction.id) ?? null
@@ -179,7 +185,7 @@ export default function Transaction() {
     setLastDepositTxHash(txHash)
     setDepositSuccessDialogOpen(true)
     await new Promise(r => setTimeout(r, 2000))
-    await fetchTransactionPlans()
+    await fetchTransactionPlans(currentPage, statusFilter)
   }
 
   const handleViewDetails = (transaction: Transaction) => {
@@ -196,11 +202,17 @@ export default function Transaction() {
     setIsDeleting(true)
     try {
       await apis.transaction.deleteTransactionPlan(transactionToDelete.id)
-      setTransactions(prev => prev.filter(t => t.id !== transactionToDelete.id))
-      setTotalCount(prev => prev - 1)
       toast({ title: 'Success', description: 'Transaction deleted successfully' })
       setDeleteConfirmDialogOpen(false)
       setTransactionToDelete(null)
+      const nextTotalCount = Math.max(0, totalCount - 1)
+      const nextTotalPages = Math.max(1, Math.ceil(nextTotalCount / itemsPerPage))
+      const nextPage = Math.min(currentPage, nextTotalPages)
+      if (nextPage !== currentPage) {
+        setCurrentPage(nextPage)
+      } else {
+        await fetchTransactionPlans(nextPage, statusFilter)
+      }
     } catch {
       toast({ title: 'Error', description: 'Failed to delete transaction.', variant: 'destructive' })
     } finally {
@@ -236,7 +248,7 @@ export default function Transaction() {
     setLastRefundTxHash(txHash)
     setRefundSuccessDialogOpen(true)
     await new Promise(r => setTimeout(r, 2000))
-    await fetchTransactionPlans()
+    await fetchTransactionPlans(currentPage, statusFilter)
   }
 
   const filteredTransactions = transactions
@@ -262,9 +274,9 @@ export default function Transaction() {
       return 0
     })
 
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex)
+  const visibleTransactions = filteredTransactions
+  const startIndex = visibleTransactions.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1
+  const endIndex = visibleTransactions.length === 0 ? 0 : startIndex + visibleTransactions.length - 1
 
   const SortIcon = ({ field }: { field: 'payDay' | 'status' }) => {
     if (sortField === field) {
@@ -315,7 +327,11 @@ export default function Transaction() {
                 {STATUS_OPTIONS.map(o => (
                   <button
                     key={o.value}
-                    onClick={() => { setStatusFilter(o.value); setStatusDropdownOpen(false) }}
+                    onClick={() => {
+                      setCurrentPage(1)
+                      setStatusFilter(o.value)
+                      setStatusDropdownOpen(false)
+                    }}
                     className={`w-full px-[12px] py-[8px] text-left text-[13px] leading-[20px] hover:bg-[#f5f5f5] transition-colors ${statusFilter === o.value ? 'text-[#5e85ee]' : 'text-[#1c1c26]'}`}
                   >
                     {o.label}
@@ -360,14 +376,14 @@ export default function Transaction() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedTransactions.length === 0 ? (
+            {visibleTransactions.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center text-[#8d8d93] text-[13px]">
                   No transactions found.
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedTransactions.map(transaction => {
+              visibleTransactions.map(transaction => {
                 const isPending = transaction.status === PayrollTransactionStatus.PENDING
                 const isComplete = transaction.isComplete
                 return (
@@ -454,7 +470,9 @@ export default function Transaction() {
       {/* ── Pagination ──────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between shrink-0">
         <span className="text-[#606067] text-[13px]">
-          Showing {startIndex + 1}–{Math.min(endIndex, filteredTransactions.length)} of {totalCount} transactions
+          {visibleTransactions.length === 0
+            ? `Showing 0 of ${totalCount} transactions`
+            : `Showing ${startIndex}-${endIndex} of ${totalCount} transactions`}
         </span>
         {totalPages > 1 && (
           <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
