@@ -22,6 +22,44 @@ import { getHighestRole, Permission, useHasPermission } from '@/utils/permission
 
 const ITEMS_PER_PAGE = 20
 
+function buildExplorerTransactionUrl(explorerUrl: string | null | undefined, txHash: string | null | undefined) {
+  const explorerBaseUrl = explorerUrl?.trim()
+  if (!explorerBaseUrl || !txHash) return null
+  return `${explorerBaseUrl.replace(/\/+$/, '')}/tx/${encodeURIComponent(txHash)}`
+}
+
+function formatTransactionHash(txHash: string | null | undefined) {
+  if (!txHash) return '-'
+  if (txHash.length <= 12) return txHash
+  return `${txHash.slice(0, 6)}...${txHash.slice(-4)}`
+}
+
+function TransactionItemStatusBadge({ status }: { status: string }) {
+  const normalized = status.toLowerCase()
+  const colorClasses = (() => {
+    if (normalized === 'claimed' || normalized === 'complete' || normalized === 'completed') {
+      return 'bg-[rgba(93,221,34,0.12)] text-[#5ddd22]'
+    }
+    if (normalized === 'pending' || normalized === 'submitted') {
+      return 'bg-[rgba(255,168,0,0.12)] text-[#ffa800]'
+    }
+    if (normalized === 'failed') {
+      return 'bg-[rgba(217,43,43,0.12)] text-[#d92b2b]'
+    }
+    return 'bg-[rgba(94,133,238,0.12)] text-[#5e85ee]'
+  })()
+
+  const label = status
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, letter => letter.toUpperCase())
+
+  return (
+    <span className={`inline-flex items-center rounded-[8px] px-2 py-[2px] text-[12px] leading-[22px] whitespace-nowrap ${colorClasses}`}>
+      {label}
+    </span>
+  )
+}
+
 function StatusBadge({ status }: { status: string }) {
   if (status === PayrollTransactionStatus.COMPLETE) {
     return (
@@ -96,7 +134,10 @@ export default function TransactionDetail() {
 
   const tokenSymbol = getTokenSymbol(plan.caipChainId, plan.tokenAddress ?? '') ?? plan.tokenAddress?.slice(0, 6) ?? ''
   const decimals = getTokenDecimals(plan.caipChainId, plan.tokenAddress ?? '')
-  const networkName = getChain(plan.caipChainId)?.name ?? plan.caipChainId
+  const chain = getChain(plan.caipChainId)
+  const networkName = chain?.name ?? plan.caipChainId
+  const explorerBaseUrl = chain?.explorerUrls?.[0]
+  const txExplorerUrl = buildExplorerTransactionUrl(explorerBaseUrl, plan.depositTxHash)
 
   const payDay = plan.payPeriod
     ? new Date(plan.payPeriod).toLocaleDateString('en-CA').replace(/-/g, '/')
@@ -198,23 +239,23 @@ export default function TransactionDetail() {
           <div className="flex items-center gap-[10px]">
             {isComplete
               ? hasPermission(Permission.REACTION_TRANSACTION) && (
-                  <button
-                    onClick={() => navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)}
-                    className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
-                  >
-                    <CreditCard size={14} />
-                    Re-action
-                  </button>
-                )
+                <button
+                  onClick={() => navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)}
+                  className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
+                >
+                  <CreditCard size={14} />
+                  Re-action
+                </button>
+              )
               : hasPermission(Permission.EXECUTE_TRANSACTION) && (
-                  <button
-                    onClick={() => setExecuteOpen(true)}
-                    className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] hover:bg-[#5e85ee]/90 transition-opacity"
-                  >
-                    <CreditCard size={14} />
-                    Execute Now
-                  </button>
-                )
+                <button
+                  onClick={() => setExecuteOpen(true)}
+                  className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] hover:bg-[#5e85ee]/90 transition-opacity"
+                >
+                  <CreditCard size={14} />
+                  Execute Now
+                </button>
+              )
             }
             {hasPermission(Permission.MODIFY_TRANSACTION) && (
               <button
@@ -241,9 +282,21 @@ export default function TransactionDetail() {
           {isComplete && (
             <div className="flex flex-1 items-center justify-between bg-[#f5f5f5] rounded-[18px] px-6 py-5 min-w-0">
               <span className="text-[#1c1c26] text-[14px] leading-[22px] shrink-0">TX Hash</span>
-              <span className="text-[#1c1c26] text-[14px] font-medium leading-[22px] font-mono truncate ml-4">
-                {plan.depositTxHash ?? '-'}
-              </span>
+              {txExplorerUrl ? (
+                <a
+                  href={txExplorerUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[#5e85ee] text-[14px] font-medium leading-[22px] font-mono truncate ml-4 hover:underline"
+                  title={plan.depositTxHash ?? undefined}
+                >
+                  {formatTransactionHash(plan.depositTxHash)}
+                </a>
+              ) : (
+                <span className="text-[#1c1c26] text-[14px] font-medium leading-[22px] font-mono truncate ml-4" title={plan.depositTxHash ?? undefined}>
+                  {formatTransactionHash(plan.depositTxHash)}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -258,13 +311,15 @@ export default function TransactionDetail() {
                 <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">Member</TableHead>
                 <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">Email</TableHead>
                 <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[180px]">Role</TableHead>
+                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[120px]">Status</TableHead>
                 <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3">Amount</TableHead>
+                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[240px]">TX Hash</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center text-[#8d8d93] text-[13px]">No members.</TableCell>
+                  <TableCell colSpan={6} className="h-24 text-center text-[#8d8d93] text-[13px]">No members.</TableCell>
                 </TableRow>
               ) : (
                 paginatedItems.map((item, idx) => {
@@ -272,6 +327,7 @@ export default function TransactionDetail() {
                     try { return parseFloat(formatUnits(BigInt(item.amount ?? '0'), decimals)).toLocaleString() }
                     catch { return item.amount ?? '0' }
                   })()
+                  const itemTxExplorerUrl = buildExplorerTransactionUrl(explorerBaseUrl, item.txHash)
                   return (
                     <TableRow key={item.id ?? idx} className="border-b border-[rgba(0,0,0,0.06)] hover:bg-[#f5f5f5]/60">
                       <TableCell className="py-[14px]">
@@ -284,8 +340,28 @@ export default function TransactionDetail() {
                       </TableCell>
                       <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{item.member?.email ?? '-'}</TableCell>
                       <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{getHighestRole(item.member.roles)}</TableCell>
+                      <TableCell className="py-[14px]">
+                        <TransactionItemStatusBadge status={item.status} />
+                      </TableCell>
                       <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">
                         {amountFormatted} {tokenSymbol}
+                      </TableCell>
+                      <TableCell className="py-[14px]">
+                        {itemTxExplorerUrl ? (
+                          <a
+                            href={itemTxExplorerUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block text-[13px] text-[#5e85ee] leading-[22px] font-mono truncate hover:underline"
+                            title={item.txHash ?? undefined}
+                          >
+                            {formatTransactionHash(item.txHash)}
+                          </a>
+                        ) : (
+                          <span className="block text-[13px] text-[#1c1c26] leading-[22px] font-mono truncate" title={item.txHash ?? undefined}>
+                            {formatTransactionHash(item.txHash)}
+                          </span>
+                        )}
                       </TableCell>
                     </TableRow>
                   )

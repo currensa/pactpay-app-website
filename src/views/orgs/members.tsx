@@ -896,12 +896,15 @@ export default function MemberPage(
 
       {/* ── Pagination ─────────────────────────────────────────────────── */}
       {!loading && total > 0 && (
-        <div className="flex shrink-0 items-center justify-between">
-          <p className="text-[13px] leading-[20px] text-[#606067]">{total.toLocaleString()} Members</p>
-          {totalPages > 1 && (
-            <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-          )}
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={total}
+          pageSize={pageSize}
+          itemLabel="members"
+          className="shrink-0"
+        />
       )}
 
       {/* ── Member Detail Drawer ────────────────────────────────────────── */}
