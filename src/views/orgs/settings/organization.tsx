@@ -3,7 +3,7 @@ import { ChainAssetResponse } from '@/apis/chain-asset.api'
 import { Organization, OrgPayrollConfig } from '@/apis/orgnization.api'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
-import { Check, ChevronDown, Upload, XCircle } from 'lucide-react'
+import { Check, ChevronDown, Loader2, Upload, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -20,6 +20,8 @@ export default function OrganizationSettings() {
   const [orgName, setOrgName] = useState('')
   const [description, setDescription] = useState('')
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
   const [nameError, setNameError] = useState(false)
 
   // Payroll config state
@@ -54,7 +56,7 @@ export default function OrganizationSettings() {
       const org: Organization = typeof orgData === 'string' ? JSON.parse(orgData) : orgData
       setOrgName(org.orgName || '')
       setDescription(org.desc || '')
-      if (org.logoUrl) setLogoPreview(org.logoUrl)
+      if (org.logoUrl) { setLogoPreview(org.logoUrl); setLogoUrl(org.logoUrl) }
       setChainAssets(chainAssetData)
       if (payrollData) {
         setPayrollConfig(payrollData)
@@ -78,7 +80,7 @@ export default function OrganizationSettings() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 2 * 1024 * 1024) {
@@ -89,9 +91,22 @@ export default function OrganizationSettings() {
       toast({ variant: 'destructive', title: 'Error', description: 'Please upload a PNG or JPG file.' })
       return
     }
+    // 本地预览
     const reader = new FileReader()
     reader.onloadend = () => setLogoPreview(reader.result as string)
     reader.readAsDataURL(file)
+    // 上传到 COS
+    setLogoUploading(true)
+    try {
+      const url = await api.storage.uploadFile(file)
+      setLogoUrl(url)
+    } catch {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to upload logo. Please try again.' })
+      setLogoPreview(null)
+    } finally {
+      setLogoUploading(false)
+      e.target.value = ''
+    }
   }
 
   const handleSaveOrg = async () => {
@@ -102,7 +117,7 @@ export default function OrganizationSettings() {
     setNameError(false)
     try {
       setSaving(true)
-      await api.organization.uploadOrganizationDetail({ orgName, desc: description })
+      await api.organization.uploadOrganizationDetail({ orgName, desc: description, logoUrl: logoUrl ?? undefined })
       toast({ title: 'Success', description: 'Organization info updated.' })
       loadData()
     } catch {
@@ -180,10 +195,14 @@ export default function OrganizationSettings() {
               <div className="flex flex-col gap-[8px]">
                 <button
                   onClick={() => logoInputRef.current?.click()}
-                  className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors w-fit"
+                  disabled={logoUploading}
+                  className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors w-fit disabled:opacity-60"
                 >
-                  <Upload className="h-[14px] w-[14px]" />
-                  Upload New Logo
+                  {logoUploading
+                    ? <Loader2 className="h-[14px] w-[14px] animate-spin" />
+                    : <Upload className="h-[14px] w-[14px]" />
+                  }
+                  {logoUploading ? 'Uploading...' : 'Upload New Logo'}
                 </button>
                 <p className="text-[12px] leading-[18px] text-[#bbbbbe]">
                   Recommended: square image, at least 200×200 px. PNG or JPG.
@@ -233,7 +252,7 @@ export default function OrganizationSettings() {
           <div className="flex justify-end max-w-[620px]">
             <button
               onClick={handleSaveOrg}
-              disabled={saving}
+              disabled={saving || logoUploading}
               className="rounded-[12px] bg-[#5e85ee] px-[16px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
             >
               {saving ? 'Saving...' : 'Save Changes'}
