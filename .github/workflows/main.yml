@@ -55,5 +55,5 @@ jobs:
             docker run -d \
               --name "$CONTAINER" \
               --restart unless-stopped \
-              -p 80:80 \
+              -p 3001:80 \
               "$IMAGE"
