@@ -2,7 +2,7 @@ import { toast } from '@/components/ui/use-toast'
 import axios from 'axios'
 
 const request = axios.create({
-  baseURL: import.meta.env.PROD ? 'https://api.pactpay.app/api' : '/api'
+  baseURL: '/api'
 })
 
 request.interceptors.request.use(config => {
