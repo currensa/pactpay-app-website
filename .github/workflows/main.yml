@@ -56,8 +56,4 @@ jobs:
               --name "$CONTAINER" \
               --restart unless-stopped \
               -p 80:80 \
-              -e DATABASE_URL="${{ secrets.DATABASE_URL }}_prod" \
-              -e REDIS_URL="${{ secrets.REDIS_URL }}" \
-              -e RELAYER_PRIVATE_KEY="${{ secrets.RELAYER_PRIVATE_KEY }}" \
-              -e SERVICE_FEE_WALLET_METAPUB="${{ secrets.SERVICE_FEE_WALLET_METAPUB }}" \
               "$IMAGE"
