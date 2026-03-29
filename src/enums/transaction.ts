@@ -8,6 +8,7 @@ export enum PayrollTransactionStatus {
   READY = 'ready',
   PENDING = 'pending',
   COMPLETE = 'complete',
+  REFUNDED = 'refunded',
 }
 
 /**

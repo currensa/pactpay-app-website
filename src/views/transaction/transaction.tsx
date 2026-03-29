@@ -386,6 +386,7 @@ export default function Transaction() {
               visibleTransactions.map(transaction => {
                 const isPending = transaction.status === PayrollTransactionStatus.PENDING
                 const isComplete = transaction.isComplete
+                const isRefunded = transaction.status === PayrollTransactionStatus.REFUNDED
                 return (
                   <TableRow
                     key={transaction.id}
@@ -434,7 +435,7 @@ export default function Transaction() {
                               ) : null
                             })()}
                           </>
-                        ) : hasPermission(Permission.EXECUTE_TRANSACTION) && (
+                        ) : !isRefunded && hasPermission(Permission.EXECUTE_TRANSACTION) && (
                               <button
                                 className="bg-[#5e85ee] text-white text-[13px] px-[10px] py-[5px] rounded-[12px] hover:bg-[#5e85ee]/90 transition-opacity whitespace-nowrap"
                                 onClick={() => handleDepositClick(transaction)}

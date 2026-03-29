@@ -189,12 +189,10 @@ export default function ClaimPage() {
 
       const metaPrivKey = await deriveMetaPrivKey(walletProvider, address)
       const deadline = Math.floor(Date.now() / 1000) + 3600
-      const fee = '0'
 
       const signedItems: {
         payrollItemId: string
         recipient: string
-        fee: string
         deadline: number
         signature: string
       }[] = []
@@ -226,7 +224,6 @@ export default function ClaimPage() {
               { name: 'token', type: 'address' },
               { name: 'amount', type: 'uint256' },
               { name: 'recipient', type: 'address' },
-              { name: 'feeAmount', type: 'uint256' },
               { name: 'deadline', type: 'uint256' },
             ],
           } as const
@@ -236,12 +233,11 @@ export default function ClaimPage() {
             token: item.batch.tokenAddress as `0x${string}`,
             amount: BigInt(item.amount),
             recipient: recipient.trim() as `0x${string}`,
-            feeAmount: BigInt(fee),
             deadline: BigInt(deadline),
           } as const
 
           const signature = await stealthAccount.signTypedData({ domain, types, primaryType: 'ClaimRequest', message })
-          signedItems.push({ payrollItemId: item.id, recipient: recipient.trim(), fee, deadline, signature })
+          signedItems.push({ payrollItemId: item.id, recipient: recipient.trim(), deadline, signature })
         } catch {
           skipped.push(item.id)
         }

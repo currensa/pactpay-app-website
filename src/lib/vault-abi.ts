@@ -6,6 +6,8 @@ export const vaultAbi = [
       { name: 'merkleRoot', type: 'bytes32', internalType: 'bytes32' },
       { name: 'token', type: 'address', internalType: 'address' },
       { name: 'totalAmount', type: 'uint256', internalType: 'uint256' },
+      { name: 'claimTime', type: 'uint256', internalType: 'uint256' },
+      { name: 'authSignature', type: 'bytes', internalType: 'bytes' },
     ],
     outputs: [],
     stateMutability: 'payable',
