@@ -2,12 +2,14 @@ import api from '@/apis'
 import type { NotificationPreference, UpdateNotificationPreferencesPayload } from '@/apis/notification.api'
 import { useToast } from '@/components/ui/use-toast'
 import { getMetaPublicKey } from '@/lib/stealth-key'
+import useOrganizationStore from '@/stores/organization'
 import ChangeEmailDialog from '@/views/member/components/change-email-dialog'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconChevronDown, IconEye, IconEyeOff, IconRefresh } from '@tabler/icons-react'
 import { ethers } from 'ethers'
-import { useEffect, useState } from 'react'
+import { Loader2, Upload } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 const LANGUAGES = ['English']
 
@@ -49,6 +51,9 @@ export default function MemberSettings() {
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const { toast } = useToast()
+  const currentOrgId = useOrganizationStore(s => s.currentOrgId)
+  const currentMember = useOrganizationStore(s => s.currentMember)
+
   const [showChangeEmail, setShowChangeEmail] = useState(false)
   const [showUid, setShowUid] = useState(true)
   const [showAddress, setShowAddress] = useState(false)
@@ -61,6 +66,11 @@ export default function MemberSettings() {
   const [email, setEmail] = useState('')
   const [uid, setUid] = useState('')
   const [walletAddress, setWalletAddress] = useState('')
+
+  // Avatar
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
 
   // Personal Token
   const [personalToken, setPersonalToken] = useState('')
@@ -78,6 +88,8 @@ export default function MemberSettings() {
       }
       setUid(userId)
     }).catch(console.error)
+
+    if (currentMember?.avatarUrl) setAvatarPreview(currentMember.avatarUrl)
 
     api.auth.getMySignMessage().then(data => {
       setPersonalToken(data.signMessage)
@@ -105,6 +117,40 @@ export default function MemberSettings() {
       active = false
     }
   }, [toast])
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ description: 'Image must be under 2 MB.', variant: 'destructive' })
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      toast({ description: 'Please upload a PNG or JPG file.', variant: 'destructive' })
+      return
+    }
+    // 本地预览
+    const reader = new FileReader()
+    reader.onloadend = () => setAvatarPreview(reader.result as string)
+    reader.readAsDataURL(file)
+    // 上传到 COS 并保存
+    if (!currentOrgId || !currentMember?.memberId) {
+      toast({ description: 'No active organization found.', variant: 'destructive' })
+      return
+    }
+    setAvatarUploading(true)
+    try {
+      const url = await api.storage.uploadFile(file)
+      await api.organization.updateMemberProfile(currentOrgId, currentMember.memberId, { avatarUrl: url })
+      toast({ description: 'Avatar updated successfully.' })
+    } catch {
+      toast({ description: 'Failed to upload avatar. Please try again.', variant: 'destructive' })
+      setAvatarPreview(currentMember?.avatarUrl ?? null)
+    } finally {
+      setAvatarUploading(false)
+      e.target.value = ''
+    }
+  }
 
   const handleGenerateToken = async () => {
     if (!isConnected || !address || !walletProvider) {
@@ -165,6 +211,41 @@ export default function MemberSettings() {
         <div className="flex gap-[20px] items-start bg-white rounded-[32px] pr-[24px]">
           {/* Account info card */}
           <div className="flex-1  p-[24px] flex flex-col gap-[24px]">
+            {/* Avatar */}
+            <div className="flex flex-col gap-[8px]">
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">Avatar</p>
+              <div className="flex items-center gap-[12px]">
+                <div
+                  className="w-[64px] h-[64px] rounded-full overflow-hidden bg-[#f5f5f5] shrink-0 flex items-center justify-center cursor-pointer"
+                  onClick={() => avatarInputRef.current?.click()}
+                >
+                  {avatarPreview
+                    ? <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                    : <span className="text-[#bbbbbe] text-[22px] font-semibold select-none">
+                        {uid?.[0]?.toUpperCase() || '?'}
+                      </span>
+                  }
+                </div>
+                <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[6px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors disabled:opacity-60"
+                >
+                  {avatarUploading
+                    ? <Loader2 className="h-[13px] w-[13px] animate-spin" />
+                    : <Upload className="h-[13px] w-[13px]" />
+                  }
+                  {avatarUploading ? 'Uploading...' : 'Change Avatar'}
+                </button>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
+              </div>
+            </div>
             {/* Login Email */}
             <div className="flex flex-col gap-[8px]">
               <p className="text-[14px] leading-[22px] text-[#8d8d93]">Login Email</p>

@@ -8,13 +8,14 @@ import { PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
 import { formatUnits } from 'ethers'
-import { CreditCard, Trash2 } from 'lucide-react'
+import { CreditCard, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   DeleteConfirmDialogContent,
   ExecuteConfirmDialogContent,
   ExecuteSuccessDialogContent,
+  RefundConfirmDialogContent,
 } from './components'
 import type { Transaction } from './components/types'
 
@@ -103,6 +104,9 @@ export default function TransactionDetail() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
+  // Refund dialog
+  const [refundOpen, setRefundOpen] = useState(false)
+
   useEffect(() => {
     Promise.all([fetchChainAssets(), fetchChains()]).then(() => {
       if (!id) return
@@ -149,6 +153,7 @@ export default function TransactionDetail() {
   const diffDays = Math.ceil((payPeriodDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
   const isDueToday = diffDays === 0 && plan.transactionStatus !== PayrollTransactionStatus.COMPLETE
   const isComplete = plan.transactionStatus === PayrollTransactionStatus.COMPLETE
+  const isRefunded = plan.transactionStatus === PayrollTransactionStatus.REFUNDED
   const executionDateLabel = isComplete
     ? <span className="text-[#1c1c26]">{Math.abs(diffDays) === 0 ? 'Today' : `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''} ago`}</span>
     : isDueToday
@@ -238,16 +243,29 @@ export default function TransactionDetail() {
           {/* Action buttons */}
           <div className="flex items-center gap-[10px]">
             {isComplete
-              ? hasPermission(Permission.REACTION_TRANSACTION) && (
-                <button
-                  onClick={() => navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)}
-                  className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
-                >
-                  <CreditCard size={14} />
-                  Re-action
-                </button>
+              ? (
+                <>
+                  {hasPermission(Permission.REACTION_TRANSACTION) && (
+                    <button
+                      onClick={() => navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)}
+                      className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
+                    >
+                      <CreditCard size={14} />
+                      Re-action
+                    </button>
+                  )}
+                  {hasPermission(Permission.EXECUTE_TRANSACTION) && plan.items.some(item => item.status !== 'claimed') && (
+                    <button
+                      onClick={() => setRefundOpen(true)}
+                      className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(255,168,0,0.4)] bg-white text-[#c47d00] text-[13px] hover:bg-[rgba(255,168,0,0.06)] transition-colors"
+                    >
+                      <RotateCcw size={14} />
+                      Refund
+                    </button>
+                  )}
+                </>
               )
-              : hasPermission(Permission.EXECUTE_TRANSACTION) && (
+              : !isRefunded && hasPermission(Permission.EXECUTE_TRANSACTION) && (
                 <button
                   onClick={() => setExecuteOpen(true)}
                   className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] hover:bg-[#5e85ee]/90 transition-opacity"
@@ -257,7 +275,7 @@ export default function TransactionDetail() {
                 </button>
               )
             }
-            {hasPermission(Permission.MODIFY_TRANSACTION) && (
+            {!isComplete && hasPermission(Permission.MODIFY_TRANSACTION) && (
               <button
                 onClick={() => setDeleteOpen(true)}
                 className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
@@ -411,6 +429,21 @@ export default function TransactionDetail() {
             isDeleting={isDeleting}
             onCancel={() => setDeleteOpen(false)}
             onConfirm={handleConfirmDelete}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
+        <DialogContent>
+          <RefundConfirmDialogContent
+            transaction={transactionStub}
+            transactionPlan={plan}
+            onCancel={() => setRefundOpen(false)}
+            onSuccess={async () => {
+              setRefundOpen(false)
+              const updated = await apis.transaction.getTransactionPlanDetail(plan.id)
+              setPlan(updated)
+            }}
           />
         </DialogContent>
       </Dialog>

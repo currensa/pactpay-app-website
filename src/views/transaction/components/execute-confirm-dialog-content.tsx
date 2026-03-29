@@ -1,3 +1,4 @@
+import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import { erc20Abi, vaultAbi } from '@/lib/vault-abi'
@@ -15,11 +16,12 @@ declare global {
 
 const ETH_SENTINEL = '0x0000000000000000000000000000000000000000' as Hex
 
-type DepositStatus = 'idle' | 'connecting' | 'checking' | 'approving' | 'depositing' | 'done' | 'error'
+type DepositStatus = 'idle' | 'connecting' | 'authorizing' | 'checking' | 'approving' | 'depositing' | 'done' | 'error'
 
 const STEP_LABELS: Record<DepositStatus, string> = {
   idle: 'Connect Wallet',
   connecting: 'Connecting…',
+  authorizing: 'Authorizing…',
   checking: 'Checking allowance…',
   approving: 'Approving…',
   depositing: 'Depositing…',
@@ -74,7 +76,7 @@ export function ExecuteConfirmDialogContent({
   const [status, setStatus] = useState<DepositStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
-  const isBusy = ['connecting', 'checking', 'approving', 'depositing'].includes(status)
+  const isBusy = ['connecting', 'authorizing', 'checking', 'approving', 'depositing'].includes(status)
 
   async function handleDeposit() {
     if (!transactionPlan) return
@@ -152,12 +154,15 @@ export function ExecuteConfirmDialogContent({
         }
       }
 
+      setStatus('authorizing')
+      const { authSignature, claimTime } = await apis.transaction.getDepositAuth(transactionPlan.id)
+
       setStatus('depositing')
       const depositTx = await walletClient.writeContract({
         address: vaultAddress,
         abi: vaultAbi,
         functionName: 'depositForPayroll',
-        args: [merkleRoot, tokenAddress, totalAmount],
+        args: [merkleRoot, tokenAddress, totalAmount, BigInt(claimTime), authSignature as Hex],
         ...(isNative ? { value: totalAmount } : {}),
       })
       const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
@@ -198,15 +203,15 @@ export function ExecuteConfirmDialogContent({
       {/* Progress steps */}
       {isBusy && (
         <div className="flex items-center gap-[8px] text-[12px] text-[#606067]">
-          {(['checking', 'approving', 'depositing'] as DepositStatus[]).map((s, i) => {
-            const stepIdx = ['checking', 'approving', 'depositing'].indexOf(status)
+          {(['authorizing', 'checking', 'approving', 'depositing'] as DepositStatus[]).map((s, i) => {
+            const stepIdx = ['authorizing', 'checking', 'approving', 'depositing'].indexOf(status)
             const done = stepIdx > i
             const active = status === s
             return (
               <div key={s} className="flex items-center gap-[4px]">
                 {i > 0 && <span className="text-[rgba(0,0,0,0.2)]">→</span>}
                 <span className={active ? 'text-[#5e85ee] font-medium' : done ? 'text-[#5ddd22]' : 'text-[#8d8d93]'}>
-                  {['Allowance', 'Approve', 'Deposit'][i]}{done ? ' ✓' : ''}
+                  {['Auth', 'Allowance', 'Approve', 'Deposit'][i]}{done ? ' ✓' : ''}
                 </span>
               </div>
             )

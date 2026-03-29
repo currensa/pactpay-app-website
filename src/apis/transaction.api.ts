@@ -40,7 +40,6 @@ export interface StealthPayrollItem {
 export interface BatchClaimItem {
   payrollItemId: string
   recipient: string
-  fee: string
   deadline: number
   signature: string
 }
@@ -196,6 +195,14 @@ export class TransactionApi {
   // 创建交易计划（StealthPay）
   async createTransactionPlan(plan: CreateTransactionPlanPayload) {
     const res = await this.request.post<CreateTransactionPlanResponse>(`/transaction/${this.orgId}/plan`, plan)
+    return res.data
+  }
+
+  // 获取 deposit 授权签名（depositAuthorizer 的 EIP-712 签名，HR 执行存款前调用）
+  async getDepositAuth(batchId: string) {
+    const res = await this.request.get<{ authSignature: string; claimTime: number }>(
+      `/transaction/${this.orgId}/batches/${batchId}/deposit-auth`,
+    )
     return res.data
   }
 
