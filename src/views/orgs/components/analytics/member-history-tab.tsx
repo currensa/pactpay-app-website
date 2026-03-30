@@ -599,7 +599,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
           selectedMemberId ? (
             <Button
               variant="outline"
-              className="h-[44px] rounded-[12px] border-[rgba(0,0,0,0.12)] bg-white px-[14px] text-[14px] font-normal text-[#1c1c26] shadow-none hover:bg-[#f5f5f5]"
+              className="h-[36px] rounded-[12px] border-[rgba(0,0,0,0.12)] bg-white px-[14px] text-[14px] font-normal text-[#1c1c26] shadow-none hover:bg-[#f5f5f5]"
               onClick={() => setSelectedMemberId(null)}
             >
               <ChevronLeft className="h-[16px] w-[16px]" />
@@ -607,18 +607,18 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
             </Button>
           ) : (
             <>
-              <div className="flex h-[44px] w-full min-w-[240px] items-center gap-[8px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] md:w-[280px]">
+              <div className="flex h-[36px] w-full min-w-[220px] items-center gap-[8px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] md:w-[220px]">
                 <Search className="h-[16px] w-[16px] shrink-0 text-[#8d8d93]" />
                 <Input
                   value={searchQuery}
                   onChange={event => setSearchQuery(event.target.value)}
-                  placeholder="Search by member ID, name, email..."
+                  placeholder="Search name, email..."
                   className="h-auto border-0 bg-transparent px-0 py-0 text-[14px] leading-[22px] text-[#1c1c26] shadow-none focus-visible:ring-0"
                 />
               </div>
 
               <Select value={statusFilter} onValueChange={value => setStatusFilter(value as 'all' | MemberHistoryStatus)}>
-                <SelectTrigger className="h-[44px] min-w-[160px] rounded-[12px] border-[rgba(0,0,0,0.12)] bg-white text-[14px] text-[#1c1c26] shadow-none focus:ring-0 focus:ring-offset-0 md:w-[160px]">
+                <SelectTrigger className="h-[36px] min-w-[160px] rounded-[12px] border-[rgba(0,0,0,0.12)] bg-white text-[14px] text-[#1c1c26] shadow-none focus:ring-0 focus:ring-offset-0 md:w-[160px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-[16px]">

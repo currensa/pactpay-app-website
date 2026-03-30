@@ -159,7 +159,7 @@ export function AnalyticsExportButton({
   return (
     <Button
       variant="outline"
-      className="h-[44px] rounded-[12px] border-[rgba(0,0,0,0.12)] bg-white px-[14px] text-[14px] font-normal text-[#1c1c26] shadow-none hover:bg-[#f5f5f5]"
+      className="h-[36px] rounded-[12px] border-[rgba(0,0,0,0.12)] bg-white px-[14px] text-[14px] font-normal text-[#1c1c26] shadow-none hover:bg-[#f5f5f5]"
       onClick={onClick}
       disabled={disabled}
     >
