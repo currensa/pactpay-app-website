@@ -11,6 +11,7 @@ import { StatusBadge } from '@/views/orgs/components/status-badge'
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { ChevronDown, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { BackendRole, DrawerChanges } from './types'
 import { formatActivityDescription, formatActivityTime } from '@/utils/activity'
 
@@ -67,6 +68,7 @@ export function MemberDetailContent({
   onSaveSuccess,
 }: MemberDetailContentProps) {
   const { toast } = useToast()
+  const navigate = useNavigate()
   const hasPermission = useHasPermission()
   const [drawerChanges, setDrawerChanges] = useState<DrawerChanges>({})
   const [editingFee, setEditingFee] = useState(false)
@@ -175,6 +177,15 @@ export function MemberDetailContent({
       onSaveSuccess?.(updatedMember)
       onDrawerClose()
     } catch (error: any) {
+      if (error?.response?.status === 404 && error?.response?.data?.message?.includes('payroll')) {
+        toast({
+          title: 'Payroll not configured',
+          description: error.response.data.message,
+          variant: 'destructive',
+        })
+        setTimeout(() => navigate('/orgs/settings'), 1500)
+        return
+      }
       toast({
         title: 'Error',
         description: error?.response?.data?.message || 'Failed to update member information',

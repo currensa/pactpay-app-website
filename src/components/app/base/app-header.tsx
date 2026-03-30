@@ -43,12 +43,27 @@ export default function AppHeader() {
     return () => clearInterval(timer)
   }, [orgId])
 
-  function handleRoleSelect(orgId: string, role: string) {
-    const item = organizations.find(o => o.organization.orgId === orgId)
+  const hasMemberRole = organizations.some(o =>
+    o.member.roles.some(r => r.role === 'Member')
+  )
+  const hasManagerRole = organizations.some(o =>
+    o.member.roles.some(r => ['Owner', 'Admin', 'Operator'].includes(r.role))
+  )
+
+  function handleSwitchToMember() {
+    const item = organizations.find(o => o.member.roles.some(r => r.role === 'Member'))
     if (!item) return
-    setCurrentOrg(orgId, item.member)
-    const isAdmin = ['Owner', 'Admin', 'Operator'].includes(role)
-    navigate(isAdmin ? '/orgs/dashboard' : '/member/dashboard')
+    setCurrentOrg(item.organization.orgId, item.member)
+    navigate('/member/dashboard')
+  }
+
+  function handleSwitchToManager() {
+    const item = organizations.find(o =>
+      o.member.roles.some(r => ['Owner', 'Admin', 'Operator'].includes(r.role))
+    )
+    if (!item) return
+    setCurrentOrg(item.organization.orgId, item.member)
+    navigate('/orgs/dashboard')
   }
 
   const meta = useMemo(() => {
@@ -159,31 +174,29 @@ export default function AppHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {organizations.flatMap(o => o.member.roles).length > 1 && (
+            {(hasMemberRole || hasManagerRole) && (
               <DropdownMenuGroup>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger className="cursor-pointer">
                     <IconSwitchHorizontal className="mr-2 h-4 w-4" />
                     Change Role
                   </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="rounded-[12px] min-w-[200px]">
-                    {organizations.map(({ organization, member }) =>
-                      member.roles.map(({ role }) => (
-                        <DropdownMenuItem
-                          key={`${organization.orgId}-${role}`}
-                          onClick={() => handleRoleSelect(organization.orgId, role)}
-                          className="cursor-pointer flex flex-col items-start gap-0"
-                        >
-                          <span className="text-[13px] font-medium text-[#1c1c26]">{organization.name}</span>
-                          <span className="text-[12px] text-[#8d8d93]">{role}</span>
-                        </DropdownMenuItem>
-                      ))
+                  <DropdownMenuSubContent className="rounded-[12px] min-w-[160px]">
+                    {hasMemberRole && (
+                      <DropdownMenuItem onClick={handleSwitchToMember} className="cursor-pointer">
+                        <span className="text-[13px] text-[#1c1c26]">As Member</span>
+                      </DropdownMenuItem>
+                    )}
+                    {hasManagerRole && (
+                      <DropdownMenuItem onClick={handleSwitchToManager} className="cursor-pointer">
+                        <span className="text-[13px] text-[#1c1c26]">As Manager</span>
+                      </DropdownMenuItem>
                     )}
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
               </DropdownMenuGroup>
             )}
-            {organizations.flatMap(o => o.member.roles).length > 1 && <DropdownMenuSeparator />}
+            {(hasMemberRole || hasManagerRole) && <DropdownMenuSeparator />}
             <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-500 focus:text-red-500">
               <IconLogout className="mr-2 h-4 w-4" />
               Log out
