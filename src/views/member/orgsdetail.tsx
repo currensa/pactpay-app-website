@@ -16,6 +16,7 @@ export default function MemberOrgsDetail() {
 
   const [showName, setShowName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
+  const [avatarPreview, setAvatarPreview] = useState('')
   const [role, setRole] = useState('')
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
@@ -35,6 +36,7 @@ export default function MemberOrgsDetail() {
       const { member } = found
       setShowName(member.showName || '')
       setAvatarUrl(member.avatarUrl || '')
+      setAvatarPreview(member.avatarUrl || '')
       setRole(member.roles?.[0]?.role || 'Member')
     }).catch(console.error)
   }, [orgId])
@@ -42,13 +44,25 @@ export default function MemberOrgsDetail() {
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ description: 'Image must be under 2 MB.', variant: 'destructive' })
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      toast({ description: 'Please upload a PNG or JPG file.', variant: 'destructive' })
+      return
+    }
+    const reader = new FileReader()
+    reader.onloadend = () => setAvatarPreview(reader.result as string)
+    reader.readAsDataURL(file)
     try {
       setUploading(true)
-      const url = await api.auth.uploadFile(file)
+      const url = await api.storage.uploadFile(file)
       setAvatarUrl(url)
       await saveProfile(showName, url)
     } catch {
       toast({ description: 'Failed to upload image.', variant: 'destructive' })
+      setAvatarPreview(avatarUrl)
     } finally {
       setUploading(false)
       e.target.value = ''
@@ -133,8 +147,8 @@ export default function MemberOrgsDetail() {
             className="relative h-[108px] w-[108px] rounded-full overflow-hidden bg-[#f5f5f5] group"
             title="Change avatar"
           >
-            {avatarUrl
-              ? <img src={avatarUrl} alt={showName} className="h-full w-full object-cover" />
+            {avatarPreview
+              ? <img src={avatarPreview} alt={showName} className="h-full w-full object-cover" />
               : <span className="flex h-full w-full items-center justify-center text-[36px] font-bold text-[#8d8d93]">
                 {showName?.[0]?.toUpperCase() || '?'}
               </span>
