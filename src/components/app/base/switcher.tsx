@@ -4,10 +4,8 @@ import { cn } from '@/lib/utils'
 import useOrganizationStore from '@/stores/organization'
 import { IconArrowsLeftRight } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 
 export function OrganizationSwitcher() {
-  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
 
   const { organizations, currentOrgId, setCurrentOrg, getOrganizations } = useOrganizationStore()
@@ -24,9 +22,10 @@ export function OrganizationSwitcher() {
   )
 
   const handleSwitch = (orgId: string, member: typeof organizations[0]['member']) => {
-    setCurrentOrg(orgId, member)
-    navigate('/orgs/dashboard')
     setOpen(false)
+    if (orgId === currentOrgId) return
+    setCurrentOrg(orgId, member)
+    window.location.href = '/orgs/dashboard'
   }
 
   return (

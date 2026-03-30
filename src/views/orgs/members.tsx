@@ -22,6 +22,7 @@ import { MemberDetailContent } from '@/views/orgs/components/member-detail'
 import { StatusBadge } from '@/views/orgs/components/status-badge'
 import { AlertCircle, Check, CheckCircle, ChevronDown, ChevronsUpDown, ChevronUp, Copy, Download, Edit2, Plus, RefreshCw, Search, Send, Upload, X, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 interface MemberPageProps {
   showInvite: boolean
@@ -32,6 +33,7 @@ export default function MemberPage(
   }: MemberPageProps
 ) {
   const { toast } = useToast()
+  const navigate = useNavigate()
 
   // 状态管理
   const [members, setMembers] = useState<OrganizationMember[]>([])
@@ -552,6 +554,15 @@ export default function MemberPage(
         description: `Amount updated to ${numValue}`
       })
     } catch (error: any) {
+      if (error?.response?.status === 404 && error?.response?.data?.message?.includes('payroll')) {
+        toast({
+          title: 'Payroll not configured',
+          description: error.response.data.message,
+          variant: 'destructive',
+        })
+        setTimeout(() => navigate('/orgs/settings'), 1500)
+        return
+      }
       toast({
         title: 'Error',
         description: error?.response?.data?.message || 'Failed to update amount',
