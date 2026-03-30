@@ -426,7 +426,7 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
         actions={
           <>
             <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="h-[44px] min-w-[140px] rounded-[12px] border-[rgba(0,0,0,0.12)] bg-white text-[14px] text-[#1c1c26] shadow-none focus:ring-0 focus:ring-offset-0 md:w-[140px]">
+              <SelectTrigger className="h-[36px] min-w-[140px] rounded-[12px] border-[rgba(0,0,0,0.12)] bg-white text-[14px] text-[#1c1c26] shadow-none focus:ring-0 focus:ring-offset-0 md:w-[140px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-[16px]">
@@ -439,7 +439,7 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
             </Select>
 
             <Select value={selectedAssetFilterKey} onValueChange={setSelectedAssetFilterKey}>
-              <SelectTrigger className="h-[44px] min-w-[220px] rounded-[12px] border-[rgba(0,0,0,0.12)] bg-white text-[14px] text-[#1c1c26] shadow-none focus:ring-0 focus:ring-offset-0 md:w-[240px]">
+              <SelectTrigger className="h-[36px] min-w-[220px] rounded-[12px] border-[rgba(0,0,0,0.12)] bg-white text-[14px] text-[#1c1c26] shadow-none focus:ring-0 focus:ring-offset-0 md:w-[240px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-[16px]">
