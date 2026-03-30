@@ -174,17 +174,23 @@ function IncomeDistributionCard({ data, loading, getTokenSymbol }: { data: Distr
       <div className="flex items-center gap-[24px]">
         {loading
           ? <p className="text-[14px] text-[#8d8d93]">Loading...</p>
-          : <DonutChart data={data} getTokenSymbol={getTokenSymbol} />
+          : data.length === 0
+            ? <p className="text-[14px] text-[#8d8d93] py-[8px]">No data</p>
+            : (
+              <>
+                <DonutChart data={data} getTokenSymbol={getTokenSymbol} />
+                <div className="flex flex-1 flex-col gap-[10px] min-w-0 max-h-[160px] overflow-y-auto">
+                  {data.slice(0, 3).map((item, i) => (
+                    <div key={i} className="flex items-center gap-[8px] shrink-0">
+                      <div className="h-[8px] w-[10px] shrink-0 rounded-[12px]" style={{ backgroundColor: item.color }} />
+                      <p className="text-[14px] leading-[22px] text-[#1c1c26] truncate flex-1">{item.name}</p>
+                      <p className="text-[13px] leading-[22px] text-[#606067] shrink-0">{item.value}%</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )
         }
-        <div className="flex flex-1 flex-col gap-[10px] min-w-0 max-h-[160px] overflow-y-auto">
-          {data.slice(0, 3).map((item, i) => (
-            <div key={i} className="flex items-center gap-[8px] shrink-0">
-              <div className="h-[8px] w-[10px] shrink-0 rounded-[12px]" style={{ backgroundColor: item.color }} />
-              <p className="text-[14px] leading-[22px] text-[#1c1c26] truncate flex-1">{item.name}</p>
-              <p className="text-[13px] leading-[22px] text-[#606067] shrink-0">{item.value}%</p>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   )
