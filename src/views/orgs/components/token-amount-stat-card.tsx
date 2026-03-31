@@ -54,7 +54,7 @@ export function TokenAmountStatCard({
             <img src={iconUrl} alt="" className="w-[22px] h-[22px] rounded-full self-end mb-[6px] shrink-0" />
           )}
           <span className="text-[28px] font-medium leading-[40px] text-[#1c1c26]">
-            {current ? formatAmount(current) : '—'}
+            {current ? formatAmount(current) : '0'}
           </span>
           {items.length > 0 && (
             <button
