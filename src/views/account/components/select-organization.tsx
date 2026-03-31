@@ -1,6 +1,7 @@
 import { OrgPayrollConfig, Organization, OrganizationMember } from '@/apis/orgnization.api'
+import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
-import { IconLoader2, IconPlus, IconUsers } from '@tabler/icons-react'
+import { IconCalendarEvent, IconLoader2, IconPlus, IconUsers } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 
 interface OrgResponseItem {
@@ -23,17 +24,6 @@ function formatDate(dateString: string) {
   })
 }
 
-function getNetworkLabel(caipChainId: string) {
-  const map: Record<string, string> = {
-    'eip155:1': 'Ethereum',
-    'eip155:137': 'Polygon',
-    'eip155:56': 'BNB Chain',
-    'eip155:11155111': 'Sepolia',
-    'eip155:80001': 'Mumbai',
-  }
-  return map[caipChainId] ?? caipChainId
-}
-
 interface SelectOrganizationProps {
   onCreateNew?: () => void
   onEnterAsMember?: () => void
@@ -47,37 +37,49 @@ export default function SelectOrganization({
 }: SelectOrganizationProps) {
   const organizations = useOrganizationStore(s => s.organizations) as OrgResponseItem[]
   const getOrganizations = useOrganizationStore(s => s.getOrganizations)
-  const [loading, setLoading] = useState(!organizations.length)
+  const getTokenSymbol = useChainAssetStore(s => s.getTokenSymbol)
+  const getTokenIconUrl = useChainAssetStore(s => s.getTokenIconUrl)
+  const fetchChainAssets = useChainAssetStore(s => s.fetchChainAssets)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (organizations.length) return
-    getOrganizations().finally(() => setLoading(false))
+    fetchChainAssets()
+      .then(() => {
+        if (organizations.length) return
+        return getOrganizations()
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   const adminOrgs = organizations.filter(item => hasAdminRole(item.member))
 
   if (loading) {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4">
-        <IconLoader2 className="h-8 w-8 animate-spin text-[#77777d]" />
-        <p className="text-sm text-[#77777d]">Loading...</p>
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3">
+        <IconLoader2 className="h-7 w-7 animate-spin text-[#8d8d93]" />
+        <p className="text-[13px] text-[#8d8d93]">Loading organizations…</p>
       </div>
     )
   }
 
   return (
-    <div className="flex h-full w-full flex-col px-4 py-8 lg:px-[60px] lg:py-[40px]">
-      {/* Header row */}
-      <div className="mb-8 flex items-start justify-between">
-        <h1 className="max-w-[480px] text-[28px] font-bold leading-[42px] text-[#1c1c26]">
-          Select Organization
-        </h1>
+    <div className="flex h-full w-full flex-col px-[32px] py-[32px] lg:px-[60px] lg:py-[40px]">
+      {/* Header */}
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-[22px] font-bold leading-[32px] text-[#1c1c26]">
+            Select Organization
+          </h1>
+          <p className="mt-[2px] text-[13px] text-[#8d8d93]">
+            Choose an organization to manage
+          </p>
+        </div>
         <button
           type="button"
           onClick={onEnterAsMember}
-          className="flex shrink-0 items-center gap-[6px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[16px] py-[8px] text-[14px] font-semibold text-[#1c1c26] transition-all hover:border-[#5e85ee] hover:text-[#5e85ee]"
+          className="flex shrink-0 items-center gap-[6px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] py-[8px] text-[13px] font-semibold text-[#606067] transition-all hover:border-[#5e85ee] hover:text-[#5e85ee]"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="8" r="4" />
             <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
           </svg>
@@ -85,72 +87,120 @@ export default function SelectOrganization({
         </button>
       </div>
 
-      {/* Horizontal scrollable card list */}
+      {/* Card grid */}
       <div className="min-h-0 flex-1 overflow-x-auto pb-2">
-        <div className="flex gap-[16px]" style={{ minWidth: 'max-content' }}>
+        <div className="flex flex-wrap gap-[16px]" style={{ minWidth: 'max-content' }}>
           {adminOrgs.map(item => {
-            const network = item.payrollConfig
-              ? getNetworkLabel(item.payrollConfig.caipChainId)
+            const { organization, payrollConfig, lastPayout, memberCount } = item
+            const lastPayoutLabel = lastPayout ? formatDate(lastPayout) : null
+            const tokenSymbol = payrollConfig
+              ? getTokenSymbol(payrollConfig.caipChainId, payrollConfig.token)
               : null
-            const lastPayout = item.lastPayout ? formatDate(item.lastPayout) : null
-            const memberCount = item.memberCount ?? null
+            const tokenIconUrl = payrollConfig
+              ? getTokenIconUrl(payrollConfig.caipChainId, payrollConfig.token)
+              : null
 
             return (
               <button
-                key={item.organization.orgId}
+                key={organization.orgId}
                 type="button"
-                onClick={() => onSelectAdminOrg?.(item.organization.orgId, item.member)}
-                className="flex w-[240px] shrink-0 flex-col gap-[20px] rounded-[24px] border border-[rgba(0,0,0,0.12)] bg-white p-[20px] text-left transition-all hover:border-[#5e85ee] hover:shadow-md"
+                onClick={() => onSelectAdminOrg?.(organization.orgId, item.member)}
+                className="group flex w-[220px] shrink-0 flex-col rounded-[24px] border border-[rgba(0,0,0,0.08)] bg-white p-[20px] text-left shadow-[0px_2px_12px_0px_rgba(0,0,0,0.06)] transition-all hover:border-[#5e85ee] hover:shadow-[0px_4px_20px_0px_rgba(94,133,238,0.15)]"
               >
-                {/* Org name */}
-                <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26] line-clamp-2">
-                  {item.organization.orgName}
-                </p>
-
-                {/* Meta info */}
-                <div className="flex flex-col gap-[10px]">
-                  {network && (
-                    <div className="flex items-center gap-[6px]">
-                      <span className="inline-flex rounded-[8px] bg-[rgba(94,133,238,0.1)] px-[10px] py-[3px] text-[12px] font-medium text-[#5e85ee]">
-                        {network}
-                      </span>
+                {/* ── Logo + Name ─────────────────────────────── */}
+                <div className="flex items-center gap-[10px]">
+                  {organization.logoUrl ? (
+                    <img
+                      src={organization.logoUrl}
+                      alt={organization.orgName}
+                      className="h-[40px] w-[40px] shrink-0 rounded-[10px] object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[10px] bg-[rgba(94,133,238,0.1)] text-[15px] font-bold text-[#5e85ee]">
+                      {organization.orgName?.[0]?.toUpperCase() ?? '?'}
                     </div>
                   )}
+                  <p className="min-w-0 flex-1 truncate text-[14px] font-bold leading-[20px] text-[#1c1c26]">
+                    {organization.orgName || '—'}
+                  </p>
+                </div>
 
-                  {lastPayout && (
-                    <div className="flex flex-col gap-[2px]">
-                      <span className="text-[11px] font-medium uppercase tracking-wide text-[#8d8d93]">
-                        Last Payout
-                      </span>
-                      <span className="text-[13px] font-medium text-[#1c1c26]">
-                        {lastPayout}
+                {/* ── Divider ─────────────────────────────────── */}
+                <div className="my-[14px] h-px w-full bg-[rgba(0,0,0,0.06)]" />
+
+                {/* ── Stats ───────────────────────────────────── */}
+                <div className="flex flex-col gap-[12px]">
+                  {/* Token */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-[#8d8d93]">
+                      Token
+                    </span>
+                    <div className="flex items-center gap-[5px]">
+                      {tokenIconUrl ? (
+                        <img src={tokenIconUrl} alt={tokenSymbol ?? ''} className="h-[14px] w-[14px] rounded-full" />
+                      ) : (
+                        <div className="h-[14px] w-[14px] rounded-full bg-[#e8e8ea]" />
+                      )}
+                      <span className="text-[13px] font-semibold text-[#1c1c26]">
+                        {tokenSymbol ?? <span className="font-normal text-[#8d8d93]">—</span>}
                       </span>
                     </div>
-                  )}
+                  </div>
 
-                  {memberCount != null && (
-                    <div className="flex items-center gap-[6px] text-[13px] text-[#606067]">
-                      <IconUsers className="size-[14px] shrink-0 text-[#8d8d93]" />
-                      <span>{memberCount} member{memberCount !== 1 ? 's' : ''}</span>
+                  {/* Last Payout */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-[#8d8d93]">
+                      Last Payout
+                    </span>
+                    <div className="flex items-center gap-[5px]">
+                      {lastPayoutLabel ? (
+                        <>
+                          <IconCalendarEvent className="h-[13px] w-[13px] shrink-0 text-[#8d8d93]" />
+                          <span className="text-[13px] font-semibold text-[#1c1c26]">
+                            {lastPayoutLabel}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-[13px] font-normal text-[#8d8d93]">—</span>
+                      )}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Members */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-[#8d8d93]">
+                      Members
+                    </span>
+                    <div className="flex items-center gap-[5px]">
+                      <IconUsers className="h-[13px] w-[13px] shrink-0 text-[#8d8d93]" />
+                      <span className="text-[13px] font-semibold text-[#1c1c26]">
+                        {memberCount ?? 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Enter CTA ───────────────────────────────── */}
+                <div className="mt-[16px] flex w-full items-center justify-center rounded-[10px] bg-[#f5f5f5] py-[8px] text-[12px] font-semibold text-[#606067] transition-colors group-hover:bg-[rgba(94,133,238,0.1)] group-hover:text-[#5e85ee]">
+                  Enter
                 </div>
               </button>
             )
           })}
 
-          {/* Create New Organization card */}
+          {/* ── Create New card ─────────────────────────────── */}
           <button
             type="button"
             onClick={onCreateNew}
-            className="flex w-[240px] shrink-0 flex-col items-center justify-center gap-[10px] rounded-[24px] border border-dashed border-[rgba(0,0,0,0.18)] bg-[#fafafa] p-[20px] text-left transition-all hover:border-[#5e85ee] hover:bg-[rgba(94,133,238,0.04)]"
+            className="group flex w-[220px] shrink-0 flex-col items-center justify-center gap-[10px] rounded-[24px] border border-dashed border-[rgba(0,0,0,0.15)] bg-white p-[20px] transition-all hover:border-[#5e85ee] hover:bg-[rgba(94,133,238,0.03)]"
           >
-            <div className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-[rgba(94,133,238,0.12)]">
-              <IconPlus className="size-[20px] text-[#5e85ee]" />
+            <div className="flex h-[44px] w-[44px] items-center justify-center rounded-full bg-[rgba(94,133,238,0.1)] transition-colors group-hover:bg-[rgba(94,133,238,0.18)]">
+              <IconPlus className="h-[20px] w-[20px] text-[#5e85ee]" />
             </div>
-            <span className="text-[14px] font-semibold text-[#5e85ee]">
-              Create New Organization
-            </span>
+            <div className="text-center">
+              <p className="text-[13px] font-semibold text-[#5e85ee]">New Organization</p>
+              <p className="mt-[2px] text-[11px] text-[#8d8d93]">Create and manage payroll</p>
+            </div>
           </button>
         </div>
       </div>
