@@ -1,11 +1,12 @@
 import apis from '@/apis'
-import { OrganizationMember } from '@/apis/orgnization.api'
+import { ActivityLog, OrganizationMember } from '@/apis/orgnization.api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
+import { formatActivityDescription, formatActivityTime } from '@/utils/activity'
 import { canManageMember, getAssignableRoles, getMemberRoles, MemberRole, Permission, useHasPermission } from '@/utils/permissions'
 import { StatusBadge } from '@/views/orgs/components/status-badge'
 import * as SelectPrimitive from '@radix-ui/react-select'
@@ -13,7 +14,6 @@ import { ChevronDown, Pencil } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BackendRole, DrawerChanges } from './types'
-import { formatActivityDescription, formatActivityTime } from '@/utils/activity'
 
 interface MemberDetailContentProps {
   selectedMember: OrganizationMember
@@ -78,7 +78,9 @@ export function MemberDetailContent({
   const [activityPage, setActivityPage] = useState(1)
   const [activityTotal, setActivityTotal] = useState(0)
   const activityPageSize = 10
-  const { getTokenSymbol, getTokenDecimals, fetchChainAssets } = useChainAssetStore()
+  const { getTokenSymbol, getTokenDecimals, getTokenIconUrl, getChain, fetchChainAssets } = useChainAssetStore()
+
+  const activityTokenResolver = { getTokenSymbol, getTokenIconUrl, getChain }
 
   const hasUnsavedChanges = Object.keys(drawerChanges).length > 0
 
@@ -151,7 +153,8 @@ export function MemberDetailContent({
 
   const handleSaveChanges = async () => {
     try {
-      if (drawerChanges.amount !== undefined) {
+      const originalAmount = selectedMember.payoutIntent?.amount ?? ''
+      if (drawerChanges.amount !== undefined && drawerChanges.amount !== originalAmount) {
         await apis.organization.updateMemberPayoutIntent(selectedMember.memberId, {
           amount: drawerChanges.amount,
         })
@@ -218,10 +221,10 @@ export function MemberDetailContent({
             {/* Email — read-only */}
             <InfoRow label="Email" value={selectedMember.email || '-'} />
 
-            {/* Service Fee — editable */}
+            {/* Amount — editable */}
             <div className="flex items-center justify-between">
               <span className="text-[#8d8d93] text-[13px] leading-[22px]">
-                Service Fee{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
+                Amount{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
               </span>
               {editingFee ? (
                 <Input
@@ -339,7 +342,7 @@ export function MemberDetailContent({
                     {formatActivityTime(log.createdAt)}
                   </span>
                   <span className="text-[#1c1c26] text-[16px] leading-[24px]">
-                    {formatActivityDescription(log)}
+                    {formatActivityDescription(log, activityTokenResolver)}
                   </span>
                 </div>
               ))}

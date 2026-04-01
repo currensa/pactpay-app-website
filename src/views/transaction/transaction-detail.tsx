@@ -1,6 +1,7 @@
 import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
@@ -76,6 +77,13 @@ function StatusBadge({ status }: { status: string }) {
       </span>
     )
   }
+  if (status === PayrollTransactionStatus.REFUNDED) {
+    return (
+      <span className="inline-flex items-center rounded-[8px] bg-[rgba(0,0,0,0.06)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
+        Refunded
+      </span>
+    )
+  }
   return (
     <span className="inline-flex items-center rounded-[8px] bg-[rgba(94,133,238,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5e85ee] whitespace-nowrap">
       Ready
@@ -106,6 +114,9 @@ export default function TransactionDetail() {
 
   // Refund dialog
   const [refundOpen, setRefundOpen] = useState(false)
+
+  // Re-action dialog
+  const [reactionConfirmOpen, setReactionConfirmOpen] = useState(false)
 
   useEffect(() => {
     Promise.all([fetchChainAssets(), fetchChains()]).then(() => {
@@ -165,6 +176,17 @@ export default function TransactionDetail() {
     catch { return plan.totalAmount ?? '0' }
   })()
 
+  const refundedAmountFormatted = (() => {
+    try {
+      const allPending = plan.items.every(item => item.status === 'pending')
+      if (allPending) return totalAmountFormatted
+      const total = plan.items
+        .filter(item => item.status === 'pending')
+        .reduce((sum, item) => sum + BigInt(item.amount ?? '0'), BigInt(0))
+      return parseFloat(formatUnits(total, decimals)).toLocaleString()
+    } catch { return '0' }
+  })()
+
   const totalPages = Math.ceil(plan.items.length / ITEMS_PER_PAGE)
   const paginatedItems = plan.items.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
 
@@ -217,7 +239,7 @@ export default function TransactionDetail() {
           <div className="flex flex-col gap-[10px]">
             {/* Status badge + transaction name */}
             <div className="relative flex items-center gap-[10px] pl-[12px]">
-              <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-[4px] h-[22px] rounded-full ${isComplete ? 'bg-[#5ddd22]' : 'bg-[#5e85ee]'}`} />
+              <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-[4px] h-[22px] rounded-full ${isComplete ? 'bg-[#5ddd22]' : isRefunded ? 'bg-[#606067]' : 'bg-[#5e85ee]'}`} />
               <StatusBadge status={plan.transactionStatus} />
               <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">{plan.transactionName}</span>
             </div>
@@ -247,7 +269,7 @@ export default function TransactionDetail() {
                 <>
                   {hasPermission(Permission.REACTION_TRANSACTION) && (
                     <button
-                      onClick={() => navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)}
+                      onClick={() => setReactionConfirmOpen(true)}
                       className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
                     >
                       <CreditCard size={14} />
@@ -265,7 +287,19 @@ export default function TransactionDetail() {
                   )}
                 </>
               )
-              : !isRefunded && hasPermission(Permission.EXECUTE_TRANSACTION) && (
+              : isRefunded
+              ? (
+                hasPermission(Permission.REACTION_TRANSACTION) && (
+                  <button
+                    onClick={() => setReactionConfirmOpen(true)}
+                    className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
+                  >
+                    <CreditCard size={14} />
+                    Re-action
+                  </button>
+                )
+              )
+              : hasPermission(Permission.EXECUTE_TRANSACTION) && (
                 <button
                   onClick={() => setExecuteOpen(true)}
                   className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] hover:bg-[#5e85ee]/90 transition-opacity"
@@ -297,6 +331,12 @@ export default function TransactionDetail() {
             <span className="text-[#1c1c26] text-[14px] leading-[22px]">Total Amount</span>
             <span className="text-[#1c1c26] text-[22px] font-medium leading-[32px]">{totalAmountFormatted} {tokenSymbol}</span>
           </div>
+          {isRefunded && (
+            <div className="flex flex-1 items-center justify-between bg-[#f5f5f5] rounded-[18px] px-6 py-5">
+              <span className="text-[#1c1c26] text-[14px] leading-[22px]">Refunded Amount</span>
+              <span className="text-[#1c1c26] text-[22px] font-medium leading-[32px]">{refundedAmountFormatted} {tokenSymbol}</span>
+            </div>
+          )}
           {isComplete && (
             <div className="flex flex-1 items-center justify-between bg-[#f5f5f5] rounded-[18px] px-6 py-5 min-w-0">
               <span className="text-[#1c1c26] text-[14px] leading-[22px] shrink-0">TX Hash</span>
@@ -430,6 +470,52 @@ export default function TransactionDetail() {
             onCancel={() => setDeleteOpen(false)}
             onConfirm={handleConfirmDelete}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={reactionConfirmOpen} onOpenChange={setReactionConfirmOpen}>
+        <DialogContent>
+          <div className="flex flex-col space-y-4">
+            <DialogHeader>
+              <DialogTitle>Re-action Transaction</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to create a new transaction based on this one? The original transaction will remain unchanged.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="bg-muted space-y-2 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-sm">Transaction Name:</span>
+                  <span className="text-sm font-medium">{plan.transactionName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-sm">Transaction ID:</span>
+                  <span className="font-mono text-sm font-medium">{plan.id}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-sm">Members:</span>
+                  <span className="text-sm font-medium">{plan.items.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-sm">Total Amount:</span>
+                  <span className="text-sm font-medium">{totalAmountFormatted} {tokenSymbol}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <Button variant="outline" onClick={() => setReactionConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={() => {
+                setReactionConfirmOpen(false)
+                navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)
+              }}>
+                Confirm
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

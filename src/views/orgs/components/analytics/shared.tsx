@@ -105,7 +105,7 @@ export function MetricCard({
 
 export function MessageState({ title, description }: { title: string; description: string }) {
   return (
-    <div className="rounded-[32px] bg-white px-[24px] py-[40px] text-center">
+    <div className="rounded-[32px] bg-white px-[24px] py-[20px] text-center">
       <p className="text-[18px] leading-[28px] text-[#1c1c26]">{title}</p>
       <p className="mx-auto mt-[8px] max-w-[520px] text-[14px] leading-[22px] text-[#8d8d93]">{description}</p>
     </div>
@@ -114,7 +114,7 @@ export function MessageState({ title, description }: { title: string; descriptio
 
 export function PlaceholderState({ label }: { label: string }) {
   return (
-    <div className="rounded-[32px] bg-white px-[24px] py-[48px] text-center">
+    <div className="rounded-[32px] bg-white px-[24px] py-[20px] text-center">
       <div className="mx-auto flex h-[56px] w-[56px] items-center justify-center rounded-[18px] bg-[#f5f5f5]">
         <ChartColumn className="h-[24px] w-[24px] text-[#606067]" />
       </div>
