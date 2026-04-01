@@ -403,7 +403,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={4} className="px-0 py-[24px]">
                       <div className="flex flex-col items-center justify-center gap-[10px]">
-                        <img src="/src/assets/empty-table.svg" alt="No member history" className="h-[120px] w-[120px]" />
+                        <img src="/empty-table.svg" alt="No member history" className="h-[120px] w-[120px]" />
                         <p className="text-[14px] leading-[22px] text-[#8d8d93]">No member history found</p>
                       </div>
                     </TableCell>
@@ -534,7 +534,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                       <TableRow className="hover:bg-transparent">
                         <TableCell colSpan={3} className="px-0 py-[24px]">
                           <div className="flex flex-col items-center justify-center gap-[10px]">
-                            <img src="/src/assets/empty-table.svg" alt="No payout history" className="h-[120px] w-[120px]" />
+                            <img src="/empty-table.svg" alt="No payout history" className="h-[120px] w-[120px]" />
                             <p className="text-[14px] leading-[22px] text-[#8d8d93]">No payout history for this member</p>
                           </div>
                         </TableCell>
@@ -580,7 +580,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
             <div className="rounded-[32px] bg-white p-[24px]">
               {activityLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-[10px] py-[20px]">
-                  <img src="/src/assets/empty-data.svg" alt="No activity logs" className="h-[120px] w-[120px]" />
+                  <img src="/empty-data.svg" alt="No activity logs" className="h-[120px] w-[120px]" />
                   <p className="text-[14px] leading-[22px] text-[#8d8d93]">No activity logs for this member</p>
                 </div>
               ) : (

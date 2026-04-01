@@ -813,7 +813,7 @@ export default function MemberPage(
               <TableRow>
                 <TableCell colSpan={7}>
                   <div className="flex flex-col items-center justify-center gap-[10px] py-[24px]">
-                    <img src="/src/assets/empty-table.svg" alt="No members" className="h-[120px] w-[120px]" />
+                    <img src="/empty-table.svg" alt="No members" className="h-[120px] w-[120px]" />
                     <p className="text-[13px] leading-[20px] text-[#8d8d93]">No members found</p>
                   </div>
                 </TableCell>

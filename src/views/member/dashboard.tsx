@@ -87,7 +87,7 @@ function SummaryCard({ title, icon, tokens, loading, claimButton }: SummaryCardP
             : tokens.length === 0
               ? (
                 <div className="flex h-full flex-col items-center justify-center gap-[10px]">
-                  <img src="/src/assets/empty-data.svg" alt="No data" className="h-[120px] w-[120px]" />
+                  <img src="/empty-data.svg" alt="No data" className="h-[120px] w-[120px]" />
                   <p className="text-[13px] leading-[20px] text-[#8d8d93]">No data available</p>
                 </div>
               )
@@ -182,7 +182,7 @@ function IncomeDistributionCard({ data, loading, getTokenSymbol }: { data: Distr
           : data.length === 0
             ? (
               <div className="flex h-full w-full flex-col items-center justify-center gap-[10px]">
-                <img src="/src/assets/empty-data.svg" alt="No data" className="h-[120px] w-[120px]" />
+                <img src="/empty-data.svg" alt="No data" className="h-[120px] w-[120px]" />
                 <p className="text-[13px] leading-[20px] text-[#8d8d93]">No data available</p>
               </div>
             )

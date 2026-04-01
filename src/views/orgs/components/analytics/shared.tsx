@@ -106,7 +106,7 @@ export function MetricCard({
 export function MessageState({ title, description }: { title: string; description: string }) {
   return (
     <div className="rounded-[32px] bg-white px-[24px] py-[20px] flex flex-col items-center justify-center gap-[12px] text-center">
-      <img src="/src/assets/empty-data.svg" alt="No data" className="h-[120px] w-[120px]" />
+      <img src="/empty-data.svg" alt="No data" className="h-[120px] w-[120px]" />
       <p className="text-[18px] leading-[28px] text-[#1c1c26]">{title}</p>
       <p className="mx-auto max-w-[520px] text-[14px] leading-[22px] text-[#8d8d93]">{description}</p>
     </div>

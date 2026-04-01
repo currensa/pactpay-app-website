@@ -386,7 +386,7 @@ export default function Transaction() {
               <TableRow>
                 <TableCell colSpan={7} className="py-[24px]">
                   <div className="flex flex-col items-center justify-center gap-[10px]">
-                    <img src="/src/assets/empty-table.svg" alt="No transactions" className="h-[120px] w-[120px]" />
+                    <img src="/empty-table.svg" alt="No transactions" className="h-[120px] w-[120px]" />
                     <p className="text-[13px] leading-[20px] text-[#8d8d93]">No transactions found</p>
                   </div>
                 </TableCell>

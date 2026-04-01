@@ -127,7 +127,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
             <TableRow>
               <TableCell colSpan={showOrgColumn ? 4 : 3} className="py-[24px]">
                 <div className="flex flex-col items-center justify-center gap-[10px]">
-                  <img src="/src/assets/empty-table.svg" alt="No records" className="h-[120px] w-[120px]" />
+                  <img src="/empty-table.svg" alt="No records" className="h-[120px] w-[120px]" />
                   <p className="text-[14px] leading-[22px] text-[#8d8d93]">No records found</p>
                 </div>
               </TableCell>
