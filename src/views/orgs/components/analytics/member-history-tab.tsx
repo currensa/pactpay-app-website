@@ -13,7 +13,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/components/ui/use-toast'
 import { getMemberStatusDisplayName } from '@/enums/org'
 import { cn } from '@/lib/utils'
+import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
+import { formatActivityDescription, formatActivityTime } from '@/utils/activity'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -201,6 +203,8 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
   const navigate = useNavigate()
   const { toast } = useToast()
   const currentMember = useOrganizationStore(s => s.currentMember)
+  const { getTokenSymbol, getTokenIconUrl, getChain } = useChainAssetStore()
+  const activityTokenResolver = { getTokenSymbol, getTokenIconUrl, getChain }
 
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -578,8 +582,8 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                 <div className="flex flex-col gap-[24px]">
                   {activityLogs.map((log, index) => (
                     <div key={`${log.eventType}-${log.createdAt}-${index}`} className="flex flex-col gap-[2px]">
-                      <p className="text-[14px] leading-[22px] text-[#8d8d93]">{formatUtcDateTime(log.createdAt)}</p>
-                      <p className="text-[16px] leading-[24px] text-[#1c1c26]">{log.displayText}</p>
+                      <p className="text-[14px] leading-[22px] text-[#8d8d93]">{formatActivityTime(log.createdAt)}</p>
+                      <p className="text-[16px] leading-[24px] text-[#1c1c26]">{formatActivityDescription(log, activityTokenResolver)}</p>
                     </div>
                   ))}
                 </div>

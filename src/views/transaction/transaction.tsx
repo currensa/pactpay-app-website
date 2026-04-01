@@ -435,15 +435,23 @@ export default function Transaction() {
                               ) : null
                             })()}
                           </>
-                        ) : !isRefunded && hasPermission(Permission.EXECUTE_TRANSACTION) && (
-                              <button
-                                className="bg-[#5e85ee] text-white text-[13px] px-[10px] py-[5px] rounded-[12px] hover:bg-[#5e85ee]/90 transition-opacity whitespace-nowrap"
-                                onClick={() => handleDepositClick(transaction)}
-                              >
-                                Execute
-                              </button>
-                            )
-                        }
+                        ) : isRefunded ? (
+                          hasPermission(Permission.REACTION_TRANSACTION) && (
+                            <button
+                              className="text-[#5e85ee] text-[13px] hover:opacity-70 transition-opacity whitespace-nowrap"
+                              onClick={() => handleReactionClick(transaction)}
+                            >
+                              Re-action
+                            </button>
+                          )
+                        ) : hasPermission(Permission.EXECUTE_TRANSACTION) && (
+                          <button
+                            className="bg-[#5e85ee] text-white text-[13px] px-[10px] py-[5px] rounded-[12px] hover:bg-[#5e85ee]/90 transition-opacity whitespace-nowrap"
+                            onClick={() => handleDepositClick(transaction)}
+                          >
+                            Execute
+                          </button>
+                        )}
                         <button
                           className="text-[#5e85ee] text-[13px] hover:opacity-70 transition-opacity whitespace-nowrap"
                           onClick={() => handleViewDetails(transaction)}
@@ -548,17 +556,45 @@ export default function Transaction() {
 
       <Dialog open={reactionConfirmDialogOpen} onOpenChange={setReactionConfirmDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Re-action Transaction</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to create a new transaction based on this one? The original transaction will remain unchanged.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center justify-end gap-3 pt-4">
-            <Button variant="outline" onClick={() => { setReactionConfirmDialogOpen(false); setTransactionToReaction(null) }}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmReaction}>Confirm</Button>
+          <div className="flex flex-col space-y-4">
+            <DialogHeader>
+              <DialogTitle>Re-action Transaction</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to create a new transaction based on this one? The original transaction will remain unchanged.
+              </DialogDescription>
+            </DialogHeader>
+
+            {transactionToReaction && (
+              <div className="space-y-4 py-4">
+                <div className="bg-muted space-y-2 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-sm">Transaction Name:</span>
+                    <span className="text-sm font-medium">{transactionToReaction.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-sm">Transaction ID:</span>
+                    <span className="font-mono text-sm font-medium">{transactionToReaction.id}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-sm">Members:</span>
+                    <span className="text-sm font-medium">{transactionToReaction.members}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-sm">Total Amount:</span>
+                    <span className="text-sm font-medium">
+                      ${transactionToReaction.totalAmount} {transactionToReaction.currency}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3">
+              <Button variant="outline" onClick={() => { setReactionConfirmDialogOpen(false); setTransactionToReaction(null) }}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmReaction}>Confirm</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

@@ -1,7 +1,7 @@
 import apis from '@/apis'
 import { Badge } from '@/components/ui/badge'
 import { Pagination } from '@/components/ui/pagination'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
@@ -122,11 +122,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableRow>
-              <TableCell colSpan={showOrgColumn ? 4 : 3} className="text-center text-[#8d8d93] py-[24px]">
-                Loading...
-              </TableCell>
-            </TableRow>
+            <TableSkeletonRows rows={5} cols={showOrgColumn ? 4 : 3} />
           ) : rows.length === 0 ? (
             <TableRow>
               <TableCell colSpan={showOrgColumn ? 4 : 3} className="text-center text-[#8d8d93] py-[24px]">

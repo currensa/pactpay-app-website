@@ -540,6 +540,12 @@ export default function MemberPage(
       return
     }
 
+    const originalAmount = parseFloat(member.payoutIntent?.amount ?? '')
+    if (!isNaN(originalAmount) && numValue === originalAmount) {
+      setEditingField(null)
+      return
+    }
+
     try {
       await apis.organization.updateMemberPayoutIntent(
         member.memberId,
