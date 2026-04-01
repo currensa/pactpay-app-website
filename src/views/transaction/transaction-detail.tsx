@@ -377,7 +377,12 @@ export default function TransactionDetail() {
             <TableBody>
               {paginatedItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center text-[#8d8d93] text-[13px]">No members.</TableCell>
+                  <TableCell colSpan={6} className="py-[24px]">
+                    <div className="flex flex-col items-center justify-center gap-[10px]">
+                      <img src="/src/assets/empty-table.svg" alt="No members" className="h-[120px] w-[120px]" />
+                      <p className="text-[13px] leading-[20px] text-[#8d8d93]">No members found</p>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ) : (
                 paginatedItems.map((item, idx) => {

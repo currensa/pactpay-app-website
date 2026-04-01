@@ -12,7 +12,7 @@ import {
 import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { getMemberStatusDisplayName, memberStatus } from '@/enums/org'
 import useOrganizationStore from '@/stores/organization'
@@ -808,16 +808,13 @@ export default function MemberPage(
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-[40px] text-[#8d8d93]">Loading...</TableCell>
-              </TableRow>
+              <TableSkeletonRows rows={5} cols={7} />
             ) : paginatedMembers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7}>
-                  <div className="flex flex-col items-center justify-center gap-[8px] py-[40px]">
-                    <Search className="h-[40px] w-[40px] text-[#8d8d93]" />
-                    <p className="text-[13px] font-medium leading-[20px] text-[#1c1c26]">No members found</p>
-                    <p className="text-[13px] leading-[20px] text-[#8d8d93]">Try adjusting your search or filters.</p>
+                  <div className="flex flex-col items-center justify-center gap-[10px] py-[24px]">
+                    <img src="/src/assets/empty-table.svg" alt="No members" className="h-[120px] w-[120px]" />
+                    <p className="text-[13px] leading-[20px] text-[#8d8d93]">No members found</p>
                   </div>
                 </TableCell>
               </TableRow>

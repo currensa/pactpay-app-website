@@ -401,11 +401,10 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={4} className="px-0 py-[56px]">
-                      <div className="flex flex-col items-center justify-center gap-[8px]">
-                        <Search className="h-[40px] w-[40px] text-[#8d8d93]" />
-                        <p className="text-[14px] leading-[22px] text-[#1c1c26]">No member history found</p>
-                        <p className="text-[14px] leading-[22px] text-[#8d8d93]">Try adjusting the search keyword or status filter.</p>
+                    <TableCell colSpan={4} className="px-0 py-[24px]">
+                      <div className="flex flex-col items-center justify-center gap-[10px]">
+                        <img src="/src/assets/empty-table.svg" alt="No member history" className="h-[120px] w-[120px]" />
+                        <p className="text-[14px] leading-[22px] text-[#8d8d93]">No member history found</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -533,8 +532,11 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                   <TableBody>
                     {payoutHistory.length === 0 ? (
                       <TableRow className="hover:bg-transparent">
-                        <TableCell colSpan={3} className="px-0 py-[48px] text-center text-[14px] leading-[22px] text-[#8d8d93]">
-                          No payout history for this member.
+                        <TableCell colSpan={3} className="px-0 py-[24px]">
+                          <div className="flex flex-col items-center justify-center gap-[10px]">
+                            <img src="/src/assets/empty-table.svg" alt="No payout history" className="h-[120px] w-[120px]" />
+                            <p className="text-[14px] leading-[22px] text-[#8d8d93]">No payout history for this member</p>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -577,7 +579,10 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
 
             <div className="rounded-[32px] bg-white p-[24px]">
               {activityLogs.length === 0 ? (
-                <p className="py-[24px] text-[14px] leading-[22px] text-[#8d8d93]">No activity logs for this member.</p>
+                <div className="flex flex-col items-center justify-center gap-[10px] py-[20px]">
+                  <img src="/src/assets/empty-data.svg" alt="No activity logs" className="h-[120px] w-[120px]" />
+                  <p className="text-[14px] leading-[22px] text-[#8d8d93]">No activity logs for this member</p>
+                </div>
               ) : (
                 <div className="flex flex-col gap-[24px]">
                   {activityLogs.map((log, index) => (
