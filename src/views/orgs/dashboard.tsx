@@ -227,7 +227,7 @@ export default function Dashboard() {
         </p>
         {todayTransactions.length === 0 ? (
           <div className="bg-white rounded-[32px] p-[20px] flex flex-col items-center justify-center gap-[12px]">
-            <img src="/src/assets/empty-data.svg" alt="No executions" className="h-[120px] w-[120px]" />
+            <img src="/empty-data.svg" alt="No executions" className="h-[120px] w-[120px]" />
             <p className="text-[13px] leading-[20px] text-[#8d8d93]">No transactions ready to execute today</p>
           </div>
         ) : (

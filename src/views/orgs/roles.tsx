@@ -196,7 +196,7 @@ export default function RoleManagementPage() {
                     </div>
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-[10px] py-[16px]">
-                      <img src="/src/assets/empty-data.svg" alt="No members" className="h-[120px] w-[120px]" />
+                      <img src="/empty-data.svg" alt="No members" className="h-[120px] w-[120px]" />
                       <p className="text-xs text-muted-foreground">No members in this role</p>
                     </div>
                   )}
