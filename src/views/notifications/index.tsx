@@ -267,7 +267,10 @@ export default function NotificationsPage({ orgId }: NotificationsPageProps) {
           {loading ? (
             <p className="text-[14px] text-[#8d8d93] py-[24px] text-center">Loading...</p>
           ) : items.length === 0 ? (
-            <p className="text-[14px] text-[#8d8d93] py-[24px] text-center">No notifications</p>
+            <div className="flex flex-col items-center justify-center gap-[12px] py-[24px]">
+              <img src="/src/assets/empty-data.svg" alt="No notifications" className="h-[120px] w-[120px]" />
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">No notifications</p>
+            </div>
           ) : (
             items.map(item => (
               <NotificationRow

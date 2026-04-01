@@ -85,7 +85,12 @@ function SummaryCard({ title, icon, tokens, loading, claimButton }: SummaryCardP
           {loading
             ? <p className="text-[14px] text-[#8d8d93] py-[8px]">Loading...</p>
             : tokens.length === 0
-              ? <p className="text-[14px] text-[#8d8d93] py-[8px]">No data</p>
+              ? (
+                <div className="flex h-full flex-col items-center justify-center gap-[10px]">
+                  <img src="/src/assets/empty-data.svg" alt="No data" className="h-[120px] w-[120px]" />
+                  <p className="text-[13px] leading-[20px] text-[#8d8d93]">No data available</p>
+                </div>
+              )
               : (showAll ? tokens : tokens.slice(0, 3)).map(item => <TokenRow key={item.symbol} item={item} />)
           }
         </div>
@@ -175,7 +180,12 @@ function IncomeDistributionCard({ data, loading, getTokenSymbol }: { data: Distr
         {loading
           ? <p className="text-[14px] text-[#8d8d93]">Loading...</p>
           : data.length === 0
-            ? <p className="text-[14px] text-[#8d8d93] py-[8px]">No data</p>
+            ? (
+              <div className="flex h-full w-full flex-col items-center justify-center gap-[10px]">
+                <img src="/src/assets/empty-data.svg" alt="No data" className="h-[120px] w-[120px]" />
+                <p className="text-[13px] leading-[20px] text-[#8d8d93]">No data available</p>
+              </div>
+            )
             : (
               <>
                 <DonutChart data={data} getTokenSymbol={getTokenSymbol} />

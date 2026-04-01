@@ -3,7 +3,7 @@ import { TransactionPlan } from '@/apis/transaction.api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Pagination } from '@/components/ui/pagination'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import { cn } from '@/lib/utils'
@@ -97,6 +97,7 @@ export default function Transaction() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [isReady, setIsReady] = useState(false)
+  const [loading, setLoading] = useState(true)
   const itemsPerPage = 10
 
   const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
@@ -156,6 +157,7 @@ export default function Transaction() {
 
   const fetchTransactionPlans = async (page = currentPage, status = statusFilter) => {
     try {
+      setLoading(true)
       const response = await apis.transaction.getTransactionPlans(page, itemsPerPage, status)
       setRawTransactionPlans(response.data)
       const transformedTransactions = response.data.map(transformTransactionPlan)
@@ -164,6 +166,8 @@ export default function Transaction() {
       setTotalCount(response.total)
     } catch {
       toast({ title: 'Error', description: 'Failed to load transactions. Please try again.', variant: 'destructive' })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -376,10 +380,15 @@ export default function Transaction() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visibleTransactions.length === 0 ? (
+            {loading || !isReady ? (
+              <TableSkeletonRows rows={5} cols={7} />
+            ) : visibleTransactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center text-[#8d8d93] text-[13px]">
-                  No transactions found.
+                <TableCell colSpan={7} className="py-[24px]">
+                  <div className="flex flex-col items-center justify-center gap-[10px]">
+                    <img src="/src/assets/empty-table.svg" alt="No transactions" className="h-[120px] w-[120px]" />
+                    <p className="text-[13px] leading-[20px] text-[#8d8d93]">No transactions found</p>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
