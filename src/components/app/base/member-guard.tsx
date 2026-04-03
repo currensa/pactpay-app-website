@@ -17,7 +17,7 @@ export default function MemberGuard({ children }: { children: React.ReactNode })
     // Skip API call if we already know the status
     if (metaPubSubmitted !== null) {
       if (!metaPubSubmitted) {
-        navigate('/account/login', { replace: true, state: { step: 'bindWallet' } })
+        navigate('/welcome/bind-wallet', { replace: true })
       } else {
         setChecking(false)
       }
@@ -27,13 +27,13 @@ export default function MemberGuard({ children }: { children: React.ReactNode })
     checkMetaPub()
       .then(submitted => {
         if (!submitted) {
-          navigate('/account/login', { replace: true, state: { step: 'bindWallet' } })
+          navigate('/welcome/bind-wallet', { replace: true })
         } else {
           setChecking(false)
         }
       })
       .catch(() => {
-        navigate('/account/login', { replace: true })
+        navigate('/welcome', { replace: true })
       })
   }, [])
 

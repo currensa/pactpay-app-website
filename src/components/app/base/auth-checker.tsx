@@ -5,5 +5,5 @@ export default function AuthChecker(props: { children: React.ReactNode }) {
   const token = localStorage.getItem('token')
 
   if (token) return children
-  else return <Navigate to="/account/login" />
+  else return <Navigate to="/welcome" />
 }

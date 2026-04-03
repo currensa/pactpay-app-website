@@ -7,7 +7,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 function OrgGuard({ children }: { children: React.ReactNode }) {
   const currentOrgId = useOrganizationStore(s => s.currentOrgId)
   if (!currentOrgId) {
-    return <Navigate to="/account/login" replace />
+    return <Navigate to="/welcome" replace />
   }
   return <>{children}</>
 }

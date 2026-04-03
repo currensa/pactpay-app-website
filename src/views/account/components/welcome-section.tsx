@@ -23,7 +23,7 @@ function ArrowRightIcon({ color = '#1c1c26' }: { color?: string }) {
 
 export default function WelcomeSection({ onGetStarted }: WelcomeSectionProps) {
   return (
-    <div className="flex h-full w-full flex-col items-start justify-between py-2">
+    <div className="flex h-full w-full flex-col items-start justify-between">
       {/* 顶部内容区 */}
       <div className="flex flex-col gap-[16px]">
         {/* Create Organization 标签 */}
