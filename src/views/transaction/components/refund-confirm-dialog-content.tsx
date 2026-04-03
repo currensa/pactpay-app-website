@@ -1,16 +1,11 @@
 import type { TransactionPlan } from '@/apis/transaction.api'
 import { vaultAbi } from '@/lib/vault-abi'
 import useChainAssetStore from '@/stores/chain-asset'
-import { useState } from 'react'
+import type { Provider } from '@reown/appkit/react'
+import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import { useEffect, useState } from 'react'
 import { createPublicClient, createWalletClient, custom, http, type Hex } from 'viem'
 import type { Transaction } from './types'
-
-declare global {
-  interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ethereum?: any
-  }
-}
 
 type RefundStatus = 'idle' | 'connecting' | 'refunding' | 'done' | 'error'
 
@@ -48,22 +43,40 @@ export function RefundConfirmDialogContent({
   const [status, setStatus] = useState<RefundStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
 
+  const { open } = useAppKit()
+  const { isConnected, address } = useAppKitAccount()
+  const { walletProvider } = useAppKitProvider<Provider>('eip155')
+
   const isBusy = status === 'connecting' || status === 'refunding'
 
   const unclaimedCount = transactionPlan
     ? transactionPlan.items.filter(item => item.status !== 'claimed').length
     : 0
 
+  // When status is 'connecting', watch for wallet connection and auto-proceed
+  useEffect(() => {
+    if (status !== 'connecting') return
+    if (!isConnected || !address || !walletProvider) return
+    executeRefund(address as Hex, walletProvider)
+  }, [status, isConnected, address, walletProvider])
+
   async function handleRefund() {
     if (!transactionPlan?.merkleRoot) return
     setErrorMsg('')
-    setStatus('connecting')
+
+    if (!isConnected) {
+      setStatus('connecting')
+      open({ view: 'Connect', namespace: 'eip155' })
+      return
+    }
+
+    await executeRefund(address as Hex, walletProvider!)
+  }
+
+  async function executeRefund(account: Hex, provider: Provider) {
+    if (!transactionPlan?.merkleRoot) return
 
     try {
-      if (!window.ethereum) throw new Error('MetaMask not detected. Please install it first.')
-      const accounts: string[] = await window.ethereum.request({ method: 'eth_requestAccounts' })
-      const account = accounts[0] as Hex
-
       const chainEntry = getChain(transactionPlan.caipChainId)
       if (!chainEntry) throw new Error(`Chain ${transactionPlan.caipChainId} is not found in chain list.`)
       if (!chainEntry.vaultAddress) throw new Error(`Vault contract is not configured for chain ${transactionPlan.caipChainId}.`)
@@ -73,9 +86,9 @@ export function RefundConfirmDialogContent({
       const merkleRoot = transactionPlan.merkleRoot as Hex
       const rpcUrl = (chainEntry.rpcUrls as string[])[0]
 
-      const currentChainIdHex: string = await window.ethereum.request({ method: 'eth_chainId' })
+      const currentChainIdHex = await provider.request<string>({ method: 'eth_chainId' })
       if (parseInt(currentChainIdHex, 16) !== numericChainId) {
-        await window.ethereum.request({
+        await provider.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: `0x${numericChainId.toString(16)}` }],
         })
@@ -91,7 +104,7 @@ export function RefundConfirmDialogContent({
       const walletClient = createWalletClient({
         account,
         chain: viemChain as any,
-        transport: custom(window.ethereum),
+        transport: custom(provider),
       })
       const publicClient = createPublicClient({
         chain: viemChain as any,

@@ -500,7 +500,8 @@ export default function Transaction() {
 
       {/* ── Dialogs ─────────────────────────────────────────────────────── */}
       <Dialog open={depositConfirmDialogOpen} onOpenChange={setDepositConfirmDialogOpen}>
-        <DialogContent>
+        <DialogContent disableOutsideClose>
+          <DialogTitle className="sr-only">Transaction Summary</DialogTitle>
           <ExecuteConfirmDialogContent
             executingTransaction={depositingTransaction}
             transactionPlan={depositingTransactionPlan}

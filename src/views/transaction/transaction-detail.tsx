@@ -447,7 +447,8 @@ export default function TransactionDetail() {
 
       {/* ── Dialogs ─────────────────────────────────────────────────────────── */}
       <Dialog open={executeOpen} onOpenChange={setExecuteOpen}>
-        <DialogContent>
+        <DialogContent disableOutsideClose>
+          <DialogTitle className="sr-only">Transaction Summary</DialogTitle>
           <ExecuteConfirmDialogContent
             executingTransaction={transactionStub}
             transactionPlan={plan}
@@ -525,7 +526,8 @@ export default function TransactionDetail() {
       </Dialog>
 
       <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
-        <DialogContent>
+        <DialogContent disableOutsideClose>
+          <DialogTitle className="sr-only">Refund Unclaimed Funds</DialogTitle>
           <RefundConfirmDialogContent
             transaction={transactionStub}
             transactionPlan={plan}
