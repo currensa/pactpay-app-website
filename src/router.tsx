@@ -30,6 +30,13 @@ export interface OrgNavItem {
 }
 
 const Login = lazy(() => import('@/views/account/login'))
+const WelcomeStep = lazy(() => import('@/views/account/steps/welcome-step'))
+const SignInStep = lazy(() => import('@/views/account/steps/sign-in-step'))
+const IdentityStep = lazy(() => import('@/views/account/steps/identity-step'))
+const SelectOrgStep = lazy(() => import('@/views/account/steps/select-org-step'))
+const CreateOrgStep = lazy(() => import('@/views/account/steps/create-org-step'))
+const JoinOrgStep = lazy(() => import('@/views/account/steps/join-org-step'))
+const BindWalletStep = lazy(() => import('@/views/account/steps/bind-wallet-step'))
 const JoinInvite = lazy(() => import('@/views/account/join-invite'))
 
 const MemberDashboard = lazy(() => import('@/views/member/dashboard'))
@@ -63,27 +70,24 @@ type RouteItem = RouteObject & {
 
 const routes: RouteItem[] = [
   {
-    index: true, element: <Navigate to="/account/login" />
+    index: true, element: <Navigate to="/welcome" replace />
   },
   {
     path: 'join/:code',
     element: <JoinInvite />,
   },
   {
-    path: 'account',
+    path: 'welcome',
+    element: <Login />,
     children: [
-      { path: 'login', element: <Login />, meta: { title: 'Login' } },
-      // {
-      //   path: 'settings',
-      //   element: <AccountLayout />,
-      //   children: [
-      //     { index: true, element: <Navigate to="/account/settings/account" replace /> },
-      //     { path: 'account', element: <AccountSettings />, meta: { title: 'Account & Security' } },
-      //     { path: 'preferences', element: <PreferencesSettings />, meta: { title: 'General Preferences' } },
-      //     { path: 'privacy', element: <PrivacySettings />, meta: { title: 'Privacy & Data' } }
-      //   ]
-      // }
-    ] as RouteItem[]
+      { index: true, element: <WelcomeStep /> },
+      { path: 'sign-in', element: <SignInStep /> },
+      { path: 'identity', element: <IdentityStep /> },
+      { path: 'select-org', element: <SelectOrgStep /> },
+      { path: 'create-org', element: <CreateOrgStep /> },
+      { path: 'join-org', element: <JoinOrgStep /> },
+      { path: 'bind-wallet', element: <BindWalletStep /> },
+    ]
   },
   {
     path: 'orgs',

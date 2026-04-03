@@ -75,7 +75,7 @@ function CardList() {
           <div className="flex shrink-0 items-center rounded-full bg-[#f5f5f5] p-[12px]">
             {card.icon}
           </div>
-          <div className="flex shrink-0 flex-col gap-[2px]">
+          <div className="flex min-w-0 flex-col gap-[2px]">
             <p className="text-[22px] font-bold leading-[32px] text-[#1c1c26]">{card.title}</p>
             <p className="text-[14px] font-normal leading-[22px] text-[#606067]">{card.desc}</p>
           </div>

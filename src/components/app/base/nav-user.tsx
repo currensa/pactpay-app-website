@@ -34,7 +34,7 @@ export function NavUser({
   async function handleLogout() {
     await disconnect()
     localStorage.removeItem('token')
-    navigate('/account/login')
+    navigate('/welcome')
     window.location.reload()
   }
 

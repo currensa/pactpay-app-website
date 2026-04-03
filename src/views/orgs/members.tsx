@@ -303,15 +303,6 @@ export default function MemberPage(
 
   // 发送邮箱邀请 - 校验并打开确认对话框
   const handleSendEmailInvites = () => {
-    if (!emailShowName.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a display name',
-        variant: 'destructive'
-      })
-      return
-    }
-
     const validation = validateEmails(emailInvites)
 
     if (!validation.valid) {
@@ -323,16 +314,7 @@ export default function MemberPage(
       return
     }
 
-    const names = emailShowName.split(',').map(n => n.trim()).filter(n => n)
-    if (names.length !== validation.emails.length) {
-      toast({
-        title: 'Error',
-        description: `Names count (${names.length}) does not match emails count (${validation.emails.length})`,
-        variant: 'destructive'
-      })
-      return
-    }
-    setPendingInvites(validation.emails.map((email, i) => ({ name: names[i], email })))
+    setPendingInvites(validation.emails.map(email => ({ name: '', email })))
     setEmailInviteDialogOpen(true)
   }
 
@@ -342,7 +324,7 @@ export default function MemberPage(
 
     try {
       // 逐个发送邀请邮件
-      const results = await Promise.allSettled(pendingInvites.map(({ email, name }) => apis.organization.sendEmailInvitation(email, name)))
+      const results = await Promise.allSettled(pendingInvites.map(({ email }) => apis.organization.sendEmailInvitation(email)))
 
       const successCount = results.filter(r => r.status === 'fulfilled').length
       const failCount = results.filter(r => r.status === 'rejected').length
@@ -489,7 +471,7 @@ export default function MemberPage(
       const rowNum = batchPreviewRows.indexOf(row) + 2
 
       try {
-        await apis.organization.sendEmailInvitation(email, name, amount || undefined)
+        await apis.organization.sendEmailInvitation(email, amount || undefined)
         results.push({ row: rowNum, email, success: true, message: '' })
       } catch (error: any) {
         results.push({ row: rowNum, email, success: false, message: error?.response?.data?.message || 'Failed' })
@@ -656,17 +638,12 @@ export default function MemberPage(
             <div className="flex flex-1 flex-col gap-[12px] rounded-[16px] border-[0.5px] border-[rgba(0,0,0,0.1)] bg-white p-[16px]">
               <div className="flex flex-1 flex-col gap-[6px]">
                 <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Email Invitation</p>
-                <input
-                  value={emailShowName}
-                  onChange={e => setEmailShowName(e.target.value)}
-                  placeholder="Enter name (comma-separated)"
-                  className="w-full rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
-                />
-                <input
+                <textarea
                   value={emailInvites}
                   onChange={e => setEmailInvites(e.target.value)}
                   placeholder="Enter emails (comma-separated)"
-                  className="w-full rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
+                  rows={2}
+                  className="w-full flex-1 resize-none rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
                 />
               </div>
               <button
@@ -968,15 +945,13 @@ export default function MemberPage(
             </div>
           ) : (
             <div className="rounded-[10px] border border-[rgba(0,0,0,0.10)] overflow-hidden">
-              <div className="grid grid-cols-2 bg-[#f5f5f5] border-b border-[rgba(0,0,0,0.08)]">
-                <div className="px-[12px] py-[5px] text-[11px] leading-[16px] text-[#8d8d93]">Name</div>
-                <div className="px-[12px] py-[5px] text-[11px] leading-[16px] text-[#8d8d93] border-l border-[rgba(0,0,0,0.08)]">Email</div>
+              <div className="bg-[#f5f5f5] border-b border-[rgba(0,0,0,0.08)]">
+                <div className="px-[12px] py-[5px] text-[11px] leading-[16px] text-[#8d8d93]">Email</div>
               </div>
               <div className="max-h-[220px] overflow-y-auto">
-                {pendingInvites.map(({ name, email }, i) => (
-                  <div key={i} className="grid grid-cols-2 border-b border-[rgba(0,0,0,0.06)] last:border-b-0">
-                    <div className="px-[12px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] truncate">{name}</div>
-                    <div className="px-[12px] py-[8px] text-[13px] leading-[20px] text-[#606067] truncate border-l border-[rgba(0,0,0,0.06)]">{email}</div>
+                {pendingInvites.map(({ email }, i) => (
+                  <div key={i} className="border-b border-[rgba(0,0,0,0.06)] last:border-b-0">
+                    <div className="px-[12px] py-[8px] text-[13px] leading-[20px] text-[#606067] truncate">{email}</div>
                   </div>
                 ))}
               </div>

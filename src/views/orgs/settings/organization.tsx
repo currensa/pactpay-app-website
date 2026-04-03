@@ -39,7 +39,7 @@ export default function OrganizationSettings() {
 
   useEffect(() => {
     if (!organizationId) {
-      navigate('/account/login', { replace: true })
+      navigate('/welcome', { replace: true })
       return
     }
     loadData()

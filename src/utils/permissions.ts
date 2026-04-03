@@ -188,7 +188,7 @@ export function useHasPermission(): (permission: Permission) => boolean {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!currentMember) navigate('/account/login', { replace: true })
+    if (!currentMember) navigate('/welcome', { replace: true })
   }, [currentMember])
 
   const roles = useMemo(() => getMemberRoles(currentMember), [currentMember])

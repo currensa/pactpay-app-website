@@ -111,6 +111,7 @@ export function RefundConfirmDialogContent({
       setStatus('done')
       onSuccess(refundTx)
     } catch (err: any) {
+      console.error(err)
       setErrorMsg(err?.shortMessage || err?.message || String(err))
       setStatus('error')
     }

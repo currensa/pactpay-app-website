@@ -171,6 +171,7 @@ export function ExecuteConfirmDialogContent({
       setStatus('done')
       onSuccess(depositTx)
     } catch (err: any) {
+      console.error(err)
       setErrorMsg(err?.shortMessage || err?.message || String(err))
       setStatus('error')
     }

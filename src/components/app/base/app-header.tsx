@@ -50,6 +50,10 @@ export default function AppHeader() {
     o.member.roles.some(r => ['Owner', 'Admin', 'Operator'].includes(r.role))
   )
 
+  // On /member pages: if only one role option exists, show "Create organization" instead of "Change Role"
+  const changeRoleCount = (hasMemberRole ? 1 : 0) + (hasManagerRole ? 1 : 0)
+  const showCreateOrg = isMember && changeRoleCount <= 1
+
   function handleSwitchToMember() {
     const item = organizations.find(o => o.member.roles.some(r => r.role === 'Member'))
     if (!item) return
@@ -78,7 +82,7 @@ export default function AppHeader() {
   async function handleLogout() {
     await disconnect()
     localStorage.removeItem('token')
-    navigate('/account/login')
+    navigate('/welcome')
     window.location.reload()
   }
 
@@ -174,7 +178,17 @@ export default function AppHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {(hasMemberRole || hasManagerRole) && (
+            {showCreateOrg ? (
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => navigate('/welcome/create-org')}
+                  className="cursor-pointer"
+                >
+                  <IconSwitchHorizontal className="mr-2 h-4 w-4" />
+                  Create organization
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            ) : (hasMemberRole || hasManagerRole) && (
               <DropdownMenuGroup>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger className="cursor-pointer">
@@ -196,7 +210,7 @@ export default function AppHeader() {
                 </DropdownMenuSub>
               </DropdownMenuGroup>
             )}
-            {(hasMemberRole || hasManagerRole) && <DropdownMenuSeparator />}
+            {(showCreateOrg || hasMemberRole || hasManagerRole) && <DropdownMenuSeparator />}
             <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-500 focus:text-red-500">
               <IconLogout className="mr-2 h-4 w-4" />
               Log out

@@ -139,7 +139,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   }
 
   return (
-    <div className="flex h-full w-full items-center justify-center px-4 py-8 lg:px-[80px] lg:py-[80px]">
+    <div className="flex h-full w-full items-center justify-center">
       <div className="flex w-full max-w-[480px] flex-col gap-[80px]">
         {/* 标题区域 */}
         <div className="flex flex-col gap-[8px] text-center">
@@ -164,7 +164,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           </div>
 
           {/* 邮箱登录表单 */}
-          <form onSubmit={emailLogin} className="flex flex-col gap-[24px]">
+          <form onSubmit={emailLogin} noValidate className="flex flex-col gap-[24px]">
             {/* 邮箱输入框 */}
             <div className="flex h-[56px] items-center justify-between overflow-hidden rounded-[16px] bg-[#f5f5f5] px-[16px]">
               <input

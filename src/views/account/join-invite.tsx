@@ -11,7 +11,7 @@ export default function JoinInvite() {
     if (code) {
       sessionStorage.setItem(INVITE_CODE_SESSION_KEY, code)
     }
-    navigate('/account/login', { replace: true })
+    navigate('/welcome', { replace: true })
   }, [])
 
   return null

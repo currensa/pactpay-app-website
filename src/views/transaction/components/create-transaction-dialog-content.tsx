@@ -217,16 +217,15 @@ export function CreateTransactionDialogContent({
   }
 
   const memberDetailsForPreview = useMemo(() => {
-    if (transactionDetailMembers.length > 0) return transactionDetailMembers
     return Array.from(selectedMembers).map(memberId => {
       const member = organizationMembers.find(m => m.id === memberId)
       return {
         id: memberId,
-        member: { showName: member?.showName ?? '' },
+        member: { showName: member?.showName ?? '', memberId: member?.memberId ?? '' },
         amount: memberAmounts[memberId] || '0',
       }
     })
-  }, [transactionDetailMembers, selectedMembers, organizationMembers, memberAmounts])
+  }, [selectedMembers, organizationMembers, memberAmounts])
 
   const canProceedToStep2 =
     selectedMembers.size > 0 &&
