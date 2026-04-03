@@ -83,7 +83,7 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
       onSuccess?.(newEmail)
       onClose()
     } catch {
-      toast({ description: 'Failed to verify code.', variant: 'destructive' })
+      // toast({ description: 'Failed to verify code.', variant: 'destructive' })
     } finally {
       setLoading(false)
     }

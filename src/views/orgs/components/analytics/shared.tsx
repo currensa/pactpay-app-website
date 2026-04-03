@@ -140,6 +140,10 @@ export function AnalyticsStatusBadge({ status }: { status: string }) {
       return 'bg-[rgba(94,133,238,0.12)] text-[#5e85ee]'
     }
 
+    if (normalized === 'refunded') {
+      return 'bg-[rgba(217,43,43,0.12)] text-[#d92b2b]'
+    }
+
     return 'bg-[#f5f5f5] text-[#606067]'
   })()
 
