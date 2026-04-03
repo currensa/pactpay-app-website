@@ -1,7 +1,7 @@
 import apis from '@/apis'
 import type { TokenAmount } from '@/apis/statistics.api'
 import { TransactionListItem, TransactionPlan } from '@/apis/transaction.api'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
@@ -365,7 +365,8 @@ export default function Dashboard() {
       </div>
       {/* Execute 确认弹窗 */}
       <Dialog open={depositConfirmDialogOpen} onOpenChange={setDepositConfirmDialogOpen}>
-        <DialogContent>
+        <DialogContent disableOutsideClose>
+          <DialogTitle className="sr-only">Transaction Summary</DialogTitle>
           <ExecuteConfirmDialogContent
             executingTransaction={depositingTransaction}
             transactionPlan={depositingTransactionPlan}
