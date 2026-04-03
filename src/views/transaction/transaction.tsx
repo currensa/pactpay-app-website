@@ -42,6 +42,12 @@ function TransactionStatusBadge({ status }: { status: Transaction['status'] }) {
           Complete
         </span>
       )
+    case PayrollTransactionStatus.REFUNDED:
+      return (
+        <span className="inline-flex items-center rounded-[8px] bg-[rgba(0,0,0,0.06)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
+          Refunded
+        </span>
+      )
     default:
       return (
         <span className="inline-flex items-center rounded-[8px] bg-[rgba(0,0,0,0.06)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
@@ -271,6 +277,7 @@ export default function Transaction() {
           [PayrollTransactionStatus.PENDING]: 0,
           [PayrollTransactionStatus.READY]: 1,
           [PayrollTransactionStatus.COMPLETE]: 2,
+          [PayrollTransactionStatus.REFUNDED]: 3,
         }
         const diff = (order[a.status] ?? 99) - (order[b.status] ?? 99)
         return sortDirection === 'asc' ? diff : -diff
@@ -296,6 +303,7 @@ export default function Transaction() {
     { value: PayrollTransactionStatus.READY, label: 'Ready' },
     { value: PayrollTransactionStatus.PENDING, label: 'Pending' },
     { value: PayrollTransactionStatus.COMPLETE, label: 'Complete' },
+    { value: PayrollTransactionStatus.REFUNDED, label: 'Refunded' },
   ]
 
   return (
