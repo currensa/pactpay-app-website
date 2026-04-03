@@ -5,7 +5,7 @@ import { recoverStealthPrivateKey } from '@/lib/stealth-key'
 import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
 import type { Provider } from '@reown/appkit/react'
-import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconLoader2 } from '@tabler/icons-react'
 import { ethers } from 'ethers'
 import { ChevronDown } from 'lucide-react'
@@ -61,8 +61,10 @@ async function deriveMetaPrivKey(walletProvider: Provider, address: string): Pro
 export default function ClaimPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { open } = useAppKit()
   const { address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
+  const userAction = useRef(false)
   const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, chains } = useChainAssetStore()
   const { setHeader, clearHeader } = useHeaderStore()
 
@@ -146,7 +148,8 @@ export default function ClaimPage() {
       return
     }
     if (!address || !walletProvider) {
-      toast({ description: 'Please connect your wallet first.', variant: 'destructive' })
+      open({ view: 'Connect', namespace: 'eip155' })
+      userAction.current = true
       return
     }
 
@@ -265,6 +268,15 @@ export default function ClaimPage() {
       setClaiming(false)
     }
   }
+
+  // Auto-trigger claim after wallet connects
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!userAction.current) return
+    if (!address || !walletProvider) return
+    userAction.current = false
+    handleClaim()
+  }, [address, walletProvider])
 
   return (
     <div className="flex flex-col gap-[24px]">

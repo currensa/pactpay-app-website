@@ -395,8 +395,10 @@ export default function TransactionDetail() {
                     <TableRow key={item.id ?? idx} className="border-b border-[rgba(0,0,0,0.06)] hover:bg-[#f5f5f5]/60">
                       <TableCell className="py-[14px]">
                         <div className="flex items-center gap-[6px]">
-                          <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee]">
-                            {(item.member?.showName || '?')[0].toUpperCase()}
+                          <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee] overflow-hidden">
+                            {item.member?.avatarUrl
+                              ? <img src={item.member.avatarUrl} alt="" className="w-full h-full object-cover" />
+                              : (item.member?.showName || '?')[0].toUpperCase()}
                           </div>
                           <span className="text-[13px] text-[#1c1c26] leading-[22px]">{item.member?.showName ?? '-'}</span>
                         </div>
