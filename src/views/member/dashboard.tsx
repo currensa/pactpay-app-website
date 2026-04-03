@@ -3,9 +3,9 @@ import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
 import type { Provider } from '@reown/appkit/react'
-import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconChartPie, IconCurrencyDollar, IconLoader2, IconMoneybag } from '@tabler/icons-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Cell, Pie, PieChart, Tooltip } from 'recharts'
 
@@ -213,8 +213,10 @@ export default function MemberDashboard() {
   const { toast } = useToast()
 
   const { fetchChainAssets, getTokenSymbol, getTokenDecimals, getTokenIconUrl } = useChainAssetStore()
+  const { open } = useAppKit()
   const { address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
+  const userAction = useRef(false)
 
   const [claimedTokens, setClaimedTokens] = useState<TokenItem[]>([])
   const [pendingTokens, setPendingTokens] = useState<TokenItem[]>([])
@@ -225,6 +227,13 @@ export default function MemberDashboard() {
   useEffect(() => {
     loadSummary()
   }, [])
+
+  useEffect(() => {
+    if (!userAction.current) return
+    if (!address || !walletProvider) return
+    userAction.current = false
+    runClaimAll(walletProvider, address)
+  }, [address, walletProvider])
 
   const loadSummary = async () => {
     try {
@@ -264,19 +273,15 @@ export default function MemberDashboard() {
     }
   }
 
-  const handleClaimAll = async () => {
-    if (!address || !walletProvider) {
-      toast({ description: 'Please connect your wallet first.', variant: 'destructive' })
-      return
-    }
+  const runClaimAll = async (provider: Provider, addr: string) => {
     try {
       setVerifying(true)
       const { signMessage } = await apis.auth.getMySignMessage()
-      const signature = await walletProvider.request<string>({
+      const signature = await provider.request<string>({
         method: 'personal_sign',
-        params: [signMessage, address],
+        params: [signMessage, addr],
       }) as string
-      const result = await apis.auth.verifyMetaPub({ address, signature })
+      const result = await apis.auth.verifyMetaPub({ address: addr, signature })
       if (!result.verified) {
         toast({ title: 'Verification failed', description: result.reason, variant: 'destructive' })
         return
@@ -292,6 +297,15 @@ export default function MemberDashboard() {
     } finally {
       setVerifying(false)
     }
+  }
+
+  const handleClaimAll = () => {
+    if (!address || !walletProvider) {
+      open({ view: 'Connect', namespace: 'eip155' })
+      userAction.current = true
+      return
+    }
+    runClaimAll(walletProvider, address)
   }
 
   const handleOrganizationClick = (orgId: string, orgName: string, memberId: string) => {

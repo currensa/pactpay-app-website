@@ -80,7 +80,16 @@ export function TransactionDetailDialogContent({
                 {transactionDetailMembers.length > 0 ? (
                   transactionDetailMembers.map(item => (
                     <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.member.showName}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-[6px]">
+                          <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee] overflow-hidden">
+                            {item.member.avatarUrl
+                              ? <img src={item.member.avatarUrl} alt="" className="w-full h-full object-cover" />
+                              : (item.member.showName || '?')[0]?.toUpperCase()}
+                          </div>
+                          {item.member.showName}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right font-medium">
                         {parseFloat(item.amount)}
                       </TableCell>

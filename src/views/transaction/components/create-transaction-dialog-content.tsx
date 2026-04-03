@@ -221,7 +221,7 @@ export function CreateTransactionDialogContent({
       const member = organizationMembers.find(m => m.id === memberId)
       return {
         id: memberId,
-        member: { showName: member?.showName ?? '', memberId: member?.memberId ?? '' },
+        member: { showName: member?.showName ?? '', memberId: member?.memberId ?? '', avatarUrl: member?.avatarUrl ?? null },
         amount: memberAmounts[memberId] || '0',
       }
     })
@@ -316,8 +316,10 @@ export function CreateTransactionDialogContent({
                   </TableCell>
                   <TableCell className="py-[14px]">
                     <div className="flex items-center gap-[6px]">
-                      <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee]">
-                        {(member.showName || '?')[0].toUpperCase()}
+                      <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee] overflow-hidden">
+                        {member.avatarUrl
+                          ? <img src={member.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          : (member.showName || '?')[0].toUpperCase()}
                       </div>
                       <span className="text-[13px] text-[#1c1c26] leading-[22px]">{member.showName || '-'}</span>
                     </div>
@@ -425,7 +427,7 @@ export function CreateTransactionDialogContent({
                   className="text-[16px] text-[#1c1c26] font-medium leading-[26px]"
                   style={{ fontFamily: 'Poppins, sans-serif' }}
                 >
-                  Your Service Fee &amp; Gas
+                  Your Service Fee
                 </p>
 
                 <div className="flex flex-col flex-1">
@@ -439,10 +441,10 @@ export function CreateTransactionDialogContent({
                       <div className="flex items-center justify-between">
                         <div className="flex items-baseline gap-[3px]">
                           <span className="text-[14px] text-[#8d8d93] line-through leading-[24px]">
-                            {feePreview.plan.originalPricePerMember}U
+                            {feePreview.plan.originalPricePerMember} {payrollTokenSymbol || ''}
                           </span>
                           <span className="text-[22px] font-bold text-[#1c1c26] leading-[34px]">
-                            {feePreview.plan.pricePerMember}U
+                            {feePreview.plan.pricePerMember} {payrollTokenSymbol || ''}
                           </span>
                         </div>
                         <span className="text-[14px] text-[#1c1c26] leading-[24px]">
@@ -570,14 +572,18 @@ export function CreateTransactionDialogContent({
 
               {/* Execution Date */}
               <div className="flex flex-col gap-[7px]">
-                <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Execution Date</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Execution Date</span>
+                  <span className="text-[12px] text-[#8d8d93] leading-[22px]">{(() => { const o = -new Date().getTimezoneOffset(); return `UTC${o >= 0 ? '+' : ''}${String(Math.floor(Math.abs(o) / 60)).padStart(2, '0')}:${String(Math.abs(o) % 60).padStart(2, '0')}` })()}</span>
+                </div>
                 <div className="[&_input]:bg-[#f5f5f5] [&_input]:rounded-[12px] [&_input]:border-0 [&_input]:text-[13px] [&_input]:text-[#1c1c26] [&_input]:h-[44px] [&_input]:px-4">
                   <DatePickerInput
+                    showTime
                     value={executionDate ? new Date(executionDate) : undefined}
                     onChange={date =>
                       setExecutionDate(
                         date
-                          ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+                          ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
                           : ''
                       )
                     }
@@ -602,7 +608,7 @@ export function CreateTransactionDialogContent({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-[13px] text-[#8d8d93] leading-[22px]">Execution Date</span>
-                    <span className="text-[13px] text-[#1c1c26] leading-[22px]">{executionDate || '-'}</span>
+                    <span className="text-[13px] text-[#1c1c26] leading-[22px]">{executionDate ? `${executionDate} ${(() => { const o = -new Date().getTimezoneOffset(); return `UTC${o >= 0 ? '+' : ''}${String(Math.floor(Math.abs(o) / 60)).padStart(2, '0')}:${String(Math.abs(o) % 60).padStart(2, '0')}` })()}` : '-'}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-[13px] text-[#8d8d93] leading-[22px]">Total Amount</span>
@@ -610,7 +616,7 @@ export function CreateTransactionDialogContent({
                   </div>
                   {feePreview && (
                     <div className="flex items-center justify-between">
-                      <span className="text-[13px] text-[#8d8d93] leading-[22px]">Service Fee &amp; Gas</span>
+                      <span className="text-[13px] text-[#8d8d93] leading-[22px]">Service Fee</span>
                       <span className="text-[13px] text-[#1c1c26] leading-[22px]">{feePreview.discountedFee} {payrollTokenSymbol || 'USDC'}</span>
                     </div>
                   )}
@@ -631,8 +637,10 @@ export function CreateTransactionDialogContent({
                   return (
                     <div key={item.id ?? item.memberId} className="flex items-center justify-between">
                       <div className="flex items-center gap-[6px]">
-                        <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee]">
-                          {(item.member?.showName || '?')[0].toUpperCase()}
+                        <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee] overflow-hidden">
+                          {item.member?.avatarUrl
+                            ? <img src={item.member.avatarUrl} alt="" className="w-full h-full object-cover" />
+                            : (item.member?.showName || '?')[0].toUpperCase()}
                         </div>
                         <span className="text-[13px] text-[#1c1c26] leading-[22px] w-[110px] truncate">{item.member?.showName ?? ''}</span>
                       </div>

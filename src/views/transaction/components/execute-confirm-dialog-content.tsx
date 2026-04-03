@@ -162,6 +162,7 @@ export function ExecuteConfirmDialogContent({
             abi: erc20Abi,
             functionName: 'approve',
             args: [vaultAddress, totalAmount],
+            chain: undefined
           })
           await publicClient.waitForTransactionReceipt({ hash: approveTx })
         }
@@ -177,6 +178,7 @@ export function ExecuteConfirmDialogContent({
         functionName: 'depositForPayroll',
         args: [merkleRoot, tokenAddress, totalAmount, BigInt(claimTime), authSignature as Hex],
         ...(isNative ? { value: totalAmount } : {}),
+        chain: undefined
       })
       const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
       if (receipt.status !== 'success') throw new Error('depositForPayroll transaction reverted.')
