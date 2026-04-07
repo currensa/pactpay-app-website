@@ -2,6 +2,7 @@ import apis from '@/apis'
 import type { TokenAmount } from '@/apis/statistics.api'
 import { TransactionListItem, TransactionPlan } from '@/apis/transaction.api'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { TransactionStatusBadge } from '@/components/ui/transaction-status-badge'
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
@@ -120,6 +121,7 @@ export default function Dashboard() {
     const decimals = getTokenDecimals(plan.caipChainId, plan.tokenAddress || '')
     const totalAmount = formatUnits(BigInt(plan.totalAmount || '0'), decimals)
     const isComplete = plan.transactionStatus === PayrollTransactionStatus.COMPLETE
+      || plan.transactionStatus === PayrollTransactionStatus.CLAIMED
     const isDueToday = diffDays === 0 && !isComplete
     const status = (plan.transactionStatus as Transaction['status']) || PayrollTransactionStatus.READY
 
@@ -247,17 +249,16 @@ export default function Dashboard() {
                 .toLocaleDateString('zh-CN').replace(/\//g, '/')
               const isComplete = transaction.transactionStatus === PayrollTransactionStatus.COMPLETE
               const isPending = transaction.transactionStatus === PayrollTransactionStatus.PENDING
+              const isClaimed = transaction.transactionStatus === PayrollTransactionStatus.CLAIMED
+              const isRefunded = transaction.transactionStatus === PayrollTransactionStatus.REFUNDED
 
               // Status-driven colours
-              const accentColor = isComplete ? '#5ddd22' : isPending ? '#ffa800' : '#5e85ee'
-              const badgeBg = isComplete
-                ? 'rgba(93,221,34,0.12)' : isPending
-                  ? 'rgba(255,168,0,0.12)' : 'rgba(94,133,238,0.12)'
-              const infoBg = isComplete
-                ? 'rgba(93,221,34,0.04)' : isPending
-                  ? 'rgba(255,168,0,0.04)' : 'rgba(94,133,238,0.04)'
-              const statusLabel = isComplete ? 'Complete' : isPending ? 'Pending' : 'Ready'
-
+              const accentColor = isClaimed ? '#22a106' : isComplete ? '#5ddd22' : isPending ? '#5e85ee' : isRefunded ? '#d92b2b' : '#606067'
+              const infoBg = isClaimed
+                ? 'rgba(34,161,6,0.04)' : isComplete
+                  ? 'rgba(93,221,34,0.04)' : isPending
+                    ? 'rgba(94,133,238,0.04)' : isRefunded
+                      ? 'rgba(217,43,43,0.04)' : 'rgba(0,0,0,0.03)'
               return (
                 <div key={transaction.id} className="relative bg-white rounded-[28px] p-[20px] flex gap-[24px] items-start overflow-hidden">
                   {/* Left accent bar */}
@@ -270,12 +271,7 @@ export default function Dashboard() {
                   <div className="flex flex-col gap-[14px] items-start shrink-0 w-[280px] self-stretch pt-[2px]">
                     <div className="flex flex-col gap-[6px]">
                       {/* Status badge */}
-                      <div
-                        className="w-[fit-content] inline-flex items-center px-[8px] py-[2px] rounded-[8px] text-[12px] leading-[20px] whitespace-nowrap"
-                        style={{ backgroundColor: badgeBg, color: accentColor }}
-                      >
-                        {statusLabel}
-                      </div>
+                      <TransactionStatusBadge status={transaction.transactionStatus} />
                       {/* Name */}
                       <p className="text-[15px] font-bold leading-[22px] text-[#1c1c26]">
                         {transaction.transactionName || `Transaction ${transaction.id.slice(0, 8)}`}

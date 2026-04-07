@@ -20,6 +20,8 @@ import {
 } from './components'
 import type { Transaction } from './components/types'
 
+import { TransactionItemStatusBadge } from '@/components/ui/transaction-status-badge'
+import { formatUtcDateTime } from '@/utils/date'
 import { getHighestRole, Permission, useHasPermission } from '@/utils/permissions'
 
 const ITEMS_PER_PAGE = 20
@@ -36,31 +38,7 @@ function formatTransactionHash(txHash: string | null | undefined) {
   return `${txHash.slice(0, 6)}...${txHash.slice(-4)}`
 }
 
-function TransactionItemStatusBadge({ status }: { status: string }) {
-  const normalized = status.toLowerCase()
-  const colorClasses = (() => {
-    if (normalized === 'claimed' || normalized === 'complete' || normalized === 'completed') {
-      return 'bg-[rgba(93,221,34,0.12)] text-[#5ddd22]'
-    }
-    if (normalized === 'pending' || normalized === 'submitted') {
-      return 'bg-[rgba(255,168,0,0.12)] text-[#ffa800]'
-    }
-    if (normalized === 'failed') {
-      return 'bg-[rgba(217,43,43,0.12)] text-[#d92b2b]'
-    }
-    return 'bg-[rgba(94,133,238,0.12)] text-[#5e85ee]'
-  })()
 
-  const label = status
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, letter => letter.toUpperCase())
-
-  return (
-    <span className={`inline-flex items-center rounded-[8px] px-2 py-[2px] text-[12px] leading-[22px] whitespace-nowrap ${colorClasses}`}>
-      {label}
-    </span>
-  )
-}
 
 function StatusBadge({ status }: { status: string }) {
   if (status === PayrollTransactionStatus.COMPLETE) {
@@ -154,9 +132,7 @@ export default function TransactionDetail() {
   const explorerBaseUrl = chain?.explorerUrls?.[0]
   const txExplorerUrl = buildExplorerTransactionUrl(explorerBaseUrl, plan.depositTxHash)
 
-  const payDay = plan.payPeriod
-    ? new Date(plan.payPeriod).toLocaleDateString('en-CA').replace(/-/g, '/')
-    : '-'
+  const payDay = formatUtcDateTime(plan.payPeriod)
 
   const payPeriodDate = new Date(plan.payPeriod)
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -288,26 +264,26 @@ export default function TransactionDetail() {
                 </>
               )
               : isRefunded
-              ? (
-                hasPermission(Permission.REACTION_TRANSACTION) && (
+                ? (
+                  hasPermission(Permission.REACTION_TRANSACTION) && (
+                    <button
+                      onClick={() => setReactionConfirmOpen(true)}
+                      className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
+                    >
+                      <CreditCard size={14} />
+                      Re-action
+                    </button>
+                  )
+                )
+                : hasPermission(Permission.EXECUTE_TRANSACTION) && (
                   <button
-                    onClick={() => setReactionConfirmOpen(true)}
-                    className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
+                    onClick={() => setExecuteOpen(true)}
+                    className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] hover:bg-[#5e85ee]/90 transition-opacity"
                   >
                     <CreditCard size={14} />
-                    Re-action
+                    Execute Now
                   </button>
                 )
-              )
-              : hasPermission(Permission.EXECUTE_TRANSACTION) && (
-                <button
-                  onClick={() => setExecuteOpen(true)}
-                  className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] hover:bg-[#5e85ee]/90 transition-opacity"
-                >
-                  <CreditCard size={14} />
-                  Execute Now
-                </button>
-              )
             }
             {!isComplete && hasPermission(Permission.MODIFY_TRANSACTION) && (
               <button

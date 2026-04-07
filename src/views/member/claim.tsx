@@ -163,7 +163,7 @@ export default function ClaimPage() {
       const items = []
       while (true) {
         const data = await apis.transaction.getMyPayrollItems({
-          status: 'pending',
+          status: 'claimable',
           caipChainId: selectedChain,
           walletToken,
           page,
@@ -302,9 +302,8 @@ export default function ClaimPage() {
                   <button
                     key={chain.caipChainId}
                     onClick={() => { setSelectedChain(chain.caipChainId); setDropdownOpen(false) }}
-                    className={`w-full px-[16px] py-[10px] text-left text-[14px] leading-[22px] hover:bg-[#f5f5f5] transition-colors ${
-                      selectedChain === chain.caipChainId ? 'text-[#5e85ee] font-medium' : 'text-[#1c1c26]'
-                    }`}
+                    className={`w-full px-[16px] py-[10px] text-left text-[14px] leading-[22px] hover:bg-[#f5f5f5] transition-colors ${selectedChain === chain.caipChainId ? 'text-[#5e85ee] font-medium' : 'text-[#1c1c26]'
+                      }`}
                   >
                     {chain.name}
                   </button>

@@ -150,16 +150,7 @@ export function truncateText(value: string, maxLength: number) {
   return `${value.slice(0, Math.max(0, maxLength - 3))}...`
 }
 
-export function formatUtcDate(dateValue: string) {
-  const parsed = new Date(dateValue)
-  if (Number.isNaN(parsed.getTime())) return '--'
-
-  const year = parsed.getUTCFullYear()
-  const month = String(parsed.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(parsed.getUTCDate()).padStart(2, '0')
-
-  return `${year}/${month}/${day}`
-}
+export { formatUtcDate, formatUtcDateTime } from '@/utils/date'
 
 export function formatUtcShortDate(dateValue: string) {
   const parsed = new Date(dateValue)

@@ -13,6 +13,7 @@ import {
   EXECUTIONS_PAGE_SIZE,
   formatPlanTokenAmount,
   formatUtcDate,
+  formatUtcDateTime,
   getTransactionPlanName,
 } from './analytics-utils'
 import { AnalyticsExportButton, AnalyticsStatusBadge, AnalyticsTopBar, MessageState } from './shared'
@@ -194,7 +195,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
         name,
         membersCount: plan.items.length,
         amountLabel: `${totalAmount} ${symbol}`,
-        payDayLabel: formatUtcDate(plan.payPeriod),
+        payDayLabel: formatUtcDateTime(plan.payPeriod),
         payDayTimestamp: Number.isNaN(payDayTimestamp) ? 0 : payDayTimestamp,
         status: plan.transactionStatus,
       }

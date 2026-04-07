@@ -1,4 +1,3 @@
-import { X } from 'lucide-react'
 import { Transaction } from './types'
 
 interface ExecuteSuccessDialogContentProps {
@@ -26,12 +25,6 @@ export function ExecuteSuccessDialogContent({
       {/* Header */}
       <div className="flex items-center justify-between">
         <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">Transaction Confirmed</span>
-        <button
-          onClick={onClose}
-          className="flex items-center justify-center w-[28px] h-[28px] rounded-full hover:bg-[#f5f5f5] transition-colors"
-        >
-          <X size={16} className="text-[#606067]" />
-        </button>
       </div>
 
       {/* Success indicator */}
@@ -43,7 +36,7 @@ export function ExecuteSuccessDialogContent({
         </div>
         <div>
           <p className="text-[13px] font-medium text-[#1c1c26] leading-[22px]">Deposit Confirmed</p>
-          <p className="text-[12px] text-[#606067] leading-[20px]">Members can now claim their payments.</p>
+          <p className="text-[12px] text-[#606067] leading-[20px]">Members can claim their funds when the claim time arrives.</p>
         </div>
       </div>
 

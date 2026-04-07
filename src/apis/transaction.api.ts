@@ -214,7 +214,7 @@ export class TransactionApi {
 
   // 员工查询自己的工资明细（StealthPay，跨所有组织）
   async getMyPayrollItems(params: {
-    status?: 'pending' | 'submitted' | 'claimed' | 'failed'
+    status?: 'claimed' | 'claimable'
     page?: number
     pageSize?: number
     walletToken?: string

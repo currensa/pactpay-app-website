@@ -2,21 +2,8 @@ import { TransactionItem } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { PayrollTransactionStatus } from '@/enums/transaction'
+import { TransactionStatusBadge } from '@/components/ui/transaction-status-badge'
 import { Transaction } from './types'
-
-function getStatusBadge(status: Transaction['status']) {
-  switch (status) {
-    case PayrollTransactionStatus.READY:
-      return <Badge variant="secondary">Ready</Badge>
-    case PayrollTransactionStatus.PENDING:
-      return <Badge variant="warning">Pending</Badge>
-    case PayrollTransactionStatus.COMPLETE:
-      return <Badge variant="success">Complete</Badge>
-    default:
-      return <Badge variant="secondary">{status}</Badge>
-  }
-}
 
 interface TransactionDetailDialogContentProps {
   selectedTransaction: Transaction | null
@@ -47,7 +34,7 @@ export function TransactionDetailDialogContent({
             <Badge variant="outline" className="bg-blue-50 text-blue-700">
               {selectedTransaction.currency}
             </Badge>
-            {getStatusBadge(selectedTransaction.status)}
+            <TransactionStatusBadge status={selectedTransaction.status} />
           </div>
         </div>
 
