@@ -19,6 +19,7 @@ import { formatActivityDescription, formatActivityTime } from '@/utils/activity'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatUtcDateTime } from '@/utils/date'
 import { escapeCsvValue, formatTokenAmount, formatUtcDate } from './analytics-utils'
 import { AnalyticsExportButton, AnalyticsTopBar, MessageState } from './shared'
 
@@ -31,20 +32,7 @@ const STATUS_FILTER_OPTIONS: Array<{ value: 'all' | MemberHistoryStatus; label: 
   { value: 'deleted', label: 'Delete' },
 ]
 
-function formatUtcDateTime(dateValue: string | null | undefined) {
-  if (!dateValue) return '--'
 
-  const parsed = new Date(dateValue)
-  if (Number.isNaN(parsed.getTime())) return '--'
-
-  const year = parsed.getUTCFullYear()
-  const month = String(parsed.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(parsed.getUTCDate()).padStart(2, '0')
-  const hours = String(parsed.getUTCHours()).padStart(2, '0')
-  const minutes = String(parsed.getUTCMinutes()).padStart(2, '0')
-
-  return `${year}/${month}/${day} ${hours}:${minutes}`
-}
 
 function getDisplayName(member: Pick<MemberHistoryListItem, 'memberId' | 'showName' | 'email'>) {
   return member.showName?.trim() || member.email?.split(',')[0]?.trim() || member.memberId

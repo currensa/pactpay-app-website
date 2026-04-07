@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { Permission, useHasPermission } from '@/utils/permissions'
+import { formatUtcDateTime } from '@/utils/date'
 import { formatUnits } from 'ethers'
 import { ChevronDown, ChevronUp, ChevronsUpDown, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -128,11 +129,12 @@ export default function Transaction() {
 
   const transformTransactionPlan = (plan: TransactionPlan): Transaction => {
     const payPeriodDate = new Date(plan.payPeriod)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    payPeriodDate.setHours(0, 0, 0, 0)
+    const todayMidnight = new Date()
+    todayMidnight.setHours(0, 0, 0, 0)
+    const payPeriodMidnight = new Date(plan.payPeriod)
+    payPeriodMidnight.setHours(0, 0, 0, 0)
 
-    const diffTime = payPeriodDate.getTime() - today.getTime()
+    const diffTime = payPeriodMidnight.getTime() - todayMidnight.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
 
     const currency = getTokenSymbol(plan.caipChainId, plan.tokenAddress || '') || plan.tokenAddress || 'USDC'
@@ -148,9 +150,7 @@ export default function Transaction() {
       transactionId: plan.id,
       type: plan.transactionType,
       status,
-      executionDate: payPeriodDate
-        .toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })
-        .replace(/\//g, '/'),
+      executionDate: formatUtcDateTime(plan.payPeriod),
       daysRemaining: isComplete ? null : diffDays,
       isDueToday,
       totalAmount,

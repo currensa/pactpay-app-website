@@ -1,7 +1,7 @@
 import apis from '@/apis'
-import { Badge } from '@/components/ui/badge'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
+import { TransactionItemStatusBadge } from '@/components/ui/transaction-status-badge'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
@@ -25,11 +25,6 @@ function formatPayPeriod(iso: string) {
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
-function statusVariant(status: string): 'success' | 'warning' | 'default' {
-  if (status === 'claimed') return 'success'
-  if (status === 'pending') return 'warning'
-  return 'default'
-}
 
 interface PayrollHistoryTableProps {
   /** 传入时只查该组织数据，并隐藏 Organization 列 */
@@ -154,7 +149,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
                   {row.amount.toLocaleString()} {row.token}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+                  <TransactionItemStatusBadge status={row.status} />
                 </TableCell>
               </TableRow>
             ))
