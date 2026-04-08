@@ -56,6 +56,8 @@ export default function MemberPage(
   const [sendingInvites, setSendingInvites] = useState(false)
   const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<OrganizationMember | null>(null)
+  const [approveConfirmDialogOpen, setApproveConfirmDialogOpen] = useState(false)
+  const [memberToApprove, setMemberToApprove] = useState<OrganizationMember | null>(null)
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false)
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const batchFileInputRef = useRef<HTMLInputElement>(null)
@@ -175,10 +177,16 @@ export default function MemberPage(
   }
 
   // 处理审批
-  const handleApprove = async (member: OrganizationMember) => {
+  const handleApprove = (member: OrganizationMember) => {
+    setMemberToApprove(member)
+    setApproveConfirmDialogOpen(true)
+  }
+
+  const handleConfirmApprove = async () => {
+    if (!memberToApprove) return
     try {
-      await apis.organization.approveInvite(member.memberId)
-      setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, status: 'active' as const } : m)))
+      await apis.organization.approveInvite(memberToApprove.memberId)
+      setMembers(prev => prev.map(m => (m.id === memberToApprove.id ? { ...m, status: 'active' as const } : m)))
       toast({ title: 'Success', description: 'Member approved successfully.' })
     } catch (error: any) {
       toast({
@@ -186,6 +194,9 @@ export default function MemberPage(
         description: error?.response?.data?.message || 'Failed to approve member.',
         variant: 'destructive'
       })
+    } finally {
+      setApproveConfirmDialogOpen(false)
+      setMemberToApprove(null)
     }
   }
 
@@ -1167,6 +1178,22 @@ export default function MemberPage(
               )}
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Approve member confirmation dialog ──────────────────────────── */}
+      <Dialog open={approveConfirmDialogOpen} onOpenChange={open => { setApproveConfirmDialogOpen(open); if (!open) setMemberToApprove(null) }}>
+        <DialogContent className="max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>Please carefully verify the identity of the member you are adding.</DialogTitle>
+            <DialogDescription>
+              Due to the high anonymity of the platform, you will not receive any member information other than the nickname and avatar.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={async () => { setApproveConfirmDialogOpen(false); if (memberToApprove) await handleReject(memberToApprove); setMemberToApprove(null) }}>Reject</Button>
+            <Button onClick={handleConfirmApprove}>Confirm</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

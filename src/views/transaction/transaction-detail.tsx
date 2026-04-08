@@ -1,7 +1,7 @@
 import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
@@ -459,47 +459,43 @@ export default function TransactionDetail() {
 
       <Dialog open={reactionConfirmOpen} onOpenChange={setReactionConfirmOpen}>
         <DialogContent>
-          <div className="flex flex-col space-y-4">
-            <DialogHeader>
-              <DialogTitle>Re-action Transaction</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to create a new transaction based on this one? The original transaction will remain unchanged.
-              </DialogDescription>
-            </DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Re-action Transaction</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to create a new transaction based on this one? The original transaction will remain unchanged.
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="space-y-4 py-4">
-              <div className="bg-muted space-y-2 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Transaction Name:</span>
-                  <span className="text-sm font-medium">{plan.transactionName}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Transaction ID:</span>
-                  <span className="font-mono text-sm font-medium">{plan.id}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Members:</span>
-                  <span className="text-sm font-medium">{plan.items.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Total Amount:</span>
-                  <span className="text-sm font-medium">{totalAmountFormatted} {tokenSymbol}</span>
-                </div>
-              </div>
+          <div className="mt-[16px] bg-[#f5f5f5] rounded-[12px] p-[14px] flex flex-col gap-[10px]">
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-[#606067]">Transaction Name</span>
+              <span className="text-[13px] font-medium text-[#1c1c26]">{plan.transactionName}</span>
             </div>
-
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="outline" onClick={() => setReactionConfirmOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => {
-                setReactionConfirmOpen(false)
-                navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)
-              }}>
-                Confirm
-              </Button>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-[#606067]">Transaction ID</span>
+              <span className="font-mono text-[13px] font-medium text-[#1c1c26]">{plan.id}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-[#606067]">Members</span>
+              <span className="text-[13px] font-medium text-[#1c1c26]">{plan.items.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-[#606067]">Total Amount</span>
+              <span className="text-[13px] font-medium text-[#1c1c26]">{totalAmountFormatted} {tokenSymbol}</span>
             </div>
           </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReactionConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              setReactionConfirmOpen(false)
+              navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)
+            }}>
+              Confirm
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
