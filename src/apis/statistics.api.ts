@@ -88,6 +88,7 @@ export interface MemberHistoryListItem {
   deletedAt: string | null
   joinDate: string | null
   totalPayments: MemberHistoryTotalPayment[]
+  remark: string | null
 }
 
 export interface MemberHistoryListResponse {
@@ -115,6 +116,7 @@ export interface MemberHistoryDetailMember {
   deletedAt: string | null
   createdAt: string
   updatedAt: string
+  remark: string | null
 }
 
 export interface MemberHistoryPayoutItem {

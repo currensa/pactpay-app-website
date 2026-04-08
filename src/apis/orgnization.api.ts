@@ -57,6 +57,7 @@ export interface OrganizationMember {
   payoutIntent: PayoutIntent
   metaPub: string | null
   inviteStatus: InviteLogStatus | null
+  remark: string | null
 }
 
 export interface MembersResponse {
@@ -247,7 +248,7 @@ export class OrgnizationApi {
   }
 
   // 更新成员展示信息（管理员或本人）
-  async updateMemberProfile(orgId: string, memberId: string, payload: { showName?: string; avatarUrl?: string }) {
+  async updateMemberProfile(orgId: string, memberId: string, payload: { showName?: string; avatarUrl?: string; remark?: string }) {
     const res = await this.request.patch<OrganizationMember>(`/orgs/${orgId}/members/${memberId}/profile`, payload)
     return res.data
   }

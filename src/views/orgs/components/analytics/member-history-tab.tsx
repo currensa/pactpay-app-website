@@ -414,6 +414,11 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                             <span className="max-w-[160px] truncate text-[14px] leading-[22px] text-[#1c1c26]" title={displayName}>
                               {displayName}
                             </span>
+                            {item.remark && (
+                              <span className="max-w-[80px] truncate text-[11px] text-[#8d8d93]" title={item.remark}>
+                                ({item.remark})
+                              </span>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate text-[14px] leading-[22px] text-[#606067]" title={item.email || undefined}>
@@ -512,6 +517,11 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                 <p className="mt-[4px] max-w-[420px] truncate text-[14px] leading-[22px] text-[#606067]" title={member.email || undefined}>
                   {member.email || 'No email on record'}
                 </p>
+                {member.remark && (
+                  <p className="mt-[2px] max-w-[420px] truncate text-[13px] leading-[20px] text-[#8d8d93]" title={member.remark}>
+                    Remark: {member.remark}
+                  </p>
+                )}
                 <p className="mt-[2px] text-[13px] leading-[20px] text-[#8d8d93]">Member ID: {member.memberId}</p>
               </div>
             </div>
