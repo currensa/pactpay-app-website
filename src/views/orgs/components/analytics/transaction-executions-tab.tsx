@@ -1,6 +1,7 @@
 import apis from '@/apis'
 import type { TransactionPlansResponse } from '@/apis/transaction.api'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { TransactionStatusBadge } from '@/components/ui/transaction-status-badge'
 import { useToast } from '@/components/ui/use-toast'
 import { getStatusDisplayName, PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
@@ -12,11 +13,10 @@ import {
   escapeCsvValue,
   EXECUTIONS_PAGE_SIZE,
   formatPlanTokenAmount,
-  formatUtcDate,
   formatUtcDateTime,
   getTransactionPlanName,
 } from './analytics-utils'
-import { AnalyticsExportButton, AnalyticsStatusBadge, AnalyticsTopBar, MessageState } from './shared'
+import { AnalyticsExportButton, AnalyticsTopBar, MessageState } from './shared'
 
 function TransactionExecutionsLoadingState() {
   return (
@@ -304,7 +304,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
                     {item.amountLabel}
                   </TableCell>
                   <TableCell className="w-[160px] px-0 py-[16px]">
-                    <AnalyticsStatusBadge status={item.status} />
+                    <TransactionStatusBadge status={item.status} />
                   </TableCell>
                   <TableCell className="w-[200px] px-0 py-[16px] text-[16px] leading-[24px] text-[#1c1c26]">
                     {item.payDayLabel}

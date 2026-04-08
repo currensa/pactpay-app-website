@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
+import { TransactionStatusBadge } from '@/components/ui/transaction-status-badge'
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
-import { Permission, useHasPermission } from '@/utils/permissions'
 import { formatUtcDateTime } from '@/utils/date'
+import { Permission, useHasPermission } from '@/utils/permissions'
 import { formatUnits } from 'ethers'
 import { ChevronDown, ChevronUp, ChevronsUpDown, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -23,40 +24,7 @@ import {
 } from './components'
 import type { Transaction } from './components/types'
 
-function TransactionStatusBadge({ status }: { status: Transaction['status'] }) {
-  switch (status) {
-    case PayrollTransactionStatus.READY:
-      return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(94,133,238,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5e85ee] whitespace-nowrap">
-          Ready
-        </span>
-      )
-    case PayrollTransactionStatus.PENDING:
-      return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(255,168,0,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#ffa800] whitespace-nowrap">
-          Pending
-        </span>
-      )
-    case PayrollTransactionStatus.COMPLETE:
-      return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(93,221,34,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5ddd22] whitespace-nowrap">
-          Complete
-        </span>
-      )
-    case PayrollTransactionStatus.REFUNDED:
-      return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(0,0,0,0.06)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
-          Refunded
-        </span>
-      )
-    default:
-      return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(0,0,0,0.06)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
-          {status}
-        </span>
-      )
-  }
-}
+
 
 export default function Transaction() {
   const { toast } = useToast()

@@ -74,12 +74,20 @@ export interface GetByTransactionStatisticsParams {
 
 export type MemberHistoryStatus = 'current' | 'left' | 'deleted'
 
+export interface MemberHistoryTotalPayment {
+  caipChainId: string
+  tokenAddress: string
+  amount: string
+}
+
 export interface MemberHistoryListItem {
   memberId: string
   showName: string | null
   email: string | null
   status: MemberHistoryStatus
   deletedAt: string | null
+  joinDate: string | null
+  totalPayments: MemberHistoryTotalPayment[]
 }
 
 export interface MemberHistoryListResponse {
