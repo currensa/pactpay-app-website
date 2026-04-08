@@ -17,7 +17,7 @@ export function DeleteConfirmDialogContent({
   onConfirm,
 }: DeleteConfirmDialogContentProps) {
   return (
-    <div className="flex flex-col space-y-4">
+    <>
       <DialogHeader>
         <DialogTitle>Delete Transaction</DialogTitle>
         <DialogDescription>
@@ -26,32 +26,29 @@ export function DeleteConfirmDialogContent({
       </DialogHeader>
 
       {transactionToDelete && (
-        <div className="space-y-4 py-4">
-          {/* Transaction 摘要 */}
-          <div className="bg-muted space-y-2 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Transaction Name:</span>
-              <span className="text-sm font-medium">{transactionToDelete.name}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Transaction ID:</span>
-              <span className="font-mono text-sm font-medium">{transactionToDelete.id}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Members:</span>
-              <span className="text-sm font-medium">{transactionToDelete.members}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Total Amount:</span>
-              <span className="text-sm font-medium">
-                ${transactionToDelete.totalAmount} {transactionToDelete.currency}
-              </span>
-            </div>
+        <div className="mt-[16px] bg-[#f5f5f5] rounded-[12px] p-[14px] flex flex-col gap-[10px]">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] text-[#606067]">Transaction Name</span>
+            <span className="text-[13px] font-medium text-[#1c1c26]">{transactionToDelete.name}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] text-[#606067]">Transaction ID</span>
+            <span className="font-mono text-[13px] font-medium text-[#1c1c26]">{transactionToDelete.id}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] text-[#606067]">Members</span>
+            <span className="text-[13px] font-medium text-[#1c1c26]">{transactionToDelete.members}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] text-[#606067]">Total Amount</span>
+            <span className="text-[13px] font-medium text-[#1c1c26]">
+              ${transactionToDelete.totalAmount} {transactionToDelete.currency}
+            </span>
           </div>
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex items-center justify-end gap-[12px] mt-[24px]">
         <Button
           variant="outline"
           onClick={onCancel}
@@ -62,7 +59,7 @@ export function DeleteConfirmDialogContent({
         <Button variant="destructive" onClick={onConfirm} disabled={isDeleting}>
           {isDeleting ? (
             <>
-              <IconLoader2 className="mr-2 h-4 w-4 animate-spin" />
+              <IconLoader2 className="h-[14px] w-[14px] animate-spin" />
               Deleting...
             </>
           ) : (
@@ -70,6 +67,6 @@ export function DeleteConfirmDialogContent({
           )}
         </Button>
       </div>
-    </div>
+    </>
   )
 }

@@ -3,7 +3,7 @@ import type {
   MemberHistoryDetailResponse,
   MemberHistoryListItem,
   MemberHistoryListResponse,
-  MemberHistoryStatus,
+  MemberHistoryStatus
 } from '@/apis/statistics.api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -16,11 +16,11 @@ import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { formatActivityDescription, formatActivityTime } from '@/utils/activity'
+import { formatUtcDateTime } from '@/utils/date'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { formatUtcDateTime } from '@/utils/date'
-import { escapeCsvValue, formatTokenAmount, formatUtcDate } from './analytics-utils'
+import { escapeCsvValue, formatTokenAmount } from './analytics-utils'
 import { AnalyticsExportButton, AnalyticsTopBar, MessageState } from './shared'
 
 const PAGE_SIZE = 20
@@ -191,7 +191,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
   const navigate = useNavigate()
   const { toast } = useToast()
   const currentMember = useOrganizationStore(s => s.currentMember)
-  const { getTokenSymbol, getTokenIconUrl, getChain } = useChainAssetStore()
+  const { getTokenSymbol, getTokenIconUrl, getChain, getTokenDecimals } = useChainAssetStore()
   const activityTokenResolver = { getTokenSymbol, getTokenIconUrl, getChain }
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -377,19 +377,21 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
       <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
         <div className={cn('transition-opacity', listLoading && 'opacity-60')}>
           <div className="overflow-x-auto">
-            <Table className="min-w-[720px]">
+            <Table className="min-w-[900px]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-[280px] pl-0">Members</TableHead>
-                  <TableHead className="w-[320px]">Email</TableHead>
-                  <TableHead className="w-[120px]">Status</TableHead>
-                  <TableHead className="w-[140px] pr-0">Action</TableHead>
+                  <TableHead className="w-[220px] pl-0">Members</TableHead>
+                  <TableHead className="w-[200px]">Email</TableHead>
+                  <TableHead className="w-[130px]">Join Date</TableHead>
+                  <TableHead className="w-[180px]">Total</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
+                  <TableHead className="w-[100px] pr-0">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={4} className="px-0 py-[24px]">
+                    <TableCell colSpan={6} className="px-0 py-[24px]">
                       <div className="flex flex-col items-center justify-center gap-[10px]">
                         <img src="/empty-table.svg" alt="No member history" className="h-[120px] w-[120px]" />
                         <p className="text-[14px] leading-[22px] text-[#8d8d93]">No member history found</p>
@@ -409,13 +411,33 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                                 {getInitials(displayName)}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="max-w-[180px] truncate text-[14px] leading-[22px] text-[#1c1c26]" title={displayName}>
+                            <span className="max-w-[160px] truncate text-[14px] leading-[22px] text-[#1c1c26]" title={displayName}>
                               {displayName}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="max-w-[320px] truncate" title={item.email || undefined}>
+                        <TableCell className="max-w-[200px] truncate text-[14px] leading-[22px] text-[#606067]" title={item.email || undefined}>
                           {item.email || '--'}
+                        </TableCell>
+                        <TableCell className="text-[14px] leading-[22px] text-[#606067]">
+                          {item.joinDate ? formatUtcDateTime(item.joinDate) : '--'}
+                        </TableCell>
+                        <TableCell>
+                          {item.totalPayments.length === 0 ? (
+                            <span className="text-[14px] leading-[22px] text-[#8d8d93]">--</span>
+                          ) : (
+                            <div className="flex flex-col gap-[2px]">
+                              {item.totalPayments.map((payment, idx) => {
+                                const symbol = getTokenSymbol(payment.caipChainId, payment.tokenAddress) ?? payment.tokenAddress.slice(0, 6).toUpperCase()
+                                const decimals = getTokenDecimals(payment.caipChainId, payment.tokenAddress)
+                                return (
+                                  <span key={idx} className="text-[14px] leading-[22px] text-[#1c1c26]">
+                                    {formatTokenAmount(payment.amount, decimals)} {symbol}
+                                  </span>
+                                )
+                              })}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           <MemberHistoryStatusBadge status={item.status} />
@@ -496,9 +518,8 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
 
             <div className="grid gap-[12px] md:grid-cols-2 xl:min-w-[460px]">
               <DetailMetaItem label="Member Status" value={getMemberStatusDisplayName(member.memberStatus)} />
-              <DetailMetaItem label="Created At" value={formatUtcDateTime(member.createdAt)} />
-              <DetailMetaItem label="Updated At" value={formatUtcDateTime(member.updatedAt)} />
-              <DetailMetaItem label="Deleted At" value={formatUtcDateTime(member.deletedAt)} />
+              {member.createdAt && <DetailMetaItem label="Join date" value={formatUtcDateTime(member.createdAt)} />}
+              {member.deletedAt && <DetailMetaItem label="Leave date" value={formatUtcDateTime(member.deletedAt)} />}
             </div>
           </div>
         </div>
@@ -536,12 +557,12 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                         return (
                           <TableRow key={`${item.batchId}-${item.analyticsDate}`}>
                             <TableCell className="pl-0 text-[16px] leading-[24px] text-[#1c1c26]">
-                              {formatUtcDate(item.analyticsDate)}
+                              {formatUtcDateTime(item.analyticsDate)}
                             </TableCell>
                             <TableCell className="max-w-[320px]">
                               <Button
                                 variant="ghost"
-                                className="h-auto max-w-full justify-start px-0 py-0 text-[14px] font-normal text-[#1c1c26] hover:bg-transparent hover:text-[#5e85ee]"
+                                className="h-auto max-w-full justify-start px-0 py-0 text-[14px] font-normal text-[#5e85ee] hover:bg-transparent hover:text-[#4d69bd]"
                                 onClick={() => navigate(`/orgs/transaction/${item.batchId}`)}
                               >
                                 <span className="truncate" title={transactionLabel}>

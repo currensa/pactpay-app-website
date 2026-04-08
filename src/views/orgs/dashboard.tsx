@@ -19,7 +19,6 @@ import { Calendar, CalendarDays, Copy, CreditCard as CreditCardIcon, DollarSign,
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import MembersView from '@/views/orgs/members'
 
 interface DashboardStats {
   totalMembers: number
@@ -352,13 +351,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* 团队成员列表 */}
-      <div className="flex flex-col gap-[12px]">
-        <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[26px] text-[#1c1c26]">
-          Team Members
-        </p>
-        <MembersView showInvite={false} />
-      </div>
       {/* Execute 确认弹窗 */}
       <Dialog open={depositConfirmDialogOpen} onOpenChange={setDepositConfirmDialogOpen}>
         <DialogContent disableOutsideClose>

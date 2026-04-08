@@ -1,16 +1,17 @@
 import apis from '@/apis'
 import { TransactionPlan } from '@/apis/transaction.api'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
+import { TransactionStatusBadge } from '@/components/ui/transaction-status-badge'
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
-import { Permission, useHasPermission } from '@/utils/permissions'
 import { formatUtcDateTime } from '@/utils/date'
+import { Permission, useHasPermission } from '@/utils/permissions'
 import { formatUnits } from 'ethers'
 import { ChevronDown, ChevronUp, ChevronsUpDown, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -23,40 +24,7 @@ import {
 } from './components'
 import type { Transaction } from './components/types'
 
-function TransactionStatusBadge({ status }: { status: Transaction['status'] }) {
-  switch (status) {
-    case PayrollTransactionStatus.READY:
-      return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(94,133,238,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5e85ee] whitespace-nowrap">
-          Ready
-        </span>
-      )
-    case PayrollTransactionStatus.PENDING:
-      return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(255,168,0,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#ffa800] whitespace-nowrap">
-          Pending
-        </span>
-      )
-    case PayrollTransactionStatus.COMPLETE:
-      return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(93,221,34,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5ddd22] whitespace-nowrap">
-          Complete
-        </span>
-      )
-    case PayrollTransactionStatus.REFUNDED:
-      return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(0,0,0,0.06)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
-          Refunded
-        </span>
-      )
-    default:
-      return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(0,0,0,0.06)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
-          {status}
-        </span>
-      )
-  }
-}
+
 
 export default function Transaction() {
   const { toast } = useToast()
@@ -560,60 +528,56 @@ export default function Transaction() {
             </DialogDescription>
           </DialogHeader>
           {lastRefundTxHash && (
-            <p className="text-[13px] text-[#606067] break-all">
+            <p className="mt-[16px] text-[13px] text-[#606067] break-all">
               Tx: <span className="font-mono text-[#1c1c26]">{lastRefundTxHash}</span>
             </p>
           )}
-          <div className="flex justify-end pt-2">
+          <DialogFooter>
             <Button onClick={() => { setRefundSuccessDialogOpen(false); setRefundingTransaction(null); setLastRefundTxHash('') }}>
               Close
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={reactionConfirmDialogOpen} onOpenChange={setReactionConfirmDialogOpen}>
         <DialogContent>
-          <div className="flex flex-col space-y-4">
-            <DialogHeader>
-              <DialogTitle>Re-action Transaction</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to create a new transaction based on this one? The original transaction will remain unchanged.
-              </DialogDescription>
-            </DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Re-action Transaction</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to create a new transaction based on this one? The original transaction will remain unchanged.
+            </DialogDescription>
+          </DialogHeader>
 
-            {transactionToReaction && (
-              <div className="space-y-4 py-4">
-                <div className="bg-muted space-y-2 rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-sm">Transaction Name:</span>
-                    <span className="text-sm font-medium">{transactionToReaction.name}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-sm">Transaction ID:</span>
-                    <span className="font-mono text-sm font-medium">{transactionToReaction.id}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-sm">Members:</span>
-                    <span className="text-sm font-medium">{transactionToReaction.members}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-sm">Total Amount:</span>
-                    <span className="text-sm font-medium">
-                      ${transactionToReaction.totalAmount} {transactionToReaction.currency}
-                    </span>
-                  </div>
-                </div>
+          {transactionToReaction && (
+            <div className="mt-[16px] bg-[#f5f5f5] rounded-[12px] p-[14px] flex flex-col gap-[10px]">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-[#606067]">Transaction Name</span>
+                <span className="text-[13px] font-medium text-[#1c1c26]">{transactionToReaction.name}</span>
               </div>
-            )}
-
-            <div className="flex items-center justify-end gap-3">
-              <Button variant="outline" onClick={() => { setReactionConfirmDialogOpen(false); setTransactionToReaction(null) }}>
-                Cancel
-              </Button>
-              <Button onClick={handleConfirmReaction}>Confirm</Button>
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-[#606067]">Transaction ID</span>
+                <span className="font-mono text-[13px] font-medium text-[#1c1c26]">{transactionToReaction.id}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-[#606067]">Members</span>
+                <span className="text-[13px] font-medium text-[#1c1c26]">{transactionToReaction.members}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-[#606067]">Total Amount</span>
+                <span className="text-[13px] font-medium text-[#1c1c26]">
+                  ${transactionToReaction.totalAmount} {transactionToReaction.currency}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setReactionConfirmDialogOpen(false); setTransactionToReaction(null) }}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmReaction}>Confirm</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -23,14 +23,8 @@ import { StatusBadge } from '@/views/orgs/components/status-badge'
 import { AlertCircle, Check, CheckCircle, ChevronDown, ChevronsUpDown, ChevronUp, Copy, Download, Edit2, Plus, RefreshCw, Search, Send, Upload, X, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-
-interface MemberPageProps {
-  showInvite: boolean
-}
+import * as XLSX from 'xlsx'
 export default function MemberPage(
-  {
-    showInvite = true
-  }: MemberPageProps
 ) {
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -54,7 +48,6 @@ export default function MemberPage(
   const [inviteCode, setInviteCode] = useState('')
   const [inviteLink, setInviteLink] = useState('')
   const [emailInvites, setEmailInvites] = useState('')
-  const [emailShowName, setEmailShowName] = useState('')
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState('')
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false)
@@ -63,6 +56,8 @@ export default function MemberPage(
   const [sendingInvites, setSendingInvites] = useState(false)
   const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<OrganizationMember | null>(null)
+  const [approveConfirmDialogOpen, setApproveConfirmDialogOpen] = useState(false)
+  const [memberToApprove, setMemberToApprove] = useState<OrganizationMember | null>(null)
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false)
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const batchFileInputRef = useRef<HTMLInputElement>(null)
@@ -81,8 +76,9 @@ export default function MemberPage(
   } | null>(null)
 
   const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
+  const currentMember = useOrganizationStore(s => s.currentMember)
 
-  const pageSize = showInvite ? 20 : 3
+  const pageSize = 10
   const hasPermission = useHasPermission()
 
 
@@ -181,10 +177,16 @@ export default function MemberPage(
   }
 
   // 处理审批
-  const handleApprove = async (member: OrganizationMember) => {
+  const handleApprove = (member: OrganizationMember) => {
+    setMemberToApprove(member)
+    setApproveConfirmDialogOpen(true)
+  }
+
+  const handleConfirmApprove = async () => {
+    if (!memberToApprove) return
     try {
-      await apis.organization.approveInvite(member.memberId)
-      setMembers(prev => prev.map(m => (m.id === member.id ? { ...m, status: 'active' as const } : m)))
+      await apis.organization.approveInvite(memberToApprove.memberId)
+      setMembers(prev => prev.map(m => (m.id === memberToApprove.id ? { ...m, status: 'active' as const } : m)))
       toast({ title: 'Success', description: 'Member approved successfully.' })
     } catch (error: any) {
       toast({
@@ -192,6 +194,9 @@ export default function MemberPage(
         description: error?.response?.data?.message || 'Failed to approve member.',
         variant: 'destructive'
       })
+    } finally {
+      setApproveConfirmDialogOpen(false)
+      setMemberToApprove(null)
     }
   }
 
@@ -240,29 +245,43 @@ export default function MemberPage(
     setMemberToRemove(null)
   }
 
-  // 导出当前页成员数据：先拉模板获取表头，再按表头顺序填充成员数据
+  // 导出当前页成员数据：先拉模板获取表头，再按表头顺序填充成员数据（xlsx 格式）
   const handleExport = async () => {
     try {
-      // 1. 下载模板，解析表头
-      const { blob } = await apis.organization.getInviteImportTemplate()
-      const text = await blob.text()
-      const firstLine = text.split(/\r?\n/)[0] ?? ''
-      const headers = firstLine.split(',').map(h => h.trim().replace(/"/g, ''))
+      // 1. 下载模板，解析表头（支持 CSV / XLSX）
+      const { blob, filename } = await apis.organization.getInviteImportTemplate()
+      const isXlsx = filename?.toLowerCase().endsWith('.xlsx')
+      let headers: string[] = []
+      if (isXlsx) {
+        const arrayBuffer = await blob.arrayBuffer()
+        const templateWb = XLSX.read(arrayBuffer, { type: 'array' })
+        const templateWs = templateWb.Sheets[templateWb.SheetNames[0]]
+        const templateData = XLSX.utils.sheet_to_json<string[]>(templateWs, { header: 1 })
+        headers = (templateData[0] as string[] | undefined) ?? []
+      } else {
+        const text = await blob.text()
+        const firstLine = text.split(/\r?\n/)[0] ?? ''
+        headers = firstLine.split(',').map(h => h.trim().replace(/"/g, ''))
+      }
 
-      // 2. 直接用表头字段名从成员对象取值
-      const escape = (v: string) => `"${String(v ?? '').replace(/"/g, '""')}"`
-      const rows = [
-        headers.map(escape).join(','),
-        ...paginatedMembers.map(m => headers.map(h => escape(String((m as any)[h] ?? ''))).join(','))
-      ]
-
-      const csvBlob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(csvBlob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `members-page-${currentPage}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
+      // 2. 按表头字段取成员数据（部分字段需要从嵌套结构取值）
+      const getMemberField = (m: typeof paginatedMembers[0], field: string): string => {
+        switch (field.toLowerCase()) {
+          case 'amount': return String(m.payoutIntent?.amount ?? '')
+          case 'email': return String(m.email ?? '')
+          case 'showname': return String(m.showName ?? '')
+          case 'status': return String(m.status ?? '')
+          case 'createdat': return String(m.createdAt ?? '')
+          case 'lastpayment': return String(m.lastPayment ?? '')
+          default: return String((m as any)[field] ?? '')
+        }
+      }
+      const dataRows = paginatedMembers.map(m => headers.map(h => getMemberField(m, h)))
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows])
+      ws['!cols'] = headers.map(h => ({ wch: Math.max(20, h.length + 4) }))
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Members')
+      XLSX.writeFile(wb, `members-page-${currentPage}.xlsx`)
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -335,7 +354,6 @@ export default function MemberPage(
           description: `Invitation emails sent successfully to ${successCount} recipient(s)${failCount > 0 ? `, ${failCount} failed` : ''}`
         })
         setEmailInvites('')
-        setEmailShowName('')
         setEmailInviteDialogOpen(false)
         setPendingInvites([])
         // 刷新成员列表
@@ -431,21 +449,52 @@ export default function MemberPage(
     return { total, headers, rows }
   }
 
-  // 处理选中文件：解析 CSV 生成预览
+  // 解析 XLSX 文件生成预览
+  const parseXlsxForPreview = (arrayBuffer: ArrayBuffer) => {
+    const wb = XLSX.read(arrayBuffer, { type: 'array' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const data = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '' })
+    if (data.length < 2) return { total: 0, headers: [] as string[], rows: [] as Array<{ cells: string[]; valid: boolean }> }
+    const headers = (data[0] as string[]).map(h => String(h).trim())
+    const emailIdx = headers.findIndex(h => h.toLowerCase() === 'email')
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const dataRows = data.slice(1).filter(r => (r as string[]).some(c => String(c).trim()))
+    const rows = dataRows.map(row => {
+      const cells = (row as string[]).map(c => String(c ?? '').trim())
+      const email = emailIdx >= 0 ? (cells[emailIdx] ?? '') : ''
+      return { cells, valid: emailIdx < 0 || (!!email && emailRegex.test(email)) }
+    })
+    return { total: rows.length, headers, rows }
+  }
+
+  // 处理选中文件：解析 CSV / XLSX 生成预览
   const handleBatchFile = (file: File) => {
-    if (!file.name.endsWith('.csv')) {
-      toast({ title: 'Error', description: 'Please upload a CSV file', variant: 'destructive' })
+    const isXlsx = file.name.endsWith('.xlsx')
+    const isCsv = file.name.endsWith('.csv')
+    if (!isXlsx && !isCsv) {
+      toast({ title: 'Error', description: 'Please upload a CSV or XLSX file', variant: 'destructive' })
       return
     }
     const reader = new FileReader()
-    reader.onload = e => {
-      const { total, headers, rows } = parseCsvForPreview(e.target?.result as string)
-      setBatchTotal(total)
-      setBatchHeaders(headers)
-      setBatchPreviewRows(rows)
-      setBatchImportStep('preview')
+    if (isXlsx) {
+      reader.onload = e => {
+        const { total, headers, rows } = parseXlsxForPreview(e.target?.result as ArrayBuffer)
+        setBatchTotal(total)
+        setBatchHeaders(headers)
+        setBatchPreviewRows(rows)
+        setBatchImportStep('preview')
+      }
+      reader.readAsArrayBuffer(file)
+    } else {
+      reader.onload = e => {
+        const { total, headers, rows } = parseCsvForPreview(e.target?.result as string)
+        setBatchTotal(total)
+        setBatchHeaders(headers)
+        setBatchPreviewRows(rows)
+        setBatchImportStep('preview')
+      }
+      reader.readAsText(file)
     }
-    reader.readAsText(file)
   }
 
   // 确认批量导入：逐行调用邮件邀请接口，实时显示进度
@@ -466,7 +515,6 @@ export default function MemberPage(
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i]
       const email = emailIdx >= 0 ? (row.cells[emailIdx] ?? '') : ''
-      const name = nameIdx >= 0 ? (row.cells[nameIdx] ?? '') : ''
       const amount = amountIdx >= 0 ? (row.cells[amountIdx] ?? '') : ''
       const rowNum = batchPreviewRows.indexOf(row) + 2
 
@@ -488,26 +536,22 @@ export default function MemberPage(
     fetchMembers(currentPage)
   }
 
-  // 前端生成失败项 CSV 并下载
+  // 前端生成失败项 XLSX 并下载
   const handleDownloadErrorReport = () => {
     if (!batchResult) return
     const failedResults = batchResult.results.filter(r => !r.success)
     const headers = [...batchHeaders, 'Error']
-    const csvRows = failedResults.map(r => {
-      // API 中 row 从 2 开始（第 1 行是表头），对应 batchPreviewRows 索引 = r.row - 2
+    const dataRows = failedResults.map(r => {
       const rowData = batchPreviewRows[r.row - 2]
       const cells = rowData ? [...rowData.cells] : []
       while (cells.length < batchHeaders.length) cells.push('')
-      return [...cells, r.message || ''].map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')
+      return [...cells, r.message || '']
     })
-    const csv = [headers.map(h => `"${h}"`).join(','), ...csvRows].join('\n')
-    const blob = new Blob(['\uFEFF' + csv,], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'import-error-report.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows])
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(20, h.length + 4) }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Errors')
+    XLSX.writeFile(wb, 'import-error-report.xlsx')
   }
 
   // 内联编辑 Amount
@@ -576,7 +620,7 @@ export default function MemberPage(
     <div className="flex flex-col gap-[16px] h-full bg-white rounded-[32px] p-[20px]">
 
       {/* ── Invite Members section ─────────────────────────────────────── */}
-      {showInvite && inviteSectionOpen && (
+      {inviteSectionOpen && (
         <div className="bg-[#f5f5f5] rounded-[20px] px-[20px] pt-[16px] pb-[20px] flex flex-col gap-[16px] shrink-0">
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -598,6 +642,7 @@ export default function MemberPage(
             <div className="flex flex-1 flex-col gap-[12px] rounded-[16px] border-[0.5px] border-[rgba(0,0,0,0.1)] bg-white p-[16px]">
               <div className="flex flex-col gap-[6px]">
                 <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Organization Invitation</p>
+                <p className="text-[10px] leading-[18px] text-[#8d8d93]">Members can join the organisation automatically by signing up via an invite link, or by entering an invite code during registration.</p>
                 <div className="flex flex-col gap-[6px] rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px]">
                   {inviteCodeLoading ? (
                     <p className="text-[13px] leading-[20px] text-[#8d8d93]">Loading...</p>
@@ -630,7 +675,7 @@ export default function MemberPage(
                 className="flex w-fit items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#ebebeb] transition-colors"
               >
                 <RefreshCw className="h-[14px] w-[14px]" />
-                Regenerate
+                Deactivate and Regenerate
               </button>
             </div>
 
@@ -728,25 +773,24 @@ export default function MemberPage(
 
         {/* Right: Hide + Export */}
         <div className="flex items-center gap-[10px]">
-          {showInvite && (
-            <button
-              onClick={async () => {
-                if (!inviteSectionOpen) {
-                  setInviteSectionOpen(true)
-                  await loadInviteCode()
-                } else {
-                  setInviteSectionOpen(false)
-                }
-              }}
-              disabled={inviteCodeLoading}
-              className="flex items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
-            >
-              {inviteSectionOpen
-                ? <X className="h-[14px] w-[14px]" />
-                : <Plus className="h-[14px] w-[14px]" />}
-              {inviteSectionOpen ? 'Hide' : inviteCodeLoading ? 'Loading...' : 'Invite Members'}
-            </button>
-          )}
+
+          <button
+            onClick={async () => {
+              if (!inviteSectionOpen) {
+                setInviteSectionOpen(true)
+                await loadInviteCode()
+              } else {
+                setInviteSectionOpen(false)
+              }
+            }}
+            disabled={inviteCodeLoading}
+            className="flex items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+          >
+            {inviteSectionOpen
+              ? <X className="h-[14px] w-[14px]" />
+              : <Plus className="h-[14px] w-[14px]" />}
+            {inviteSectionOpen ? 'Hide' : inviteCodeLoading ? 'Loading...' : 'Invite Members'}
+          </button>
           <button
             onClick={handleExport}
             className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
@@ -808,7 +852,7 @@ export default function MemberPage(
                           <span className="text-[12px] font-medium text-[#5e85ee]">{member.showName?.[0]?.toUpperCase() || '?'}</span>
                         </div>
                       )}
-                      <span className="max-w-[120px] truncate">{member.showName || '—'}</span>
+                      <span className="max-w-[120px] truncate">{member.showName || '—'}</span>{member.memberId === currentMember?.memberId && <span className="shrink-0">🌟</span>}
                     </div>
                   </TableCell>
                   {/* Email */}
@@ -917,14 +961,14 @@ export default function MemberPage(
       <Dialog open={regenerateDialogOpen} onOpenChange={setRegenerateDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Regenerate Organization Invitation</DialogTitle>
+            <DialogTitle>Deactivate and Regenerate Invitation</DialogTitle>
             <DialogDescription>
-              Are you sure you want to regenerate the organization invitation? The old code and link will no longer work.
+              Are you sure? The current invite code and link will be deactivated immediately and a new one will be generated.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleConfirmRegenerate}>Regenerate</Button>
+            <Button variant="destructive" onClick={handleConfirmRegenerate}>Deactivate and Regenerate</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1018,13 +1062,13 @@ export default function MemberPage(
                 </div>
                 <div className="flex flex-col items-center gap-[2px]">
                   <p className="text-[13px] leading-[20px] text-[#1c1c26]">Click or drag to upload file</p>
-                  <p className="text-[12px] leading-[18px] text-[#8d8d93]">Supports CSV, Max 5MB</p>
+                  <p className="text-[12px] leading-[18px] text-[#8d8d93]">Supports CSV / XLSX, Max 5MB</p>
                 </div>
               </div>
               <input
                 type="file"
                 ref={batchFileInputRef}
-                accept=".csv"
+                accept=".csv,.xlsx"
                 className="hidden"
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleBatchFile(f); e.target.value = '' }}
               />
@@ -1134,6 +1178,22 @@ export default function MemberPage(
               )}
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Approve member confirmation dialog ──────────────────────────── */}
+      <Dialog open={approveConfirmDialogOpen} onOpenChange={open => { setApproveConfirmDialogOpen(open); if (!open) setMemberToApprove(null) }}>
+        <DialogContent className="max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>Please carefully verify the identity of the member you are adding.</DialogTitle>
+            <DialogDescription>
+              Due to the high anonymity of the platform, you will not receive any member information other than the nickname and avatar.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={async () => { setApproveConfirmDialogOpen(false); if (memberToApprove) await handleReject(memberToApprove); setMemberToApprove(null) }}>Reject</Button>
+            <Button onClick={handleConfirmApprove}>Confirm</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

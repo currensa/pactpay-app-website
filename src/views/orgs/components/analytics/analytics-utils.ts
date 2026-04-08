@@ -40,7 +40,7 @@ export const ANALYTICS_TABS: Array<{ id: AnalyticsTab; label: string }> = [
   { id: 'time', label: 'By Time' },
   { id: 'transaction', label: 'By Transaction' },
   { id: 'executions', label: 'Transaction Executions' },
-  { id: 'members', label: 'Member History' },
+  { id: 'members', label: 'By Member' },
 ]
 
 export const PERIOD_OPTIONS = [
