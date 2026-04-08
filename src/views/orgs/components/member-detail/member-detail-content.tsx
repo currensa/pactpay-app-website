@@ -284,6 +284,11 @@ export function MemberDetailContent({
 
             {/* Join Date — read-only */}
             <InfoRow label="Join Date" value={joinDate} />
+
+            {/* Remark — read-only display */}
+            {selectedMember.remark && (
+              <InfoRow label="Remark" value={selectedMember.remark} />
+            )}
           </div>
         </div>
 
