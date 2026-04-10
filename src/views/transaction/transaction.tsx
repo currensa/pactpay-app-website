@@ -12,6 +12,7 @@ import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { formatUtcDateTime } from '@/utils/date'
 import { Permission, useHasPermission } from '@/utils/permissions'
+import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { formatUnits } from 'ethers'
 import { ChevronDown, ChevronUp, ChevronsUpDown, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -492,6 +493,7 @@ export default function Transaction() {
           <ExecuteSuccessDialogContent
             depositTxHash={lastDepositTxHash}
             executingTransaction={depositingTransaction}
+            caipChainId={depositingTransactionPlan?.caipChainId}
             onClose={() => { setDepositSuccessDialogOpen(false); setDepositingTransaction(null); setLastDepositTxHash('') }}
           />
         </DialogContent>
@@ -527,11 +529,27 @@ export default function Transaction() {
               Your refund transaction has been submitted successfully.
             </DialogDescription>
           </DialogHeader>
-          {lastRefundTxHash && (
-            <p className="mt-[16px] text-[13px] text-[#606067] break-all">
-              Tx: <span className="font-mono text-[#1c1c26]">{lastRefundTxHash}</span>
-            </p>
-          )}
+          {lastRefundTxHash && (() => {
+            const explorerUrl = getChain(refundingTransactionPlan?.caipChainId ?? '')?.explorerUrls?.[0]
+            const txUrl = buildExplorerTransactionUrl(explorerUrl, lastRefundTxHash)
+            return (
+              <p className="mt-[16px] text-[13px] text-[#606067] break-all">
+                Tx:{' '}
+                {txUrl ? (
+                  <a
+                    href={txUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-mono text-[#5e85ee] hover:underline"
+                  >
+                    {formatTransactionHash(lastRefundTxHash, true)}
+                  </a>
+                ) : (
+                  <span className="font-mono text-[#1c1c26]">{lastRefundTxHash}</span>
+                )}
+              </p>
+            )
+          })()}
           <DialogFooter>
             <Button onClick={() => { setRefundSuccessDialogOpen(false); setRefundingTransaction(null); setLastRefundTxHash('') }}>
               Close

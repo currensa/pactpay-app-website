@@ -13,25 +13,15 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { privateKeyToAccount } from 'viem/accounts'
 
-// ─── Token icon ───────────────────────────────────────────────────────────────
+// ─── Asset icon ───────────────────────────────────────────────────────────────
 
-const TOKEN_META: Record<string, { bg: string; label: string }> = {
-  USDT: { bg: '#26a17b', label: 'T' },
-  USDC: { bg: '#2775ca', label: 'C' },
-  ETH: { bg: '#627eea', label: 'E' },
-  BNB: { bg: '#f3ba2f', label: 'B' },
-  SOL: { bg: '#9945ff', label: 'S' },
-  MATIC: { bg: '#8247e5', label: 'M' },
-}
-
-function TokenIcon({ symbol }: { symbol: string }) {
-  const meta = TOKEN_META[symbol] ?? { bg: '#8d8d93', label: (symbol[0] ?? '?').toUpperCase() }
+function AssetIcon({ iconUrl, label }: { iconUrl: string | null; label: string }) {
+  if (iconUrl) {
+    return <img src={iconUrl} alt={label} className="h-[32px] w-[32px] shrink-0 rounded-full object-cover" />
+  }
   return (
-    <div
-      className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full"
-      style={{ backgroundColor: meta.bg }}
-    >
-      <span className="text-[12px] font-bold text-white">{meta.label}</span>
+    <div className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[#8d8d93]">
+      <span className="text-[12px] font-bold text-white">{(label[0] ?? '?').toUpperCase()}</span>
     </div>
   )
 }
@@ -43,6 +33,7 @@ interface PendingToken {
   caipChainId: string
   symbol: string
   amount: number
+  iconUrl: string | null
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -65,7 +56,7 @@ export default function ClaimPage() {
   const { address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const userAction = useRef(false)
-  const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, chains } = useChainAssetStore()
+  const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, getTokenIconUrl, chains } = useChainAssetStore()
   const { setHeader, clearHeader } = useHeaderStore()
 
   const walletToken = sessionStorage.getItem('metapub-verify-token') ?? undefined
@@ -124,6 +115,7 @@ export default function ClaimPage() {
         caipChainId: item.caipChainId,
         symbol: getTokenSymbol(item.caipChainId, item.tokenAddress) ?? item.tokenAddress.slice(0, 6),
         amount: Number(item.totalAmount) / Math.pow(10, getTokenDecimals(item.caipChainId, item.tokenAddress)),
+        iconUrl: getTokenIconUrl(item.caipChainId, item.tokenAddress),
       }))
       setAllPending(tokens)
       if (tokens.length > 0 && !selectedChain) setSelectedChain(tokens[0].caipChainId)
@@ -291,9 +283,14 @@ export default function ClaimPage() {
               disabled={summaryLoading}
               className="w-full bg-[#f5f5f5] rounded-[12px] px-[16px] py-[12px] flex items-center justify-between text-[14px] leading-[22px] disabled:opacity-50 outline-none"
             >
-              <span className={selectedChainName ? 'text-[#1c1c26]' : 'text-[#bbbbbe]'}>
-                {selectedChainName || 'Select'}
-              </span>
+              {selectedChainName ? (
+                <span className="flex items-center gap-[8px] text-[#1c1c26]">
+                  <AssetIcon iconUrl={chains.find(c => c.caipChainId === selectedChain)?.iconUrl ?? null} label={selectedChainName} />
+                  {selectedChainName}
+                </span>
+              ) : (
+                <span className="text-[#bbbbbe]">Select</span>
+              )}
               <ChevronDown className="h-[20px] w-[20px] text-[#606067] shrink-0" />
             </button>
             {dropdownOpen && availableChains.length > 0 && (
@@ -302,9 +299,10 @@ export default function ClaimPage() {
                   <button
                     key={chain.caipChainId}
                     onClick={() => { setSelectedChain(chain.caipChainId); setDropdownOpen(false) }}
-                    className={`w-full px-[16px] py-[10px] text-left text-[14px] leading-[22px] hover:bg-[#f5f5f5] transition-colors ${selectedChain === chain.caipChainId ? 'text-[#5e85ee] font-medium' : 'text-[#1c1c26]'
+                    className={`w-full px-[16px] py-[10px] flex items-center gap-[8px] text-left text-[14px] leading-[22px] hover:bg-[#f5f5f5] transition-colors ${selectedChain === chain.caipChainId ? 'text-[#5e85ee] font-medium' : 'text-[#1c1c26]'
                       }`}
                   >
+                    <AssetIcon iconUrl={chain.iconUrl} label={chain.name} />
                     {chain.name}
                   </button>
                 ))}
@@ -333,7 +331,7 @@ export default function ClaimPage() {
                   className="bg-[#f5f5f5] rounded-[16px] px-[16px] py-[10px] flex items-center justify-between"
                 >
                   <div className="flex items-center gap-[6px]">
-                    <TokenIcon symbol={token.symbol} />
+                    <AssetIcon iconUrl={token.iconUrl} label={token.symbol} />
                     <p className="text-[16px] leading-[24px] text-black">{token.symbol}</p>
                   </div>
                   <p className="text-[18px] leading-[28px] font-bold text-[#1c1c26]">

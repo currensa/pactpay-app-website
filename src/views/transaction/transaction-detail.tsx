@@ -24,20 +24,9 @@ import type { Transaction } from './components/types'
 import { TransactionItemStatusBadge } from '@/components/ui/transaction-status-badge'
 import { formatUtcDateTime } from '@/utils/date'
 import { getHighestRole, Permission, useHasPermission } from '@/utils/permissions'
+import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 
 const ITEMS_PER_PAGE = 20
-
-function buildExplorerTransactionUrl(explorerUrl: string | null | undefined, txHash: string | null | undefined) {
-  const explorerBaseUrl = explorerUrl?.trim()
-  if (!explorerBaseUrl || !txHash) return null
-  return `${explorerBaseUrl.replace(/\/+$/, '')}/tx/${encodeURIComponent(txHash)}`
-}
-
-function formatTransactionHash(txHash: string | null | undefined) {
-  if (!txHash) return '-'
-  if (txHash.length <= 12) return txHash
-  return `${txHash.slice(0, 6)}...${txHash.slice(-4)}`
-}
 
 
 
@@ -449,6 +438,7 @@ export default function TransactionDetail() {
           <ExecuteSuccessDialogContent
             depositTxHash={lastTxHash}
             executingTransaction={transactionStub}
+            caipChainId={plan?.caipChainId}
             onClose={() => { setExecuteSuccessOpen(false); setLastTxHash('') }}
           />
         </DialogContent>

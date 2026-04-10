@@ -5,6 +5,8 @@ import { TransactionItemStatusBadge } from '@/components/ui/transaction-status-b
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
+import { formatUtcDateTime } from '@/utils/date'
+import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { useEffect, useState } from 'react'
 
 const PAGE_SIZE = 10
@@ -18,11 +20,9 @@ interface PayrollHistoryRow {
   amount: number
   token: string
   status: string
-}
-
-function formatPayPeriod(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+  transactionName: string | null
+  txHash: string | null
+  caipChainId: string
 }
 
 
@@ -35,7 +35,7 @@ interface PayrollHistoryTableProps {
 
 export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHistoryTableProps) {
   const { toast } = useToast()
-  const { fetchChainAssets, getTokenSymbol, getTokenDecimals } = useChainAssetStore()
+  const { fetchChainAssets, getTokenSymbol, getTokenDecimals, getChain } = useChainAssetStore()
   const { organizations, getOrganizations } = useOrganizationStore()
 
   const [rows, setRows] = useState<PayrollHistoryRow[]>([])
@@ -79,13 +79,16 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
           const token = getTokenSymbol(tx.caipChainId, tx.tokenAddress ?? '') ?? tx.tokenAddress?.slice(0, 6) ?? '—'
           return {
             id: tx.id,
-            date: formatPayPeriod(tx.payPeriod),
+            date: formatUtcDateTime(tx.payPeriod),
             orgId: tx.orgId,
             orgName: orgNameMap[tx.orgId] ?? tx.orgId,
             memberId: memberItem?.member?.memberId ?? memberId ?? '',
             amount,
             token,
             status: memberItem.status,
+            transactionName: tx.transactionName ?? null,
+            txHash: memberItem.txHash ?? null,
+            caipChainId: tx.caipChainId,
           }
         })
       )
@@ -111,16 +114,18 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
           <TableRow>
             <TableHead>Date</TableHead>
             {showOrgColumn && <TableHead>Organization</TableHead>}
+            <TableHead>Transaction</TableHead>
             <TableHead>Amount</TableHead>
+            <TableHead>Tx Hash</TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableSkeletonRows rows={5} cols={showOrgColumn ? 4 : 3} />
+            <TableSkeletonRows rows={5} cols={showOrgColumn ? 6 : 5} />
           ) : rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={showOrgColumn ? 4 : 3} className="py-[24px]">
+              <TableCell colSpan={showOrgColumn ? 6 : 5} className="py-[24px]">
                 <div className="flex flex-col items-center justify-center gap-[10px]">
                   <img src="/empty-table.svg" alt="No records" className="h-[120px] w-[120px]" />
                   <p className="text-[14px] leading-[22px] text-[#8d8d93]">No records found</p>
@@ -128,31 +133,53 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
               </TableCell>
             </TableRow>
           ) : (
-            rows.map(row => (
-              <TableRow key={row.id}>
-                <TableCell className="font-medium">{row.date}</TableCell>
-                {showOrgColumn && (
+            rows.map(row => {
+              const explorerUrl = getChain(row.caipChainId)?.explorerUrls?.[0]
+              const txUrl = buildExplorerTransactionUrl(explorerUrl, row.txHash)
+              return (
+                <TableRow key={row.id}>
+                  <TableCell className="font-medium">{row.date}</TableCell>
+                  {showOrgColumn && (
+                    <TableCell>
+                      {onOrgClick ? (
+                        <button
+                          onClick={() => onOrgClick(row.orgId, row.orgName, row.memberId)}
+                          className="text-[#5e85ee] hover:underline cursor-pointer"
+                        >
+                          {row.orgName}
+                        </button>
+                      ) : (
+                        row.orgName
+                      )}
+                    </TableCell>
+                  )}
+                  <TableCell className="text-[#606067]">
+                    {row.transactionName ?? '—'}
+                  </TableCell>
                   <TableCell>
-                    {onOrgClick ? (
-                      <button
-                        onClick={() => onOrgClick(row.orgId, row.orgName, row.memberId)}
-                        className="text-[#5e85ee] hover:underline cursor-pointer"
+                    {row.amount.toLocaleString()} {row.token}
+                  </TableCell>
+                  <TableCell>
+                    {txUrl ? (
+                      <a
+                        href={txUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-[#5e85ee] hover:underline"
+                        title={row.txHash ?? ''}
                       >
-                        {row.orgName}
-                      </button>
+                        {formatTransactionHash(row.txHash)}
+                      </a>
                     ) : (
-                      row.orgName
+                      <span className="font-mono text-[#8d8d93]">{formatTransactionHash(row.txHash)}</span>
                     )}
                   </TableCell>
-                )}
-                <TableCell>
-                  {row.amount.toLocaleString()} {row.token}
-                </TableCell>
-                <TableCell>
-                  <TransactionItemStatusBadge status={row.status} />
-                </TableCell>
-              </TableRow>
-            ))
+                  <TableCell>
+                    <TransactionItemStatusBadge status={row.status} />
+                  </TableCell>
+                </TableRow>
+              )
+            })
           )}
         </TableBody>
       </Table>

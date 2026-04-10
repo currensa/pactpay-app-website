@@ -1,8 +1,11 @@
+import useChainAssetStore from '@/stores/chain-asset'
+import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { Transaction } from './types'
 
 interface ExecuteSuccessDialogContentProps {
   depositTxHash: string
   executingTransaction: Transaction | null
+  caipChainId?: string | null
   onClose: () => void
 }
 
@@ -18,8 +21,12 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
 export function ExecuteSuccessDialogContent({
   depositTxHash,
   executingTransaction,
+  caipChainId,
   onClose,
 }: ExecuteSuccessDialogContentProps) {
+  const { getChain } = useChainAssetStore()
+  const explorerUrl = getChain(caipChainId ?? '')?.explorerUrls?.[0]
+  const txUrl = buildExplorerTransactionUrl(explorerUrl, depositTxHash)
   return (
     <div className="flex flex-col gap-[20px]">
       {/* Header */}
@@ -56,7 +63,18 @@ export function ExecuteSuccessDialogContent({
         {depositTxHash && (
           <div className="flex flex-col gap-[4px]">
             <span className="text-[13px] text-[#606067] leading-[22px]">Tx Hash</span>
-            <span className="text-[12px] text-[#1c1c26] leading-[20px] font-mono break-all">{depositTxHash}</span>
+            {txUrl ? (
+              <a
+                href={txUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[12px] text-[#5e85ee] leading-[20px] font-mono break-all hover:underline"
+              >
+                {formatTransactionHash(depositTxHash, true)}
+              </a>
+            ) : (
+              <span className="text-[12px] text-[#1c1c26] leading-[20px] font-mono break-all">{depositTxHash}</span>
+            )}
           </div>
         )}
       </div>
