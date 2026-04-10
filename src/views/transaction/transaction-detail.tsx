@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
+import useOrganizationStore from '@/stores/organization'
 import { formatUnits } from 'ethers'
 import { CreditCard, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -76,6 +77,7 @@ export default function TransactionDetail() {
   const { getTokenSymbol, getTokenDecimals, fetchChainAssets, fetchChains, getChain } = useChainAssetStore()
   const { setHeader, clearHeader } = useHeaderStore()
   const hasPermission = useHasPermission()
+  const currentMember = useOrganizationStore(s => s.currentMember)
 
   const [plan, setPlan] = useState<TransactionPlan | null>(null)
   const [loading, setLoading] = useState(true)
@@ -377,6 +379,12 @@ export default function TransactionDetail() {
                               : (item.member?.showName || '?')[0].toUpperCase()}
                           </div>
                           <span className="text-[13px] text-[#1c1c26] leading-[22px]">{item.member?.showName ?? '-'}</span>
+                          {item.member?.memberId === currentMember?.memberId && <span className="shrink-0">🌟</span>}
+                          {item.member?.remark && (
+                            <span className="max-w-[80px] truncate text-[11px] text-[#8d8d93]" title={item.member.remark}>
+                              ({item.member.remark})
+                            </span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{item.member?.email ?? '-'}</TableCell>

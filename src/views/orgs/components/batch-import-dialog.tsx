@@ -111,8 +111,8 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
   }
 
   const handleConfirmImport = async () => {
-    const emailIdx = headers.findIndex(h => h.toLowerCase() === 'email')
-    const amountIdx = headers.findIndex(h => ['fee', 'amount', 'servicefee'].includes(h.toLowerCase()))
+    const activeHeaders = headers.map((h, idx) => ({ h, idx })).filter(({ h }) => h.trim() !== '')
+    const emailIdx = activeHeaders.findIndex(({ h }) => h.toLowerCase() === 'email')
     const validRows = previewRows.filter(r => r.valid)
     if (validRows.length === 0) return
 
@@ -123,11 +123,12 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
     const results: BatchResult['results'] = []
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i]
-      const email = emailIdx >= 0 ? (row.cells[emailIdx] ?? '') : ''
-      const amount = amountIdx >= 0 ? (row.cells[amountIdx] ?? '') : ''
+      const payload: Record<string, string> = {}
+      activeHeaders.forEach(({ h, idx }) => { payload[h] = row.cells[idx] ?? '' })
+      const email = emailIdx >= 0 ? (row.cells[activeHeaders[emailIdx].idx] ?? '') : ''
       const rowNum = previewRows.indexOf(row) + 2
       try {
-        await apis.organization.sendEmailInvitation(email, amount || undefined)
+        await apis.organization.sendEmailInvitation(payload)
         results.push({ row: rowNum, email, success: true, message: '' })
       } catch (error: any) {
         results.push({ row: rowNum, email, success: false, message: error?.response?.data?.message || 'Failed' })
@@ -145,13 +146,13 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
 
   const handleDownloadErrorReport = () => {
     if (!result) return
+    const activeHeaders = headers.map((h, idx) => ({ h, idx })).filter(({ h }) => h.trim() !== '')
     const failedResults = result.results.filter(r => !r.success)
-    const hdrs = [...headers, 'Error']
+    const hdrs = [...activeHeaders.map(({ h }) => h), 'Error']
     const dataRows = failedResults.map(r => {
       const rowData = previewRows[r.row - 2]
-      const cells = rowData ? [...rowData.cells] : []
-      while (cells.length < headers.length) cells.push('')
-      return [...cells, r.message || '']
+      const activeCells = activeHeaders.map(({ idx }) => rowData ? (rowData.cells[idx] ?? '') : '')
+      return [...activeCells, r.message || '']
     })
     const ws = XLSX.utils.aoa_to_sheet([hdrs, ...dataRows])
     ws['!cols'] = hdrs.map(h => ({ wch: Math.max(20, h.length + 4) }))
@@ -212,26 +213,30 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
                   <table className="w-full border-collapse">
                     <thead className="sticky top-0">
                       <tr className="bg-[#f5f5f5] border-b border-[rgba(0,0,0,0.12)]">
-                        {headers.map((h, i) => <th key={i} className="px-[14px] py-[5px] text-left text-[11px] leading-[16px] text-[#8d8d93] font-normal whitespace-nowrap">{h}</th>)}
+                        {headers.filter(h => h.trim() !== '').map((h, i) => <th key={i} className="px-[14px] py-[5px] text-left text-[11px] leading-[16px] text-[#8d8d93] font-normal whitespace-nowrap">{h}</th>)}
                       </tr>
                     </thead>
                     <tbody>
                       {previewRows.slice(0, 10).map((row, i) => {
-                        const emailIdx = headers.findIndex(h => h.toLowerCase() === 'email')
+                        const activeHeaders = headers.map((h, idx) => ({ h, idx })).filter(({ h }) => h.trim() !== '')
+                        const emailActiveIdx = activeHeaders.findIndex(({ h }) => h.toLowerCase() === 'email')
                         return (
                           <tr key={i} className={`border-b border-[rgba(0,0,0,0.12)] last:border-b-0 ${!row.valid ? 'bg-[rgba(217,43,43,0.04)]' : ''}`}>
-                            {row.cells.map((cell, j) => (
-                              <td key={j} className="px-[14px] py-[10px] text-[13px] leading-[20px] whitespace-nowrap">
-                                {j === emailIdx && !row.valid ? (
-                                  <div className="flex items-center gap-[4px]">
-                                    <span className="text-[#d92b2b]">{cell || '—'}</span>
-                                    <AlertCircle className="h-[12px] w-[12px] text-[#d92b2b] shrink-0" />
-                                  </div>
-                                ) : (
-                                  <span className="text-[#1c1c26]">{cell || '—'}</span>
-                                )}
-                              </td>
-                            ))}
+                            {activeHeaders.map(({ idx }, j) => {
+                              const cell = row.cells[idx] ?? ''
+                              return (
+                                <td key={j} className="px-[14px] py-[10px] text-[13px] leading-[20px] whitespace-nowrap">
+                                  {j === emailActiveIdx && !row.valid ? (
+                                    <div className="flex items-center gap-[4px]">
+                                      <span className="text-[#d92b2b]">{cell || '—'}</span>
+                                      <AlertCircle className="h-[12px] w-[12px] text-[#d92b2b] shrink-0" />
+                                    </div>
+                                  ) : (
+                                    <span className="text-[#1c1c26]">{cell || '—'}</span>
+                                  )}
+                                </td>
+                              )
+                            })}
                           </tr>
                         )
                       })}

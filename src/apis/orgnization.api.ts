@@ -219,8 +219,8 @@ export class OrgnizationApi {
     return res.data
   }
   // 发送邮箱邀请
-  async sendEmailInvitation(email: string, amount?: string) {
-    const res = await this.request.post<EmailInvitationResponse>(`/orgs/${this.orgId}/invites`, { email, amount })
+  async sendEmailInvitation(payload: Record<string, string>) {
+    const res = await this.request.post<EmailInvitationResponse>(`/orgs/${this.orgId}/invites`, payload)
     return res.data
   }
   // 更新成员的支付意向（仅 amount，caipChainId 与 token 由组织发薪配置决定）

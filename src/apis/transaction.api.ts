@@ -84,6 +84,7 @@ export interface TransactionItemMember {
   updatedAt: string
   deletedAt: string | null
   lastPayment: string | null
+  remark: string | null
 }
 
 export interface TransactionItem {

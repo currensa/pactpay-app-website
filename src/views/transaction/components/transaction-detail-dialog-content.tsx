@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TransactionStatusBadge } from '@/components/ui/transaction-status-badge'
+import useOrganizationStore from '@/stores/organization'
 import { Transaction } from './types'
 
 interface TransactionDetailDialogContentProps {
@@ -15,6 +16,7 @@ export function TransactionDetailDialogContent({
   selectedTransaction,
   transactionDetailMembers,
 }: TransactionDetailDialogContentProps) {
+  const currentMember = useOrganizationStore(s => s.currentMember)
   if (!selectedTransaction) return null
 
   return (
@@ -74,7 +76,8 @@ export function TransactionDetailDialogContent({
                               ? <img src={item.member.avatarUrl} alt="" className="w-full h-full object-cover" />
                               : (item.member.showName || '?')[0]?.toUpperCase()}
                           </div>
-                          {item.member.showName}
+                          <span>{item.member.showName}</span>
+                          {item.member.memberId === currentMember?.memberId && <span className="shrink-0">🌟</span>}
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-medium">

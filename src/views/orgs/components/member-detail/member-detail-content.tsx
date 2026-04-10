@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
+import { memberStatus } from '@/enums/org'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { formatActivityDescription, formatActivityTime } from '@/utils/activity'
@@ -123,7 +124,7 @@ export function MemberDetailContent({
   const memberRoles = selectedMember.roles?.map(r => r.role) ?? []
   const targetIsOwner = memberRoles.includes('Owner' as MemberRole)
   const canEditRoles = hasPermission(Permission.SET_OPERATOR) && canManageMember(currentUserRole, memberRoles)
-  const canRemove = selectedMember.status === 'active' && hasPermission(Permission.REMOVE_MEMBER) && canManageMember(currentUserRole, memberRoles)
+  const canRemove = (selectedMember.status === memberStatus.ACTIVE || selectedMember.status === memberStatus.ACTIVATION) && hasPermission(Permission.REMOVE_MEMBER) && canManageMember(currentUserRole, memberRoles)
   const visibleRoleOptions = ROLE_OPTIONS.filter(opt =>
     getAssignableRoles(currentUserRole).includes(opt.value as MemberRole)
   )

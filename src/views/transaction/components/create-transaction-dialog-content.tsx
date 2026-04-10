@@ -62,6 +62,7 @@ export function CreateTransactionDialogContent({
   const [feePreview, setFeePreview] = useState<FeePreview | null>(null)
   const [feeLoading, setFeeLoading] = useState(false)
   const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
+  const currentMember = useOrganizationStore(s => s.currentMember)
   const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
   const getTokenSymbol = useChainAssetStore(s => s.getTokenSymbol)
 
@@ -221,7 +222,7 @@ export function CreateTransactionDialogContent({
       const member = organizationMembers.find(m => m.id === memberId)
       return {
         id: memberId,
-        member: { showName: member?.showName ?? '', memberId: member?.memberId ?? '', avatarUrl: member?.avatarUrl ?? null },
+        member: { showName: member?.showName ?? '', memberId: member?.memberId ?? '', avatarUrl: member?.avatarUrl ?? null, remark: member?.remark ?? null },
         amount: memberAmounts[memberId] || '0',
       }
     })
@@ -322,6 +323,12 @@ export function CreateTransactionDialogContent({
                           : (member.showName || '?')[0].toUpperCase()}
                       </div>
                       <span className="text-[13px] text-[#1c1c26] leading-[22px]">{member.showName || '-'}</span>
+                      {member.memberId === currentMember?.memberId && <span className="shrink-0">🌟</span>}
+                      {member.remark && (
+                        <span className="max-w-[80px] truncate text-[11px] text-[#8d8d93]" title={member.remark}>
+                          ({member.remark})
+                        </span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{member.email || '-'}</TableCell>
@@ -635,14 +642,20 @@ export function CreateTransactionDialogContent({
                   const newAmount = parseFloat(String(item.amount)) || 0
                   const hasChanged = isCreatingFromReaction && originalAmount !== undefined && parseFloat(originalAmount) !== newAmount
                   return (
-                    <div key={item.id ?? item.memberId} className="flex items-center justify-between">
+                    <div key={item.id ?? item.member.memberId} className="flex items-center justify-between">
                       <div className="flex items-center gap-[6px]">
                         <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee] overflow-hidden">
                           {item.member?.avatarUrl
                             ? <img src={item.member.avatarUrl} alt="" className="w-full h-full object-cover" />
                             : (item.member?.showName || '?')[0].toUpperCase()}
                         </div>
-                        <span className="text-[13px] text-[#1c1c26] leading-[22px] w-[110px] truncate">{item.member?.showName ?? ''}</span>
+                        <span className="text-[13px] text-[#1c1c26] leading-[22px] truncate">{item.member?.showName ?? ''}</span>
+                        {item.member?.memberId === currentMember?.memberId && <span className="shrink-0">🌟</span>}
+                        {item.member?.remark && (
+                          <span className="max-w-[100px] truncate text-[11px] text-[#8d8d93]" title={item.member.remark}>
+                            ({item.member.remark})
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-[4px]">
                         {hasChanged && (

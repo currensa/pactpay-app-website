@@ -87,7 +87,7 @@ export default function AppHeader() {
   }
 
   return (
-    <div className="flex shrink-0 items-center justify-between">
+    <div className="flex shrink-0 items-center justify-between h-[64px]">
       {/* Page title + subtitle / steps */}
       <div className="flex flex-col">
         <div className="flex items-center gap-[8px]">
