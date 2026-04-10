@@ -1,6 +1,7 @@
 import api from '@/apis'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
+import { getHighestRole } from '@/utils/permissions'
 import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
 import { IconCheck, IconCircleX, IconLoader2, IconPencil, IconX } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
@@ -37,7 +38,7 @@ export default function MemberOrgsDetail() {
       setShowName(member.showName || '')
       setAvatarUrl(member.avatarUrl || '')
       setAvatarPreview(member.avatarUrl || '')
-      setRole(member.roles?.[0]?.role || 'Member')
+      setRole(getHighestRole(member.roles))
     }).catch(console.error)
   }, [orgId])
 

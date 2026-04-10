@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSke
 import { useToast } from '@/components/ui/use-toast'
 import { getMemberStatusDisplayName, memberStatus } from '@/enums/org'
 import useOrganizationStore from '@/stores/organization'
-import { getMemberRoles, getPrimaryRole, MemberRole, Permission, useHasPermission } from '@/utils/permissions'
+import { getMemberRoles, getHighestRole, MemberRole, Permission, useHasPermission } from '@/utils/permissions'
 import type { SortDirection, SortField } from '@/views/orgs/components/member-detail'
 import { MemberDetailContent } from '@/views/orgs/components/member-detail'
 import { StatusBadge } from '@/views/orgs/components/status-badge'
@@ -430,7 +430,7 @@ export default function MemberPage() {
                   {/* Email */}
                   <TableCell className="max-w-[200px] truncate">{member.email || '—'}</TableCell>
                   {/* Role */}
-                  <TableCell>{getPrimaryRole(getMemberRoles(member)) || '—'}</TableCell>
+                  <TableCell>{getHighestRole(member.roles)}</TableCell>
                   {/* Amount */}
                   <TableCell onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-[4px]">

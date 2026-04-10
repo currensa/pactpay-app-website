@@ -374,6 +374,7 @@ export default function Dashboard() {
           <ExecuteSuccessDialogContent
             depositTxHash={lastDepositTxHash}
             executingTransaction={depositingTransaction}
+            caipChainId={depositingTransactionPlan?.caipChainId}
             onClose={() => {
               setDepositSuccessDialogOpen(false)
               setDepositingTransaction(null)
