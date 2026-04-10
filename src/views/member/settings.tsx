@@ -2,6 +2,7 @@ import api from '@/apis'
 import type { NotificationPreference, UpdateNotificationPreferencesPayload } from '@/apis/notification.api'
 import { useToast } from '@/components/ui/use-toast'
 import { getMetaPublicKey } from '@/lib/stealth-key'
+import { formatDateTime } from '@/lib/utils'
 import ChangeEmailDialog from '@/views/member/components/change-email-dialog'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
@@ -51,7 +52,7 @@ export default function MemberSettings() {
   const { toast } = useToast()
 
   const [showChangeEmail, setShowChangeEmail] = useState(false)
-  const [showUid, setShowUid] = useState(true)
+  const [showUid, setShowUid] = useState(false)
   const [showAddress, setShowAddress] = useState(false)
   const [notifications, setNotifications] = useState<NotificationSettingsState>(DEFAULT_NOTIFICATIONS)
   const [notificationsLoading, setNotificationsLoading] = useState(true)
@@ -66,7 +67,6 @@ export default function MemberSettings() {
   // Personal Token
   const [personalToken, setPersonalToken] = useState('')
   const [tokenUpdatedAt, setTokenUpdatedAt] = useState<Date | null>(null)
-  const [showToken, setShowToken] = useState(false)
   const [tokenLoading, setTokenLoading] = useState(false)
 
   useEffect(() => {
@@ -132,8 +132,7 @@ export default function MemberSettings() {
       const data = await api.auth.getMySignMessage()
       setPersonalToken(data.signMessage)
       setTokenUpdatedAt(new Date(data.updatedAt))
-      setShowToken(true)
-      toast({ description: 'Personal token generated successfully.' })
+      toast({ description: (data as any).message || 'Updated successfully!' })
     } catch (err: any) {
       toast({ description: err?.response?.data?.message || 'Failed to generate token. Please try again.', variant: 'destructive' })
     } finally {
@@ -203,7 +202,7 @@ export default function MemberSettings() {
 
             {/* Login address */}
             <div className="flex flex-col gap-[8px]">
-              <p className="text-[14px] leading-[22px] text-[#8d8d93]">Login address</p>
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">Bound Wallet Address (For login and fund claim)</p>
               <div className="flex items-center gap-[8px]">
                 <p className="text-[16px] leading-[24px] text-[#1c1c26]">
                   {walletAddress
@@ -226,53 +225,31 @@ export default function MemberSettings() {
           </div>
 
           {/* Personal Token card */}
-          <div className="w-[420px] shrink-0 bg-[rgba(94,133,238,0.08)] rounded-[20px] p-[20px] flex flex-col gap-[16px] m-[auto]">
+          <div className="w-[420px] shrink-0 bg-[rgba(94,133,238,0.08)] rounded-[20px] p-[20px] flex flex-col gap-[16px] my-[auto]">
             {/* Header */}
-            <div className="flex flex-col gap-[4px]">
+            <div className="flex flex-col gap-[8px]">
               <div className="flex items-center justify-between">
-                <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26]">Personal Token</p>
+                <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26]">Privacy Identity</p>
                 {tokenUpdatedAt && (
                   <span className="flex items-center border border-[rgba(0,0,0,0.12)] rounded-[100px] px-[10px] py-[2px] text-[12px] leading-[20px] whitespace-nowrap">
                     <span className="text-[#8d8d93]">Last updated </span>
-                    <span className="text-[#1c1c26] ml-[2px]">
-                      {tokenUpdatedAt.toLocaleDateString('zh-CN').replace(/\//g, '/')}
-                    </span>
+                    <span className="text-[#1c1c26] ml-[2px]">{formatDateTime(tokenUpdatedAt)}</span>
                   </span>
                 )}
               </div>
               <p className="text-[13px] leading-[20px] text-[#606067]">
-                This is your organization access credential. Keep it secure to avoid claim issues.
+                Update your privacy identity credential to keep your on-chain activity private. This privacy identity links your wallet to the organization without revealing your identity. Refresh it periodically for better security.
               </p>
             </div>
-
-            {/* Token display */}
-            <div className="bg-white rounded-[10px] px-[12px] py-[8px] flex items-center justify-between gap-[8px]">
-              <p className="text-[14px] font-bold leading-[22px] text-[#1c1c26] flex-1 truncate text-center">
-                {personalToken
-                  ? (showToken ? personalToken : '••••••••••')
-                  : '——'}
-              </p>
-              {personalToken && (
-                <button
-                  onClick={() => setShowToken(v => !v)}
-                  className="shrink-0 text-[#8d8d93] hover:text-[#1c1c26] transition-colors"
-                >
-                  {showToken
-                    ? <IconEye className="h-[16px] w-[16px]" />
-                    : <IconEyeOff className="h-[16px] w-[16px]" />
-                  }
-                </button>
-              )}
-            </div>
-
-            {/* Generate button */}
+            {/* Refresh button */}
             <button
               onClick={handleGenerateToken}
               disabled={tokenLoading}
-              className="w-full flex items-center justify-center gap-[6px] bg-[#5e85ee] rounded-[12px] py-[8px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+              className="flex items-center justify-center gap-[6px] w-full py-[8px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] leading-[20px] hover:opacity-90 transition-opacity disabled:opacity-60"
+              title="Refresh token"
             >
-              {tokenLoading && <IconRefresh className="h-[14px] w-[14px] animate-spin" />}
-              Generate
+              <IconRefresh className={`h-[14px] w-[14px] ${tokenLoading ? 'animate-spin' : ''}`} />
+              Refresh
             </button>
           </div>
         </div>

@@ -100,6 +100,21 @@ export function subtractAmounts(a: string, b: string, currency: string): string 
  * @param maxDecimals 最大显示小数位数（可选，默认保留全部）
  * @returns 格式化后的金额字符串
  */
+/**
+ * 格式化日期时间，精确到时分
+ * @param date Date 对象或可解析的日期字符串
+ * @returns 如 "2026/04/09 14:30"
+ */
+export function formatDateTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${year}/${month}/${day} ${hours}:${minutes}`
+}
+
 export function formatAmount(
   amount: string,
   currency: string,

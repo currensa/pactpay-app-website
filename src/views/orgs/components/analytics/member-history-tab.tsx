@@ -414,6 +414,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                             <span className="max-w-[160px] truncate text-[14px] leading-[22px] text-[#1c1c26]" title={displayName}>
                               {displayName}
                             </span>
+                            {item.memberId === currentMember?.memberId && <span className="shrink-0">🌟</span>}
                             {item.remark && (
                               <span className="max-w-[80px] truncate text-[11px] text-[#8d8d93]" title={item.remark}>
                                 ({item.remark})
