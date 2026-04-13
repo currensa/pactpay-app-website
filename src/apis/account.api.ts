@@ -75,18 +75,24 @@ export class AccountApi {
     return res.data.url
   }
 
-  async sendCurrentEmailCode(userId: string) {
+  async sendCurrentEmailCode() {
+    const userId = localStorage.getItem('userId')
+    if (!userId) throw new Error('userId is not found')
     await this.request.post(`/auth/users/${userId}/email/code`)
   }
 
-  async bindEmail(userId: string, account: string, code: string, oldCode?: string) {
+  async bindEmail(account: string, code: string, oldCode?: string) {
+    const userId = localStorage.getItem('userId')
+    if (!userId) throw new Error('userId is not found')
     const body: Record<string, string> = { account, code }
     if (oldCode) body.oldCode = oldCode
     const res = await this.request.patch<{ success: boolean }>(`/auth/users/${userId}/email`, body)
     return res.data
   }
 
-  async getUserAuths(userId: string) {
+  async getUserAuths() {
+    const userId = localStorage.getItem('userId')
+    if (!userId) throw new Error('userId is not found')
     const res = await this.request.get<{
       list: Array<{
         id: string

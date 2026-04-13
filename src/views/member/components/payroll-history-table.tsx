@@ -35,7 +35,7 @@ interface PayrollHistoryTableProps {
 
 export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHistoryTableProps) {
   const { toast } = useToast()
-  const { fetchChainAssets, getTokenSymbol, getTokenDecimals, getChain } = useChainAssetStore()
+  const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, getChain } = useChainAssetStore()
   const { organizations, getOrganizations } = useOrganizationStore()
 
   const [rows, setRows] = useState<PayrollHistoryRow[]>([])
@@ -61,7 +61,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
       setLoading(true)
       const orgs = organizations.length > 0 ? organizations : await getOrganizations()
       const orgNameMap = Object.fromEntries(orgs.map(o => [o.organization.orgId, o.organization.orgName]))
-      await fetchChainAssets()
+      await Promise.all([fetchChainAssets(), fetchChains()])
 
       const data = await apis.transaction.getMyPayrollHistory({
         ...(orgId ? { orgId } : {}),

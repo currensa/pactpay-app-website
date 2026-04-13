@@ -17,8 +17,8 @@ import useNotificationStore from '@/stores/notification'
 import useOrganizationStore from '@/stores/organization'
 import { useDisconnect } from '@reown/appkit/react'
 import { IconBell, IconLogout, IconSwitchHorizontal, IconUser } from '@tabler/icons-react'
-import { ChevronLeft } from 'lucide-react'
-import { useEffect, useMemo } from 'react'
+import { ChevronLeft, ListChecks } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 export default function AppHeader() {
@@ -28,12 +28,26 @@ export default function AppHeader() {
   const { steps, breadcrumb, backUrl } = useHeaderStore()
   const { organizations, getOrganizations, setCurrentOrg, currentMember } = useOrganizationStore()
   const { unreadCount, fetchUnreadCount } = useNotificationStore()
+  const [onboardingDismissed, setOnboardingDismissed] = useState(
+    () => localStorage.getItem('pactpay_onboarding_dismissed') === '1'
+  )
 
   const isMember = location.pathname.startsWith('/member')
   const orgId = isMember ? undefined : (localStorage.getItem('organizationId') ?? undefined)
 
   useEffect(() => {
     if (organizations.length === 0) getOrganizations().catch(() => { })
+  }, [])
+
+  useEffect(() => {
+    const onDismissed = () => setOnboardingDismissed(true)
+    const onShown = () => setOnboardingDismissed(false)
+    window.addEventListener('pactpay:onboarding-dismissed', onDismissed)
+    window.addEventListener('pactpay:show-onboarding', onShown)
+    return () => {
+      window.removeEventListener('pactpay:onboarding-dismissed', onDismissed)
+      window.removeEventListener('pactpay:show-onboarding', onShown)
+    }
   }, [])
 
   // Poll unread count every 30s
@@ -141,6 +155,15 @@ export default function AppHeader() {
 
       {/* Right: bell + user avatar */}
       <div className="flex items-center gap-[8px]">
+        {location.pathname === '/orgs/dashboard' && onboardingDismissed && (
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('pactpay:show-onboarding'))}
+            title="Getting started guide"
+            className="relative flex h-[48px] w-[48px] items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f5f5f5]"
+          >
+            <ListChecks className="h-[22px] w-[22px] text-[#1c1c26]" />
+          </button>
+        )}
         <button
           onClick={() => navigate(isMember ? '/member/notifications' : '/orgs/notifications')}
           className="relative flex h-[48px] w-[48px] items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f5f5f5]"

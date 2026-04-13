@@ -52,7 +52,7 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
   async function handleSendOldCode() {
     if (oldCodeCountdown > 0) return
     try {
-      await api.auth.sendCurrentEmailCode(userId)
+      await api.auth.sendCurrentEmailCode()
       setOldCodeCountdown(60)
     } catch {
       toast({ description: 'Failed to send code.', variant: 'destructive' })
@@ -75,10 +75,10 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
   }
 
   async function handleConfirm() {
-    if (!newEmail || !newEmailCode || !userId) return
+    if (!newEmail || !newEmailCode) return
     try {
       setLoading(true)
-      await api.auth.bindEmail(userId, newEmail, newEmailCode, mode === 'change' ? oldCode : undefined)
+      await api.auth.bindEmail(newEmail, newEmailCode, mode === 'change' ? oldCode : undefined)
       toast({ description: mode === 'change' ? 'Email changed successfully.' : 'Email bound successfully.' })
       onSuccess?.(newEmail)
       onClose()
