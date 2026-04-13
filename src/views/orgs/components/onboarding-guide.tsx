@@ -1,6 +1,6 @@
 import apis from '@/apis'
 import { Check, Zap } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 interface StepDef {
@@ -58,6 +58,9 @@ export function OnboardingGuide() {
   const [dismissed, setDismissed] = useState<boolean | null>(null) // null = loading
   const [completedSteps, setCompletedSteps] = useState<boolean[]>([false, false, false, false, false])
   const [activeStep, setActiveStep] = useState(0)
+  const [visible, setVisible] = useState(true)
+  const allDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasAutoSaved = useRef(false)
 
   useEffect(() => {
     loadGuide()
@@ -67,27 +70,54 @@ export function OnboardingGuide() {
     const handler = () => {
       apis.onboarding.patchGuide({ dismissed: false, orgId }).catch(() => {})
       setDismissed(false)
-      checkSteps()
+      setVisible(true)
+      hasAutoSaved.current = false
+      checkSteps([])
     }
     window.addEventListener('pactpay:show-onboarding', handler)
     return () => window.removeEventListener('pactpay:show-onboarding', handler)
   }, [])
 
+  // Auto-dismiss when all steps done
+  useEffect(() => {
+    if (completedSteps.every(Boolean) && !hasAutoSaved.current) {
+      hasAutoSaved.current = true
+      apis.onboarding.patchGuide({ dismissed: true, orgId }).catch(() => {})
+      allDoneTimerRef.current = setTimeout(() => {
+        startDismissAnimation()
+      }, 1200)
+    }
+    return () => {
+      if (allDoneTimerRef.current) clearTimeout(allDoneTimerRef.current)
+    }
+  }, [completedSteps])
+
+  const startDismissAnimation = () => {
+    setVisible(false)
+    setTimeout(() => {
+      setDismissed(true)
+      window.dispatchEvent(new CustomEvent('pactpay:onboarding-dismissed'))
+    }, 500)
+  }
+
   const loadGuide = async () => {
     try {
       const record = await apis.onboarding.getGuide(orgId)
       setDismissed(record.dismissed)
-      if (!record.dismissed) checkSteps()
+      if (!record.dismissed) {
+        const serverCompleted = record.completedSteps ?? []
+        await checkSteps(serverCompleted)
+      }
     } catch {
       setDismissed(false)
-      checkSteps()
+      checkSteps([])
     }
   }
 
-  const checkSteps = async () => {
+  const checkSteps = async (serverCompleted: string[]) => {
     try {
-      // Step 1: View docs — treated as always complete (no trackable signal)
-      const step1Done = true
+      // Step 1: persisted server-side (user clicked View Docs)
+      const step1Done = serverCompleted.includes('1')
 
       const payrollConfig = await apis.organization.getOrgPayrollConfig().catch(() => null)
       const step2Done = Boolean(payrollConfig)
@@ -117,10 +147,14 @@ export function OnboardingGuide() {
     }
   }
 
+  const saveCompletedSteps = (next: boolean[]) => {
+    const ids = next.map((done, i) => (done ? String(i + 1) : null)).filter(Boolean) as string[]
+    apis.onboarding.patchGuide({ completedSteps: ids, orgId }).catch(() => {})
+  }
+
   const handleDismiss = async () => {
-    setDismissed(true)
-    window.dispatchEvent(new CustomEvent('pactpay:onboarding-dismissed'))
     await apis.onboarding.patchGuide({ dismissed: true, orgId }).catch(() => {})
+    startDismissAnimation()
   }
 
   const handleStepClick = (idx: number) => {
@@ -132,6 +166,15 @@ export function OnboardingGuide() {
     const step = STEPS[activeStep]
     if (step.isExternal && step.navigateTo) {
       window.open(step.navigateTo, '_blank', 'noopener,noreferrer')
+      // Mark step 1 (idx=0) as done after clicking docs
+      setCompletedSteps(prev => {
+        const next = [...prev]
+        next[activeStep] = true
+        saveCompletedSteps(next)
+        const firstIncomplete = next.indexOf(false)
+        setActiveStep(firstIncomplete >= 0 ? firstIncomplete : next.length - 1)
+        return next
+      })
     } else if (step.navigateTo) {
       navigate(step.navigateTo)
     }
@@ -142,7 +185,13 @@ export function OnboardingGuide() {
   const activeStepDef = STEPS[activeStep]
 
   return (
-    <div className="flex gap-[20px] items-start bg-white border border-[rgba(94,133,238,0.10)] rounded-[28px] pl-[28px] pr-[20px] py-[20px] overflow-hidden">
+    <div
+      className="flex gap-[20px] items-start bg-white border border-[rgba(94,133,238,0.10)] rounded-[28px] pl-[28px] pr-[20px] py-[20px] overflow-hidden transition-all duration-500"
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(-12px)',
+      }}
+    >
       {/* Left: title + dismiss */}
       <div className="flex flex-col items-start justify-between py-[8px] self-stretch shrink-0 w-[160px]">
         <div className="flex flex-col gap-[8px]">
@@ -189,7 +238,7 @@ export function OnboardingGuide() {
               >
                 <div
                   className={[
-                    'flex items-center justify-center w-[28px] h-[28px] rounded-full shrink-0',
+                    'flex items-center justify-center w-[28px] h-[28px] rounded-full shrink-0 transition-colors duration-300',
                     isCompleted || isCurrentTask ? 'bg-[#5e85ee]' : 'bg-[rgba(0,0,0,0.10)]',
                   ].join(' ')}
                 >
