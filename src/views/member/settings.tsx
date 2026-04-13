@@ -72,7 +72,7 @@ export default function MemberSettings() {
   useEffect(() => {
     const userId = localStorage.getItem('userId')
     if (!userId) return
-    api.auth.getUserAuths(userId).then(list => {
+    api.auth.getUserAuths().then(list => {
       for (const item of list) {
         if (item.type === 'email') setEmail(item.account)
         if (item.type === 'wallet') setWalletAddress(item.account)

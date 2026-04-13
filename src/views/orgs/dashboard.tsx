@@ -8,6 +8,7 @@ import { PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { Permission, useHasPermission } from '@/utils/permissions'
+import { OnboardingGuide } from '@/views/orgs/components/onboarding-guide'
 import { TokenAmountStatCard } from '@/views/orgs/components/token-amount-stat-card'
 import {
   ExecuteConfirmDialogContent,
@@ -175,6 +176,9 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-[20px]">
+      {/* 使用引导 */}
+      <OnboardingGuide />
+
       {/* 顶部概览卡片 */}
       <div ref={dropdownRef} className="flex gap-[20px]">
         {/* Total Members */}

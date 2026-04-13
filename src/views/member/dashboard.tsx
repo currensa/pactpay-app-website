@@ -1,6 +1,7 @@
 import apis from '@/apis'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
+import { MemberOnboardingGuide } from '@/views/member/components/member-onboarding-guide'
 import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
@@ -314,6 +315,9 @@ export default function MemberDashboard() {
 
   return (
     <div className="flex flex-col gap-[24px]">
+      {/* Onboarding Guide */}
+      <MemberOnboardingGuide />
+
       {/* Summary Cards */}
       <div className="flex gap-[24px]">
         <SummaryCard

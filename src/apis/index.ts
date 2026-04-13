@@ -1,6 +1,7 @@
 import { AccountApi } from './account.api'
 import { ChainAssetApi } from './chain-asset.api'
 import { NotificationApi } from './notification.api'
+import { OnboardingApi } from './onboarding.api'
 import { OrgnizationApi } from './orgnization.api'
 import { StatisticsApi } from './statistics.api'
 import { TransactionApi } from './transaction.api'
@@ -16,4 +17,5 @@ export default {
   statistics: new StatisticsApi(request),
   notification: new NotificationApi(request),
   storage: new StorageApi(request),
+  onboarding: new OnboardingApi(request),
 }
