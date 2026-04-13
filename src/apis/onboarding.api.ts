@@ -16,7 +16,7 @@ export class OnboardingApi {
     return res.data
   }
 
-  async patchGuide(payload: { dismissed?: boolean; orgId?: string }) {
+  async patchGuide(payload: { dismissed?: boolean; orgId?: string; completedSteps?: string[] }) {
     const res = await this.request.patch<OnboardingRecord>('/onboarding', payload)
     return res.data
   }

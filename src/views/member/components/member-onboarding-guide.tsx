@@ -1,6 +1,6 @@
 import apis from '@/apis'
 import { Check, ExternalLink } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 interface StepDef {
@@ -55,30 +55,49 @@ export function MemberOnboardingGuide() {
   const navigate = useNavigate()
   const [dismissed, setDismissed] = useState<boolean | null>(null) // null = loading
   const [completedSteps, setCompletedSteps] = useState<boolean[]>([false, false, false, false, false])
+  const [visible, setVisible] = useState(true)
+  const allDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasAutoSaved = useRef(false)
 
   useEffect(() => {
     loadGuide()
   }, [])
 
+  // Auto-dismiss when all steps done
   useEffect(() => {
-    const handler = () => {
-      apis.onboarding.patchGuide({ dismissed: false }).catch(() => { })
-      setDismissed(false)
+    if (completedSteps.every(Boolean) && !hasAutoSaved.current) {
+      hasAutoSaved.current = true
+      // Save dismissal to server, then animate out
+      apis.onboarding.patchGuide({ dismissed: true }).catch(() => {})
+      allDoneTimerRef.current = setTimeout(() => {
+        startDismissAnimation()
+      }, 1200)
     }
-  }, [])
+    return () => {
+      if (allDoneTimerRef.current) clearTimeout(allDoneTimerRef.current)
+    }
+  }, [completedSteps])
+
+  const startDismissAnimation = () => {
+    setVisible(false)
+    setTimeout(() => setDismissed(true), 500)
+  }
 
   const loadGuide = async () => {
     try {
       const record = await apis.onboarding.getGuide()
       setDismissed(record.dismissed)
-      if (!record.dismissed) checkSteps()
+      if (!record.dismissed) {
+        const serverCompleted = record.completedSteps ?? []
+        await checkSteps(serverCompleted)
+      }
     } catch {
       setDismissed(false)
-      checkSteps()
+      checkSteps([])
     }
   }
 
-  const checkSteps = async () => {
+  const checkSteps = async (serverCompleted: string[]) => {
     try {
       const [orgs, metaPubStatus, summary] = await Promise.allSettled([
         apis.organization.getOrganizations(),
@@ -92,28 +111,44 @@ export function MemberOnboardingGuide() {
       const step2Done = !!Accounts.find(o => o.type === 'email')
       const step3Done = metaPubStatus.status === 'fulfilled' ? (metaPubStatus.value?.submitted ?? false) : false
       const step5Done = summary.status === 'fulfilled' ? ((summary.value?.claimed?.length ?? 0) > 0) : false
+      // Step 4 (index 3): persisted server-side only
+      const step4Done = serverCompleted.includes('4')
 
-      setCompletedSteps([step1Done, step2Done, step3Done, false, step5Done])
+      const newCompleted = [step1Done, step2Done, step3Done, step4Done, step5Done]
+      setCompletedSteps(newCompleted)
     } catch {
       // silently ignore
     }
   }
 
+  const saveCompletedSteps = (next: boolean[]) => {
+    const ids = next.map((done, i) => (done ? String(i + 1) : null)).filter(Boolean) as string[]
+    apis.onboarding.patchGuide({ completedSteps: ids }).catch(() => {})
+  }
+
   const handleDismiss = async () => {
-    setDismissed(true)
-    await apis.onboarding.patchGuide({ dismissed: true }).catch(() => { })
+    await apis.onboarding.patchGuide({ dismissed: true }).catch(() => {})
+    startDismissAnimation()
   }
 
   const handleAction = (idx: number) => {
     const step = STEPS[idx]
     if (step.isExternal && step.navigateTo) {
       window.open(step.navigateTo, '_blank', 'noopener,noreferrer')
+      // Mark step 4 (idx=3) as done after clicking
+      setCompletedSteps(prev => {
+        const next = [...prev]
+        next[idx] = true
+        saveCompletedSteps(next)
+        return next
+      })
     } else if (step.navigateTo) {
       navigate(step.navigateTo)
     } else {
       setCompletedSteps(prev => {
         const next = [...prev]
         next[idx] = true
+        saveCompletedSteps(next)
         return next
       })
     }
@@ -122,7 +157,13 @@ export function MemberOnboardingGuide() {
   if (dismissed === null || dismissed) return null
 
   return (
-    <div className="flex gap-[20px] items-start bg-white border border-[rgba(94,133,238,0.10)] rounded-[28px] pl-[28px] pr-[20px] py-[20px] overflow-hidden">
+    <div
+      className="flex gap-[20px] items-start bg-white border border-[rgba(94,133,238,0.10)] rounded-[28px] pl-[28px] pr-[20px] py-[20px] overflow-hidden transition-all duration-500"
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(-12px)',
+      }}
+    >
       {/* Left: title + dismiss */}
       <div className="flex flex-col items-start justify-between py-[8px] self-stretch shrink-0 w-[150px]">
         <div className="flex flex-col gap-[8px]">
@@ -156,7 +197,7 @@ export function MemberOnboardingGuide() {
               <div className="flex flex-col gap-[8px] w-full">
                 <div
                   className={[
-                    'flex items-center justify-center w-[28px] h-[28px] rounded-full shrink-0',
+                    'flex items-center justify-center w-[28px] h-[28px] rounded-full shrink-0 transition-colors duration-300',
                     isCompleted ? 'bg-[#5e85ee]' : 'bg-[rgba(0,0,0,0.10)]',
                   ].join(' ')}
                 >
