@@ -15,9 +15,9 @@ interface EmailLoginRequest {
 
 export interface SubmitMetaPubRequest {
   address: string
-  signMessage: string
-  signature: string
   metaPub: string
+  signMessage: string
+  metaPubSignature: string
 }
 
 export class AccountApi {
@@ -44,7 +44,7 @@ export class AccountApi {
     return res.data
   }
 
-  async getMetaPubSignMessage() {
+  async getmetaPubSignaturenMessage() {
     const res = await this.request.get<{ signMessage: string }>('/auth/meta-pub/sign-message')
     return res.data
   }
@@ -54,7 +54,7 @@ export class AccountApi {
     return res.data
   }
 
-  async verifyMetaPub(payload: { address: string; signature: string }) {
+  async verifyMetaPub(payload: { address: string; nonce: string; signature: string }) {
     const res = await this.request.post<
       { verified: true; token: string } | { verified: false; reason: string }
     >('/auth/meta-pub/verify', payload)

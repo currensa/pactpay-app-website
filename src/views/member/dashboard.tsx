@@ -277,12 +277,12 @@ export default function MemberDashboard() {
   const runClaimAll = async (provider: Provider, addr: string) => {
     try {
       setVerifying(true)
-      const { signMessage } = await apis.auth.getMySignMessage()
+      const { nonce } = await apis.auth.getNonce()
       const signature = await provider.request<string>({
         method: 'personal_sign',
-        params: [signMessage, addr],
-      }) as string
-      const result = await apis.auth.verifyMetaPub({ address: addr, signature })
+        params: [nonce, addr],
+      })
+      const result = await apis.auth.verifyMetaPub({ address: addr, nonce, signature })
       if (!result.verified) {
         toast({ title: 'Verification failed', description: result.reason, variant: 'destructive' })
         return

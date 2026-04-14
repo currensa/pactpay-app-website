@@ -96,6 +96,13 @@ export default function AppHeader() {
   async function handleLogout() {
     await disconnect()
     localStorage.removeItem('token')
+    localStorage.removeItem('userId')
+    localStorage.removeItem('authType')
+    localStorage.removeItem('authAddress')
+    localStorage.removeItem('authEmail')
+    localStorage.removeItem('organizationId')
+    localStorage.removeItem('currentMember')
+    localStorage.removeItem('pactpay_onboarding_dismissed')
     navigate('/welcome')
     window.location.reload()
   }
