@@ -178,3 +178,126 @@ HR 在交易列表页点击 **Deposit** 按钮后，前端全自动完成链上�
 | `decimals` | `chainAsset.decimals`（通过 `caipChainId + tokenAddress` 匹配） |
 | `isNative` | `chainAsset.isNative`（native 跳过 approve，附 `msg.value`） |
 | `vaultAddress` | `Chain.vaultAddress`（后端 `/api/chain-asset/chains` 返回，来自 Vault 表） |
+
+---
+
+## Transaction 模块
+
+### 交易状态机
+
+```
+ready（创建，待付款）
+  └─ [HR Execute] → pending（已链上存款，Scheduled，等待 payPeriod 到期）
+       └─ [payPeriod 到达] → complete（Claimable，员工可 claim）
+            ├─ [员工 claim] → claimed（已领取）
+            └─ [HR Refund] → refunded（退款，资金返还发起方）
+```
+
+| 枚举值 | 显示名 | 说明 |
+| --- | --- | --- |
+| `ready` | Awaiting Payment | 已创建，等待 HR Execute |
+| `pending` | Scheduled | 链上存款完成，等到 payPeriod |
+| `complete` | Claimable | 员工可领取 |
+| `claimed` | Claimed | 员工已领取 |
+| `refunded` | Refunded | B 端退款，资金已退回 |
+
+---
+
+### B 端交易列表（`src/views/transaction/transaction.tsx`）
+
+页面功能：
+
+- **搜索**：按交易名称模糊过滤（前端）
+- **状态筛选**：调用 `GET /api/transaction/:orgId` 时附 `transactionStatus` 参数（服务端过滤）
+- **排序**：Pay Day / Status 双字段前端排序（三态切换：asc → desc → 无）
+- **分页**：服务端分页，`pageSize=10`
+
+每条交易行的可用 Action（权限控制）：
+
+| 状态 | 可用 Action |
+| --- | --- |
+| `ready` / `pending` | **Execute**（需 `EXECUTE_TRANSACTION` 权限）、View Details、Delete（需 `MODIFY_TRANSACTION`） |
+| `complete` | **Create again**（需 `REACTION_TRANSACTION`）、**Refund**（有未 claim 条目时显示）、View Details |
+| `refunded` | **Re-action**（需 `REACTION_TRANSACTION`）、View Details |
+
+---
+
+### 创建发薪计划（`src/views/transaction/create-transaction.tsx`）
+
+1. HR 填写 `transactionName`、`payPeriod`，选择成员并填写金额
+2. 调用 `POST /api/transaction/:orgId/plan/fee-preview` 预览服务费
+3. 确认后调用 `POST /api/transaction/:orgId/plan` 创建计划，后端返回 `batchId`
+4. **Re-action 模式**：URL 带 `fromReaction=1&transactionId=xxx`，前端自动回填上次的成员与金额
+
+---
+
+### Execute（链上 Deposit）流程
+
+（见上方「HR 发薪 Deposit 流程」小节，入口为交易列表 Execute 按钮）
+
+Execute 成功后：
+- 弹出成功对话框，显示可点击的区块链浏览器链接（`buildExplorerTransactionUrl`）
+- 2 秒后自动刷新交易列表
+
+---
+
+### Refund 流程
+
+HR 在 `complete` 状态且存在未 claim 条目时可发起退款：
+
+```
+1. 调用合约 vault.refund(batchId) 链上退款
+      ↓
+2. 等待交易上链确认
+      ↓
+3. 后端更新状态为 refunded
+```
+
+---
+
+### C 端员工 Claim（`src/views/member/dashboard.tsx`）
+
+```
+1. 调用 GET /api/transaction/my-payroll-items（status=claimable）
+      ↓
+2. 员工选择待 claim 条目，本地用 metaPriv + ephemeralPub 恢复 stealthPriv
+      ↓
+3. 用 stealthPriv 签名 EIP-712 授权（recipient / deadline / signature）
+      ↓
+4. POST /api/transaction/claims/batch（batchClaim）
+   后端用 proof 验证 Merkle 路径并执行链上 claim
+```
+
+员工收入汇总卡片数据来自 `GET /api/transaction/my-summary`，返回：
+- `claimed`：已领取金额（按链 + token 分组）
+- `pendingClaim`：待领取金额
+- `incomeDistribution`：各组织收入占比
+
+---
+
+### 工具函数（`src/utils/transaction.ts`）
+
+| 函数 | 说明 |
+| --- | --- |
+| `buildExplorerTransactionUrl(explorerUrl, txHash)` | 拼接区块浏览器 tx 链接，缺参数返回 `null` |
+| `formatTransactionHash(txHash, full?)` | 缩略显示哈希 `0x1234...abcd`，`full=true` 返回完整串 |
+
+---
+
+### API 接口汇总（`src/apis/transaction.api.ts`）
+
+| 方法 | 端点 | 说明 |
+| --- | --- | --- |
+| `getTransactionPlans` | `GET /transaction/:orgId` | 交易计划列表（分页 + 状态过滤） |
+| `getTransactionPlanDetail` | `GET /transaction/:orgId/:id` | 单条详情 |
+| `createTransactionPlan` | `POST /transaction/:orgId/plan` | 创建发薪计划 |
+| `getFeePreview` | `POST /transaction/:orgId/plan/fee-preview` | 预览服务费 |
+| `getDepositAuth` | `GET /transaction/:orgId/batches/:batchId/deposit-auth` | 获取 depositAuthorizer EIP-712 签名 |
+| `deleteTransactionPlan` | `DELETE /transaction/:orgId/batch/:id` | 删除计划（ready 状态） |
+| `getMyPayrollItems` | `GET /transaction/my-payroll-items` | C 端员工待 claim 列表 |
+| `batchClaim` | `POST /transaction/claims/batch` | C 端批量 claim |
+| `getMySummary` | `GET /transaction/my-summary` | C 端收入汇总 |
+| `getMyPayrollHistory` | `GET /transaction/my-payroll-history` | C 端历史工资记录 |
+| `getMemberPaymentStatistics` | `GET /transaction/:orgId/members/:memberId/payment-statistics` | B 端查成员支付统计 |
+| `getMemberPayrollHistory` | `GET /transaction/:orgId/members/:memberId/payroll-history` | B 端查成员历史工资 |
+| `getReadyToExecuteTodayList` | `GET /transaction/:orgId`（今日 ready） | Dashboard 今日待执行列表 |

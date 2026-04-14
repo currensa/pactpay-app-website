@@ -1,13 +1,13 @@
 import api from '@/apis'
 import type { NotificationPreference, UpdateNotificationPreferencesPayload } from '@/apis/notification.api'
 import { useToast } from '@/components/ui/use-toast'
-import { getMetaPublicKey } from '@/lib/stealth-key'
+import { prepareMetaPubSubmission } from '@/lib/meta-pub'
 import { formatDateTime } from '@/lib/utils'
+import useAuthStore from '@/stores/auth'
 import ChangeEmailDialog from '@/views/member/components/change-email-dialog'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconChevronDown, IconEye, IconEyeOff, IconRefresh } from '@tabler/icons-react'
-import { ethers } from 'ethers'
 import { useEffect, useState } from 'react'
 
 const LANGUAGES = ['English']
@@ -50,6 +50,7 @@ export default function MemberSettings() {
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const { toast } = useToast()
+  const setMetaPub = useAuthStore(s => s.setMetaPub)
 
   const [showChangeEmail, setShowChangeEmail] = useState(false)
   const [showUid, setShowUid] = useState(false)
@@ -114,21 +115,15 @@ export default function MemberSettings() {
     }
     setTokenLoading(true)
     try {
-      // Step 1: get signMessage from server
-      const { signMessage } = await api.auth.getMetaPubSignMessage()
+      const { metaPub, signMessage, metaPubSignature } = await prepareMetaPubSubmission(
+        walletProvider,
+        address,
+        (msg) => toast({ description: msg }),
+      )
+      await api.auth.submitMetaPub({ address, metaPub, signMessage, metaPubSignature })
+      setMetaPub(metaPub)
 
-      // Step 2: sign → derive metaPriv → derive metaPub
-      const signature = await walletProvider.request<string>({
-        method: 'personal_sign',
-        params: [signMessage, address]
-      })
-      const metaPriv = ethers.keccak256(ethers.getBytes(signature))
-      const metaPub = getMetaPublicKey(metaPriv)
-
-      // Step 3: submit
-      await api.auth.submitMetaPub({ address, signMessage, signature, metaPub })
-
-      // Step 4: fetch updated token
+      // fetch updated token
       const data = await api.auth.getMySignMessage()
       setPersonalToken(data.signMessage)
       setTokenUpdatedAt(new Date(data.updatedAt))

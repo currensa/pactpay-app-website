@@ -1,10 +1,9 @@
 import api from '@/apis'
+import { prepareMetaPubSubmission } from '@/lib/meta-pub'
 import useAuthStore from '@/stores/auth'
-import { getMetaPublicKey } from '@/lib/stealth-key'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconLoader2, IconWallet } from '@tabler/icons-react'
-import { ethers } from 'ethers'
 import { useEffect, useState } from 'react'
 
 interface BindWalletProps {
@@ -17,10 +16,12 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [step, setStep] = useState('')
   const [checking, setChecking] = useState(true)
   const metaPubSubmitted = useAuthStore(s => s.metaPubSubmitted)
   const checkMetaPub = useAuthStore(s => s.checkMetaPub)
   const setMetaPubSubmitted = useAuthStore(s => s.setMetaPubSubmitted)
+  const setMetaPub = useAuthStore(s => s.setMetaPub)
 
   // Guard: if wallet already bound, skip this step
   useEffect(() => {
@@ -54,14 +55,13 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
     setError('')
     setLoading(true)
     try {
-      const { signMessage } = await api.auth.getMetaPubSignMessage()
-      const signature = await walletProvider.request<string>({
-        method: 'personal_sign',
-        params: [signMessage, address],
-      })
-      const metaPriv = ethers.keccak256(ethers.getBytes(signature))
-      const metaPub = getMetaPublicKey(metaPriv)
-      await api.auth.submitMetaPub({ address, signMessage, signature, metaPub })
+      const { metaPub, signMessage, metaPubSignature } = await prepareMetaPubSubmission(
+        walletProvider,
+        address,
+        setStep,
+      )
+      await api.auth.submitMetaPub({ address, metaPub, signMessage, metaPubSignature })
+      setMetaPub(metaPub)
       setMetaPubSubmitted(true)
       onSuccess()
     } catch (err: any) {
@@ -121,6 +121,9 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
             <span className="text-[14px] leading-[22px] text-[#1c1c26]">{shortAddress}</span>
           </div>
         )}
+
+        {/* Step hint */}
+        {step && !error && <p className="text-[13px] leading-[20px] text-[#606067]">{step}</p>}
 
         {/* Error */}
         {error && <p className="text-[13px] leading-[20px] text-[#d92b2b]">{error}</p>}
