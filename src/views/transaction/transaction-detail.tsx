@@ -21,43 +21,16 @@ import {
 } from './components'
 import type { Transaction } from './components/types'
 
-import { TransactionItemStatusBadge } from '@/components/ui/transaction-status-badge'
 import { formatUtcDateTime } from '@/utils/date'
 import { getHighestRole, Permission, useHasPermission } from '@/utils/permissions'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
+import { TransactionItemStatusBadge, TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
 
 const ITEMS_PER_PAGE = 20
 
 
 
-function StatusBadge({ status }: { status: string }) {
-  if (status === PayrollTransactionStatus.COMPLETE) {
-    return (
-      <span className="inline-flex items-center rounded-[8px] bg-[rgba(93,221,34,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5ddd22] whitespace-nowrap">
-        Complete
-      </span>
-    )
-  }
-  if (status === PayrollTransactionStatus.PENDING) {
-    return (
-      <span className="inline-flex items-center rounded-[8px] bg-[rgba(255,168,0,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#ffa800] whitespace-nowrap">
-        Pending
-      </span>
-    )
-  }
-  if (status === PayrollTransactionStatus.REFUNDED) {
-    return (
-      <span className="inline-flex items-center rounded-[8px] bg-[rgba(0,0,0,0.06)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
-        Refunded
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center rounded-[8px] bg-[rgba(94,133,238,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5e85ee] whitespace-nowrap">
-      Ready
-    </span>
-  )
-}
+
 
 export default function TransactionDetail() {
   const { id } = useParams<{ id: string }>()
@@ -145,12 +118,12 @@ export default function TransactionDetail() {
 
   const refundedAmountFormatted = (() => {
     try {
-      const allPending = plan.items.every(item => item.status === 'pending')
+      const allPending = plan.items.every(item => item.status === 'refunded')
       if (allPending) return totalAmountFormatted
-      const total = plan.items
-        .filter(item => item.status === 'pending')
+      const totalRefunded = plan.items
+        .filter(item => item.status === 'refunded')
         .reduce((sum, item) => sum + BigInt(item.amount ?? '0'), BigInt(0))
-      return parseFloat(formatUnits(total, decimals)).toLocaleString()
+      return parseFloat(formatUnits(totalRefunded, decimals)).toLocaleString()
     } catch { return '0' }
   })()
 
@@ -207,7 +180,7 @@ export default function TransactionDetail() {
             {/* Status badge + transaction name */}
             <div className="relative flex items-center gap-[10px] pl-[12px]">
               <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-[4px] h-[22px] rounded-full ${isComplete ? 'bg-[#5ddd22]' : isRefunded ? 'bg-[#606067]' : 'bg-[#5e85ee]'}`} />
-              <StatusBadge status={plan.transactionStatus} />
+              <TransactionStatusBadge status={plan.transactionStatus} />
               <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">{plan.transactionName}</span>
             </div>
             {/* Meta row */}

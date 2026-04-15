@@ -1,9 +1,11 @@
+import { PayrollTransactionStatus } from "@/enums/transaction"
+
 export interface Transaction {
   id: string
   name: string
   transactionId: string
   type: string
-  status: 'ready' | 'pending' | 'complete' | 'claimed' | 'refunded'
+  status: PayrollTransactionStatus
   executionDate: string
   daysRemaining: number | null
   isDueToday: boolean

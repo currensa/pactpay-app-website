@@ -1,3 +1,4 @@
+import { PayrollItemStatus, PayrollTransactionStatus } from '@/enums/transaction'
 import { AxiosInstance } from 'axios'
 import { MemberRole } from './orgnization.api'
 
@@ -14,7 +15,7 @@ export interface StealthPayrollItem {
   leaf: string
   recipient: string | null
   fee: string | null
-  status: 'pending' | 'submitted' | 'claimed' | 'failed'
+  status: PayrollItemStatus
   txHash: string | null
   createdAt: string
   updatedAt: string
@@ -90,7 +91,7 @@ export interface TransactionItemMember {
 export interface TransactionItem {
   amount: string
   id:string
-  status:string
+  status:PayrollItemStatus
   txHash:string
   member: TransactionItemMember
 }
@@ -103,7 +104,7 @@ export interface TransactionPlan {
   transactionType: string
   /** 所有 item（含服务费）金额之和，token 最小单位字符串 */
   totalAmount: string
-  transactionStatus: string
+  transactionStatus: PayrollTransactionStatus
   payPeriod: string
   merkleRoot?: string
   tokenAddress?: string

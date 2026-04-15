@@ -1,3 +1,10 @@
+export enum OrganizationMemberRole {
+  OWNER = 'Owner',
+  ADMIN = 'Admin',
+  OPERATOR = 'Operator',
+  MEMBER = 'Member',
+}
+
 export enum memberStatus {
   REVIEW  = 'pending_review',
   ACTIVATION = 'pending_activation',

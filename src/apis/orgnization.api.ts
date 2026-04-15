@@ -198,6 +198,7 @@ export class OrgnizationApi {
     page?: number
     pageSize?: number
     status?: OrganizationMember['status']
+    role?: 'Owner' | 'Admin' | 'Operator' | 'Member'
     keyword?: string
     sortBy?: 'showName' | 'amount' | 'status' | 'createdAt' | 'lastPayment'
     sortOrder?: 'asc' | 'desc'

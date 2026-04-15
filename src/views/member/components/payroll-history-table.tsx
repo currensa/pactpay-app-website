@@ -1,12 +1,12 @@
 import apis from '@/apis'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
-import { TransactionItemStatusBadge } from '@/components/ui/transaction-status-badge'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { formatUtcDateTime } from '@/utils/date'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
+import { TransactionItemStatusBadge } from '@/views/transaction/components/transaction-status-badge'
 import { useEffect, useState } from 'react'
 
 const PAGE_SIZE = 10

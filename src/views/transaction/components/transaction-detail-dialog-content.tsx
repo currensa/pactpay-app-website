@@ -2,8 +2,8 @@ import { TransactionItem } from '@/apis/transaction.api'
 import { Badge } from '@/components/ui/badge'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { TransactionStatusBadge } from '@/components/ui/transaction-status-badge'
 import useOrganizationStore from '@/stores/organization'
+import { TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
 import { Transaction } from './types'
 
 interface TransactionDetailDialogContentProps {

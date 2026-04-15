@@ -295,7 +295,6 @@ export function buildAmountTrend(
 export function formatStatusLabel(status: string) {
   switch (status) {
     case PayrollTransactionStatus.COMPLETE:
-    case PayrollTransactionStatus.PENDING:
     case PayrollTransactionStatus.READY:
       return getStatusDisplayName(status)
     default:

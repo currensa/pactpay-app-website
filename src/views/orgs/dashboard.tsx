@@ -2,7 +2,6 @@ import apis from '@/apis'
 import type { TokenAmount } from '@/apis/statistics.api'
 import { TransactionListItem, TransactionPlan } from '@/apis/transaction.api'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
-import { TransactionStatusBadge } from '@/components/ui/transaction-status-badge'
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
@@ -14,6 +13,7 @@ import {
   ExecuteConfirmDialogContent,
   ExecuteSuccessDialogContent,
 } from '@/views/transaction/components'
+import { TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
 import type { Transaction } from '@/views/transaction/components/types'
 import { formatUnits } from 'ethers'
 import { Calendar, CalendarDays, Copy, CreditCard as CreditCardIcon, DollarSign, Globe2, Users } from 'lucide-react'
