@@ -14,16 +14,16 @@ import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
-import { getMemberStatusDisplayName, memberStatus } from '@/enums/org'
+import { getMemberStatusDisplayName, memberStatus, OrganizationMemberRole } from '@/enums/org'
 import useOrganizationStore from '@/stores/organization'
-import { getMemberRoles, getHighestRole, MemberRole, Permission, useHasPermission } from '@/utils/permissions'
+import { getHighestRole, Permission, useHasPermission } from '@/utils/permissions'
+import { BatchImportDialog } from '@/views/orgs/components/batch-import-dialog'
+import { InviteSection } from '@/views/orgs/components/invite-section'
 import type { SortDirection, SortField } from '@/views/orgs/components/member-detail'
 import { MemberDetailContent } from '@/views/orgs/components/member-detail'
 import { StatusBadge } from '@/views/orgs/components/status-badge'
-import { BatchImportDialog } from '@/views/orgs/components/batch-import-dialog'
-import { InviteSection } from '@/views/orgs/components/invite-section'
 import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Download, Edit2, Plus, Search, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 
@@ -42,7 +42,7 @@ export default function MemberPage() {
   // ── Filter / sort state ──────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState<MemberRole | 'All'>('All')
+  const [roleFilter, setRoleFilter] = useState<OrganizationMemberRole | 'All'>('All')
   const [statusFilter, setStatusFilter] = useState<memberStatus | 'All'>('All')
   const [sortField, setSortField] = useState<SortField>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
@@ -87,6 +87,7 @@ export default function MemberPage() {
       const res = await apis.organization.getOrganizationMembers({
         page, pageSize,
         keyword: debouncedSearch || undefined,
+        role: roleFilter !== 'All' ? roleFilter : undefined,
         status: statusFilter !== 'All' ? statusFilter : undefined,
         sortBy: toApiSortBy(sortField),
         sortOrder: sortDirection ?? undefined,
@@ -111,18 +112,12 @@ export default function MemberPage() {
   useEffect(() => {
     if (!inited) return
     setCurrentPage(1); fetchMembers(1)
-  }, [debouncedSearch, statusFilter, sortField, sortDirection])
+  }, [debouncedSearch, roleFilter, statusFilter, sortField, sortDirection])
 
   useEffect(() => {
     if (!inited) return
     fetchMembers(currentPage)
   }, [currentPage])
-
-  // ── Derived ───────────────────────────────────────────────────────────
-  const paginatedMembers = useMemo(() => {
-    if (roleFilter === 'All') return members
-    return members.filter(m => getMemberRoles(m).includes(roleFilter as MemberRole))
-  }, [members, roleFilter])
 
   const totalPages = Math.ceil(total / pageSize)
 
@@ -194,7 +189,7 @@ export default function MemberPage() {
         const text = await blob.text()
         headers = (text.split(/\r?\n/)[0] ?? '').split(',').map(h => h.trim().replace(/"/g, ''))
       }
-      const getMemberField = (m: typeof paginatedMembers[0], field: string): string => {
+      const getMemberField = (m: typeof members[0], field: string): string => {
         switch (field.toLowerCase()) {
           case 'amount': return String(m.payoutIntent?.amount ?? '')
           case 'email': return String(m.email ?? '')
@@ -205,7 +200,7 @@ export default function MemberPage() {
           default: return String((m as any)[field] ?? '')
         }
       }
-      const dataRows = paginatedMembers.map(m => headers.map(h => getMemberField(m, h)))
+      const dataRows = members.map(m => headers.map(h => getMemberField(m, h)))
       const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows])
       ws['!cols'] = headers.map(h => ({ wch: Math.max(20, h.length + 4) }))
       const wb = XLSX.utils.book_new()
@@ -262,7 +257,7 @@ export default function MemberPage() {
     return <ChevronsUpDown className="h-[14px] w-[14px] text-[#8d8d93]" />
   }
 
-  const ROLES: Array<MemberRole | 'All'> = ['All', 'Owner', 'Admin', 'Operator', 'Member']
+  const ROLES: Array<OrganizationMemberRole | 'All'> = ['All', OrganizationMemberRole.OWNER, OrganizationMemberRole.ADMIN, OrganizationMemberRole.OPERATOR, OrganizationMemberRole.MEMBER]
   const STATUSES: Array<memberStatus | 'All'> = ['All', memberStatus.ACTIVE, memberStatus.ACTIVATION, memberStatus.REVIEW]
 
   return (
@@ -314,7 +309,7 @@ export default function MemberPage() {
           <div className="relative">
             <button
               onClick={() => { setStatusDropdownOpen(v => !v); setRoleDropdownOpen(false) }}
-              className="flex h-[36px] w-[120px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]"
+              className="flex h-[36px] w-[160px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]"
             >
               <span className={`text-[13px] leading-[20px] ${statusFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
                 {statusFilter === 'All' ? 'Status' : getMemberStatusDisplayName(statusFilter as memberStatus)}
@@ -382,7 +377,7 @@ export default function MemberPage() {
           <TableBody>
             {loading ? (
               <TableSkeletonRows rows={5} cols={7} />
-            ) : paginatedMembers.length === 0 ? (
+            ) : members.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7}>
                   <div className="flex flex-col items-center justify-center gap-[10px] py-[24px]">
@@ -392,7 +387,7 @@ export default function MemberPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedMembers.map(member => (
+              members.map(member => (
                 <TableRow key={member.id} className="cursor-pointer" onClick={() => { setSelectedMember(member); setDrawerOpen(true) }}>
                   {/* Member */}
                   <TableCell onClick={e => e.stopPropagation()}>

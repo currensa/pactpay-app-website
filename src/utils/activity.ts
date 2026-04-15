@@ -23,6 +23,8 @@ export function formatActivityDescription(log: ActivityLogLike, resolver?: Activ
     }
     case 'member.removed':
       return 'Removed from organization'
+    case 'member.leaved':
+      return 'Leave the organization'
     case 'member.rejected':
       return 'Join request rejected'
     case 'member.status_changed': {

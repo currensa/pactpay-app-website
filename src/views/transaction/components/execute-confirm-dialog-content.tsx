@@ -1,14 +1,13 @@
 import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
-import { PayrollTransactionStatus } from '@/enums/transaction'
 import { erc20Abi, vaultAbi } from '@/lib/vault-abi'
 import useChainAssetStore from '@/stores/chain-asset'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { useEffect, useState } from 'react'
 import { createPublicClient, createWalletClient, custom, http, type Hex } from 'viem'
+import { TransactionStatusBadge } from './transaction-status-badge'
 import type { Transaction } from './types'
-
 const ETH_SENTINEL = '0x0000000000000000000000000000000000000000' as Hex
 
 type DepositStatus = 'idle' | 'connecting' | 'authorizing' | 'checking' | 'approving' | 'depositing' | 'done' | 'error'
@@ -31,27 +30,6 @@ interface ExecuteConfirmDialogContentProps {
   onSuccess: (txHash: string) => void
 }
 
-function StatusBadge({ status }: { status: string }) {
-  if (status === PayrollTransactionStatus.COMPLETE) {
-    return (
-      <span className="inline-flex items-center rounded-[8px] bg-[rgba(93,221,34,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5ddd22] whitespace-nowrap">
-        Complete
-      </span>
-    )
-  }
-  if (status === PayrollTransactionStatus.PENDING) {
-    return (
-      <span className="inline-flex items-center rounded-[8px] bg-[rgba(255,168,0,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#ffa800] whitespace-nowrap">
-        Pending
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center rounded-[8px] bg-[rgba(94,133,238,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5e85ee] whitespace-nowrap">
-      Ready
-    </span>
-  )
-}
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -207,7 +185,7 @@ export function ExecuteConfirmDialogContent({
           <InfoRow label="Network">{executingTransaction.network}</InfoRow>
           <div className="flex items-center justify-between">
             <span className="text-[14px] leading-[22px] text-[#606067]">Status</span>
-            <StatusBadge status={executingTransaction.status} />
+            <TransactionStatusBadge status={executingTransaction.status} />
           </div>
           <InfoRow label="Total Amount">
             {executingTransaction.totalAmount} {executingTransaction.currency}

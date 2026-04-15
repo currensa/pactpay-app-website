@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
-import { TransactionStatusBadge } from '@/components/ui/transaction-status-badge'
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import { cn } from '@/lib/utils'
@@ -13,6 +12,7 @@ import useOrganizationStore from '@/stores/organization'
 import { formatUtcDateTime } from '@/utils/date'
 import { Permission, useHasPermission } from '@/utils/permissions'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
+import { TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
 import { formatUnits } from 'ethers'
 import { ChevronDown, ChevronUp, ChevronsUpDown, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -97,7 +97,6 @@ export default function Transaction() {
   }, [fetchChainAssets, fetchChains, fetchPayrollTokenSymbol])
 
   const transformTransactionPlan = (plan: TransactionPlan): Transaction => {
-    const payPeriodDate = new Date(plan.payPeriod)
     const todayMidnight = new Date()
     todayMidnight.setHours(0, 0, 0, 0)
     const payPeriodMidnight = new Date(plan.payPeriod)
@@ -243,10 +242,9 @@ export default function Transaction() {
       }
       if (sortField === 'status') {
         const order: Record<string, number> = {
-          [PayrollTransactionStatus.PENDING]: 0,
-          [PayrollTransactionStatus.READY]: 1,
-          [PayrollTransactionStatus.COMPLETE]: 2,
-          [PayrollTransactionStatus.REFUNDED]: 3,
+          [PayrollTransactionStatus.READY]: 0,
+          [PayrollTransactionStatus.COMPLETE]: 1,
+          [PayrollTransactionStatus.REFUNDED]: 2,
         }
         const diff = (order[a.status] ?? 99) - (order[b.status] ?? 99)
         return sortDirection === 'asc' ? diff : -diff
@@ -270,7 +268,6 @@ export default function Transaction() {
   const STATUS_OPTIONS = [
     { value: 'all', label: 'All Statuses' },
     { value: PayrollTransactionStatus.READY, label: 'Ready' },
-    { value: PayrollTransactionStatus.PENDING, label: 'Pending' },
     { value: PayrollTransactionStatus.COMPLETE, label: 'Complete' },
     { value: PayrollTransactionStatus.REFUNDED, label: 'Refunded' },
   ]
@@ -370,7 +367,6 @@ export default function Transaction() {
               </TableRow>
             ) : (
               visibleTransactions.map(transaction => {
-                const isPending = transaction.status === PayrollTransactionStatus.PENDING
                 const isComplete = transaction.isComplete
                 const isRefunded = transaction.status === PayrollTransactionStatus.REFUNDED
                 return (
@@ -378,15 +374,8 @@ export default function Transaction() {
                     key={transaction.id}
                     className={cn(
                       'relative',
-                      isPending && 'bg-[rgba(255,168,0,0.04)]'
                     )}
                   >
-                    {/* Pending left accent bar */}
-                    {isPending && (
-                      <td className="p-0 w-0 border-0">
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[22px] bg-[#ffa800] rounded-r-[2px]" />
-                      </td>
-                    )}
                     <TableCell>{transaction.name}</TableCell>
                     <TableCell>{transaction.network}</TableCell>
                     <TableCell>{transaction.members}</TableCell>

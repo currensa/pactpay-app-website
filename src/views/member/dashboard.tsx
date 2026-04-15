@@ -64,7 +64,6 @@ interface SummaryCardProps {
 
 function SummaryCard({ title, icon, tokens, loading, claimButton }: SummaryCardProps) {
   const [showAll, setShowAll] = useState(false)
-  const visible = showAll ? tokens : tokens.slice(0, 3)
   const hasMore = tokens.length > 3
 
   return (
