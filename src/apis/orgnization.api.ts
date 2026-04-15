@@ -168,7 +168,7 @@ export class OrgnizationApi {
   }
 
   // 创建公司
-  async createOrganization(data: { orgName: string; website?: string; desc?: string }) {
+  async createOrganization(data: { orgName: string; website?: string; desc?: string; showName?: string; avatarUrl?: string }) {
     const res = await this.request.post<Organization>('/orgs/create', data)
     return res.data
   }
@@ -284,7 +284,7 @@ export class OrgnizationApi {
   }
 
   // 通过邀请码主动加入组织
-  async joinOrganization(payload: { code: string; showName?: string }) {
+  async joinOrganization(payload: { code: string; showName?: string; avatarUrl?: string }) {
     const res = await this.request.post<{ orgId: string; memberId: string }>('/orgs/join', payload)
     return res.data
   }
