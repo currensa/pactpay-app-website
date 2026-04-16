@@ -51,7 +51,6 @@ const Transaction = lazy(() => import('@/views/transaction/transaction'))
 const CreateTransaction = lazy(() => import('@/views/transaction/create-transaction'))
 const Analytics = lazy(() => import('@/views/orgs/analytics'))
 const OrganizationSettings = lazy(() => import('@/views/orgs/settings/organization'))
-const RoleManagement = lazy(() => import('@/views/orgs/roles'))
 const TransactionDetailPage = lazy(() => import('@/views/transaction/transaction-detail'))
 
 type RouteItem = RouteObject & {
@@ -95,7 +94,7 @@ const routes: RouteItem[] = [
     children: [
       { index: true, element: <Navigate to="/orgs/dashboard" /> },
       { path: 'dashboard', navIcon: IconLayoutDashboard, element: <Dashboard />, meta: { title: 'Dashboard', subtitle: "Monitor your organization's key metrics and activities" } },
-      { path: 'members', navIcon: IconUsers, element: <Members showInvite />, meta: { title: 'Members', subtitle: 'Manage your organization members' } },
+      { path: 'members', navIcon: IconUsers, element: <Members />, meta: { title: 'Members', subtitle: 'Manage your organization members' } },
       // { path: 'roles', navIcon: IconShield, element: <RoleManagement />, meta: { title: 'Role Management' } },
       { path: 'transaction', navIcon: IconCashMove, element: <Transaction />, meta: { title: 'Transactions', subtitle: 'View and manage payment transactions' } },
       { path: 'transaction/create', element: <CreateTransaction />, meta: { title: 'Create New Transaction', hideInMenu: true } },
