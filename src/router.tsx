@@ -100,7 +100,7 @@ const routes: RouteItem[] = [
       { path: 'transaction/create', element: <CreateTransaction />, meta: { title: 'Create New Transaction', hideInMenu: true } },
       { path: 'transaction/:id', element: <TransactionDetailPage />, meta: { title: 'Transaction Detail', hideInMenu: true } },
       { path: 'analytics', navIcon: IconAlignBoxBottomRight, element: <Analytics />, meta: { title: 'Analytics', subtitle: 'Track your payment analytics', hideInMenu: false } },
-      { path: 'notifications', element: <NotificationsPage orgId={localStorage.getItem('organizationId') ?? undefined} />, meta: { title: 'Notifications', subtitle: 'Showing notifications for Engineering Team', hideInMenu: true } },
+      { path: 'notifications', element: <NotificationsPage />, meta: { title: 'Notifications', subtitle: 'Showing notifications for Engineering Team', hideInMenu: true } },
       {
         path: 'settings',
         navIcon: IconSettings,

@@ -3,9 +3,10 @@ import type { NotificationItem } from '@/apis/notification.api'
 import { Pagination } from '@/components/ui/pagination'
 import { useToast } from '@/components/ui/use-toast'
 import useNotificationStore from '@/stores/notification'
+import useOrganizationStore from '@/stores/organization'
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 const PAGE_SIZE = 20
 
@@ -77,9 +78,8 @@ function NotificationRow({
       <div className="flex items-center justify-center p-[10px] shrink-0 h-[24px] w-[24px] mt-[2px]">
         <div
           onClick={() => onSelect(item.id, !selected)}
-          className={`h-[16px] w-[16px] rounded-[3px] border border-[rgba(0,0,0,0.12)] cursor-pointer flex items-center justify-center shrink-0 ${
-            selected ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white'
-          }`}
+          className={`h-[16px] w-[16px] rounded-[3px] border border-[rgba(0,0,0,0.12)] cursor-pointer flex items-center justify-center shrink-0 ${selected ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white'
+            }`}
         >
           {selected && (
             <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
@@ -125,9 +125,13 @@ interface NotificationsPageProps {
   orgId?: string
 }
 
-export default function NotificationsPage({ orgId }: NotificationsPageProps) {
+export default function NotificationsPage({ orgId: orgIdProp }: NotificationsPageProps) {
   const { toast } = useToast()
   const { setUnreadCount } = useNotificationStore()
+  const { currentOrgId } = useOrganizationStore()
+  const location = useLocation()
+  const isMember = location.pathname.startsWith('/member')
+  const orgId = orgIdProp ?? (isMember ? undefined : (currentOrgId ?? undefined))
 
   const [items, setItems] = useState<NotificationItem[]>([])
   const [total, setTotal] = useState(0)
@@ -212,11 +216,10 @@ export default function NotificationsPage({ orgId }: NotificationsPageProps) {
             <div className="flex items-center justify-center p-[10px] h-[24px] w-[24px]">
               <div
                 onClick={toggleSelectAll}
-                className={`h-[16px] w-[16px] rounded-[3px] border cursor-pointer flex items-center justify-center shrink-0 ${
-                  allSelected
-                    ? 'bg-[#5e85ee] border-[#5e85ee]'
-                    : 'bg-white border-[rgba(0,0,0,0.12)]'
-                }`}
+                className={`h-[16px] w-[16px] rounded-[3px] border cursor-pointer flex items-center justify-center shrink-0 ${allSelected
+                  ? 'bg-[#5e85ee] border-[#5e85ee]'
+                  : 'bg-white border-[rgba(0,0,0,0.12)]'
+                  }`}
               >
                 {allSelected && (
                   <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
@@ -241,9 +244,8 @@ export default function NotificationsPage({ orgId }: NotificationsPageProps) {
                     <button
                       key={String(opt.value)}
                       onClick={() => { setUnreadOnly(opt.value); setStatusOpen(false); setPage(1) }}
-                      className={`w-full px-[16px] py-[10px] text-left text-[14px] leading-[22px] hover:bg-[#f5f5f5] transition-colors ${
-                        unreadOnly === opt.value ? 'text-[#5e85ee] font-medium' : 'text-[#1c1c26]'
-                      }`}
+                      className={`w-full px-[16px] py-[10px] text-left text-[14px] leading-[22px] hover:bg-[#f5f5f5] transition-colors ${unreadOnly === opt.value ? 'text-[#5e85ee] font-medium' : 'text-[#1c1c26]'
+                        }`}
                     >
                       {opt.label}
                     </button>
