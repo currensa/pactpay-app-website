@@ -121,17 +121,13 @@ function NotificationRow({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-interface NotificationsPageProps {
-  orgId?: string
-}
-
-export default function NotificationsPage({ orgId: orgIdProp }: NotificationsPageProps) {
+export default function NotificationsPage() {
   const { toast } = useToast()
   const { setUnreadCount } = useNotificationStore()
   const { currentOrgId } = useOrganizationStore()
   const location = useLocation()
   const isMember = location.pathname.startsWith('/member')
-  const orgId = orgIdProp ?? (isMember ? undefined : (currentOrgId ?? undefined))
+  const orgId = isMember ? undefined : (currentOrgId ?? undefined)
 
   const [items, setItems] = useState<NotificationItem[]>([])
   const [total, setTotal] = useState(0)
