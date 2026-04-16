@@ -108,9 +108,7 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
           </div>
           {/* Bullet list */}
           <ul className="list-disc space-y-[2px] pl-[20px] text-[14px] leading-[22px] text-[#606067]">
-            <li>This wallet will be your login address.</li>
-            <li>This wallet will be your only credential.</li>
-            <li>This login address cannot be changed later.</li>
+            <span>Your wallet address will be used to generate an encrypted identity, which will be used for fund claiming in PactPay.</span>
           </ul>
         </div>
 
@@ -144,7 +142,7 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
             disabled={loading}
             className="flex h-[50px] w-full items-center justify-center gap-[8px] rounded-[14px] bg-[#5e85ee] text-[15px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? <IconLoader2 className="size-[20px] animate-spin" /> : 'Register MetaKey'}
+            {loading ? <IconLoader2 className="size-[20px] animate-spin" /> : 'Confirm'}
           </button>
         )}
       </div>

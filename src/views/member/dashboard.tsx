@@ -3,10 +3,9 @@ import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import { MemberOnboardingGuide } from '@/views/member/components/member-onboarding-guide'
 import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
-import type { Provider } from '@reown/appkit/react'
-import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import { useClaimAll } from '@/views/member/hooks/use-claim-all'
 import { IconChartPie, IconCurrencyDollar, IconLoader2, IconMoneybag } from '@tabler/icons-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Cell, Pie, PieChart, Tooltip } from 'recharts'
 
@@ -213,16 +212,12 @@ export default function MemberDashboard() {
   const { toast } = useToast()
 
   const { fetchChainAssets, getTokenSymbol, getTokenDecimals, getTokenIconUrl } = useChainAssetStore()
-  const { open } = useAppKit()
-  const { address } = useAppKitAccount()
-  const { walletProvider } = useAppKitProvider<Provider>('eip155')
-  const userAction = useRef(false)
+  const { verifying, userAction, address, walletProvider, handleClaimAll, runClaimAll } = useClaimAll()
 
   const [claimedTokens, setClaimedTokens] = useState<TokenItem[]>([])
   const [pendingTokens, setPendingTokens] = useState<TokenItem[]>([])
   const [distributionData, setDistributionData] = useState<DistributionItem[]>([])
   const [summaryLoading, setSummaryLoading] = useState(false)
-  const [verifying, setVerifying] = useState(false)
 
   useEffect(() => {
     loadSummary()
@@ -271,41 +266,6 @@ export default function MemberDashboard() {
     } finally {
       setSummaryLoading(false)
     }
-  }
-
-  const runClaimAll = async (provider: Provider, addr: string) => {
-    try {
-      setVerifying(true)
-      const { nonce } = await apis.auth.getNonce()
-      const signature = await provider.request<string>({
-        method: 'personal_sign',
-        params: [nonce, addr],
-      })
-      const result = await apis.auth.verifyMetaPub({ address: addr, nonce, signature })
-      if (!result.verified) {
-        toast({ title: 'Verification failed', description: result.reason, variant: 'destructive' })
-        return
-      }
-      sessionStorage.setItem('metapub-verify-token', result.token)
-      navigate('/member/claim')
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.message || 'Wallet verification failed.',
-        variant: 'destructive',
-      })
-    } finally {
-      setVerifying(false)
-    }
-  }
-
-  const handleClaimAll = () => {
-    if (!address || !walletProvider) {
-      open({ view: 'Connect', namespace: 'eip155' })
-      userAction.current = true
-      return
-    }
-    runClaimAll(walletProvider, address)
   }
 
   const handleOrganizationClick = (orgId: string, orgName: string, memberId: string) => {

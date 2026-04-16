@@ -1,6 +1,8 @@
 import apis from '@/apis'
+import { useClaimAll } from '@/views/member/hooks/use-claim-all'
 import { Check, ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 
 interface StepDef {
@@ -22,16 +24,16 @@ const STEPS: StepDef[] = [
   },
   {
     id: 2,
-    label: 'Get verified by organisation owner',
-    description: "Once you join an organisation, your owner will verify your membership. You'll receive an email when approved.",
-    buttonText: 'Go to set up email',
+    label: 'Bind your wallet',
+    description: 'Add your signing wallet address in Account settings. The address to receive your funds can be entered at the time of claim.',
+    buttonText: 'Go to Account',
     navigateTo: '/member/settings',
   },
   {
     id: 3,
-    label: 'Bind your wallet',
-    description: 'Add your signing wallet address in Account settings. The address to receive your funds can be entered at the time of claim.',
-    buttonText: 'Go to Account',
+    label: 'Get verified by organisation owner',
+    description: "Once you join an organisation, your owner will verify your membership. You'll receive an email when approved.",
+    buttonText: 'Go to set up email',
     navigateTo: '/member/settings',
   },
   {
@@ -46,16 +48,20 @@ const STEPS: StepDef[] = [
     id: 5,
     label: 'Claim your first payment',
     description: "When your org runs payroll, you'll be able to claim it when pay time arrives.",
-    buttonText: 'Got it',
+    buttonText: 'Claim now',
     navigateTo: null,
   },
 ]
 
 export function MemberOnboardingGuide() {
   const navigate = useNavigate()
+  const { handleClaimAll, verifying } = useClaimAll()
   const [dismissed, setDismissed] = useState<boolean | null>(null) // null = loading
   const [completedSteps, setCompletedSteps] = useState<boolean[]>([false, false, false, false, false])
+  const [hasPendingClaim, setHasPendingClaim] = useState(false)
+  const [stepsLoading, setStepsLoading] = useState(true)
   const [visible, setVisible] = useState(true)
+  const [showCongrats, setShowCongrats] = useState(false)
   const allDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasAutoSaved = useRef(false)
 
@@ -63,18 +69,41 @@ export function MemberOnboardingGuide() {
     loadGuide()
   }, [])
 
-  // Auto-dismiss when all steps done
+  // When all steps done: show toast when tab is visible, then auto-dismiss after toast ends.
+  // If the tab is hidden while the toast is counting down, reset and replay when user returns.
   useEffect(() => {
-    if (completedSteps.every(Boolean) && !hasAutoSaved.current) {
+    if (!completedSteps.every(Boolean)) return
+
+    if (!hasAutoSaved.current) {
       hasAutoSaved.current = true
-      // Save dismissal to server, then animate out
       apis.onboarding.patchGuide({ dismissed: true }).catch(() => {})
-      allDoneTimerRef.current = setTimeout(() => {
-        startDismissAnimation()
-      }, 1200)
     }
+
+    let dismissTimer: ReturnType<typeof setTimeout> | null = null
+
+    const startToast = () => {
+      setShowCongrats(true)
+      dismissTimer = setTimeout(() => {
+        setShowCongrats(false)
+        startDismissAnimation()
+      }, 3000)
+    }
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        if (dismissTimer) { clearTimeout(dismissTimer); dismissTimer = null }
+        setShowCongrats(false)
+      } else {
+        startToast()
+      }
+    }
+
+    if (!document.hidden) startToast()
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
     return () => {
-      if (allDoneTimerRef.current) clearTimeout(allDoneTimerRef.current)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      if (dismissTimer) clearTimeout(dismissTimer)
     }
   }, [completedSteps])
 
@@ -99,6 +128,7 @@ export function MemberOnboardingGuide() {
 
   const checkSteps = async (serverCompleted: string[]) => {
     try {
+      setStepsLoading(true)
       const [orgs, metaPubStatus, summary] = await Promise.allSettled([
         apis.organization.getOrganizations(),
         apis.auth.getMetaPubStatus(),
@@ -108,26 +138,31 @@ export function MemberOnboardingGuide() {
       const orgList = orgs.status === 'fulfilled' ? orgs.value : []
       const step1Done = orgList.length > 0
       const Accounts = await apis.auth.getUserAuths()
-      const step2Done = !!Accounts.find(o => o.type === 'email')
-      const step3Done = metaPubStatus.status === 'fulfilled' ? (metaPubStatus.value?.submitted ?? false) : false
+      const step2Done = metaPubStatus.status === 'fulfilled' ? (metaPubStatus.value?.submitted ?? false) : false
+      const step3Done = !!Accounts.find(o => o.type === 'email')
       const step5Done = summary.status === 'fulfilled' ? ((summary.value?.claimed?.length ?? 0) > 0) : false
       // Step 4 (index 3): persisted server-side only
       const step4Done = serverCompleted.includes('4')
+
+      const hasPending = summary.status === 'fulfilled' ? ((summary.value?.pendingClaim?.length ?? 0) > 0) : false
+      setHasPendingClaim(hasPending)
 
       const newCompleted = [step1Done, step2Done, step3Done, step4Done, step5Done]
       setCompletedSteps(newCompleted)
     } catch {
       // silently ignore
+    } finally {
+      setStepsLoading(false)
     }
   }
 
   const saveCompletedSteps = (next: boolean[]) => {
     const ids = next.map((done, i) => (done ? String(i + 1) : null)).filter(Boolean) as string[]
-    apis.onboarding.patchGuide({ completedSteps: ids }).catch(() => {})
+    apis.onboarding.patchGuide({ completedSteps: ids }).catch(() => { })
   }
 
   const handleDismiss = async () => {
-    await apis.onboarding.patchGuide({ dismissed: true }).catch(() => {})
+    await apis.onboarding.patchGuide({ dismissed: true }).catch(() => { })
     startDismissAnimation()
   }
 
@@ -144,6 +179,9 @@ export function MemberOnboardingGuide() {
       })
     } else if (step.navigateTo) {
       navigate(step.navigateTo)
+    } else if (step.id === 5) {
+      // "Claim your first payment" — same flow as Claim all
+      handleClaimAll()
     } else {
       setCompletedSteps(prev => {
         const next = [...prev]
@@ -157,6 +195,16 @@ export function MemberOnboardingGuide() {
   if (dismissed === null || dismissed) return null
 
   return (
+    <>
+      {showCongrats && createPortal(
+        <div
+          className="fixed top-6 left-0 right-0 mx-auto w-fit z-[9999] px-5 py-3 rounded-[14px] bg-[#1c1c26] text-white text-[14px] font-medium shadow-lg pointer-events-none select-none"
+          style={{ animation: 'fadeInDown 0.25s ease' }}
+        >
+          🎉 Now you're ready to receive your first payment!
+        </div>,
+        document.body
+      )}
     <div
       className="flex gap-[20px] items-start bg-white border border-[rgba(94,133,238,0.10)] rounded-[28px] pl-[28px] pr-[20px] py-[20px] overflow-hidden transition-all duration-500"
       style={{
@@ -232,7 +280,8 @@ export function MemberOnboardingGuide() {
                   ) : (
                     <button
                       onClick={() => handleAction(idx)}
-                      className="rounded-[10px] px-[10px] py-[8px] text-[13px] leading-[20px] bg-[#5e85ee] text-white hover:opacity-90 transition-opacity"
+                      disabled={step.id === 5 && (stepsLoading || !hasPendingClaim || verifying)}
+                      className="rounded-[10px] px-[10px] py-[8px] text-[13px] leading-[20px] bg-[#5e85ee] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
                     >
                       {step.buttonText}
                     </button>
@@ -244,5 +293,6 @@ export function MemberOnboardingGuide() {
         })}
       </div>
     </div>
+    </>
   )
 }

@@ -22,11 +22,11 @@ export default function IdentitySelection({ onSelect }: IdentitySelectionProps) 
           <div className="flex flex-col gap-[32px] rounded-[24px] bg-[rgba(94,133,238,0.08)] p-[24px]">
             <div className="flex items-center justify-center self-start rounded-full bg-white px-[16px] py-[8px]">
               <span className="font-['Inter',sans-serif] text-[20px] font-bold leading-[30px] text-[#1c1c26]">
-                Administrator
+                Organization
               </span>
             </div>
             <p className="font-['Inter',sans-serif] text-[16px] font-normal leading-[24px] text-[#606067]">
-              Create and manage an organization, set up payment plans, and pay contractors.
+              Create and manage an organization, set up payment plans, and pay members.
             </p>
           </div>
           <button
