@@ -25,7 +25,7 @@ request.interceptors.response.use(
         window.location.href = '/welcome'
       }
     }
-    if (error.response?.status === 400) {
+    if (error.response?.status === 400 || error.response?.status === 409) {
       toast({
         description: error.response.data.message,
         variant: 'destructive'
