@@ -22,7 +22,7 @@ import { InviteSection } from '@/views/orgs/components/invite-section'
 import type { SortDirection, SortField } from '@/views/orgs/components/member-detail'
 import { MemberDetailContent } from '@/views/orgs/components/member-detail'
 import { StatusBadge } from '@/views/orgs/components/status-badge'
-import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Download, Edit2, Plus, Search, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Edit2, Plus, Search, Upload, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
@@ -342,7 +342,7 @@ export default function MemberPage() {
             onClick={handleExport}
             className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
           >
-            <Download className="h-[14px] w-[14px]" />
+            <Upload className="h-[14px] w-[14px]" />
             Export
           </button>
         </div>

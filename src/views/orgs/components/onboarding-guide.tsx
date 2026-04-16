@@ -26,7 +26,7 @@ const STEPS: StepDef[] = [
     id: 2,
     label: 'Configure payment settings',
     buttonText: 'Go to Settings',
-    description: 'Choose your chain and stablecoin (e.g. USDC on Ethereum mainnet).',
+    description: 'Choose your chain and token (e.g. USDC on Ethereum mainnet).',
     navigateTo: '/orgs/settings',
   },
   {

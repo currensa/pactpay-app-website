@@ -1,6 +1,6 @@
 import api from '@/apis'
 import type { Provider } from '@reown/appkit/react'
-import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import { useAppKit, useAppKitAccount, useAppKitProvider, useDisconnect } from '@reown/appkit/react'
 import { IconLoader2, IconMail, IconWallet } from '@tabler/icons-react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -10,6 +10,7 @@ interface LoginFormProps {
 
 function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const { open } = useAppKit()
+  const { disconnect } = useDisconnect()
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const userAction = useRef(false)
@@ -20,6 +21,12 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   }, [address])
 
   const handleWalletConnect = () => {
+    open({ view: 'Connect', namespace: 'eip155' })
+    userAction.current = true
+  }
+
+  const handleSwitchWallet = async () => {
+    await disconnect()
     open({ view: 'Connect', namespace: 'eip155' })
     userAction.current = true
   }
@@ -62,25 +69,37 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   }, [address, walletProvider])
 
   return (
-    <button
-      type="button"
-      onClick={isConnected ? handleWalletSign : handleWalletConnect}
-      disabled={loading}
-      className="flex items-center justify-center gap-[8px] rounded-full bg-[#875dff] px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-70"
-    >
-      {loading ? (
-        <IconLoader2 className="h-[24px] w-[24px] animate-spin" />
-      ) : (
-        <>
-          <IconWallet className="h-[24px] w-[24px]" />
-          <span>{isConnected ? `Continue with ${shortAddress}` : 'Log in with wallet'}</span>
-        </>
+    <div className="flex flex-col items-center gap-[10px]">
+      <button
+        type="button"
+        onClick={isConnected ? handleWalletSign : handleWalletConnect}
+        disabled={loading}
+        className="flex w-full items-center justify-center gap-[8px] rounded-full bg-[#5E85EE] px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-70"
+      >
+        {loading ? (
+          <IconLoader2 className="h-[24px] w-[24px] animate-spin" />
+        ) : (
+          <>
+            <IconWallet className="h-[24px] w-[24px]" />
+            <span>{isConnected ? `Continue with ${shortAddress}` : 'Log in with wallet'}</span>
+          </>
+        )}
+      </button>
+      {isConnected && (
+        <button
+          type="button"
+          onClick={handleSwitchWallet}
+          className="text-[13px] leading-[20px] text-[#606067] transition-opacity hover:opacity-70"
+        >
+          Connect Another Wallet
+        </button>
       )}
-    </button>
+    </div>
   )
 }
 
 export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
+  const { isConnected } = useAppKitAccount()
   const [email, setEmail] = useState('')
   const [emailCode, setEmailCode] = useState('')
   const [codeSent, setCodeSent] = useState(false)
@@ -144,7 +163,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         {/* 标题区域 */}
         <div className="flex flex-col gap-[8px] text-center">
           <h1 className="font-['Poppins',sans-serif] text-[42px] font-medium leading-none tracking-[-0.84px] text-[#1c1c26] lg:text-[56px] lg:tracking-[-1.12px]">
-            Welcome Back
+            {isConnected ? 'Welcome Back' : 'Create PactPay Account'}
           </h1>
           <p className="text-[14px] leading-[21px] text-[#77777d] lg:text-[16px] lg:leading-[24px]">
             Connect your wallet or sign in with email to get started.

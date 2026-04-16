@@ -9,7 +9,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
-import { Copy, RefreshCw, Send, Upload } from 'lucide-react'
+import { Copy, Download, RefreshCw, Send } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface Props {
@@ -105,7 +105,7 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
             onClick={onBatchImportClick}
             className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#ebebeb] transition-colors"
           >
-            <Upload className="h-[14px] w-[14px]" />
+            <Download className="h-[14px] w-[14px]" />
             Batch Import
           </button>
         </div>
