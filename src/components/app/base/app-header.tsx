@@ -26,14 +26,14 @@ export default function AppHeader() {
   const navigate = useNavigate()
   const { disconnect } = useDisconnect()
   const { steps, breadcrumb, backUrl } = useHeaderStore()
-  const { organizations, getOrganizations, setCurrentOrg, currentMember } = useOrganizationStore()
+  const { organizations, getOrganizations, setCurrentOrg, currentMember, currentOrgId } = useOrganizationStore()
   const { unreadCount, fetchUnreadCount } = useNotificationStore()
   const [onboardingDismissed, setOnboardingDismissed] = useState(
     () => localStorage.getItem('pactpay_onboarding_dismissed') === '1'
   )
 
   const isMember = location.pathname.startsWith('/member')
-  const orgId = isMember ? undefined : (localStorage.getItem('organizationId') ?? undefined)
+  const orgId = isMember ? undefined : (currentOrgId ?? undefined)
 
   useEffect(() => {
     if (organizations.length === 0) getOrganizations().catch(() => { })
