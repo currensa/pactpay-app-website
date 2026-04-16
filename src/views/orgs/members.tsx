@@ -265,7 +265,7 @@ export default function MemberPage() {
 
       {/* ── Invite Members section ──────────────────────────────────────── */}
       {inviteSectionOpen && (
-        <InviteSection onBatchImportClick={() => setBatchImportOpen(true)} />
+        <InviteSection onBatchImportClick={() => setBatchImportOpen(true)} onInvited={() => fetchMembers(1)} />
       )}
 
       {/* ── Toolbar ────────────────────────────────────────────────────── */}

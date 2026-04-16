@@ -1,4 +1,5 @@
 import apis from '@/apis'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -7,16 +8,16 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { Copy, RefreshCw, Send, Upload } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 interface Props {
   onBatchImportClick: () => void
+  onInvited: () => void
 }
 
-export function InviteSection({ onBatchImportClick }: Props) {
+export function InviteSection({ onBatchImportClick, onInvited }: Props) {
   const { toast } = useToast()
 
   const [inviteCode, setInviteCode] = useState('')
@@ -75,7 +76,7 @@ export function InviteSection({ onBatchImportClick }: Props) {
   const handleConfirmSendInvites = async () => {
     setSendingInvites(true)
     try {
-      const results = await Promise.allSettled(pendingInvites.map(({ email }) => apis.organization.sendEmailInvitation(email)))
+      const results = await Promise.allSettled(pendingInvites.map(({ email }) => apis.organization.sendEmailInvitation({ email })))
       const successCount = results.filter(r => r.status === 'fulfilled').length
       const failCount = results.filter(r => r.status === 'rejected').length
       if (successCount > 0) {
@@ -83,6 +84,7 @@ export function InviteSection({ onBatchImportClick }: Props) {
         setEmailInvites('')
         setEmailInviteDialogOpen(false)
         setPendingInvites([])
+        onInvited()
       } else {
         throw new Error('All invitations failed')
       }
