@@ -1,4 +1,4 @@
-import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 import * as Popover from "@radix-ui/react-popover"
 import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
@@ -16,6 +16,7 @@ type DatePickerInputProps = {
   id?: string
   /** 是否显示时间选择（精确到分钟） */
   showTime?: boolean
+  className?: string
 }
 
 export function DatePickerInput({
@@ -26,6 +27,7 @@ export function DatePickerInput({
   fromDate,
   id,
   showTime = false,
+  className,
 }: DatePickerInputProps) {
   const displayValue = value
     ? showTime
@@ -55,18 +57,18 @@ export function DatePickerInput({
     <Popover.Root>
       <Popover.Trigger asChild disabled={disabled}>
         <button
+          id={id}
           type="button"
-          className="relative w-full text-left"
+          className={cn(
+            "relative flex w-full items-center justify-between bg-[#f5f5f5] rounded-[12px] px-4 h-[46px] text-left outline-none",
+            disabled && "opacity-50 cursor-not-allowed",
+            className
+          )}
         >
-          <Input
-            id={id}
-            type="text"
-            readOnly
-            value={displayValue}
-            placeholder={showTime ? "YYYY-MM-DD HH:mm" : placeholder}
-            disabled={disabled}
-          />
-          <CalendarIcon className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <span className={cn("flex-1 text-[13px] leading-[22px] truncate", displayValue ? "text-[#1c1c26]" : "text-[#bbbbbe]")}>
+            {displayValue || (showTime ? "YYYY-MM-DD HH:mm" : placeholder)}
+          </span>
+          <CalendarIcon className="shrink-0 ml-2 h-[18px] w-[18px] text-[#bbbbbe]" />
         </button>
       </Popover.Trigger>
 
