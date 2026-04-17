@@ -1,9 +1,40 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+@keyframes floatA {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(6px, -8px); }
+  75% { transform: translate(-5px, 7px); }
+}
+@keyframes floatB {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(-8px, 6px); }
+  66% { transform: translate(5px, -7px); }
+}
+@keyframes floatC {
+  0%, 100% { transform: translate(0, 0); }
+  40% { transform: translate(7px, 5px); }
+  80% { transform: translate(-6px, -8px); }
+}
+@keyframes floatD {
+  0%, 100% { transform: translate(0, 0); }
+  30% { transform: translate(5px, -6px); }
+  70% { transform: translate(-4px, 8px); }
+}
+@keyframes floatE {
+  0%, 100% { transform: translate(0, 0); }
+  45% { transform: translate(-7px, -5px); }
+  85% { transform: translate(6px, 7px); }
+}
+
 @keyframes fadeInDown {
   from { opacity: 0; transform: translateY(-10px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tickerScrollUp {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); }
 }
 
 /* @custom-variant dark (&:is(.dark *)); */

@@ -293,6 +293,19 @@ export class TransactionApi {
       }
       originalFee: number
       discountedFee: number
+      caipChainId: string
+      token: string
+      gasFeeEstimate: {
+        gasPrice: string | null
+        maxFeePerGas: string | null
+        maxPriorityFeePerGas: string | null
+        effectiveGasPrice: string | null
+        nativeSymbol: string | null
+        nativeDecimals: number | null
+        approve: { gasUnits: string; costWei: string; costNative: string } | null
+        deposit: { gasUnits: string; costWei: string; costNative: string } | null
+        total: { gasUnits: string; costWei: string; costNative: string } | null
+      }
     }>(`/transaction/${this.orgId}/plan/fee-preview`, members)
     return res.data
   }

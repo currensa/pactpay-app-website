@@ -29,6 +29,11 @@ export interface OrgNavItem {
   children?: OrgNavChild[]
 }
 
+const HomeLayout = lazy(() => import('@/views/home/home-layout'))
+const HomeContent = lazy(() => import('@/views/home/home-content'))
+const PricingPage = lazy(() => import('@/views/home/pricing'))
+const DocumentPage = lazy(() => import('@/views/home/document'))
+
 const Login = lazy(() => import('@/views/account/login'))
 const WelcomeStep = lazy(() => import('@/views/account/steps/welcome-step'))
 const SignInStep = lazy(() => import('@/views/account/steps/sign-in-step'))
@@ -69,7 +74,13 @@ type RouteItem = RouteObject & {
 
 const routes: RouteItem[] = [
   {
-    index: true, element: <Navigate to="/welcome" replace />
+    path: '/',
+    element: <HomeLayout />,
+    children: [
+      { index: true, element: <HomeContent /> },
+      { path: 'pricing', element: <PricingPage /> },
+      { path: 'document', element: <DocumentPage /> },
+    ]
   },
   {
     path: 'join/:code',

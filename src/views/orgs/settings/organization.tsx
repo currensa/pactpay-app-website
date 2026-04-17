@@ -272,7 +272,10 @@ export default function OrganizationSettings() {
 
           {/* Chain */}
           <div className="flex flex-col gap-[8px] max-w-[620px]">
-            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Chain *</p>
+            <div className="flex items-center gap-[8px]">
+              <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Chain *</p>
+              <a href="https://pactpay.notion.site/Testing-PactPay-on-Sepolia-Testnet-3454d1d1b18c800aa47df0036595c09b?source=copy_link" target="_blank" rel="noopener noreferrer" className="text-[12px] text-[#5e85ee] hover:underline">New to PactPay? Test on Sepolia first →</a>
+            </div>
             <div className="relative" ref={chainDropdownRef}>
               <button
                 onClick={() => { setChainDropdownOpen(v => !v); setTokenDropdownOpen(false) }}
