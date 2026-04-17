@@ -151,6 +151,7 @@ export default function OrganizationSettings() {
 
   // Filter assets by selected chain
   const assetsForChain = chainAssets.filter(item => item.chain.caipChainId === selectedChainId)
+    .filter(item => item.asset.isStable)
   const selectedAsset = assetsForChain.find(
     a => (a.contractAddress || a.asset.symbol) === selectedToken
   )
