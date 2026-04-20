@@ -69,6 +69,7 @@ export interface CreateTransactionPlanPayload {
   payPeriod: string
   transactionName: string
   members: TransactionPlanMember[]
+  reactionFromId?: string
 }
 
 export interface TransactionItemMember {

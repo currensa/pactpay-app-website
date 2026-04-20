@@ -26,6 +26,7 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
   const [emailInvites, setEmailInvites] = useState('')
   const [pendingInvites, setPendingInvites] = useState<Array<{ email: string }>>([])
   const [sendingInvites, setSendingInvites] = useState(false)
+  const [inviteErrors, setInviteErrors] = useState<Record<string, string>>({})
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false)
   const [emailInviteDialogOpen, setEmailInviteDialogOpen] = useState(false)
 
@@ -75,18 +76,31 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
 
   const handleConfirmSendInvites = async () => {
     setSendingInvites(true)
+    setInviteErrors({})
     try {
       const results = await Promise.allSettled(pendingInvites.map(({ email }) => apis.organization.sendEmailInvitation({ email })))
+      const errors: Record<string, string> = {}
+      results.forEach((result, i) => {
+        if (result.status === 'rejected') {
+          const email = pendingInvites[i].email
+          errors[email] = result.reason?.response?.data?.message || result.reason?.message || 'Failed to send'
+        }
+      })
       const successCount = results.filter(r => r.status === 'fulfilled').length
-      const failCount = results.filter(r => r.status === 'rejected').length
+      const failCount = Object.keys(errors).length
       if (successCount > 0) {
         toast({ title: 'Success', description: `Sent to ${successCount} recipient(s)${failCount > 0 ? `, ${failCount} failed` : ''}` })
-        setEmailInvites('')
-        setEmailInviteDialogOpen(false)
-        setPendingInvites([])
+        if (failCount === 0) {
+          setEmailInvites('')
+          setEmailInviteDialogOpen(false)
+          setPendingInvites([])
+        } else {
+          setInviteErrors(errors)
+        }
         onInvited()
       } else {
-        throw new Error('All invitations failed')
+        setInviteErrors(errors)
+        toast({ title: 'Error', description: 'All invitations failed', variant: 'destructive' })
       }
     } catch (error: any) {
       toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to send invitations.', variant: 'destructive' })
@@ -187,7 +201,7 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
       </Dialog>
 
       {/* Email invite confirm dialog */}
-      <Dialog open={emailInviteDialogOpen} onOpenChange={open => { if (!sendingInvites) { setEmailInviteDialogOpen(open); if (!open) setPendingInvites([]) } }}>
+      <Dialog open={emailInviteDialogOpen} onOpenChange={open => { if (!sendingInvites) { setEmailInviteDialogOpen(open); if (!open) { setPendingInvites([]); setInviteErrors({}) } } }}>
         <DialogContent className="max-w-[440px] p-[20px] gap-0 flex flex-col gap-[16px]">
           <DialogHeader className="p-0">
             <DialogTitle className="text-[15px] font-semibold leading-[22px] text-[#1c1c26]">Send Email Invitations</DialogTitle>
@@ -206,7 +220,12 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
               <div className="max-h-[220px] overflow-y-auto">
                 {pendingInvites.map(({ email }, i) => (
                   <div key={i} className="border-b border-[rgba(0,0,0,0.06)] last:border-b-0">
-                    <div className="px-[12px] py-[8px] text-[13px] leading-[20px] text-[#606067] truncate">{email}</div>
+                    <div className="px-[12px] py-[8px] flex items-start justify-between gap-[8px]">
+                      <span className={`text-[13px] leading-[20px] truncate ${inviteErrors[email] ? 'text-[#d92b2b]' : 'text-[#606067]'}`}>{email}</span>
+                      {inviteErrors[email] && (
+                        <span className="shrink-0 text-[11px] leading-[16px] text-[#d92b2b]">{inviteErrors[email]}</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -215,7 +234,7 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
 
           <div className="flex items-center justify-end gap-[8px]">
             <button
-              onClick={() => { setEmailInviteDialogOpen(false); setPendingInvites([]) }}
+              onClick={() => { setEmailInviteDialogOpen(false); setPendingInvites([]); setInviteErrors({}) }}
               disabled={sendingInvites}
               className="rounded-[10px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50"
             >

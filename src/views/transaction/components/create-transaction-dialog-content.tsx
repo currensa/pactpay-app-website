@@ -53,6 +53,8 @@ interface CreateTransactionDialogContentProps {
   transactionDetailMembers: any[]
   initialExecutionDate?: string
   reactionSourceLoading?: boolean
+  reactionSourceCaipChainId?: string
+  reactionSourceTokenAddress?: string
   onCreateTransaction: (params: {
     selectedMembers: Set<string>
     memberAmounts: Record<string, string>
@@ -103,6 +105,8 @@ export function CreateTransactionDialogContent({
   transactionDetailMembers,
   initialExecutionDate,
   reactionSourceLoading = false,
+  reactionSourceCaipChainId,
+  reactionSourceTokenAddress,
   onCancel,
   onCreateTransaction,
 }: CreateTransactionDialogContentProps) {
@@ -121,6 +125,7 @@ export function CreateTransactionDialogContent({
   const [feePreview, setFeePreview] = useState<FeePreview | null>(null)
   const [feeLoading, setFeeLoading] = useState(false)
   const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
+  const payrollConfig = useOrganizationStore(s => s.payrollConfig)
   const currentMember = useOrganizationStore(s => s.currentMember)
   const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
   const getTokenSymbol = useChainAssetStore(s => s.getTokenSymbol)
@@ -192,6 +197,11 @@ export function CreateTransactionDialogContent({
     return () => clearTimeout(timer)
   }, [selectedMembers, memberAmounts, organizationMembers])
 
+  const reactionTokenSymbol = useMemo(() => {
+    if (!isCreatingFromReaction || !reactionSourceCaipChainId || !reactionSourceTokenAddress) return ''
+    return getTokenSymbol(reactionSourceCaipChainId, reactionSourceTokenAddress) ?? reactionSourceTokenAddress.slice(0, 6)
+  }, [isCreatingFromReaction, reactionSourceCaipChainId, reactionSourceTokenAddress, getTokenSymbol])
+
   const { derivedCurrency, derivedTokenAddress, derivedCaipChainId, currencyMismatch } = useMemo(() => {
     const intents = Array.from(selectedMembers)
       .map(id => organizationMembers.find(m => m.id === id)?.payoutIntent)
@@ -214,6 +224,18 @@ export function CreateTransactionDialogContent({
       currencyMismatch: false,
     }
   }, [selectedMembers, organizationMembers, getTokenSymbol])
+
+  const orgConfigCurrency = payrollConfig
+    ? (getTokenSymbol(payrollConfig.caipChainId, payrollConfig.token) ?? payrollConfig.token.slice(0, 6))
+    : (payrollTokenSymbol ?? '')
+  const orgConfigCaipChainId = payrollConfig?.caipChainId ?? ''
+
+  const displayCurrency = isCreatingFromReaction
+    ? (reactionTokenSymbol || derivedCurrency)
+    : (orgConfigCurrency || derivedCurrency)
+  const displayCaipChainId = isCreatingFromReaction
+    ? (reactionSourceCaipChainId || derivedCaipChainId)
+    : (orgConfigCaipChainId || derivedCaipChainId)
 
   const totalAmount = useMemo(() => {
     let sum = 0
@@ -447,7 +469,7 @@ export function CreateTransactionDialogContent({
             <TableHead className="text-[#8d8d93] text-[13px] font-normal py-2 w-[200px]">Member</TableHead>
             <TableHead className="text-[#8d8d93] text-[13px] font-normal py-2 w-[200px]">Wallet</TableHead>
             <TableHead className="text-[#8d8d93] text-[13px] font-normal py-2 w-[160px]">
-              {derivedCurrency || payrollTokenSymbol || 'USDC'}
+              {displayCurrency || payrollTokenSymbol || 'USDC'}
             </TableHead>
             <TableHead className="text-[#8d8d93] text-[13px] font-normal py-2">Status</TableHead>
           </TableRow>
@@ -581,7 +603,7 @@ export function CreateTransactionDialogContent({
               <div className="bg-white rounded-[32px] p-[20px] flex-1 flex flex-col gap-[18px] overflow-hidden min-w-0">
                 {/* Transaction Name */}
                 <div className="flex flex-col gap-[6px] shrink-0">
-                  <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Transaction Name</span>
+                  <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Transaction Name <span className="text-[#d92b2b]">*</span></span>
                   <input
                     type="text"
                     placeholder="e.g. April salary, Q1 bonus..."
@@ -595,7 +617,7 @@ export function CreateTransactionDialogContent({
                 <div className="flex flex-col flex-1 gap-[6px] overflow-hidden min-h-0">
                   <div className="flex items-center gap-[6px] shrink-0">
                     <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px] whitespace-nowrap">
-                      Member &amp; {derivedCurrency || payrollTokenSymbol || 'USDC'}
+                      Member &amp; {displayCurrency || payrollTokenSymbol || 'USDC'}
                     </span>
                     <span className="text-[12px] text-[#8d8d93] leading-[22px]">
                       Members without a connected wallet cannot receive payments. Ask them to bind their wallet in Account settings first.
@@ -625,15 +647,15 @@ export function CreateTransactionDialogContent({
                     </button>
                     {currencyMismatch ? (
                       <span className="text-[12px] text-[#d92b2b]">Currency mismatch</span>
-                    ) : selectedMembers.size > 0 && derivedCurrency ? (
-                      <span className="text-[12px] text-[#606067]">{selectedMembers.size} members · {totalAmount} {derivedCurrency}</span>
+                    ) : selectedMembers.size > 0 && displayCurrency ? (
+                      <span className="text-[12px] text-[#606067]">{selectedMembers.size} members · {totalAmount} {displayCurrency}</span>
                     ) : null}
                   </div>
                 </div>
 
                 {/* Claim time */}
                 <div className="flex flex-col gap-[6px] shrink-0">
-                  <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Claim time</span>
+                  <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Claim time <span className="text-[#d92b2b]">*</span></span>
                   <div className="flex items-center gap-[8px]">
                     {/* Date picker */}
                     <div className="flex-1">
@@ -684,7 +706,7 @@ export function CreateTransactionDialogContent({
                         <>
                           <div className="flex items-center justify-between">
                             <span className="text-[13px] text-[#8d8d93]">Payout total</span>
-                            <span className="text-[14px] text-[#1c1c26]">{totalAmount} {derivedCurrency || 'USDC'}</span>
+                            <span className="text-[14px] text-[#1c1c26]">{totalAmount} {displayCurrency || 'USDC'}</span>
                           </div>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-[4px]">
@@ -698,11 +720,11 @@ export function CreateTransactionDialogContent({
                             <div className="flex items-center gap-[2px]">
                               {feePreview.originalFee > feePreview.discountedFee && (
                                 <span className="text-[13px] text-[#8d8d93] line-through leading-[22px]">
-                                  {feePreview.originalFee}{payrollTokenSymbol || 'U'}
+                                  {feePreview.originalFee}{displayCurrency || payrollTokenSymbol || 'U'}
                                 </span>
                               )}
                               <span className="text-[20px] font-bold text-[#1c1c26] leading-[32px]">
-                                {feePreview.discountedFee}{payrollTokenSymbol || 'U'}
+                                {feePreview.discountedFee}{displayCurrency || payrollTokenSymbol || 'U'}
                               </span>
                             </div>
                           </div>
@@ -717,7 +739,7 @@ export function CreateTransactionDialogContent({
                           <div className="border-t border-[rgba(0,0,0,0.12)] flex items-center justify-between pt-[14px] pb-[6px]">
                             <span className="text-[13px] text-[#1c1c26]">Total from wallet</span>
                             <span className="text-[13px] text-[#1c1c26]">
-                              {totalAmount + feePreview.discountedFee} {derivedCurrency || 'USDC'}
+                              {totalAmount + feePreview.discountedFee} {displayCurrency || 'USDC'}
                             </span>
                           </div>
                           {feePreview.plan.description && (
@@ -813,8 +835,8 @@ export function CreateTransactionDialogContent({
                   </button>
                   {currencyMismatch ? (
                     <span className="text-[13px] text-[#d92b2b]">Currency mismatch</span>
-                  ) : selectedMembers.size > 0 && derivedCurrency ? (
-                    <span className="text-[13px] text-[#606067]">{selectedMembers.size} members · {totalAmount} {derivedCurrency}</span>
+                  ) : selectedMembers.size > 0 && displayCurrency ? (
+                    <span className="text-[13px] text-[#606067]">{selectedMembers.size} members · {totalAmount} {displayCurrency}</span>
                   ) : null}
                 </div>
                 <div className="flex items-center gap-[10px]">
@@ -858,10 +880,10 @@ export function CreateTransactionDialogContent({
                       <span className="text-[13px] text-[#8d8d93]">Transaction Name</span>
                       <span className="text-[14px] text-[#1c1c26]">{transactionName || '-'}</span>
                     </div>
-                    {derivedCaipChainId && (
+                    {displayCaipChainId && (
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] text-[#8d8d93]">Network</span>
-                        <span className="text-[14px] text-[#1c1c26]">{getChainName(derivedCaipChainId)}</span>
+                        <span className="text-[14px] text-[#1c1c26]">{getChainName(displayCaipChainId)}</span>
                       </div>
                     )}
                     <div className="flex items-center justify-between">
@@ -870,12 +892,12 @@ export function CreateTransactionDialogContent({
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[13px] text-[#8d8d93]">Payout</span>
-                      <span className="text-[14px] text-[#1c1c26]">{totalAmount} {derivedCurrency || 'USDC'}</span>
+                      <span className="text-[14px] text-[#1c1c26]">{totalAmount} {displayCurrency || 'USDC'}</span>
                     </div>
                     {feePreview && (
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] text-[#8d8d93]">Service Fee</span>
-                        <span className="text-[14px] text-[#1c1c26]">{feePreview.discountedFee} {payrollTokenSymbol || 'USDC'}</span>
+                        <span className="text-[14px] text-[#1c1c26]">{feePreview.discountedFee} {displayCurrency || payrollTokenSymbol || 'USDC'}</span>
                       </div>
                     )}
                     {feePreview?.gasFeeEstimate?.total?.costNative && (
@@ -889,7 +911,7 @@ export function CreateTransactionDialogContent({
                     <div className="flex items-center justify-between">
                       <span className="text-[13px] text-[#1c1c26]">Total from wallet</span>
                       <span className="text-[14px] font-bold text-[#1c1c26]">
-                        {feePreview ? totalAmount + feePreview.discountedFee : totalAmount} {derivedCurrency || 'USDC'}
+                        {feePreview ? totalAmount + feePreview.discountedFee : totalAmount} {displayCurrency || 'USDC'}
                       </span>
                     </div>
                   </div>
@@ -953,7 +975,7 @@ export function CreateTransactionDialogContent({
                               </span>
                             )}
                             <span className="text-[14px] text-[#1c1c26]">
-                              {newAmount.toLocaleString()} {derivedCurrency}
+                              {newAmount.toLocaleString()} {displayCurrency}
                             </span>
                           </div>
                         </div>
@@ -1079,12 +1101,12 @@ export function CreateTransactionDialogContent({
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] text-[#8d8d93] leading-[22px]">Total Amount</span>
-                        <span className="text-[13px] text-[#1c1c26] leading-[22px]">{totalAmount} {derivedCurrency || '-'}</span>
+                        <span className="text-[13px] text-[#1c1c26] leading-[22px]">{totalAmount} {displayCurrency || '-'}</span>
                       </div>
                       {feePreview && (
                         <div className="flex items-center justify-between">
                           <span className="text-[13px] text-[#8d8d93] leading-[22px]">Service Fee</span>
-                          <span className="text-[13px] text-[#1c1c26] leading-[22px]">{feePreview.discountedFee} {payrollTokenSymbol || 'USDC'}</span>
+                          <span className="text-[13px] text-[#1c1c26] leading-[22px]">{feePreview.discountedFee} {displayCurrency || payrollTokenSymbol || 'USDC'}</span>
                         </div>
                       )}
                     </div>
@@ -1122,7 +1144,7 @@ export function CreateTransactionDialogContent({
                               </span>
                             )}
                             <span className="text-[13px] text-[#1c1c26] leading-[22px]">
-                              {newAmount.toLocaleString()} {derivedCurrency}
+                              {newAmount.toLocaleString()} {displayCurrency}
                             </span>
                           </div>
                         </div>

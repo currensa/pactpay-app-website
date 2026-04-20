@@ -60,7 +60,7 @@ export enum Permission {
   // Transaction 管理
   CREATE_TRANSACTION   = 'create_transaction',  // Admin + Operator
   MODIFY_TRANSACTION   = 'modify_transaction',  // Admin + Operator
-  EXECUTE_TRANSACTION  = 'execute_transaction', // 仅 Admin+
+  EXECUTE_TRANSACTION  = 'execute_transaction', // Admin + Operator
   REACTION_TRANSACTION = 'reaction_transaction',// Admin + Operator
 
   // 数据查看
@@ -105,6 +105,7 @@ const rolePermissionsMap: Record<MemberRole, Permission[]> = {
     Permission.CREATE_TRANSACTION,
     Permission.MODIFY_TRANSACTION,
     Permission.REACTION_TRANSACTION,
+    Permission.EXECUTE_TRANSACTION,
     Permission.VIEW_HISTORY,
     Permission.VIEW_DASHBOARD,
     Permission.EXPORT_DATA,

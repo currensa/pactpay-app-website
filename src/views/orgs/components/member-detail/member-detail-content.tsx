@@ -233,7 +233,12 @@ export function MemberDetailContent({
                   type="text"
                   inputMode="numeric"
                   value={drawerChanges.amount !== undefined ? drawerChanges.amount : (selectedMember.payoutIntent?.amount ?? '')}
-                  onChange={e => setDrawerChanges({ ...drawerChanges, amount: e.target.value })}
+                  onChange={e => {
+                    const val = e.target.value
+                    if (val === '' || (/^\d*\.?\d*$/.test(val) && Number(val) >= 0)) {
+                      setDrawerChanges({ ...drawerChanges, amount: val })
+                    }
+                  }}
                   onBlur={() => setEditingFee(false)}
                   onKeyDown={e => e.key === 'Enter' && setEditingFee(false)}
                   className="h-7 w-36 text-right text-sm"

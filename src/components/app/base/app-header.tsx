@@ -16,7 +16,7 @@ import useHeaderStore from '@/stores/header'
 import useNotificationStore from '@/stores/notification'
 import useOrganizationStore from '@/stores/organization'
 import { useDisconnect } from '@reown/appkit/react'
-import { IconBell, IconLogout, IconSwitchHorizontal, IconUser } from '@tabler/icons-react'
+import { IconBell, IconBuildingPlus, IconLogout, IconSwitchHorizontal, IconUser, IconUserPlus } from '@tabler/icons-react'
 import { ChevronLeft, ListChecks } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -214,12 +214,37 @@ export default function AppHeader() {
                   onClick={() => navigate('/welcome/create-org')}
                   className="cursor-pointer"
                 >
-                  <IconSwitchHorizontal className="mr-2 h-4 w-4" />
+                  <IconBuildingPlus className="mr-2 h-4 w-4" />
                   Create organization
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate('/welcome/join-org')}
+                  className="cursor-pointer"
+                >
+                  <IconUserPlus className="mr-2 h-4 w-4" />
+                  Join a new organization
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             ) : (hasMemberRole || hasManagerRole) && (
               <DropdownMenuGroup>
+                {isMember && (
+                  <DropdownMenuItem
+                    onClick={() => navigate('/welcome/join-org')}
+                    className="cursor-pointer"
+                  >
+                    <IconUserPlus className="mr-2 h-4 w-4" />
+                    Join a new organization
+                  </DropdownMenuItem>
+                )}
+                {!isMember && (
+                  <DropdownMenuItem
+                    onClick={() => navigate('/welcome/create-org')}
+                    className="cursor-pointer"
+                  >
+                    <IconBuildingPlus className="mr-2 h-4 w-4" />
+                    Create organization
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger className="cursor-pointer">
                     <IconSwitchHorizontal className="mr-2 h-4 w-4" />
