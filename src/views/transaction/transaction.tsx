@@ -9,7 +9,7 @@ import { PayrollTransactionStatus } from '@/enums/transaction'
 import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
-import { formatUtcDateTime } from '@/utils/date'
+import { formatLocalDateTime, formatUtcDateTime } from '@/utils/date'
 import { Permission, useHasPermission } from '@/utils/permissions'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
@@ -118,7 +118,7 @@ export default function Transaction() {
       transactionId: plan.id,
       type: plan.transactionType,
       status,
-      executionDate: formatUtcDateTime(plan.payPeriod),
+      executionDate: formatLocalDateTime(plan.payPeriod),
       daysRemaining: isComplete ? null : diffDays,
       isDueToday,
       totalAmount,
@@ -347,7 +347,7 @@ export default function Transaction() {
               </TableHead>
               <TableHead>
                 <button onClick={() => handleSort('payDay')} className="flex items-center gap-[4px]">
-                  Pay Day <SortIcon field="payDay" />
+                  Pay Day (Local) <SortIcon field="payDay" />
                 </button>
               </TableHead>
               <TableHead>Action</TableHead>

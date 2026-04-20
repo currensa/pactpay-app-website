@@ -21,7 +21,7 @@ import {
 } from './components'
 import type { Transaction } from './components/types'
 
-import { formatUtcDateTime } from '@/utils/date'
+import { formatLocalDateTime } from '@/utils/date'
 import { getHighestRole, Permission, useHasPermission } from '@/utils/permissions'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { TransactionItemStatusBadge, TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
@@ -96,7 +96,7 @@ export default function TransactionDetail() {
   const explorerBaseUrl = chain?.explorerUrls?.[0]
   const txExplorerUrl = buildExplorerTransactionUrl(explorerBaseUrl, plan.depositTxHash)
 
-  const payDay = formatUtcDateTime(plan.payPeriod)
+  const payDay = formatLocalDateTime(plan.payPeriod)
 
   const payPeriodDate = new Date(plan.payPeriod)
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -186,12 +186,12 @@ export default function TransactionDetail() {
             {/* Meta row */}
             <div className="flex items-center gap-[14px] text-[13px] leading-[22px]">
               <span>
-                <span className="text-[#8d8d93]">Pay Day: </span>
+                <span className="text-[#8d8d93]">Pay Day (Local): </span>
                 <span className="text-[#1c1c26] font-medium">{payDay}</span>
               </span>
               <div className="w-px h-[14px] bg-[rgba(0,0,0,0.12)]" />
               <span>
-                <span className="text-[#8d8d93]">Execution Date: </span>
+                <span className="text-[#8d8d93]">Execution Date (Local): </span>
                 {executionDateLabel}
               </span>
               <div className="w-px h-[14px] bg-[rgba(0,0,0,0.12)]" />

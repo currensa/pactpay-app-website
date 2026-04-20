@@ -59,7 +59,7 @@ export default function CreateTransaction() {
         if (plan.payPeriod) {
           const d = new Date(plan.payPeriod)
           setInitialExecutionDate(
-            `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+            `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
           )
         }
       } catch {
