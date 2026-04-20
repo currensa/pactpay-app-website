@@ -20,6 +20,8 @@ export default function CreateTransaction() {
   const [reactionSourceMembers, setReactionSourceMembers] = useState<TransactionItem[]>([])
   const [reactionSourceLoading, setReactionSourceLoading] = useState(false)
   const [initialExecutionDate, setInitialExecutionDate] = useState<string>('')
+  const [reactionSourceCaipChainId, setReactionSourceCaipChainId] = useState<string>('')
+  const [reactionSourceTokenAddress, setReactionSourceTokenAddress] = useState<string>('')
 
   const { getTokenDecimals, fetchChainAssets } = useChainAssetStore()
 
@@ -56,6 +58,8 @@ export default function CreateTransaction() {
           amount: formatUnits(BigInt(item.amount || '0'), decimals),
         }))
         setReactionSourceMembers(convertedItems)
+        setReactionSourceCaipChainId(plan.caipChainId)
+        setReactionSourceTokenAddress(plan.tokenAddress || '')
         if (plan.payPeriod) {
           const d = new Date(plan.payPeriod)
           setInitialExecutionDate(
@@ -96,7 +100,8 @@ export default function CreateTransaction() {
       await apis.transaction.createTransactionPlan({
         payPeriod: params.executionDate ? new Date(params.executionDate).toISOString() : new Date().toISOString(),
         transactionName: params.transactionName || 'New Transaction',
-        members
+        members,
+        ...(isCreatingFromReaction && reactionSourceTransactionId ? { reactionFromId: reactionSourceTransactionId } : {}),
       })
 
       toast({
@@ -125,6 +130,8 @@ export default function CreateTransaction() {
         transactionDetailMembers={reactionSourceMembers}
         initialExecutionDate={initialExecutionDate}
         reactionSourceLoading={reactionSourceLoading}
+        reactionSourceCaipChainId={reactionSourceCaipChainId}
+        reactionSourceTokenAddress={reactionSourceTokenAddress}
         onCancel={handleCancel}
         onCreateTransaction={handleCreateTransaction}
       />
