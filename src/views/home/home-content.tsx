@@ -199,7 +199,7 @@ export default function HomeContent() {
             </button>
           </div>
           <div className="border-t border-[rgba(0,0,0,0.12)] pt-5">
-            <p className="text-black text-[13px]">© All Rights Reserved by PayPact</p>
+            <p className="text-black text-[13px]">© All Rights Reserved by PactPay</p>
           </div>
         </div>
       </section>
