@@ -19,7 +19,7 @@ const STEPS: StepDef[] = [
     label: 'Learn how payments work',
     buttonText: 'View Docs',
     description: 'Understand how PactPay sends payroll on-chain — non-custodial, transparent, and direct to your members.',
-    navigateTo: 'https://docs.pactpay.app',
+    navigateTo: '/doc.html',
     isExternal: true,
   },
   {
