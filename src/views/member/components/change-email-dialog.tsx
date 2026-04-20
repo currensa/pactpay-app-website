@@ -149,7 +149,7 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
                 <input
                   value={oldCode}
                   onChange={e => setOldCode(e.target.value)}
-                  placeholder="Enter Code"
+                  placeholder="Enter code (case insensitive)"
                   className="bg-[#f5f5f5] rounded-[12px] px-[16px] py-[12px] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#8d8d93] outline-none w-full"
                 />
               </div>
@@ -199,7 +199,7 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
                 <input
                   value={newEmailCode}
                   onChange={e => setNewEmailCode(e.target.value)}
-                  placeholder="Enter Code"
+                  placeholder="Enter code (case insensitive)"
                   className="bg-[#f5f5f5] rounded-[12px] px-[16px] py-[12px] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#8d8d93] outline-none w-full"
                 />
               </div>

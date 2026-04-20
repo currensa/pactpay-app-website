@@ -142,7 +142,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       const { token, userId } = await api.auth.login({
         type: 'email',
         email,
-        code: emailCode
+        code: emailCode.toUpperCase()
       })
       localStorage.setItem('token', token)
       localStorage.setItem('userId', userId)
@@ -222,7 +222,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   type="text"
                   value={emailCode}
                   onChange={e => setEmailCode(e.target.value)}
-                  placeholder="Enter code"
+                  placeholder="Enter code (case insensitive)"
                   className="flex-1 text-[14px] leading-[22px] text-[#1c1c26] placeholder:text-[rgba(19,19,26,0.2)] focus:outline-none"
                   required
                 />
