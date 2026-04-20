@@ -3,6 +3,7 @@ import { ChainAssetResponse } from '@/apis/chain-asset.api'
 import { Organization, OrgPayrollConfig } from '@/apis/orgnization.api'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
+import useOrganizationStore from '@/stores/organization'
 import { Check, ChevronDown, Loader2, Upload, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -11,6 +12,7 @@ export default function OrganizationSettings() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const fetchChainAssets = useChainAssetStore(s => s.fetchChainAssets)
+  const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -135,6 +137,7 @@ export default function OrganizationSettings() {
     try {
       setSavingPayroll(true)
       await api.organization.upsertOrgPayrollConfig({ caipChainId: selectedChainId, token: selectedToken })
+      await fetchPayrollTokenSymbol()
       toast({ title: 'Success', description: 'Payment settings updated.' })
     } catch {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save payment settings.' })

@@ -581,7 +581,7 @@ export function CreateTransactionDialogContent({
               <div className="bg-white rounded-[32px] p-[20px] flex-1 flex flex-col gap-[18px] overflow-hidden min-w-0">
                 {/* Transaction Name */}
                 <div className="flex flex-col gap-[6px] shrink-0">
-                  <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Transaction Name</span>
+                  <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Transaction Name <span className="text-[#d92b2b]">*</span></span>
                   <input
                     type="text"
                     placeholder="e.g. April salary, Q1 bonus..."
@@ -633,7 +633,7 @@ export function CreateTransactionDialogContent({
 
                 {/* Claim time */}
                 <div className="flex flex-col gap-[6px] shrink-0">
-                  <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Claim time</span>
+                  <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">Claim time <span className="text-[#d92b2b]">*</span></span>
                   <div className="flex items-center gap-[8px]">
                     {/* Date picker */}
                     <div className="flex-1">
