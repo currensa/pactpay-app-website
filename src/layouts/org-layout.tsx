@@ -2,12 +2,19 @@ import AuthChecker from '@/components/app/base/auth-checker'
 import AppHeader from '@/components/app/base/app-header'
 import OrgSidebar from '@/components/app/orgs/sidebar'
 import useOrganizationStore from '@/stores/organization'
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { useHasPermission, Permission } from '@/utils/permissions'
 
 function OrgGuard({ children }: { children: React.ReactNode }) {
   const currentOrgId = useOrganizationStore(s => s.currentOrgId)
+  const hasPermission = useHasPermission()
+  const location = useLocation()
+
   if (!currentOrgId) {
     return <Navigate to="/welcome" replace />
+  }
+  if (location.pathname.startsWith('/orgs/settings') && !hasPermission(Permission.MODIFY_ORG_NETWORK)) {
+    return <Navigate to="/orgs/dashboard" replace />
   }
   return <>{children}</>
 }

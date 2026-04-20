@@ -1,11 +1,14 @@
 import { getOrgNavItems } from '@/router'
 import { cn } from '@/lib/utils'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useHasPermission, Permission } from '@/utils/permissions'
 
 export default function OrgNavMenus() {
   const navigate = useNavigate()
   const location = useLocation()
-  const navItems = getOrgNavItems()
+  const hasPermission = useHasPermission()
+  const canViewSettings = hasPermission(Permission.MODIFY_ORG_NETWORK)
+  const navItems = getOrgNavItems().filter(item => item.key !== 'settings' || canViewSettings)
 
   const isRouteActive = (url: string) =>
     location.pathname === url || location.pathname.startsWith(url + '/')

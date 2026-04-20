@@ -1,6 +1,10 @@
 import AppSidebar from '@/components/app/base/app-sidebar'
 import { getOrgNavItems } from '@/router'
+import { useHasPermission, Permission } from '@/utils/permissions'
 
 export default function OrgSidebar() {
-  return <AppSidebar navItems={getOrgNavItems()} />
+  const hasPermission = useHasPermission()
+  const canViewSettings = hasPermission(Permission.MODIFY_ORG_NETWORK)
+  const navItems = getOrgNavItems().filter(item => item.key !== 'settings' || canViewSettings)
+  return <AppSidebar navItems={navItems} />
 }
