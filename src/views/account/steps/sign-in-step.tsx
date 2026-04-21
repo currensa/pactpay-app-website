@@ -1,3 +1,5 @@
+import apis from '@/apis'
+import { useToast } from '@/components/ui/use-toast'
 import useAuthStore from '@/stores/auth'
 import useOrganizationStore from '@/stores/organization'
 import { IconLoader2 } from '@tabler/icons-react'
@@ -13,6 +15,7 @@ function hasAdminRole(roles: { role: string }[]) {
 export default function SignInStep() {
   const navigate = useNavigate()
   const [checking, setChecking] = useState(false)
+  const { toast } = useToast()
   const getOrganizations = useOrganizationStore(s => s.getOrganizations)
   const checkMetaPub = useAuthStore(s => s.checkMetaPub)
 
@@ -21,8 +24,20 @@ export default function SignInStep() {
 
     const pendingCode = sessionStorage.getItem(INVITE_CODE_SESSION_KEY)
     if (pendingCode) {
-      navigate('/welcome/join-org', { replace: true })
-      return
+      try {
+        const { isMember } = await apis.organization.checkInviteCodeMembership(pendingCode)
+        if (isMember) {
+          sessionStorage.removeItem(INVITE_CODE_SESSION_KEY)
+          toast({ title: 'Already a member', description: 'You have already joined this organization.' })
+          // fall through to normal org routing below
+        } else {
+          navigate('/welcome/join-org', { replace: true })
+          return
+        }
+      } catch {
+        navigate('/welcome/join-org', { replace: true })
+        return
+      }
     }
 
     try {

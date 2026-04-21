@@ -2,6 +2,7 @@ import apis from '@/apis'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
+import { PayrollItemStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { formatUtcDateTime } from '@/utils/date'
@@ -112,7 +113,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Date</TableHead>
+            <TableHead>Scheduled for</TableHead>
             {showOrgColumn && <TableHead>Organization</TableHead>}
             <TableHead>Transaction</TableHead>
             <TableHead>Amount</TableHead>
@@ -175,7 +176,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
                     )}
                   </TableCell>
                   <TableCell>
-                    <TransactionItemStatusBadge status={row.status} />
+                    <TransactionItemStatusBadge status={row.status === PayrollItemStatus.REFUNDED ? 'Payment cancelled' : row.status} />
                   </TableCell>
                 </TableRow>
               )
