@@ -42,19 +42,24 @@ export default function DocumentPage() {
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setActiveId(entry.target.id)
-          }
+    const ids = navItems.map((item) => item.id)
+    const threshold = window.innerHeight * 0.35
+
+    const updateActive = () => {
+      let current = ids[0]
+      for (const id of ids) {
+        const el = document.getElementById(id)
+        if (!el) continue
+        if (el.getBoundingClientRect().top <= threshold) {
+          current = id
         }
-      },
-      { rootMargin: '-20% 0px -70% 0px' },
-    )
-    const anchors = contentRef.current?.querySelectorAll('[id]') ?? []
-    anchors.forEach((el) => observer.observe(el))
-    return () => observer.disconnect()
+      }
+      setActiveId(current)
+    }
+
+    window.addEventListener('scroll', updateActive, { passive: true })
+    updateActive()
+    return () => window.removeEventListener('scroll', updateActive)
   }, [])
 
   const scrollTo = (id: string) => {
@@ -62,11 +67,11 @@ export default function DocumentPage() {
   }
 
   return (
-    <div className="flex-1 flex text-[#1c1c26]" style={{ minHeight: 'calc(100vh - 64px)' }}>
+    <div className="flex-1 flex text-[#1c1c26]" style={{ minHeight: 'calc(100vh - 90px)' }}>
       <div className="flex w-full max-w-6xl mx-auto">
 
       {/* Sidebar */}
-      <aside className="hidden md:block w-[280px] flex-shrink-0 sticky top-[64px] self-start h-[calc(100vh-64px)] overflow-y-auto border-r border-[rgba(0,0,0,0.06)] bg-white/60 backdrop-blur-sm py-8 px-4">
+      <aside className="hidden md:block w-[280px] flex-shrink-0 sticky top-[90px] self-start h-[calc(100vh-90px)] overflow-y-auto border-r border-[rgba(0,0,0,0.06)] bg-white/60 backdrop-blur-sm py-8 px-4">
         {/* <p className="text-sm font-bold text-[#5e85ee] uppercase tracking-widest mb-5 px-3">PactPay Docs</p> */}
         <ul className="space-y-0.5">
           {navItems.map(({ label, id, sub }) => (

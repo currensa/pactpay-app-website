@@ -209,6 +209,11 @@ export class OrgnizationApi {
     })
     return res.data
   }
+  async checkInviteCodeMembership(code: string) {
+    const res = await this.request.get<{ isMember: boolean; orgId: string }>(`/orgs/invite-code/${code}/membership`)
+    return res.data
+  }
+
   // 获取当前公司的邀请码
   async getOrganizationInviteCode() {
     const res = await this.request.get<InviteCode>(`/orgs/${this.orgId}/invite-code`)

@@ -65,7 +65,7 @@ export function TransactionItemStatusBadge({ status }: { status: PayrollItemStat
       )
     default:
       return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(0,0,0,0.06)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
+        <span className="inline-flex items-center rounded-[8px] bg-[rgba(217,43,43,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
           {status}
         </span>
       )
