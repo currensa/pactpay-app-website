@@ -198,8 +198,13 @@ export default function HomeContent() {
               Lets Go!
             </button>
           </div>
-          <div className="border-t border-[rgba(0,0,0,0.12)] pt-5">
+          <div className="border-t border-[rgba(0,0,0,0.12)] pt-5 flex items-center justify-between">
             <p className="text-black text-[13px]">© All Rights Reserved by PactPay</p>
+            <div className="flex items-center gap-1 text-[13px] text-[#606067]">
+              <button onClick={() => navigate('/legal/terms')} className="hover:text-[#1c1c26] transition-colors">Terms of Use</button>
+              <span className="opacity-40">·</span>
+              <button onClick={() => navigate('/legal/privacy')} className="hover:text-[#1c1c26] transition-colors">Privacy Policy</button>
+            </div>
           </div>
         </div>
       </section>
