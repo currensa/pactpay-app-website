@@ -33,6 +33,8 @@ const HomeLayout = lazy(() => import('@/views/home/home-layout'))
 const HomeContent = lazy(() => import('@/views/home/home-content'))
 const PricingPage = lazy(() => import('@/views/home/pricing'))
 const DocumentPage = lazy(() => import('@/views/home/document'))
+const TermsPage = lazy(() => import('@/views/home/terms'))
+const PrivacyPage = lazy(() => import('@/views/home/privacy'))
 
 const Login = lazy(() => import('@/views/account/login'))
 const WelcomeStep = lazy(() => import('@/views/account/steps/welcome-step'))
@@ -81,6 +83,14 @@ const routes: RouteItem[] = [
       { path: 'pricing', element: <PricingPage /> },
       { path: 'document', element: <DocumentPage /> },
     ]
+  },
+  {
+    path: 'legal/terms',
+    element: <TermsPage />,
+  },
+  {
+    path: 'legal/privacy',
+    element: <PrivacyPage />,
   },
   {
     path: 'join/:code',

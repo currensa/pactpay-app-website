@@ -41,7 +41,7 @@ const STEPS: StepDef[] = [
     label: 'Learn how claiming works',
     description: 'Your org sends payroll on-chain. Funds go directly to your wallet — no intermediary.',
     buttonText: 'Read the tutorial',
-    navigateTo: 'https://docs.pactpay.app',
+    navigateTo: '/document#for-members',
     isExternal: true,
   },
   {
@@ -76,7 +76,7 @@ export function MemberOnboardingGuide() {
 
     if (!hasAutoSaved.current) {
       hasAutoSaved.current = true
-      apis.onboarding.patchGuide({ dismissed: true }).catch(() => {})
+      apis.onboarding.patchGuide({ dismissed: true }).catch(() => { })
     }
 
     let dismissTimer: ReturnType<typeof setTimeout> | null = null
@@ -205,94 +205,94 @@ export function MemberOnboardingGuide() {
         </div>,
         document.body
       )}
-    <div
-      className="flex gap-[20px] items-start bg-white border border-[rgba(94,133,238,0.10)] rounded-[28px] pl-[28px] pr-[20px] py-[20px] overflow-hidden transition-all duration-500"
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(-12px)',
-      }}
-    >
-      {/* Left: title + dismiss */}
-      <div className="flex flex-col items-start justify-between py-[8px] self-stretch shrink-0 w-[150px]">
-        <div className="flex flex-col gap-[8px]">
-          <div>
-            <p className="font-['Poppins',sans-serif] text-[18px] leading-[26px] text-[#bbbbbe] tracking-[-0.36px]">Get start with</p>
-            <p className="font-['Poppins',sans-serif] font-semibold text-[32px] leading-none text-[#1c1c26] tracking-[-0.64px]">PactPay</p>
-          </div>
-          <p className="text-[12px] leading-[18px] text-[#8d8d93]">
-            Learn how you receive your first payment with PactPay.
-          </p>
-        </div>
-        <button
-          onClick={handleDismiss}
-          className="border border-[rgba(0,0,0,0.12)] rounded-[10px] px-[14px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
-        >
-          Dismiss
-        </button>
-      </div>
-
-      {/* Right: step cards */}
-      <div className="flex-1 min-w-0 flex gap-[12px] bg-[rgba(94,133,238,0.04)] rounded-[18px] px-[20px] py-[16px]">
-        {STEPS.map((step, idx) => {
-          const isCompleted = completedSteps[idx]
-
-          return (
-            <div
-              key={step.id}
-              className="flex flex-col items-start justify-between p-[14px] rounded-[12px] flex-1 min-w-[160px] bg-white"
-            >
-              {/* Top: badge + title + description */}
-              <div className="flex flex-col gap-[8px] w-full">
-                <div
-                  className={[
-                    'flex items-center justify-center w-[28px] h-[28px] rounded-full shrink-0 transition-colors duration-300',
-                    isCompleted ? 'bg-[#5e85ee]' : 'bg-[rgba(0,0,0,0.10)]',
-                  ].join(' ')}
-                >
-                  {isCompleted ? (
-                    <Check className="w-[13px] h-[13px] text-white" strokeWidth={2.5} />
-                  ) : (
-                    <span className="text-[12px] font-semibold text-[rgba(0,0,0,0.30)] leading-none">{step.id}</span>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-[3px]">
-                  <p className="text-[13px] leading-[18px] font-semibold text-[#1c1c26]">
-                    {step.label}
-                  </p>
-                  <p className="text-[12px] leading-[17px] text-[#8d8d93]">
-                    {step.description}
-                  </p>
-                </div>
-              </div>
-
-              {/* Bottom: action button — hidden when completed */}
-              {!isCompleted && (
-                <div className="mt-[12px]">
-                  {step.isExternal ? (
-                    <button
-                      onClick={() => handleAction(idx)}
-                      className="flex items-center gap-[4px] text-[13px] leading-[20px] text-[#5e85ee] hover:opacity-80 transition-opacity"
-                    >
-                      <ExternalLink className="w-[13px] h-[13px]" />
-                      {step.buttonText}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleAction(idx)}
-                      disabled={step.id === 5 && (stepsLoading || !hasPendingClaim || verifying)}
-                      className="rounded-[10px] px-[10px] py-[8px] text-[13px] leading-[20px] bg-[#5e85ee] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
-                    >
-                      {step.buttonText}
-                    </button>
-                  )}
-                </div>
-              )}
+      <div
+        className="flex gap-[20px] items-start bg-white border border-[rgba(94,133,238,0.10)] rounded-[28px] pl-[28px] pr-[20px] py-[20px] overflow-hidden transition-all duration-500"
+        style={{
+          opacity: visible ? 1 : 0,
+          transform: visible ? 'translateY(0)' : 'translateY(-12px)',
+        }}
+      >
+        {/* Left: title + dismiss */}
+        <div className="flex flex-col items-start justify-between py-[8px] self-stretch shrink-0 w-[150px]">
+          <div className="flex flex-col gap-[8px]">
+            <div>
+              <p className="font-['Poppins',sans-serif] text-[18px] leading-[26px] text-[#bbbbbe] tracking-[-0.36px]">Get start with</p>
+              <p className="font-['Poppins',sans-serif] font-semibold text-[32px] leading-none text-[#1c1c26] tracking-[-0.64px]">PactPay</p>
             </div>
-          )
-        })}
+            <p className="text-[12px] leading-[18px] text-[#8d8d93]">
+              Learn how you receive your first payment with PactPay.
+            </p>
+          </div>
+          <button
+            onClick={handleDismiss}
+            className="border border-[rgba(0,0,0,0.12)] rounded-[10px] px-[14px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+
+        {/* Right: step cards */}
+        <div className="flex-1 min-w-0 flex gap-[12px] bg-[rgba(94,133,238,0.04)] rounded-[18px] px-[20px] py-[16px]">
+          {STEPS.map((step, idx) => {
+            const isCompleted = completedSteps[idx]
+
+            return (
+              <div
+                key={step.id}
+                className="flex flex-col items-start justify-between p-[14px] rounded-[12px] flex-1 min-w-[160px] bg-white"
+              >
+                {/* Top: badge + title + description */}
+                <div className="flex flex-col gap-[8px] w-full">
+                  <div
+                    className={[
+                      'flex items-center justify-center w-[28px] h-[28px] rounded-full shrink-0 transition-colors duration-300',
+                      isCompleted ? 'bg-[#5e85ee]' : 'bg-[rgba(0,0,0,0.10)]',
+                    ].join(' ')}
+                  >
+                    {isCompleted ? (
+                      <Check className="w-[13px] h-[13px] text-white" strokeWidth={2.5} />
+                    ) : (
+                      <span className="text-[12px] font-semibold text-[rgba(0,0,0,0.30)] leading-none">{step.id}</span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-[3px]">
+                    <p className="text-[13px] leading-[18px] font-semibold text-[#1c1c26]">
+                      {step.label}
+                    </p>
+                    <p className="text-[12px] leading-[17px] text-[#8d8d93]">
+                      {step.description}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Bottom: action button — hidden when completed */}
+                {(!isCompleted || step.id === 4) && (
+                  <div className="mt-[12px]">
+                    {step.isExternal ? (
+                      <button
+                        onClick={() => handleAction(idx)}
+                        className="flex items-center gap-[4px] text-[13px] leading-[20px] text-[#5e85ee] hover:opacity-80 transition-opacity"
+                      >
+                        <ExternalLink className="w-[13px] h-[13px]" />
+                        {step.buttonText}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleAction(idx)}
+                        disabled={step.id === 5 && (stepsLoading || !hasPendingClaim || verifying)}
+                        className="rounded-[10px] px-[10px] py-[8px] text-[13px] leading-[20px] bg-[#5e85ee] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+                      >
+                        {step.buttonText}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
-    </div>
     </>
   )
 }

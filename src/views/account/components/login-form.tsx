@@ -1,4 +1,5 @@
 import api from '@/apis'
+import { useNavigate } from 'react-router-dom'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider, useDisconnect } from '@reown/appkit/react'
 import { IconLoader2, IconMail, IconWallet } from '@tabler/icons-react'
@@ -81,7 +82,7 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
         ) : (
           <>
             <IconWallet className="h-[24px] w-[24px]" />
-            <span>{isConnected ? `Continue with ${shortAddress}` : 'Log in with wallet'}</span>
+            <span>{isConnected ? `Continue with ${shortAddress}` : 'Connect wallet'}</span>
           </>
         )}
       </button>
@@ -99,6 +100,7 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
 }
 
 export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
+  const navigate = useNavigate()
   const { isConnected } = useAppKitAccount()
   const [email, setEmail] = useState('')
   const [emailCode, setEmailCode] = useState('')
@@ -165,9 +167,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           <h1 className="font-['Poppins',sans-serif] text-[42px] font-medium leading-none tracking-[-0.84px] text-[#1c1c26] lg:text-[56px] lg:tracking-[-1.12px]">
             {isConnected ? 'Welcome Back' : 'Create PactPay Account'}
           </h1>
-          <p className="text-[14px] leading-[21px] text-[#77777d] lg:text-[16px] lg:leading-[24px]">
-            Connect your wallet or sign in with email to get started.
-          </p>
         </div>
 
         {/* 登录区域 */}
@@ -178,7 +177,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           {/* 分隔线 */}
           <div className="flex items-center justify-center gap-[24px]">
             <div className="h-[1px] flex-1 bg-[#d9d9db]" />
-            <span className="text-[16px] leading-[24px] text-[#77777d]">Or login with</span>
+            <span className="text-[16px] leading-[24px] text-[#77777d]">or</span>
             <div className="h-[1px] flex-1 bg-[#d9d9db]" />
           </div>
 
@@ -190,7 +189,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="Log in with email"
+                placeholder="Your email address"
                 className="flex-1 bg-transparent text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none"
                 required
               />
@@ -243,11 +242,19 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               ) : (
                 <>
                   <IconMail className="h-[24px] w-[24px]" />
-                  <span>Log in with email</span>
+                  <span>Continue with email</span>
                 </>
               )}
             </button>
           </form>
+
+          {/* 法律声明 */}
+          <p className="text-center text-[12px] leading-[18px] text-[#8d8d93]">
+            By continuing, you agree to our{' '}
+            <button onClick={() => navigate('/legal/terms')} className="underline hover:text-[#606067] transition-colors">Terms of Use</button>
+            {' '}and acknowledge our{' '}
+            <button onClick={() => navigate('/legal/privacy')} className="underline hover:text-[#606067] transition-colors">Privacy Policy</button>.
+          </p>
 
           {/* 底部链接 */}
           {/* <div className="flex items-start justify-center gap-[4px] text-[16px] leading-[24px]">

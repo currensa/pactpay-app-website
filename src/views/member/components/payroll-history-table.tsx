@@ -8,7 +8,7 @@ import useOrganizationStore from '@/stores/organization'
 import { formatUtcDateTime } from '@/utils/date'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { TransactionItemStatusBadge } from '@/views/transaction/components/transaction-status-badge'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const PAGE_SIZE = 10
 
@@ -20,7 +20,7 @@ interface PayrollHistoryRow {
   memberId: string
   amount: number
   token: string
-  status: string
+  status: PayrollItemStatus
   transactionName: string | null
   txHash: string | null
   caipChainId: string
@@ -43,17 +43,22 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [total, setTotal] = useState(0)
+  const isFirstRender = useRef(true)
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const showOrgColumn = !orgId
 
   useEffect(() => {
+    isFirstRender.current = true
     setCurrentPage(1)
     loadPage(1)
   }, [orgId, memberId])
 
   useEffect(() => {
-    if (currentPage === 1) return
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
     loadPage(currentPage)
   }, [currentPage])
 
@@ -176,7 +181,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
                     )}
                   </TableCell>
                   <TableCell>
-                    <TransactionItemStatusBadge status={row.status === PayrollItemStatus.REFUNDED ? 'Payment cancelled' : row.status} />
+                    <TransactionItemStatusBadge status={row.status} />
                   </TableCell>
                 </TableRow>
               )

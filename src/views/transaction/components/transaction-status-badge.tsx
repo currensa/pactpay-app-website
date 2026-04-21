@@ -60,12 +60,12 @@ export function TransactionItemStatusBadge({ status }: { status: PayrollItemStat
     case PayrollItemStatus.REFUNDED:
       return (
         <span className="inline-flex items-center rounded-[8px] bg-[rgba(217,43,43,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#d92b2b] whitespace-nowrap">
-          Refunded
+          Payment Cancelled
         </span>
       )
     default:
       return (
-        <span className="inline-flex items-center rounded-[8px] bg-[rgba(217,43,43,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
+        <span className="inline-flex items-center rounded-[8px] bg-[rgba(101, 78, 0, 0.18)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
           {status}
         </span>
       )

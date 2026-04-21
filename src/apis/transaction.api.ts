@@ -47,6 +47,7 @@ export interface BatchClaimItem {
 
 export interface BatchClaimPayload {
   items: BatchClaimItem[]
+  recipientSignature: string
 }
 
 export interface BatchClaimResponse {
