@@ -42,6 +42,23 @@ export default function DocumentPage() {
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    const hash = window.location.hash.slice(1)
+    if (hash) {
+      // Match by id directly, or by label (case-insensitive, spaces → hyphens)
+      const match = navItems.find(
+        (item) =>
+          item.id === hash ||
+          item.label.toLowerCase().replace(/\s+/g, '-') === hash.toLowerCase().replace(/\s+/g, '-') ||
+          item.label.toLowerCase() === decodeURIComponent(hash).toLowerCase()
+      )
+      const targetId = match?.id ?? hash
+      setTimeout(() => {
+        document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    }
+  }, [])
+
+  useEffect(() => {
     const ids = navItems.map((item) => item.id)
     const threshold = window.innerHeight * 0.35
 
