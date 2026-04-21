@@ -38,13 +38,18 @@ interface PendingToken {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function deriveMetaPrivKey(walletProvider: Provider, address: string): Promise<`0x${string}`> {
+async function deriveMetaPrivKey(walletProvider: Provider, address: string): Promise<Uint8Array> {
   const { signMessage } = await apis.auth.getMySignMessage()
   const sig = await walletProvider.request<string>({
     method: 'personal_sign',
     params: [signMessage, address],
-  }) as `0x${string}`
-  return ethers.keccak256(ethers.getBytes(sig)) as `0x${string}`
+  }) as string
+  const sigBytes = ethers.getBytes(sig)
+  try {
+    return ethers.getBytes(ethers.keccak256(sigBytes))
+  } finally {
+    sigBytes.fill(0)
+  }
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -182,7 +187,7 @@ export default function ClaimPage() {
         }
       }
 
-      const metaPrivKey = await deriveMetaPrivKey(walletProvider, address)
+      const metaPrivKeyBytes = await deriveMetaPrivKey(walletProvider, address)
       const deadline = Math.floor(Date.now() / 1000) + 3600
 
       const signedItems: {
@@ -193,49 +198,58 @@ export default function ClaimPage() {
       }[] = []
       const skipped: string[] = []
 
-      for (const item of items) {
-        try {
-          const stealthPrivHex = recoverStealthPrivateKey(metaPrivKey, item.batch.ephemeralPub)
-          const stealthAccount = privateKeyToAccount(stealthPrivHex as `0x${string}`)
+      try {
+        for (const item of items) {
+          let stealthPrivHex: string | null = null
+          let stealthAccount: ReturnType<typeof privateKeyToAccount> | null = null
+          try {
+            stealthPrivHex = recoverStealthPrivateKey(ethers.hexlify(metaPrivKeyBytes), item.batch.ephemeralPub)
+            stealthAccount = privateKeyToAccount(stealthPrivHex as `0x${string}`)
 
-          if (stealthAccount.address.toLowerCase() !== item.stealthAddress.toLowerCase()) {
+            if (stealthAccount.address.toLowerCase() !== item.stealthAddress.toLowerCase()) {
+              skipped.push(item.id)
+              continue
+            }
+
+            const chainInfo = caipToChain[item.batch.caipChainId]
+            if (!chainInfo) { skipped.push(item.id); continue }
+
+            const domain = {
+              name: 'StealthPay',
+              version: '1',
+              chainId: chainInfo.chainIdNum,
+              verifyingContract: chainInfo.vaultAddress as `0x${string}`,
+            } as const
+
+            const types = {
+              ClaimRequest: [
+                { name: 'stealthAddress', type: 'address' },
+                { name: 'token', type: 'address' },
+                { name: 'amount', type: 'uint256' },
+                { name: 'recipient', type: 'address' },
+                { name: 'deadline', type: 'uint256' },
+              ],
+            } as const
+
+            const message = {
+              stealthAddress: stealthAccount.address as `0x${string}`,
+              token: item.batch.tokenAddress as `0x${string}`,
+              amount: BigInt(item.amount),
+              recipient: recipient.trim() as `0x${string}`,
+              deadline: BigInt(deadline),
+            } as const
+
+            const signature = await stealthAccount.signTypedData({ domain, types, primaryType: 'ClaimRequest', message })
+            signedItems.push({ payrollItemId: item.id, recipient: recipient.trim(), deadline, signature })
+          } catch {
             skipped.push(item.id)
-            continue
+          } finally {
+            stealthPrivHex = null
+            stealthAccount = null
           }
-
-          const chainInfo = caipToChain[item.batch.caipChainId]
-          if (!chainInfo) { skipped.push(item.id); continue }
-
-          const domain = {
-            name: 'StealthPay',
-            version: '1',
-            chainId: chainInfo.chainIdNum,
-            verifyingContract: chainInfo.vaultAddress as `0x${string}`,
-          } as const
-
-          const types = {
-            ClaimRequest: [
-              { name: 'stealthAddress', type: 'address' },
-              { name: 'token', type: 'address' },
-              { name: 'amount', type: 'uint256' },
-              { name: 'recipient', type: 'address' },
-              { name: 'deadline', type: 'uint256' },
-            ],
-          } as const
-
-          const message = {
-            stealthAddress: stealthAccount.address as `0x${string}`,
-            token: item.batch.tokenAddress as `0x${string}`,
-            amount: BigInt(item.amount),
-            recipient: recipient.trim() as `0x${string}`,
-            deadline: BigInt(deadline),
-          } as const
-
-          const signature = await stealthAccount.signTypedData({ domain, types, primaryType: 'ClaimRequest', message })
-          signedItems.push({ payrollItemId: item.id, recipient: recipient.trim(), deadline, signature })
-        } catch {
-          skipped.push(item.id)
         }
+      } finally {
+        metaPrivKeyBytes.fill(0)
       }
 
       if (signedItems.length === 0) {
@@ -247,7 +261,14 @@ export default function ClaimPage() {
         return
       }
 
-      const result = await apis.transaction.batchClaim({ items: signedItems })
+      const recipientAddress = recipient.trim()
+      const confirmMessage = `I confirm that the recipient address for this claim is:\n${recipientAddress}`
+      const recipientSignature = await walletProvider.request<string>({
+        method: 'personal_sign',
+        params: [confirmMessage, address],
+      }) as string
+
+      const result = await apis.transaction.batchClaim({ items: signedItems, recipientSignature })
       setClaimResult(result)
       await loadSummary()
     } catch (error: any) {
