@@ -314,9 +314,16 @@ export class TransactionApi {
 
   // 获取今日待执行交易列表
   async getReadyToExecuteTodayList(page: number = 1, pageSize: number = 20) {
-    const today = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const tzOffset = -now.getTimezoneOffset()
+    const sign = tzOffset >= 0 ? '+' : '-'
+    const pad = (n: number) => String(Math.floor(Math.abs(n))).padStart(2, '0')
+    const tzStr = `${sign}${pad(tzOffset / 60)}:${pad(tzOffset % 60)}`
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+    const payPeriodStart = `${dateStr}T00:00:00${tzStr}`
+    const payPeriodEnd = `${dateStr}T23:59:59${tzStr}`
     const res = await this.request.get<TransactionListResponse>(`/transaction/${this.orgId}`, {
-      params: { transactionStatus: 'ready', payPeriodStart: today, payPeriodEnd: today, page, pageSize }
+      params: { transactionStatus: 'ready', payPeriodStart, payPeriodEnd, page, pageSize }
     })
     return res.data
   }
