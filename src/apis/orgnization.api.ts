@@ -128,6 +128,7 @@ export interface Organization {
   description?: string
   website?: string
   logoUrl?: string
+  referralCode?: string | null
   createdAt?: string
   updatedAt?: string
 }
@@ -168,7 +169,7 @@ export class OrgnizationApi {
   }
 
   // 创建公司
-  async createOrganization(data: { orgName: string; website?: string; desc?: string; showName?: string; avatarUrl?: string }) {
+  async createOrganization(data: { orgName: string; website?: string; desc?: string; showName?: string; avatarUrl?: string; referralCode?: string }) {
     const res = await this.request.post<Organization>('/orgs/create', data)
     return res.data
   }
@@ -303,6 +304,12 @@ export class OrgnizationApi {
   // 更新组织发薪配置
   async upsertOrgPayrollConfig(payload: { caipChainId: string; token: string }) {
     const res = await this.request.patch<OrgPayrollConfig>(`/orgs/${this.orgId}/payroll-config`, payload)
+    return res.data
+  }
+
+  // 绑定推荐码（Owner/Admin 权限，已绑定则不可修改）
+  async bindReferralCode(referralCode: string) {
+    const res = await this.request.post<Organization>(`/orgs/${this.orgId}/referral-code`, { referralCode })
     return res.data
   }
 

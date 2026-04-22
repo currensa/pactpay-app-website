@@ -26,6 +26,11 @@ export default function OrganizationSettings() {
   const [logoUploading, setLogoUploading] = useState(false)
   const [nameError, setNameError] = useState(false)
 
+  // Referral code state
+  const [existingReferralCode, setExistingReferralCode] = useState<string | null>(null)
+  const [referralCodeInput, setReferralCodeInput] = useState('')
+  const [savingReferralCode, setSavingReferralCode] = useState(false)
+
   // Payroll config state
   const [payrollConfig, setPayrollConfig] = useState<OrgPayrollConfig | null>(null)
   const [chainAssets, setChainAssets] = useState<ChainAssetResponse['data']>([])
@@ -59,6 +64,7 @@ export default function OrganizationSettings() {
       setOrgName(org.orgName || '')
       setDescription(org.desc || '')
       if (org.logoUrl) { setLogoPreview(org.logoUrl); setLogoUrl(org.logoUrl) }
+      setExistingReferralCode(org.referralCode ?? null)
       setChainAssets(chainAssetData)
       if (payrollData) {
         setPayrollConfig(payrollData)
@@ -126,6 +132,21 @@ export default function OrganizationSettings() {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to save organization info.' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleBindReferralCode = async () => {
+    if (!referralCodeInput.trim()) return
+    try {
+      setSavingReferralCode(true)
+      const updated = await api.organization.bindReferralCode(referralCodeInput.trim())
+      setExistingReferralCode(updated.referralCode ?? null)
+      setReferralCodeInput('')
+      toast({ title: 'Success', description: 'Referral code applied.' })
+    } catch {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to apply referral code. Please check and try again.' })
+    } finally {
+      setSavingReferralCode(false)
     }
   }
 
@@ -261,6 +282,46 @@ export default function OrganizationSettings() {
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Referral Code ───────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-[12px]">
+        <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[26px] text-[#1c1c26]">
+          Referral Code
+        </p>
+
+        <div className="bg-white rounded-[32px] p-[20px] flex flex-col gap-[16px]">
+          <div className="flex flex-col gap-[8px] max-w-[620px]">
+            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Referral Code</p>
+            {existingReferralCode ? (
+              <div className="flex items-center gap-[10px]">
+                <div className="flex-1 bg-[#f5f5f5] rounded-[12px] px-[14px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] font-mono select-all">
+                  {existingReferralCode}
+                </div>
+                <div className="flex items-center gap-[6px] rounded-[10px] bg-[rgba(93,221,34,0.12)] px-[10px] py-[6px]">
+                  <Check className="h-[13px] w-[13px] text-[#5ddd22] shrink-0" />
+                  <span className="text-[12px] leading-[18px] text-[#5ddd22] font-medium">Applied</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-[8px]">
+                <input
+                  value={referralCodeInput}
+                  onChange={e => setReferralCodeInput(e.target.value)}
+                  placeholder="Enter referral code"
+                  className="flex-1 bg-[#f5f5f5] rounded-[12px] px-[14px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
+                />
+                <button
+                  onClick={handleBindReferralCode}
+                  disabled={savingReferralCode || !referralCodeInput.trim()}
+                  className="rounded-[12px] bg-[#5e85ee] px-[16px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60 shrink-0"
+                >
+                  {savingReferralCode ? 'Applying...' : 'Apply'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
