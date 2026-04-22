@@ -28,7 +28,7 @@ const PAGE_SIZE = 20
 const STATUS_FILTER_OPTIONS: Array<{ value: 'all' | MemberHistoryStatus; label: string }> = [
   { value: 'all', label: 'All Statuses' },
   { value: 'current', label: 'Active' },
-  { value: 'left', label: 'Left' },
+  // { value: 'left', label: 'Left' },
   { value: 'deleted', label: 'Delete' },
 ]
 
