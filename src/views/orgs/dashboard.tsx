@@ -8,7 +8,7 @@ import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { Permission, useHasPermission } from '@/utils/permissions'
 import { OnboardingGuide } from '@/views/orgs/components/onboarding-guide'
-import { TokenAmountStatCard } from '@/views/orgs/components/token-amount-stat-card'
+import { TokenAmountStatCard, formatTokenAmountItem, getTokenAmountFontClass } from '@/views/orgs/components/token-amount-stat-card'
 import {
   ExecuteConfirmDialogContent,
   ExecuteSuccessDialogContent,
@@ -40,6 +40,9 @@ export default function Dashboard() {
     thisMonth: [],
   })
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const [totalPaidIdx, setTotalPaidIdx] = useState(0)
+  const [yearToDateIdx, setYearToDateIdx] = useState(0)
+  const [thisMonthIdx, setThisMonthIdx] = useState(0)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const [todayTransactions, setTodayTransactions] = useState<TransactionListItem[]>([])
 
@@ -194,35 +197,57 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Total Paid */}
-        <TokenAmountStatCard
-          title="Total Paid"
-          items={stats.totalPaid}
-          icon={DollarSign}
-          dropdownKey="totalPaid"
-          openDropdown={openDropdown}
-          onOpenDropdown={setOpenDropdown}
-        />
-
-        {/* Year to Date */}
-        <TokenAmountStatCard
-          title="Year to Date"
-          items={stats.yearToDate}
-          icon={CreditCardIcon}
-          dropdownKey="yearToDate"
-          openDropdown={openDropdown}
-          onOpenDropdown={setOpenDropdown}
-        />
-
-        {/* This Month */}
-        <TokenAmountStatCard
-          title="This Month"
-          items={stats.thisMonth}
-          icon={Calendar}
-          dropdownKey="thisMonth"
-          openDropdown={openDropdown}
-          onOpenDropdown={setOpenDropdown}
-        />
+        {/* Total Paid / Year to Date / This Month — shared font size */}
+        {(() => {
+          const getItem = (items: TokenAmount[], idx: number) => items[Math.min(idx, Math.max(0, items.length - 1))]
+          const fmt = (items: TokenAmount[], idx: number) => {
+            const item = getItem(items, idx)
+            return item ? formatTokenAmountItem(item) : '0'
+          }
+          const maxLen = Math.max(
+            fmt(stats.totalPaid, totalPaidIdx).length,
+            fmt(stats.yearToDate, yearToDateIdx).length,
+            fmt(stats.thisMonth, thisMonthIdx).length,
+          )
+          const sharedFontClass = getTokenAmountFontClass(maxLen)
+          return (
+            <>
+              <TokenAmountStatCard
+                title="Total Paid"
+                items={stats.totalPaid}
+                icon={DollarSign}
+                dropdownKey="totalPaid"
+                openDropdown={openDropdown}
+                onOpenDropdown={setOpenDropdown}
+                selectedIdx={totalPaidIdx}
+                onSelectedIdxChange={setTotalPaidIdx}
+                valueFontClass={sharedFontClass}
+              />
+              <TokenAmountStatCard
+                title="Year to Date"
+                items={stats.yearToDate}
+                icon={CreditCardIcon}
+                dropdownKey="yearToDate"
+                openDropdown={openDropdown}
+                onOpenDropdown={setOpenDropdown}
+                selectedIdx={yearToDateIdx}
+                onSelectedIdxChange={setYearToDateIdx}
+                valueFontClass={sharedFontClass}
+              />
+              <TokenAmountStatCard
+                title="This Month"
+                items={stats.thisMonth}
+                icon={Calendar}
+                dropdownKey="thisMonth"
+                openDropdown={openDropdown}
+                onOpenDropdown={setOpenDropdown}
+                selectedIdx={thisMonthIdx}
+                onSelectedIdxChange={setThisMonthIdx}
+                valueFontClass={sharedFontClass}
+              />
+            </>
+          )
+        })()}
       </div>
 
       {/* 今日执行任务区域 */}
@@ -248,20 +273,22 @@ export default function Dashboard() {
                 } catch { return '0' }
               })()
               const networkName = getNetworkName(transaction.caipChainId) || transaction.caipChainId
-              const payDate = new Date(transaction.payPeriod)
-                .toLocaleDateString('zh-CN').replace(/\//g, '/')
+              const payDate = (() => {
+                const d = new Date(transaction.payPeriod)
+                const date = d.toLocaleDateString('zh-CN').replace(/\//g, '/')
+                const time = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+                return `${date} ${time}`
+              })()
               const isComplete = transaction.transactionStatus === PayrollTransactionStatus.COMPLETE
-              const isPending = transaction.transactionStatus === PayrollTransactionStatus.PENDING
-              const isClaimed = transaction.transactionStatus === PayrollTransactionStatus.CLAIMED
+              const isReady = transaction.transactionStatus === PayrollTransactionStatus.READY
               const isRefunded = transaction.transactionStatus === PayrollTransactionStatus.REFUNDED
 
               // Status-driven colours
-              const accentColor = isClaimed ? '#22a106' : isComplete ? '#5ddd22' : isPending ? '#5e85ee' : isRefunded ? '#d92b2b' : '#606067'
-              const infoBg = isClaimed
-                ? 'rgba(34,161,6,0.04)' : isComplete
-                  ? 'rgba(93,221,34,0.04)' : isPending
-                    ? 'rgba(94,133,238,0.04)' : isRefunded
-                      ? 'rgba(217,43,43,0.04)' : 'rgba(0,0,0,0.03)'
+              const accentColor = isComplete ? '#5ddd22' : isReady ? '#5e85ee' : isRefunded ? '#d92b2b' : '#606067'
+              const infoBg = isComplete
+                ? 'rgba(93,221,34,0.04)' : isReady
+                  ? 'rgba(94,133,238,0.04)' : isRefunded
+                    ? 'rgba(217,43,43,0.04)' : 'rgba(0,0,0,0.03)'
               return (
                 <div key={transaction.id} className="relative bg-white rounded-[28px] p-[20px] flex gap-[24px] items-start overflow-hidden">
                   {/* Left accent bar */}

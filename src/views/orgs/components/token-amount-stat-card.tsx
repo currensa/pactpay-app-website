@@ -2,7 +2,24 @@ import type { TokenAmount } from '@/apis/statistics.api'
 import useChainAssetStore from '@/stores/chain-asset'
 import { formatUnits } from 'ethers'
 import type { LucideIcon } from 'lucide-react'
-import { useState } from 'react'
+
+export function getTokenAmountFontClass(maxLen: number) {
+  if (maxLen <= 7) return 'text-[28px] leading-[40px]'
+  if (maxLen <= 10) return 'text-[22px] leading-[32px]'
+  if (maxLen <= 13) return 'text-[18px] leading-[28px]'
+  if (maxLen <= 16) return 'text-[16px] leading-[24px]'
+  return 'text-[14px] leading-[22px]'
+}
+
+export function formatTokenAmountItem(item: TokenAmount): string {
+  const chainAssetStore = useChainAssetStore.getState()
+  const decimals = chainAssetStore.getTokenDecimals(item.caipChainId, item.tokenAddress)
+  try {
+    return parseFloat(formatUnits(BigInt(item.amount), decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 })
+  } catch {
+    return '0'
+  }
+}
 
 interface TokenAmountStatCardProps {
   title: string
@@ -11,6 +28,9 @@ interface TokenAmountStatCardProps {
   dropdownKey: string
   openDropdown: string | null
   onOpenDropdown: (key: string | null) => void
+  selectedIdx: number
+  onSelectedIdxChange: (idx: number) => void
+  valueFontClass: string
 }
 
 export function TokenAmountStatCard({
@@ -20,21 +40,16 @@ export function TokenAmountStatCard({
   dropdownKey,
   openDropdown,
   onOpenDropdown,
+  selectedIdx,
+  onSelectedIdxChange,
+  valueFontClass,
 }: TokenAmountStatCardProps) {
-  const [selectedIdx, setSelectedIdx] = useState(0)
   const idx = Math.min(selectedIdx, Math.max(0, items.length - 1))
   const current = items[idx]
 
   const chainAssetStore = useChainAssetStore.getState()
 
-  const formatAmount = (item: TokenAmount) => {
-    const decimals = chainAssetStore.getTokenDecimals(item.caipChainId, item.tokenAddress)
-    try {
-      return parseFloat(formatUnits(BigInt(item.amount), decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 })
-    } catch {
-      return '0'
-    }
-  }
+  const formatAmount = (item: TokenAmount) => formatTokenAmountItem(item)
 
   const getSymbol = (item: TokenAmount) =>
     chainAssetStore.getTokenSymbol(item.caipChainId, item.tokenAddress) || item.tokenAddress.slice(0, 6).toUpperCase()
@@ -53,7 +68,7 @@ export function TokenAmountStatCard({
           {iconUrl && (
             <img src={iconUrl} alt="" className="w-[22px] h-[22px] rounded-full self-end mb-[6px] shrink-0" />
           )}
-          <span className="text-[28px] font-medium leading-[40px] text-[#1c1c26]">
+          <span className={`font-medium text-[#1c1c26] ${valueFontClass}`}>
             {current ? formatAmount(current) : '0'}
           </span>
           {items.length > 0 && (
@@ -79,7 +94,7 @@ export function TokenAmountStatCard({
             return (
               <button
                 key={i}
-                onClick={() => { setSelectedIdx(i); onOpenDropdown(null) }}
+                onClick={() => { onSelectedIdxChange(i); onOpenDropdown(null) }}
                 className="flex items-center justify-between w-full px-[20px] py-[8px] text-[14px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
               >
                 {sym}
