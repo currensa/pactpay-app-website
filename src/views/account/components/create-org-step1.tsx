@@ -11,6 +11,7 @@ interface CreateOrgStep1Props {
 export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) {
   const [orgName, setOrgName] = useState('')
   const [showName, setShowName] = useState('')
+  const [referralCode, setReferralCode] = useState('')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -43,6 +44,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
         orgName: orgName.trim(),
         showName: showName.trim(),
         avatarUrl,
+        ...(referralCode.trim() ? { referralCode: referralCode.trim() } : {}),
       })
 
       // Fetch orgs to get member info so OrgGuard passes
@@ -127,6 +129,17 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
           required
           className="h-[56px] w-full rounded-[12px] bg-[#f5f5f5] px-[16px] font-['Inter',sans-serif] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none"
         />
+
+        {/* Referral Code 输入框（可选） */}
+        <div className="flex flex-col gap-[6px]">
+          <input
+            type="text"
+            value={referralCode}
+            onChange={e => setReferralCode(e.target.value)}
+            placeholder="Enter referral code (optional)"
+            className="h-[56px] w-full rounded-[12px] bg-[#f5f5f5] px-[16px] font-['Inter',sans-serif] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none"
+          />
+        </div>
 
         {/* 按钮组 */}
         <div className="flex gap-[12px]">
