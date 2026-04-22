@@ -79,23 +79,33 @@ function TrendPill({ trend }: { trend: TrendMeta }) {
   )
 }
 
+export function getMetricValueFontClass(maxLen: number) {
+  if (maxLen <= 7) return 'text-[28px] leading-[36px] md:text-[22px] md:leading-[44px]'
+  if (maxLen <= 10) return 'text-[22px] leading-[32px] md:text-[18px] md:leading-[36px]'
+  if (maxLen <= 13) return 'text-[18px] leading-[28px] md:text-[16px] md:leading-[28px]'
+  if (maxLen <= 16) return 'text-[16px] leading-[24px] md:text-[14px] md:leading-[22px]'
+  return 'text-[14px] leading-[22px]'
+}
+
 export function MetricCard({
   title,
   value,
   trend,
   titleClassName,
+  valueFontClass,
 }: {
   title: string
   value: string
   trend: TrendMeta
   titleClassName?: string
+  valueFontClass?: string
 }) {
   return (
     <div className="flex min-h-[120px] flex-col justify-between rounded-[28px] bg-white p-[20px] md:min-h-[128px] md:p-[24px]">
       <div className="flex items-start justify-between gap-[12px]">
         <div className="flex min-w-0 flex-col gap-[8px]">
           <p className={cn('text-[14px] leading-[22px] text-[#1c1c26] md:text-[16px] md:leading-[24px]', titleClassName)}>{title}</p>
-          <span className="break-all text-[28px] font-medium leading-[36px] text-[#1c1c26] md:text-[22px] md:leading-[44px]">{value}</span>
+          <span className={cn('break-all font-medium text-[#1c1c26]', valueFontClass ?? getMetricValueFontClass(value.length))}>{value}</span>
         </div>
         <TrendPill trend={trend} />
       </div>

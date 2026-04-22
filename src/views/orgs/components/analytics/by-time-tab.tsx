@@ -17,7 +17,7 @@ import {
   formatTokenAmount,
   toChartNumber,
 } from './analytics-utils'
-import { AnalyticsExportButton, AnalyticsStatusBadge, AnalyticsTopBar, MessageState, MetricCard } from './shared'
+import { AnalyticsExportButton, AnalyticsStatusBadge, AnalyticsTopBar, MessageState, MetricCard, getMetricValueFontClass } from './shared'
 
 function ByTimeLoadingState() {
   return (
@@ -298,24 +298,32 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
       )
     }
 
+    const v1 = formatDisplayAmount(selectedStatistic.totalPayoutVolume, selectedStatistic.decimals, selectedStatistic.symbol)
+    const v2 = formatDisplayAmount(selectedStatistic.avgMonthlyPayout, selectedStatistic.decimals, selectedStatistic.symbol)
+    const v3 = formatDisplayAmount(selectedStatistic.avgPayoutPerMember, selectedStatistic.decimals, selectedStatistic.symbol)
+    const sharedFontClass = getMetricValueFontClass(Math.max(v1.length, v2.length, v3.length))
+
     return (
       <>
         <div className="grid gap-[20px] xl:grid-cols-3">
           <MetricCard
             title="Total Payout Volume"
-            value={formatDisplayAmount(selectedStatistic.totalPayoutVolume, selectedStatistic.decimals, selectedStatistic.symbol)}
+            value={v1}
             trend={totalPayoutTrend}
+            valueFontClass={sharedFontClass}
           />
           <MetricCard
             title="Avg. Monthly Payout"
-            value={formatDisplayAmount(selectedStatistic.avgMonthlyPayout, selectedStatistic.decimals, selectedStatistic.symbol)}
+            value={v2}
             trend={avgMonthlyTrend}
+            valueFontClass={sharedFontClass}
           />
           <MetricCard
             title="Avg. Payout per Member"
-            value={formatDisplayAmount(selectedStatistic.avgPayoutPerMember, selectedStatistic.decimals, selectedStatistic.symbol)}
+            value={v3}
             trend={avgPerMemberTrend}
             titleClassName="text-[12px] leading-[20px] md:text-[14px] md:leading-[22px]"
+            valueFontClass={sharedFontClass}
           />
         </div>
 
