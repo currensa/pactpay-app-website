@@ -1,9 +1,12 @@
 import api from '@/apis'
-import { useNavigate } from 'react-router-dom'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider, useDisconnect } from '@reown/appkit/react'
 import { IconLoader2, IconMail, IconWallet } from '@tabler/icons-react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+
+import { persistAuthSession } from './auth-session'
+import GoogleSignInButton from './google-sign-in-button'
 
 interface LoginFormProps {
   onLoginSuccess: () => void
@@ -18,7 +21,7 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
 
   const shortAddress = useMemo(() => {
-    return address ? address.slice(0, 6) + '...' + address.slice(-4) : ''
+    return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''
   }, [address])
 
   const handleWalletConnect = () => {
@@ -46,10 +49,7 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
         nonce,
         signature
       })
-      localStorage.setItem('token', token)
-      localStorage.setItem('userId', userId)
-      localStorage.setItem('authType', 'wallet')
-      localStorage.setItem('authAddress', addr)
+      persistAuthSession('wallet', { token, userId, address: addr })
       onLoginSuccess()
     } catch (error) {
       console.error('Failed to sign in:', error)
@@ -71,12 +71,12 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
 
   return (
     <div className="flex flex-col items-center gap-[10px]">
-      <button
-        type="button"
-        onClick={isConnected ? handleWalletSign : handleWalletConnect}
-        disabled={loading}
-        className="flex w-full items-center justify-center gap-[8px] rounded-full bg-[#5E85EE] px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-70"
-      >
+        <button
+          type="button"
+          onClick={isConnected ? handleWalletSign : handleWalletConnect}
+          disabled={loading}
+          className="flex min-h-[52px] w-full items-center justify-center gap-[8px] rounded-full bg-[#5E85EE] px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-70"
+        >
         {loading ? (
           <IconLoader2 className="h-[24px] w-[24px] animate-spin" />
         ) : (
@@ -146,10 +146,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
         email,
         code: emailCode.toUpperCase()
       })
-      localStorage.setItem('token', token)
-      localStorage.setItem('userId', userId)
-      localStorage.setItem('authType', 'email')
-      localStorage.setItem('authEmail', email)
+      persistAuthSession('email', { token, userId, email })
       onLoginSuccess()
     } catch (error) {
       console.error('Failed to sign in with email:', error)
@@ -162,28 +159,25 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   return (
     <div className="flex h-full w-full items-center justify-center">
       <div className="flex w-full max-w-[480px] flex-col gap-[80px]">
-        {/* 标题区域 */}
         <div className="flex flex-col gap-[8px] text-center">
           <h1 className="font-['Poppins',sans-serif] text-[42px] font-medium leading-none tracking-[-0.84px] text-[#1c1c26] lg:text-[56px] lg:tracking-[-1.12px]">
             {isConnected ? 'Welcome Back' : 'Create PactPay Account'}
           </h1>
         </div>
 
-        {/* 登录区域 */}
         <div className="flex flex-col gap-[32px]">
-          {/* 钱包登录按钮 */}
-          <WalletButton onLoginSuccess={onLoginSuccess} />
+          <div className="flex w-full max-w-[480px] self-center flex-col gap-[24px]">
+            <WalletButton onLoginSuccess={onLoginSuccess} />
+            <GoogleSignInButton onLoginSuccess={onLoginSuccess} />
+          </div>
 
-          {/* 分隔线 */}
           <div className="flex items-center justify-center gap-[24px]">
             <div className="h-[1px] flex-1 bg-[#d9d9db]" />
             <span className="text-[16px] leading-[24px] text-[#77777d]">or</span>
             <div className="h-[1px] flex-1 bg-[#d9d9db]" />
           </div>
 
-          {/* 邮箱登录表单 */}
-          <form onSubmit={emailLogin} noValidate className="flex flex-col gap-[24px]">
-            {/* 邮箱输入框 */}
+          <form onSubmit={emailLogin} noValidate className="flex w-full max-w-[480px] self-center flex-col gap-[24px]">
             <div className="flex h-[56px] items-center justify-between overflow-hidden rounded-[16px] bg-[#f5f5f5] px-[16px]">
               <input
                 type="email"
@@ -211,10 +205,8 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               </button>
             </div>
 
-            {sendCodeError && (
-              <p className="text-[14px] text-red-500">{sendCodeError}</p>
-            )}
-            {/* 验证码输入框 */}
+            {sendCodeError && <p className="text-[14px] text-red-500">{sendCodeError}</p>}
+
             {codeSent && (
               <div className="flex h-[38px] items-center overflow-hidden rounded-[6px] border border-[#d9d9db] bg-white px-[12px] py-[4px]">
                 <input
@@ -228,14 +220,12 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               </div>
             )}
 
-            {emailLoginError && (
-              <p className="text-[14px] text-red-500">{emailLoginError}</p>
-            )}
-            {/* 邮箱登录按钮 */}
+            {emailLoginError && <p className="text-[14px] text-red-500">{emailLoginError}</p>}
+
             <button
               type="submit"
               disabled={!codeSent || !emailCode || emailLoginLoading}
-              className="flex items-center justify-center gap-[8px] rounded-full border border-[#d9d9db] bg-white px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-[#1c1c26] transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex min-h-[52px] w-full items-center justify-center gap-[8px] rounded-full border border-[#d9d9db] bg-white px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-[#1c1c26] transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {emailLoginLoading ? (
                 <IconLoader2 className="h-[24px] w-[24px] animate-spin" />
@@ -248,21 +238,23 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             </button>
           </form>
 
-          {/* 法律声明 */}
           <p className="text-center text-[12px] leading-[18px] text-[#8d8d93]">
             By continuing, you agree to our{' '}
-            <button onClick={() => navigate('/legal/terms')} className="underline hover:text-[#606067] transition-colors">Terms of Use</button>
-            {' '}and acknowledge our{' '}
-            <button onClick={() => navigate('/legal/privacy')} className="underline hover:text-[#606067] transition-colors">Privacy Policy</button>.
-          </p>
-
-          {/* 底部链接 */}
-          {/* <div className="flex items-start justify-center gap-[4px] text-[16px] leading-[24px]">
-            <span className="text-[#77777d]">Others?</span>
-            <button className="font-bold text-[#5e85ee] transition-opacity hover:opacity-80">
-              Create Organization
+            <button
+              onClick={() => navigate('/legal/terms')}
+              className="underline transition-colors hover:text-[#606067]"
+            >
+              Terms of Use
+            </button>{' '}
+            and acknowledge our{' '}
+            <button
+              onClick={() => navigate('/legal/privacy')}
+              className="underline transition-colors hover:text-[#606067]"
+            >
+              Privacy Policy
             </button>
-          </div> */}
+            .
+          </p>
         </div>
       </div>
     </div>
