@@ -13,6 +13,12 @@ interface EmailLoginRequest {
   code: string
 }
 
+interface GoogleLoginResponse {
+  token: string
+  userId: string
+  isNew: boolean
+}
+
 export interface SubmitMetaPubRequest {
   address: string
   metaPub: string
@@ -30,7 +36,12 @@ export class AccountApi {
   }
 
   async login(params: WalletLoginRequest | EmailLoginRequest) {
-    const res = await this.request.post<{ token: string; userId: string; isNew: boolean }>('/auth/login', params)
+    const res = await this.request.post<GoogleLoginResponse>('/auth/login', params)
+    return res.data
+  }
+
+  async googleLogin(credential: string) {
+    const res = await this.request.post<GoogleLoginResponse>('/auth/google', { credential })
     return res.data
   }
 

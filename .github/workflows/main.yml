@@ -56,4 +56,5 @@ jobs:
               --name "$CONTAINER" \
               --restart unless-stopped \
               -p 3001:80 \
+              -e VITE_GOOGLE_CLIENT_ID="${{ secrets.VITE_GOOGLE_CLIENT_ID }}" \
               "$IMAGE"
