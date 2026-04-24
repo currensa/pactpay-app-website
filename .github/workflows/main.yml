@@ -32,6 +32,8 @@ jobs:
           context: .
           push: true
           tags: sgccr.ccs.tencentyun.com/pactpay/pactpay-app-website:PROD_${{ steps.tag.outputs.IMAGE_TAG }}
+          build-args: |
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Deploy to CVM via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -56,5 +58,4 @@ jobs:
               --name "$CONTAINER" \
               --restart unless-stopped \
               -p 3001:80 \
-              -e VITE_GOOGLE_CLIENT_ID="${{ secrets.VITE_GOOGLE_CLIENT_ID }}" \
               "$IMAGE"
