@@ -18,6 +18,10 @@ function extractCta(html: string): { text: string; href: string } | null {
   return { href: match[1], text: match[2].replace(/<[^>]+>/g, '').trim() }
 }
 
+function removeCta(html: string): string {
+  return html.replace(/<a[^>]+href="[^"]+"[^>]*>[\s\S]*?<\/a>/i, ' ')
+}
+
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 }
@@ -64,7 +68,7 @@ function NotificationRow({
 }) {
   const navigate = useNavigate()
   const cta = extractCta(item.body)
-  const preview = stripHtml(item.body)
+  const preview = stripHtml(removeCta(item.body))
   const isUnread = !item.readAt
 
   const handleCta = () => {
@@ -91,7 +95,7 @@ function NotificationRow({
 
       {/* Content */}
       <div className="flex flex-1 flex-col gap-[4px] min-w-0">
-        <div className="flex items-center gap-[8px] w-full min-w-0">
+        <div className="flex items-start gap-[8px] w-full min-w-0">
           {/* Unread dot */}
           {isUnread && (
             <div className="h-[6px] w-[6px] shrink-0 rounded-full bg-[#5e85ee]" />
@@ -99,7 +103,7 @@ function NotificationRow({
           <p className="text-[15px] leading-[24px] font-bold text-[#1c1c26] shrink-0 max-w-[40%] truncate">
             {item.title}
           </p>
-          <p className="flex-1 text-[15px] leading-[24px] text-[#8d8d93] truncate min-w-0">
+          <p className="flex-1 min-w-0 whitespace-normal break-words text-[15px] leading-[24px] text-[#8d8d93]">
             {preview}
           </p>
         </div>
