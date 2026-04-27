@@ -18,6 +18,10 @@ function extractCta(html: string): { text: string; href: string } | null {
   return { href: match[1], text: match[2].replace(/<[^>]+>/g, '').trim() }
 }
 
+function removeCta(html: string): string {
+  return html.replace(/<a[^>]+href="[^"]+"[^>]*>[\s\S]*?<\/a>/i, ' ')
+}
+
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 }
@@ -64,7 +68,7 @@ function NotificationRow({
 }) {
   const navigate = useNavigate()
   const cta = extractCta(item.body)
-  const preview = stripHtml(item.body)
+  const preview = stripHtml(removeCta(item.body))
   const isUnread = !item.readAt
 
   const handleCta = () => {
