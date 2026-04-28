@@ -20,6 +20,7 @@ interface PayrollHistoryRow {
   memberId: string
   amount: number
   token: string
+  chainName: string
   status: PayrollItemStatus
   transactionName: string | null
   txHash: string | null
@@ -91,6 +92,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
             memberId: memberItem?.member?.memberId ?? memberId ?? '',
             amount,
             token,
+            chainName: getChain(tx.caipChainId)?.name ?? tx.caipChainId,
             status: memberItem.status,
             transactionName: tx.transactionName ?? null,
             txHash: memberItem.txHash ?? null,
@@ -122,16 +124,17 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
             {showOrgColumn && <TableHead>Organization</TableHead>}
             <TableHead>Transaction</TableHead>
             <TableHead>Amount</TableHead>
+            <TableHead>Network</TableHead>
             <TableHead>Tx Hash</TableHead>
             <TableHead>Status</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableSkeletonRows rows={5} cols={showOrgColumn ? 6 : 5} />
+            <TableSkeletonRows rows={5} cols={showOrgColumn ? 7 : 6} />
           ) : rows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={showOrgColumn ? 6 : 5} className="py-[24px]">
+              <TableCell colSpan={showOrgColumn ? 7 : 6} className="py-[24px]">
                 <div className="flex flex-col items-center justify-center gap-[10px]">
                   <img src="/empty-table.svg" alt="No records" className="h-[120px] w-[120px]" />
                   <p className="text-[14px] leading-[22px] text-[#8d8d93]">No records found</p>
@@ -164,6 +167,9 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
                   </TableCell>
                   <TableCell>
                     {row.amount.toLocaleString()} {row.token}
+                  </TableCell>
+                  <TableCell className="text-[#606067]">
+                    {row.chainName}
                   </TableCell>
                   <TableCell>
                     {txUrl ? (
