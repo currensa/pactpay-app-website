@@ -15,6 +15,7 @@ interface OrganizationState {
   organizations: UserOrgItem[]
   currentOrgId: string | null
   currentMember: OrganizationMember | null
+  payrollConfig: import('@/apis/orgnization.api').OrgPayrollConfig | null
   payrollTokenSymbol: string | null
   getOrganizations: () => Promise<UserOrgItem[]>
   setCurrentOrg: (orgId: string, member: OrganizationMember) => void
@@ -35,6 +36,7 @@ const useOrganizationStore = create<OrganizationState>((set) => ({
   organizations: [],
   currentOrgId: localStorage.getItem('organizationId'),
   currentMember: loadCurrentMember(),
+  payrollConfig: null,
   payrollTokenSymbol: null,
   getOrganizations: async () => {
     const organizations = await apis.organization.getOrganizations()
@@ -53,17 +55,17 @@ const useOrganizationStore = create<OrganizationState>((set) => ({
       chainAssetStore.fetchChainAssets(),
     ])
     if (!payrollConfig) {
-      set({ payrollTokenSymbol: null })
+      set({ payrollConfig: null, payrollTokenSymbol: null })
       return null
     }
     const symbol = chainAssetStore.getTokenSymbol(payrollConfig.caipChainId, payrollConfig.token)
-    set({ payrollTokenSymbol: symbol })
+    set({ payrollConfig, payrollTokenSymbol: symbol })
     return symbol
   },
   reset: () => {
     localStorage.removeItem('organizationId')
     localStorage.removeItem('currentMember')
-    set({ organizations: [], currentOrgId: null, currentMember: null, payrollTokenSymbol: null })
+    set({ organizations: [], currentOrgId: null, currentMember: null, payrollConfig: null, payrollTokenSymbol: null })
   },
 }))
 

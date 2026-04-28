@@ -12,11 +12,11 @@ import useOrganizationStore from '@/stores/organization'
 import { IconCalendar, IconLoader2 } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
 
-const imgCreditCard = 'https://www.figma.com/api/mcp/asset/7a9d3d4c-af2e-4654-98b2-5959652689d2'
-const imgFrameLogo = 'https://www.figma.com/api/mcp/asset/b2de3152-127b-462c-8406-266b2cec11bf'
-const imgUserDollar = 'https://www.figma.com/api/mcp/asset/e1cdd45f-133a-48ff-a629-05467127ba7d'
-const imgTimeForward = 'https://www.figma.com/api/mcp/asset/d2b576dc-8113-4697-8aa1-87f3c15d4462'
-const imgTimePast = 'https://www.figma.com/api/mcp/asset/e8970215-e02c-4cd8-9b5a-fe81467d16ea'
+const imgCreditCard = '/creat-transaction-tip-1.svg'
+const imgFrameLogo = '/creat-transaction-tip-2.svg'
+const imgUserDollar = '/creat-transaction-tip-3.svg'
+const imgTimeForward = '/creat-transaction-tip-4.svg'
+const imgTimePast = '/creat-transaction-tip-5.svg'
 
 interface FeePreview {
   billableMemberCount: number
