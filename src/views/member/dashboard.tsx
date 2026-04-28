@@ -9,8 +9,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Cell, Pie, PieChart, Tooltip } from 'recharts'
 
-interface TokenItem { symbol: string; amount: number; iconUrl?: string | null }
-interface DistributionItem { name: string; value: number; color: string; caipChainId: string; tokenAddress: string; rawAmount: number }
+interface TokenItem { symbol: string; amount: number; iconUrl?: string | null; chainName: string }
+interface DistributionItem { name: string; value: number; color: string; caipChainId: string; tokenAddress: string; rawAmount: number; chainName: string }
 
 const DISTRIBUTION_COLORS = ['#1c1c26', '#5e85ee', '#ffa800', '#c2d5fe', '#feeee2', '#8247e5', '#26a17b']
 
@@ -42,7 +42,10 @@ function TokenRow({ item }: { item: TokenItem }) {
     <div className="flex items-center justify-between bg-[#f5f5f5] rounded-[16px] px-[16px] py-[10px] w-full shrink-0">
       <div className="flex items-center gap-[6px]">
         <TokenIcon symbol={item.symbol} iconUrl={item.iconUrl} />
-        <p className="text-[16px] leading-[24px] text-black">{item.symbol}</p>
+        <div className="min-w-0">
+          <p className="text-[16px] leading-[24px] text-black">{item.symbol}</p>
+          <p className="text-[12px] leading-[18px] text-[#8d8d93] truncate">{item.chainName}</p>
+        </div>
       </div>
       <p className="text-[18px] leading-[28px] font-bold text-[#1c1c26]">
         {item.amount.toLocaleString()}
@@ -64,6 +67,7 @@ interface SummaryCardProps {
 function SummaryCard({ title, icon, tokens, loading, claimButton }: SummaryCardProps) {
   const [showAll, setShowAll] = useState(false)
   const hasMore = tokens.length > 3
+  const visibleTokens = showAll ? tokens : tokens.slice(0, 3)
 
   return (
     <div className="bg-white rounded-[24px] p-[20px] flex flex-1 flex-col gap-[16px] min-w-0">
@@ -80,7 +84,7 @@ function SummaryCard({ title, icon, tokens, loading, claimButton }: SummaryCardP
 
       {/* Token list + Show All */}
       <div className="flex flex-col gap-[8px]">
-        <div className={`h-[176px] flex flex-col gap-[10px] ${showAll ? 'overflow-y-auto pr-[4px]' : 'overflow-hidden'}`}>
+        <div className={`flex flex-col gap-[10px] ${hasMore ? 'max-h-[208px]' : ''} ${showAll ? 'overflow-y-auto pr-[4px]' : 'overflow-visible'}`}>
           {loading
             ? <p className="text-[14px] text-[#8d8d93] py-[8px]">Loading...</p>
             : tokens.length === 0
@@ -90,7 +94,7 @@ function SummaryCard({ title, icon, tokens, loading, claimButton }: SummaryCardP
                   <p className="text-[13px] leading-[20px] text-[#8d8d93]">No data available</p>
                 </div>
               )
-              : (showAll ? tokens : tokens.slice(0, 3)).map(item => <TokenRow key={item.symbol} item={item} />)
+              : visibleTokens.map(item => <TokenRow key={`${item.chainName}:${item.symbol}`} item={item} />)
           }
         </div>
         {hasMore && (
@@ -110,16 +114,17 @@ function SummaryCard({ title, icon, tokens, loading, claimButton }: SummaryCardP
 
 function DonutChart({ data, getTokenSymbol }: { data: DistributionItem[]; getTokenSymbol: (caipChainId: string, token: string) => string | null }) {
   // Group by token, sum raw amounts
-  const tokenTotals: Record<string, { amount: number; symbol: string }> = {}
+  const tokenTotals: Record<string, { amount: number; symbol: string; chainName: string }> = {}
   for (const d of data) {
     const key = `${d.caipChainId}:${d.tokenAddress}`
     const symbol = getTokenSymbol(d.caipChainId, d.tokenAddress) ?? d.tokenAddress.slice(0, 6)
-    if (!tokenTotals[key]) tokenTotals[key] = { amount: 0, symbol }
+    if (!tokenTotals[key]) tokenTotals[key] = { amount: 0, symbol, chainName: d.chainName }
     tokenTotals[key].amount += d.rawAmount
   }
   const entries = Object.values(tokenTotals)
   const centerAmount = entries.reduce((s, e) => s + e.amount, 0).toLocaleString()
   const centerSymbol = entries.length === 1 ? entries[0].symbol : 'Mixed'
+  const centerChainName = entries.length === 1 ? entries[0].chainName : 'Multiple networks'
 
   return (
     <div className="relative shrink-0 h-[160px] w-[160px]" style={{ overflow: 'visible' }}>
@@ -153,6 +158,7 @@ function DonutChart({ data, getTokenSymbol }: { data: DistributionItem[]; getTok
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center" style={{ zIndex: 0 }}>
         <p className="text-[15px] leading-[22px] font-bold text-[#1c1c26]">{centerAmount}</p>
         <p className="text-[12px] leading-[18px] text-[#8d8d93]">{centerSymbol}</p>
+        <p className="max-w-[92px] text-center text-[11px] leading-[16px] text-[#8d8d93]">{centerChainName}</p>
       </div>
     </div>
   )
@@ -192,7 +198,10 @@ function IncomeDistributionCard({ data, loading, getTokenSymbol }: { data: Distr
                   {data.slice(0, 3).map((item, i) => (
                     <div key={i} className="flex items-center gap-[8px] shrink-0">
                       <div className="h-[8px] w-[10px] shrink-0 rounded-[12px]" style={{ backgroundColor: item.color }} />
-                      <p className="text-[14px] leading-[22px] text-[#1c1c26] truncate flex-1">{item.name}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14px] leading-[22px] text-[#1c1c26] truncate">{item.name}</p>
+                        <p className="text-[12px] leading-[18px] text-[#8d8d93] truncate">{item.chainName}</p>
+                      </div>
                       <p className="text-[13px] leading-[22px] text-[#606067] shrink-0">{item.value}%</p>
                     </div>
                   ))}
@@ -211,7 +220,7 @@ export default function MemberDashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  const { fetchChainAssets, getTokenSymbol, getTokenDecimals, getTokenIconUrl } = useChainAssetStore()
+  const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, getTokenIconUrl, getChain } = useChainAssetStore()
   const { verifying, userAction, address, walletProvider, handleClaimAll, runClaimAll } = useClaimAll()
 
   const [claimedTokens, setClaimedTokens] = useState<TokenItem[]>([])
@@ -233,19 +242,21 @@ export default function MemberDashboard() {
   const loadSummary = async () => {
     try {
       setSummaryLoading(true)
-      await fetchChainAssets()
+      await Promise.all([fetchChainAssets(), fetchChains()])
       const data = await apis.transaction.getMySummary()
 
       setClaimedTokens(data.claimed.map(item => ({
         symbol: getTokenSymbol(item.caipChainId, item.tokenAddress) ?? item.tokenAddress.slice(0, 6),
         amount: Number(item.totalAmount) / Math.pow(10, getTokenDecimals(item.caipChainId, item.tokenAddress)),
         iconUrl: getTokenIconUrl(item.caipChainId, item.tokenAddress),
+        chainName: getChain(item.caipChainId)?.name ?? item.caipChainId,
       })))
 
       setPendingTokens(data.pendingClaim.map(item => ({
         symbol: getTokenSymbol(item.caipChainId, item.tokenAddress) ?? item.tokenAddress.slice(0, 6),
         amount: Number(item.totalAmount) / Math.pow(10, getTokenDecimals(item.caipChainId, item.tokenAddress)),
         iconUrl: getTokenIconUrl(item.caipChainId, item.tokenAddress),
+        chainName: getChain(item.caipChainId)?.name ?? item.caipChainId,
       })))
 
       const totalDist = data.incomeDistribution.reduce((s, d) => s + Number(d.totalAmount), 0) || 1
@@ -256,6 +267,7 @@ export default function MemberDashboard() {
         caipChainId: item.caipChainId,
         tokenAddress: item.tokenAddress,
         rawAmount: Number(item.totalAmount) / Math.pow(10, getTokenDecimals(item.caipChainId, item.tokenAddress)),
+        chainName: getChain(item.caipChainId)?.name ?? item.caipChainId,
       })))
     } catch (error: any) {
       toast({
