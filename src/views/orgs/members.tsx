@@ -1,5 +1,6 @@
 import apis from '@/apis'
 import { OrganizationMember } from '@/apis/orgnization.api'
+import BindWalletReminderBanner from '@/components/app/base/bind-wallet-reminder-banner'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,13 +24,17 @@ import type { SortDirection, SortField } from '@/views/orgs/components/member-de
 import { MemberDetailContent } from '@/views/orgs/components/member-detail'
 import { StatusBadge } from '@/views/orgs/components/status-badge'
 import { Check, ChevronDown, ChevronsUpDown, ChevronUp, Edit2, Plus, Search, Upload, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 
 export default function MemberPage() {
   const { toast } = useToast()
   const navigate = useNavigate()
+  const bindWalletBannerDismissKey = useMemo(
+    () => `pactpay_members_bind_wallet_banner_dismissed:${localStorage.getItem('userId') ?? 'anonymous'}`,
+    []
+  )
 
   // ── Data state ───────────────────────────────────────────────────────
   const [members, setMembers] = useState<OrganizationMember[]>([])
@@ -262,6 +267,10 @@ export default function MemberPage() {
 
   return (
     <div className="flex flex-col gap-[16px] h-full bg-white rounded-[32px] p-[20px]">
+      <BindWalletReminderBanner
+        dismissStorageKey={bindWalletBannerDismissKey}
+        redirectTo="/orgs/members"
+      />
 
       {/* ── Invite Members section ──────────────────────────────────────── */}
       {inviteSectionOpen && (
