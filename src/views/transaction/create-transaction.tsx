@@ -3,13 +3,15 @@ import { MembersResponse } from '@/apis/orgnization.api'
 import type { TransactionItem } from '@/apis/transaction.api'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
+import useOrganizationStore from '@/stores/organization'
 import { CreateTransactionDialogContent } from '@/views/transaction/components'
 import { formatUnits } from 'ethers'
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function CreateTransaction() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const { toast } = useToast()
   const isCreatingFromReaction = searchParams.get('fromReaction') === '1'
@@ -22,8 +24,36 @@ export default function CreateTransaction() {
   const [initialExecutionDate, setInitialExecutionDate] = useState<string>('')
   const [reactionSourceCaipChainId, setReactionSourceCaipChainId] = useState<string>('')
   const [reactionSourceTokenAddress, setReactionSourceTokenAddress] = useState<string>('')
+  const [accessChecked, setAccessChecked] = useState(false)
 
   const { getTokenDecimals, fetchChainAssets } = useChainAssetStore()
+
+  useEffect(() => {
+    let cancelled = false
+
+    const ensurePayrollConfig = async () => {
+      try {
+        const symbol = await useOrganizationStore.getState().fetchPayrollTokenSymbol()
+        if (cancelled) return
+        const latestPayrollConfig = useOrganizationStore.getState().payrollConfig
+        if (!symbol && !latestPayrollConfig) {
+          navigate(`/orgs/transaction?setupPayroll=1`, {
+            replace: true,
+            state: { pendingCreatePath: `${location.pathname}${location.search}` },
+          })
+          return
+        }
+      } finally {
+        if (!cancelled) setAccessChecked(true)
+      }
+    }
+
+    ensurePayrollConfig()
+
+    return () => {
+      cancelled = true
+    }
+  }, [location.pathname, location.search, navigate])
 
   const fetchOrganizationMembers = async () => {
     try {
@@ -42,10 +72,12 @@ export default function CreateTransaction() {
   }
 
   useEffect(() => {
+    if (!accessChecked) return
     fetchOrganizationMembers()
-  }, [])
+  }, [accessChecked])
 
   useEffect(() => {
+    if (!accessChecked) return
     if (!isCreatingFromReaction || !reactionSourceTransactionId) return
     const fetchReactionSource = async () => {
       try {
@@ -77,7 +109,15 @@ export default function CreateTransaction() {
       }
     }
     fetchReactionSource()
-  }, [isCreatingFromReaction, reactionSourceTransactionId, toast])
+  }, [accessChecked, fetchChainAssets, getTokenDecimals, isCreatingFromReaction, reactionSourceTransactionId, toast])
+
+  if (!accessChecked) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-[13px] text-[#8d8d93]">Loading...</div>
+      </div>
+    )
+  }
 
   const handleCancel = () => navigate('/orgs/transaction')
 
