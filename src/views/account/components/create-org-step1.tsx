@@ -1,11 +1,12 @@
 import api from '@/apis'
+import useAuthStore from '@/stores/auth'
 import useOrganizationStore from '@/stores/organization'
 import { IconArrowLeft, IconCamera } from '@tabler/icons-react'
-import { FormEvent, useRef, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 
 interface CreateOrgStep1Props {
   onBack: () => void
-  onNext: (orgName: string) => void
+  onNext: (orgName: string, options?: { redirectToBindWallet?: boolean }) => void
 }
 
 export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) {
@@ -15,8 +16,38 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isCheckingMetaPub, setIsCheckingMetaPub] = useState(true)
+  const [metaPubSubmitted, setMetaPubSubmittedState] = useState<boolean | null>(null)
+  const [shouldReceivePayroll, setShouldReceivePayroll] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const setCurrentOrg = useOrganizationStore(s => s.setCurrentOrg)
+  const cachedMetaPubSubmitted = useAuthStore(s => s.metaPubSubmitted)
+  const setMetaPubSubmitted = useAuthStore(s => s.setMetaPubSubmitted)
+  const { getOrganizations } = useOrganizationStore()
+  useEffect(() => {
+    let active = true
+
+    const loadMetaPubStatus = async () => {
+      try {
+        const { submitted } = await api.auth.getMetaPubStatus()
+        if (!active) return
+        setMetaPubSubmittedState(submitted)
+        setMetaPubSubmitted(submitted)
+      } catch (error) {
+        if (!active) return
+        setMetaPubSubmittedState(cachedMetaPubSubmitted)
+        console.error('Failed to get metaPub status:', error)
+      } finally {
+        if (active) setIsCheckingMetaPub(false)
+      }
+    }
+
+    loadMetaPubStatus()
+
+    return () => {
+      active = false
+    }
+  }, [cachedMetaPubSubmitted, setMetaPubSubmitted])
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -27,7 +58,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!orgName.trim() || !showName.trim() || isLoading) return
+    if (!orgName.trim() || !showName.trim() || isLoading || isCheckingMetaPub) return
 
     setIsLoading(true)
     try {
@@ -48,7 +79,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
       })
 
       // Fetch orgs to get member info so OrgGuard passes
-      const orgs = await api.organization.getOrganizations()
+      const orgs = await getOrganizations()
       const match = orgs.find(o => o.organization.orgId === org.orgId)
       if (match) {
         setCurrentOrg(org.orgId, match.member)
@@ -57,7 +88,9 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
         useOrganizationStore.setState({ currentOrgId: org.orgId })
       }
 
-      onNext(orgName)
+      onNext(orgName, {
+        redirectToBindWallet: metaPubSubmitted === false && shouldReceivePayroll,
+      })
     } catch (error) {
       console.error('Failed to create organization:', error)
     } finally {
@@ -141,6 +174,30 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
           />
         </div>
 
+        {metaPubSubmitted === false && (
+          <div className="flex flex-col gap-[16px] rounded-[20px] border border-[rgba(94,133,238,0.18)] bg-[rgba(94,133,238,0.06)] p-[20px]">
+            <p className="font-['Inter',sans-serif] text-[16px] font-bold leading-[24px] text-[#1c1c26]">
+              Will you also receive payments from this organisation?
+            </p>
+            <label className="flex cursor-pointer items-start gap-[12px]">
+              <input
+                type="checkbox"
+                checked={shouldReceivePayroll}
+                onChange={e => setShouldReceivePayroll(e.target.checked)}
+                className="mt-[3px] h-[18px] w-[18px] rounded border-[rgba(0,0,0,0.18)] text-[#5e85ee] focus:ring-[#5e85ee]"
+              />
+              <div className="flex flex-col gap-[2px]">
+                <span className="font-['Inter',sans-serif] text-[15px] font-bold leading-[22px] text-[#1c1c26]">
+                  Yes, add me as a member
+                </span>
+                <span className="font-['Inter',sans-serif] text-[14px] leading-[22px] text-[#606067]">
+                  I'll also receive payroll from this organisation
+                </span>
+              </div>
+            </label>
+          </div>
+        )}
+
         {/* 按钮组 */}
         <div className="flex gap-[12px]">
           <button
@@ -154,7 +211,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
           </button>
           <button
             type="submit"
-            disabled={!orgName.trim() || !showName.trim() || isLoading}
+            disabled={!orgName.trim() || !showName.trim() || isLoading || isCheckingMetaPub}
             className="flex flex-1 items-center justify-center rounded-[16px] bg-[#5e85ee] px-[24px] py-[16px] font-['Inter',sans-serif] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {isLoading ? 'Creating...' : 'Create'}

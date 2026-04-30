@@ -1,6 +1,6 @@
-import api from '@/apis'
 import { cn } from '@/lib/utils'
 import { getMemberNavItems, type OrgNavItem } from '@/router'
+import useOrganizationStore from '@/stores/organization'
 import { IconBuilding } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -10,27 +10,27 @@ export default function MemberNavMenus() {
   const location = useLocation()
   const staticItems = getMemberNavItems()
   const [orgChildren, setOrgChildren] = useState<OrgNavItem['children']>([])
+  const { organizations } = useOrganizationStore()
 
   useEffect(() => {
-    api.organization.getOrganizations().then(data => {
-      if (!data.length) return
-      setOrgChildren(
-        data.map(({ organization, member }) => ({
-          title: organization.orgName,
-          url: '/member/orgdetail',
-          onClick: () =>
-            navigate('/member/orgdetail', {
-              state: {
-                orgId: organization.orgId,
-                orgName: organization.orgName,
-                memberId: member.memberId
-              }
-            }),
-          isActive: (_pathname: string, state: unknown) =>
-            (state as { orgId?: string })?.orgId === organization.orgId
-        }))
-      )
-    }).catch(console.error)
+    const data = organizations
+    if (!data.length) return
+    setOrgChildren(
+      data.map(({ organization, member }) => ({
+        title: organization.orgName,
+        url: '/member/orgdetail',
+        onClick: () =>
+          navigate('/member/orgdetail', {
+            state: {
+              orgId: organization.orgId,
+              orgName: organization.orgName,
+              memberId: member.memberId
+            }
+          }),
+        isActive: (_pathname: string, state: unknown) =>
+          (state as { orgId?: string })?.orgId === organization.orgId
+      }))
+    )
   }, [])
 
   const isActive = (url: string) =>
