@@ -6,7 +6,17 @@ export default function CreateOrgStep() {
   return (
     <CreateOrgStep1
       onBack={() => navigate(-1)}
-      onNext={() => navigate('/orgs/dashboard', { replace: true })}
+      onNext={(_, options) => {
+        if (options?.redirectToBindWallet) {
+          navigate('/welcome/bind-wallet', {
+            replace: true,
+            state: { redirectTo: '/orgs/dashboard' },
+          })
+          return
+        }
+
+        navigate('/orgs/dashboard', { replace: true })
+      }}
     />
   )
 }

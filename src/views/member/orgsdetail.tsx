@@ -1,6 +1,7 @@
 import api from '@/apis'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
+import useOrganizationStore from '@/stores/organization'
 import { getHighestRole } from '@/utils/permissions'
 import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
 import { IconCheck, IconCircleX, IconLoader2, IconPencil, IconX } from '@tabler/icons-react'
@@ -27,11 +28,14 @@ export default function MemberOrgsDetail() {
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
+  const { getOrganizations } = useOrganizationStore()
+
   const fileInputRef = useRef<HTMLInputElement>(null)
+
 
   useEffect(() => {
     if (!orgId) return
-    api.organization.getOrganizations().then(list => {
+    getOrganizations().then(list => {
       const found = list.find(item => item.organization.orgId === orgId)
       if (!found) return
       const { member } = found

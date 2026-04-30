@@ -1,4 +1,5 @@
 import apis from '@/apis'
+import useOrganizationStore from '@/stores/organization'
 import { useClaimAll } from '@/views/member/hooks/use-claim-all'
 import { Check, ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -62,9 +63,8 @@ export function MemberOnboardingGuide() {
   const [stepsLoading, setStepsLoading] = useState(true)
   const [visible, setVisible] = useState(true)
   const [showCongrats, setShowCongrats] = useState(false)
-  const allDoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hasAutoSaved = useRef(false)
-
+  const { organizations } = useOrganizationStore()
   useEffect(() => {
     loadGuide()
   }, [])
@@ -116,27 +116,21 @@ export function MemberOnboardingGuide() {
     try {
       const record = await apis.onboarding.getGuide()
       setDismissed(record.dismissed)
-      if (!record.dismissed) {
-        const serverCompleted = record.completedSteps ?? []
-        await checkSteps(serverCompleted)
-      }
     } catch {
       setDismissed(false)
-      checkSteps([])
     }
+    checkSteps([])
   }
 
   const checkSteps = async (serverCompleted: string[]) => {
     try {
       setStepsLoading(true)
-      const [orgs, metaPubStatus, summary] = await Promise.allSettled([
-        apis.organization.getOrganizations(),
+      const [metaPubStatus, summary] = await Promise.allSettled([
         apis.auth.getMetaPubStatus(),
         apis.transaction.getMySummary(),
       ])
 
-      const orgList = orgs.status === 'fulfilled' ? orgs.value : []
-      const step1Done = orgList.length > 0
+      const step1Done = organizations.length > 0
       const Accounts = await apis.auth.getUserAuths()
       const step2Done = metaPubStatus.status === 'fulfilled' ? (metaPubStatus.value?.submitted ?? false) : false
       const step3Done = !!Accounts.find(o => o.type === 'email')

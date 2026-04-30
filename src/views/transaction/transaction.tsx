@@ -16,11 +16,12 @@ import { TransactionStatusBadge } from '@/views/transaction/components/transacti
 import { formatUnits } from 'ethers'
 import { ChevronDown, ChevronUp, ChevronsUpDown, Plus, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   DeleteConfirmDialogContent,
   ExecuteConfirmDialogContent,
   ExecuteSuccessDialogContent,
+  PayrollSetupDialog,
   RefundConfirmDialogContent,
 } from './components'
 import type { Transaction } from './components/types'
@@ -30,8 +31,11 @@ import type { Transaction } from './components/types'
 export default function Transaction() {
   const { toast } = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const hasPermission = useHasPermission()
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false)
   const [sortField, setSortField] = useState<'payDay' | 'status' | null>(null)
@@ -67,6 +71,11 @@ export default function Transaction() {
   const [refundingTransactionPlan, setRefundingTransactionPlan] = useState<TransactionPlan | null>(null)
   const [refundSuccessDialogOpen, setRefundSuccessDialogOpen] = useState(false)
   const [lastRefundTxHash, setLastRefundTxHash] = useState('')
+  const [payrollSetupDialogOpen, setPayrollSetupDialogOpen] = useState(false)
+  const [selectedChainId, setSelectedChainId] = useState('')
+  const [selectedToken, setSelectedToken] = useState('')
+  const [savingPayrollSetup, setSavingPayrollSetup] = useState(false)
+  const [pendingCreatePath, setPendingCreatePath] = useState<string | null>(null)
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [rawTransactionPlans, setRawTransactionPlans] = useState<TransactionPlan[]>([])
@@ -77,13 +86,47 @@ export default function Transaction() {
   const itemsPerPage = 10
 
   const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
-  const { getTokenSymbol, getTokenDecimals, fetchChainAssets, fetchChains, getChain } = useChainAssetStore()
+  const payrollConfig = useOrganizationStore(s => s.payrollConfig)
+  const {
+    chainAssets,
+    getTokenSymbol,
+    getTokenDecimals,
+    fetchChainAssets,
+    fetchChains,
+    getChain,
+  } = useChainAssetStore()
+
+  const isPayrollConfigConfigured = Boolean(payrollConfig?.caipChainId && payrollConfig?.token)
+  const setupPayrollRequested = searchParams.get('setupPayroll') === '1'
+  const redirectState = location.state as { pendingCreatePath?: string } | null
+
+  const resetPayrollSetupState = () => {
+    setSelectedChainId('')
+    setSelectedToken('')
+    setSavingPayrollSetup(false)
+    setPendingCreatePath(null)
+  }
+
+  const clearSetupPayrollQuery = () => {
+    if (!setupPayrollRequested) return
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      next.delete('setupPayroll')
+      return next
+    }, { replace: true })
+  }
 
   useEffect(() => {
     let cancelled = false
 
     const init = async () => {
-      await Promise.all([fetchChainAssets(), fetchChains(), fetchPayrollTokenSymbol()])
+      const chainAssetStore = useChainAssetStore.getState()
+      const organizationStore = useOrganizationStore.getState()
+      await Promise.all([
+        chainAssetStore.fetchChainAssets(),
+        chainAssetStore.fetchChains(),
+        organizationStore.fetchPayrollTokenSymbol(),
+      ])
       if (!cancelled) {
         setIsReady(true)
       }
@@ -94,7 +137,7 @@ export default function Transaction() {
     return () => {
       cancelled = true
     }
-  }, [fetchChainAssets, fetchChains, fetchPayrollTokenSymbol])
+  }, [])
 
   const transformTransactionPlan = (plan: TransactionPlan): Transaction => {
     const todayMidnight = new Date()
@@ -129,10 +172,19 @@ export default function Transaction() {
     }
   }
 
-  const fetchTransactionPlans = async (page = currentPage, status = statusFilter) => {
+  const fetchTransactionPlans = async (
+    page = currentPage,
+    status = statusFilter,
+    keyword = debouncedSearch,
+  ) => {
     try {
       setLoading(true)
-      const response = await apis.transaction.getTransactionPlans(page, itemsPerPage, status)
+      const response = await apis.transaction.getTransactionPlans(
+        page,
+        itemsPerPage,
+        status,
+        keyword || undefined,
+      )
       setRawTransactionPlans(response.data)
       const transformedTransactions = response.data.map(transformTransactionPlan)
       setTransactions(transformedTransactions)
@@ -146,9 +198,71 @@ export default function Transaction() {
   }
 
   useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  useEffect(() => {
     if (!isReady) return
-    fetchTransactionPlans(currentPage, statusFilter)
-  }, [currentPage, isReady, statusFilter])
+    setCurrentPage(1)
+  }, [debouncedSearch, isReady, statusFilter])
+
+  useEffect(() => {
+    if (!isReady) return
+    fetchTransactionPlans(currentPage, statusFilter, debouncedSearch)
+  }, [currentPage, debouncedSearch, isReady, statusFilter])
+
+  useEffect(() => {
+    if (!isReady) return
+    if (setupPayrollRequested && !isPayrollConfigConfigured) {
+      setPendingCreatePath(redirectState?.pendingCreatePath ?? '/orgs/transaction/create')
+      setPayrollSetupDialogOpen(true)
+      return
+    }
+    if (setupPayrollRequested && isPayrollConfigConfigured) {
+      clearSetupPayrollQuery()
+    }
+  }, [clearSetupPayrollQuery, isPayrollConfigConfigured, isReady, redirectState?.pendingCreatePath, setupPayrollRequested])
+
+  const openPayrollSetupDialog = (targetPath: string) => {
+    setPendingCreatePath(targetPath)
+    setSelectedChainId(payrollConfig?.caipChainId ?? '')
+    setSelectedToken(payrollConfig?.token ?? '')
+    setPayrollSetupDialogOpen(true)
+  }
+
+  const closePayrollSetupDialog = () => {
+    setPayrollSetupDialogOpen(false)
+    resetPayrollSetupState()
+    clearSetupPayrollQuery()
+  }
+
+  const handleStartCreateTransaction = (targetPath = '/orgs/transaction/create') => {
+    if (isPayrollConfigConfigured) {
+      navigate(targetPath)
+      return
+    }
+    openPayrollSetupDialog(targetPath)
+  }
+
+  const handleSavePayrollSetup = async () => {
+    if (!selectedChainId || !selectedToken) return
+    try {
+      setSavingPayrollSetup(true)
+      await apis.organization.upsertOrgPayrollConfig({ caipChainId: selectedChainId, token: selectedToken })
+      await fetchPayrollTokenSymbol()
+      toast({ title: 'Success', description: 'Payment settings updated.' })
+      const targetPath = pendingCreatePath ?? '/orgs/transaction/create'
+      setPayrollSetupDialogOpen(false)
+      resetPayrollSetupState()
+      clearSetupPayrollQuery()
+      navigate(targetPath)
+    } catch {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save payment settings.' })
+    } finally {
+      setSavingPayrollSetup(false)
+    }
+  }
 
   const handleDepositClick = (transaction: Transaction) => {
     const plan = rawTransactionPlans.find(p => p.id === transaction.id) ?? null
@@ -208,7 +322,7 @@ export default function Transaction() {
     const transactionId = transactionToReaction.id
     setReactionConfirmDialogOpen(false)
     setTransactionToReaction(null)
-    navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(transactionId)}`)
+    handleStartCreateTransaction(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(transactionId)}`)
   }
 
   const planHasUnclaimedItems = (plan: TransactionPlan) =>
@@ -229,10 +343,7 @@ export default function Transaction() {
     await fetchTransactionPlans(currentPage, statusFilter)
   }
 
-  const filteredTransactions = transactions
-    .filter(transaction =>
-      transaction.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+  const visibleTransactions = [...transactions]
     .sort((a, b) => {
       if (!sortField || !sortDirection) return 0
       if (sortField === 'payDay') {
@@ -251,8 +362,6 @@ export default function Transaction() {
       }
       return 0
     })
-
-  const visibleTransactions = filteredTransactions
   const startIndex = visibleTransactions.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1
   const endIndex = visibleTransactions.length === 0 ? 0 : startIndex + visibleTransactions.length - 1
 
@@ -322,7 +431,7 @@ export default function Transaction() {
 
         {hasPermission(Permission.CREATE_TRANSACTION) && (
           <button
-            onClick={() => navigate('/orgs/transaction/create')}
+            onClick={() => handleStartCreateTransaction()}
             className="flex items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity"
           >
             <Plus className="h-[14px] w-[14px]" />
@@ -587,6 +696,18 @@ export default function Transaction() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PayrollSetupDialog
+        open={payrollSetupDialogOpen}
+        chainAssets={chainAssets}
+        selectedChainId={selectedChainId}
+        selectedToken={selectedToken}
+        saving={savingPayrollSetup}
+        onClose={closePayrollSetupDialog}
+        onSave={handleSavePayrollSetup}
+        onSelectedChainIdChange={setSelectedChainId}
+        onSelectedTokenChange={setSelectedToken}
+      />
     </div>
   )
 }

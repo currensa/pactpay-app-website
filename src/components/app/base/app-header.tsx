@@ -32,12 +32,31 @@ export default function AppHeader() {
     () => localStorage.getItem('pactpay_onboarding_dismissed') === '1'
   )
 
-  const isMember = location.pathname.startsWith('/member')
-  const orgId = isMember ? undefined : (currentOrgId ?? undefined)
+  const [orgId, setOrgId] = useState<string | undefined>(undefined);
+  const [isMember, setIsMember] = useState(false)
+
+  const hasMemberRole = useMemo(() => {
+    return organizations.some(o =>
+      o.member.roles.some(r => r.role === 'Member')
+    )
+  }, [organizations])
+
+  const hasManagerRole = useMemo(() => {
+    return organizations.some(o =>
+      o.member.roles.some(r => ['Owner', 'Admin', 'Operator'].includes(r.role))
+    )
+  }, [organizations])
 
   useEffect(() => {
-    if (organizations.length === 0) getOrganizations().catch(() => { })
-  }, [])
+
+    setIsMember(location.pathname.startsWith('/member'))
+    setOrgId(isMember ? undefined : (currentOrgId ?? undefined))
+
+  }, [location])
+
+  useEffect(() => {
+    getOrganizations()
+  }, [setIsMember])
 
   useEffect(() => {
     const onDismissed = () => setOnboardingDismissed(true)
@@ -57,21 +76,13 @@ export default function AppHeader() {
     return () => clearInterval(timer)
   }, [orgId])
 
-  const hasMemberRole = organizations.some(o =>
-    o.member.roles.some(r => r.role === 'Member')
-  )
-  const hasManagerRole = organizations.some(o =>
-    o.member.roles.some(r => ['Owner', 'Admin', 'Operator'].includes(r.role))
-  )
-
   // On /member pages: if only one role option exists, show "Create organization" instead of "Change Role"
   const changeRoleCount = (hasMemberRole ? 1 : 0) + (hasManagerRole ? 1 : 0)
   const showCreateOrg = isMember && changeRoleCount <= 1
 
   function handleSwitchToMember() {
-    const item = organizations.find(o => o.member.roles.some(r => r.role === 'Member'))
-    if (!item) return
-    setCurrentOrg(item.organization.orgId, item.member)
+    if (organizations.length === 0) return
+    setCurrentOrg(organizations[0].organization.orgId, organizations[0].member)
     navigate('/member/dashboard')
   }
 
@@ -251,7 +262,7 @@ export default function AppHeader() {
                     Change Role
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent className="rounded-[12px] min-w-[160px]">
-                    {hasMemberRole && (
+                    {(
                       <DropdownMenuItem onClick={handleSwitchToMember} className="cursor-pointer">
                         <span className="text-[13px] text-[#1c1c26]">As Member</span>
                       </DropdownMenuItem>
