@@ -1,4 +1,23 @@
 export default function PricingPage() {
+  const networkPricing = [
+    {
+      name: 'Ethereum',
+      subtitle: 'Mainnet',
+      earlyAccessPrice: '10',
+      standardPrice: '20',
+      savingsLabel: 'Save 50%',
+      accent: true,
+    },
+    {
+      name: 'BSC & other L2s',
+      subtitle: 'Base, Arbitrum, Polygon and more',
+      earlyAccessPrice: '2',
+      standardPrice: '5',
+      savingsLabel: 'Save 60%',
+      accent: false,
+    },
+  ]
+
   const faqs = [
     {
       q: 'Is there a monthly subscription?',
@@ -10,7 +29,7 @@ export default function PricingPage() {
     },
     {
       q: 'What does "per member per execution" mean exactly?',
-      a: 'Each time you click Execute on a transaction, the fee is 10 USDC/USDT × number of members in that transaction. If you pay 10 people weekly, that\'s 40 U/month in total fees.',
+      a: "Each time you click Execute on a transaction, the fee is 10 or 2 USDC/USDT × number of members in that transaction. If you pay 10 people monthly, that's 20-100 U/month in total fees depending on the network you use.",
     },
     {
       q: 'Do you offer custom pricing for larger teams?',
@@ -43,41 +62,59 @@ export default function PricingPage() {
 
       {/* Cards */}
       <section className="max-w-4xl mx-auto px-6 pb-16">
-        <div className="grid md:grid-cols-2 gap-6 items-center">
+        <div className="grid md:grid-cols-2 gap-6 items-stretch">
+          {networkPricing.map((network) => (
+            <div
+              key={network.name}
+              className={
+                network.accent
+                  ? 'bg-white border-2 border-[#5e85ee] rounded-[24px] p-8 flex flex-col justify-between shadow-xl shadow-[rgba(94,133,238,0.12)]'
+                  : 'bg-white/70 backdrop-blur-sm border border-[rgba(0,0,0,0.08)] rounded-[24px] p-8 flex flex-col justify-between hover:shadow-md transition-shadow'
+              }
+            >
+              <div>
+                <div className="flex items-start justify-between gap-4 mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-[#1c1c26]">{network.name}</h3>
+                    <p className="text-sm text-[#606067] mt-1">{network.subtitle}</p>
+                  </div>
+                  <span className="inline-flex items-center rounded-full bg-[rgba(94,133,238,0.1)] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#5e85ee] whitespace-nowrap">
+                    {network.savingsLabel}
+                  </span>
+                </div>
 
-          {/* Standard */}
-          <div className="bg-white/70 backdrop-blur-sm border border-[rgba(0,0,0,0.08)] rounded-[24px] p-8 flex flex-col justify-between hover:shadow-md transition-shadow">
-            <div>
-              <h3 className="text-xl font-bold mb-4 text-[#1c1c26]">Standard</h3>
-              <div className="mb-5 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-[#1c1c26]">20</span>
-                <span className="text-sm text-[#8d8d93] font-medium">USDC or USDT / member</span>
-              </div>
-              <p className="text-[#606067] mb-8 leading-relaxed text-sm">Per execution.<br />No monthly fee.</p>
-            </div>
-            <button onClick={() => window.location.href = '/welcome/sign-in'} className="w-full text-center bg-[#1c1c26] text-white text-sm font-semibold py-3 rounded-[12px] hover:bg-[#2e2e3a] transition-colors">
-              Get started
-            </button>
-          </div>
+                <div className="rounded-[18px] bg-[rgba(94,133,238,0.06)] border border-[rgba(94,133,238,0.14)] p-5 mb-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#5e85ee] mb-2">Early access</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-extrabold text-[#5e85ee]">{network.earlyAccessPrice}</span>
+                    <span className="text-sm text-[#8d8d93] font-medium">USD / execution to 1 member</span>
+                  </div>
+                </div>
 
-          {/* Early access */}
-          <div className="relative bg-white border-2 border-[#5e85ee] rounded-[24px] p-8 flex flex-col justify-between shadow-xl shadow-[rgba(94,133,238,0.12)] scale-[1.03] z-10">
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#5e85ee] text-white text-[11px] font-bold px-4 py-1 rounded-full uppercase tracking-wider whitespace-nowrap">
-              Early access — 50% off
-            </div>
-            <div>
-              <h3 className="text-xl font-bold mb-4 text-[#1c1c26]">Early access</h3>
-              <div className="mb-5 flex items-baseline gap-1">
-                <span className="line-through text-xl font-medium text-[#8d8d93] mr-1">20</span>
-                <span className="text-4xl font-extrabold text-[#5e85ee]">10</span>
-                <span className="text-sm text-[#8d8d93] font-medium">USDC or USDT / member</span>
+                <div className="rounded-[18px] bg-white border border-[rgba(0,0,0,0.08)] p-5 mb-8">
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1c1c26]">Standard</p>
+                    <span className="text-xs font-semibold text-[#5e85ee]">{network.savingsLabel}</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-[#1c1c26]">{network.standardPrice}</span>
+                    <span className="text-sm text-[#8d8d93] font-medium">USD / execution to 1 member</span>
+                  </div>
+                </div>
               </div>
-              <p className="text-[#606067] mb-8 leading-relaxed text-sm">Available to all users now.<br />Limited time only.</p>
+
+              <button
+                onClick={() => window.location.href = '/welcome/sign-in'}
+                className={
+                  network.accent
+                    ? 'w-full text-center bg-[#5e85ee] text-white text-sm font-semibold py-3 rounded-[12px] hover:bg-[#4a70d8] transition-colors shadow-md shadow-[rgba(94,133,238,0.3)]'
+                    : 'w-full text-center bg-[#1c1c26] text-white text-sm font-semibold py-3 rounded-[12px] hover:bg-[#2e2e3a] transition-colors'
+                }
+              >
+                Get started
+              </button>
             </div>
-            <button onClick={() => window.location.href = '/welcome/sign-in'} className="w-full text-center bg-[#5e85ee] text-white text-sm font-semibold py-3 rounded-[12px] hover:bg-[#4a70d8] transition-colors shadow-md shadow-[rgba(94,133,238,0.3)]">
-              Get started
-            </button>
-          </div>
+          ))}
         </div>
 
         <p className="text-center text-[#8d8d93] mt-10 text-sm italic">
@@ -97,10 +134,10 @@ export default function PricingPage() {
             How the fee works
           </h4>
           <p className="text-[#1c1c26] leading-relaxed text-sm">
-            When you execute a payment to 5 members, the fee is{' '}
-            <span className="font-bold">5 × 10 USDC/USDT = 50 USDC/USDT</span>, charged from your wallet alongside the payout. Gas is separate and goes entirely to the network.
+            When you execute a payment to 5 members on BSC, the fee is{' '}
+            <span className="font-bold">5 × 2 USDC/USDT = 10 USDC/USDT</span>, charged from your wallet alongside the payout. Gas is separate and goes entirely to the network.
             <br /><br />
-            <span className="font-semibold text-[#5e85ee]">PactPay never holds your funds</span> — the fee is only charged at the moment of on-chain execution.
+            <span className="font-semibold text-[#5e85ee]">PactPay never holds your funds</span> - the fee is only charged at the moment of on-chain execution.
           </p>
         </div>
       </section>
@@ -120,7 +157,7 @@ export default function PricingPage() {
 
       {/* Footer */}
       <div className="border-t border-[rgba(0,0,0,0.06)] py-10 text-center text-[#8d8d93] text-sm">
-        © 2026 PactPay. Built for the future of work.
+        &copy; 2026 PactPay. Built for the future of work.
       </div>
     </div>
   )
