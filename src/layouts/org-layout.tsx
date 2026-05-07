@@ -27,7 +27,7 @@ export default function OrgLayout() {
           <OrgSidebar />
           <div className="flex flex-1 flex-col min-w-0 gap-[24px] overflow-hidden">
             <AppHeader />
-            <main className="flex-1 ">
+            <main className="flex-1 overflow-y-auto">
               <Outlet />
             </main>
           </div>

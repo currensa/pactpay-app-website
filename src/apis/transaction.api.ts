@@ -93,6 +93,9 @@ export interface TransactionItemMember {
 export interface TransactionItem {
   amount: string
   id:string
+  recipient: string | null
+  createdAt: string
+  updatedAt: string
   status:PayrollItemStatus
   txHash:string
   member: TransactionItemMember
