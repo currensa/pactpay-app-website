@@ -27,11 +27,11 @@ request.interceptors.response.use(
     }
     if (error.response?.status === 400 || error.response?.status === 409) {
       toast({
-        description: error.response.data.message,
+        description: error.response.data?.message,
         variant: 'destructive'
       })
     }
-    return Promise.reject(error)
+    return Promise.reject(error.response.data)
   }
 )
 

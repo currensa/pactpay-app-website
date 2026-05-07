@@ -1,13 +1,19 @@
 import api from '@/apis'
+import type { FavoriteAddressItem } from '@/apis/favorite-address.api'
 import type { NotificationPreference, UpdateNotificationPreferencesPayload } from '@/apis/notification.api'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { prepareMetaPubSubmission } from '@/lib/meta-pub'
 import { formatDateTime } from '@/lib/utils'
 import useAuthStore from '@/stores/auth'
+import useChainAssetStore from '@/stores/chain-asset'
+import AddressBookDialog from '@/views/member/components/address-book-dialog'
 import ChangeEmailDialog from '@/views/member/components/change-email-dialog'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
-import { IconChevronDown, IconEye, IconEyeOff, IconRefresh } from '@tabler/icons-react'
+import { IconChevronDown, IconEye, IconEyeOff, IconPencil, IconPlus, IconRefresh, IconTrash } from '@tabler/icons-react'
+import { isAddress } from 'ethers'
 import { useEffect, useState } from 'react'
 
 const LANGUAGES = ['English']
@@ -51,6 +57,8 @@ export default function MemberSettings() {
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const { toast } = useToast()
   const setMetaPub = useAuthStore(s => s.setMetaPub)
+  const chains = useChainAssetStore(s => s.chains)
+  const fetchChains = useChainAssetStore(s => s.fetchChains)
 
   const [showChangeEmail, setShowChangeEmail] = useState(false)
   const [showUid, setShowUid] = useState(false)
@@ -69,6 +77,15 @@ export default function MemberSettings() {
   const [personalToken, setPersonalToken] = useState('')
   const [tokenUpdatedAt, setTokenUpdatedAt] = useState<Date | null>(null)
   const [tokenLoading, setTokenLoading] = useState(false)
+  const [favoriteAddresses, setFavoriteAddresses] = useState<FavoriteAddressItem[]>([])
+  const [favoriteAddressesLoading, setFavoriteAddressesLoading] = useState(true)
+  const [addressDialogOpen, setAddressDialogOpen] = useState(false)
+  const [addressDialogMode, setAddressDialogMode] = useState<'create' | 'edit'>('create')
+  const [editingAddress, setEditingAddress] = useState<FavoriteAddressItem | null>(null)
+  const [addressDialogSaving, setAddressDialogSaving] = useState(false)
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
+  const [addressToRemove, setAddressToRemove] = useState<FavoriteAddressItem | null>(null)
+  const [removingAddress, setRemovingAddress] = useState(false)
 
   useEffect(() => {
     const userId = localStorage.getItem('userId')
@@ -107,6 +124,53 @@ export default function MemberSettings() {
       active = false
     }
   }, [toast])
+
+  useEffect(() => {
+    fetchChains().catch(() => { })
+  }, [fetchChains])
+
+  useEffect(() => {
+    let active = true
+
+    api.favoriteAddress.getList({ page: 1, pageSize: 100 })
+      .then(data => {
+        if (!active) return
+        setFavoriteAddresses(data.data ?? [])
+      })
+      .catch((error: any) => {
+        if (!active || error?.response?.status === 401) return
+        toast({ description: error?.response?.data?.message || 'Failed to load address book.', variant: 'destructive' })
+      })
+      .finally(() => {
+        if (active) setFavoriteAddressesLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [toast])
+
+  const addressBookChains = chains.map(chain => ({
+    caipChainId: chain.caipChainId,
+    name: chain.name,
+    iconUrl: chain.iconUrl,
+    ecosystem: chain.ecosystem,
+  }))
+
+  const getChainName = (caipChainId: string) => {
+    return chains.find(chain => chain.caipChainId === caipChainId)?.name ?? caipChainId
+  }
+
+  const validateFavoriteAddress = ({ caipChainId, address }: { caipChainId: string; address: string }) => {
+    if (!caipChainId) return 'Network is required.'
+    if (!address) return 'Address is required.'
+    const matchedChain = chains.find(chain => chain.caipChainId === caipChainId)
+    if (!matchedChain) return 'Selected network does not exist.'
+    if (matchedChain.ecosystem?.toLowerCase() === 'evm' && !isAddress(address)) {
+      return 'Address format is invalid.'
+    }
+    return null
+  }
 
   const handleGenerateToken = async () => {
     if (!isConnected || !address || !walletProvider) {
@@ -149,6 +213,58 @@ export default function MemberSettings() {
       toast({ description: error?.response?.data?.message || 'Failed to update notification preferences.', variant: 'destructive' })
     } finally {
       setUpdatingNotificationKey(null)
+    }
+  }
+
+  const openCreateAddressDialog = () => {
+    setAddressDialogMode('create')
+    setEditingAddress(null)
+    setAddressDialogOpen(true)
+  }
+
+  const openEditAddressDialog = (item: FavoriteAddressItem) => {
+    setAddressDialogMode('edit')
+    setEditingAddress(item)
+    setAddressDialogOpen(true)
+  }
+
+  const handleSaveAddress = async (payload: { caipChainId: string; address: string; remark: string }) => {
+    try {
+      setAddressDialogSaving(true)
+
+      if (addressDialogMode === 'create') {
+        const created = await api.favoriteAddress.create(payload)
+        setFavoriteAddresses(prev => [created, ...prev])
+        toast({ description: 'Address added successfully.' })
+      } else if (editingAddress) {
+        const updated = await api.favoriteAddress.update(editingAddress.id, { remark: payload.remark })
+        setFavoriteAddresses(prev => prev.map(item => item.id === updated.id ? updated : item))
+        toast({ description: 'Address updated successfully.' })
+      }
+
+      setAddressDialogOpen(false)
+      setEditingAddress(null)
+    } catch {
+      // request interceptor handles common API errors
+    } finally {
+      setAddressDialogSaving(false)
+    }
+  }
+
+  const handleConfirmRemoveAddress = async () => {
+    if (!addressToRemove) return
+
+    try {
+      setRemovingAddress(true)
+      await api.favoriteAddress.remove(addressToRemove.id)
+      setFavoriteAddresses(prev => prev.filter(item => item.id !== addressToRemove.id))
+      toast({ description: 'Address removed successfully.' })
+      setRemoveDialogOpen(false)
+      setAddressToRemove(null)
+    } catch {
+      // request interceptor handles common API errors
+    } finally {
+      setRemovingAddress(false)
     }
   }
 
@@ -250,6 +366,81 @@ export default function MemberSettings() {
         </div>
       </section>
 
+      {/* Address Book */}
+      <section className="flex flex-col gap-[12px]">
+        <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">Address Book</p>
+        <div className="bg-white rounded-[32px] p-[24px] flex flex-col gap-[20px]">
+          <div className="flex items-start justify-between gap-[16px]">
+            <div className="flex flex-col gap-[4px]">
+              <p className="text-[16px] leading-[24px] text-[#1c1c26]">Saved addresses</p>
+              <p className="text-[14px] leading-[22px] text-[#606067]">
+                Manage trusted payout addresses and labels for quick reuse.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openCreateAddressDialog}
+              disabled={addressBookChains.length === 0}
+              className="shrink-0 flex items-center gap-[6px] rounded-[12px] bg-[#5e85ee] px-[14px] py-[8px] text-[13px] leading-[20px] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              <IconPlus className="h-[14px] w-[14px]" />
+              Add address
+            </button>
+          </div>
+
+          {favoriteAddressesLoading ? (
+            <div className="flex min-h-[120px] items-center justify-center text-[13px] text-[#8d8d93]">
+              Loading...
+            </div>
+          ) : favoriteAddresses.length === 0 ? (
+            <div className="flex min-h-[120px] flex-col items-center justify-center gap-[8px] rounded-[20px] border border-dashed border-[rgba(0,0,0,0.12)] bg-[#fafafa] px-[24px] text-center">
+              <p className="text-[16px] leading-[24px] text-[#1c1c26]">No saved addresses yet</p>
+              <p className="text-[13px] leading-[20px] text-[#8d8d93]">
+                Add your first trusted address to build your Address Book.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col">
+              {favoriteAddresses.map((item, index) => (
+                <div
+                  key={item.id}
+                  className={`flex items-start justify-between gap-[16px] py-[16px] ${index < favoriteAddresses.length - 1 ? 'border-b border-[rgba(0,0,0,0.12)]' : ''}`}
+                >
+                  <div className="min-w-0 flex-1 flex flex-col gap-[6px]">
+                    <div className="flex flex-wrap items-center gap-[8px]">
+                      <p className="text-[16px] font-medium leading-[24px] text-[#1c1c26]">{item.remark || '-'}</p>
+                      <span className="rounded-[999px] bg-[rgba(94,133,238,0.08)] px-[10px] py-[2px] text-[12px] leading-[20px] text-[#5e85ee]">
+                        {getChainName(item.caipChainId)}
+                      </span>
+                    </div>
+                    <p className="break-all text-[14px] leading-[22px] text-[#606067]">{item.address}</p>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-[8px]">
+                    <button
+                      type="button"
+                      onClick={() => openEditAddressDialog(item)}
+                      className="flex items-center gap-[4px] rounded-[10px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
+                    >
+                      <IconPencil className="h-[14px] w-[14px]" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAddressToRemove(item); setRemoveDialogOpen(true) }}
+                      className="flex items-center gap-[4px] rounded-[10px] border border-[rgba(217,43,43,0.2)] px-[12px] py-[8px] text-[13px] leading-[20px] text-[#d92b2b] transition-colors hover:bg-[rgba(217,43,43,0.06)]"
+                    >
+                      <IconTrash className="h-[14px] w-[14px]" />
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Notifications */}
       <section className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">Notifications</p>
@@ -325,6 +516,39 @@ export default function MemberSettings() {
         currentEmail={email}
         mode={email ? 'change' : 'bind'}
       />
+
+      <AddressBookDialog
+        open={addressDialogOpen}
+        mode={addressDialogMode}
+        value={editingAddress}
+        chains={addressBookChains}
+        loading={addressDialogSaving}
+        onClose={() => {
+          setAddressDialogOpen(false)
+          setEditingAddress(null)
+        }}
+        onSubmit={handleSaveAddress}
+        validateAddress={validateFavoriteAddress}
+      />
+
+      <Dialog open={removeDialogOpen} onOpenChange={openState => { if (!removingAddress) { setRemoveDialogOpen(openState); if (!openState) setAddressToRemove(null) } }}>
+        <DialogContent className="max-w-[416px]">
+          <DialogHeader>
+            <DialogTitle>Remove address?</DialogTitle>
+            <DialogDescription>
+              {addressToRemove ? `Remove 【${addressToRemove.remark || addressToRemove.address}】 from your Address Book?` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRemoveDialogOpen(false); setAddressToRemove(null) }} disabled={removingAddress}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmRemoveAddress} disabled={removingAddress}>
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

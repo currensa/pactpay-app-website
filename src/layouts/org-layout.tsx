@@ -1,9 +1,9 @@
-import AuthChecker from '@/components/app/base/auth-checker'
 import AppHeader from '@/components/app/base/app-header'
+import AuthChecker from '@/components/app/base/auth-checker'
 import OrgSidebar from '@/components/app/orgs/sidebar'
 import useOrganizationStore from '@/stores/organization'
+import { Permission, useHasPermission } from '@/utils/permissions'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
-import { useHasPermission, Permission } from '@/utils/permissions'
 
 function OrgGuard({ children }: { children: React.ReactNode }) {
   const currentOrgId = useOrganizationStore(s => s.currentOrgId)

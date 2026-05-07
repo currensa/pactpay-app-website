@@ -7,43 +7,39 @@ import box2svg from '@/assets/home/home2box1.svg'
 import box3svg from '@/assets/home/home3box1.svg'
 import box4svg from '@/assets/home/home4box1.svg'
 
-import sicon1 from '@/assets/home/homessicon1.svg'
 import sicon2 from '@/assets/home/homessicon2.svg'
-import sicon3 from '@/assets/home/homessicon3.svg'
 import sicon4 from '@/assets/home/homessicon4.svg'
 import sicon5 from '@/assets/home/homessicon5.svg'
 import sicon6 from '@/assets/home/homessicon6.svg'
-import sicon7 from '@/assets/home/homessicon7.svg'
-
-
-
 
 import { useNavigate } from 'react-router-dom'
 
-const memberItems = [
-  { text: 'Get paid directly — no middleman.', icon: sicon1 },
-  { text: 'No ID. No bank. Your real address stays hidden.', icon: sicon2 },
-  { text: 'Your earnings, traceable only by you.', icon: sicon3 },
+const featureItems = [
+  {
+    title: 'Self-Custody by Default',
+    description: 'Your rules, signed and locked. The contract only executes.',
+    icon: sicon4,
+    image: box1svg,
+  },
+  {
+    title: 'No KYC, End to End',
+    description: 'Register, pay, and receive with just on-chain wallets. No identity checks at any step.',
+    icon: sicon5,
+    image: box2svg,
+  },
+  {
+    title: 'Identity Stays Hidden',
+    description: 'Your real address never touches the chain. Only a shielded identity is visible.',
+    icon: sicon2,
+    image: box3svg,
+  },
+  {
+    title: 'Dual-Address Isolation',
+    description: 'Shielded identity and receiving address are separate and swappable until the moment of claim.',
+    icon: sicon6,
+    image: box4svg,
+  },
 ]
-
-const orgItems = [
-  { text: 'Non-custodial by default. Always.', icon: sicon4 },
-  { text: 'Pay your whole team in one transaction.', icon: sicon5 },
-  { text: 'Define the rules. Sign. Done.', icon: sicon7 },
-  { text: 'Zero link between addresses. Full privacy.', icon: sicon6 },
-]
-
-// Build a single flat list: header badge + items, duplicated for seamless loop
-function buildTickerList() {
-  return [
-    { type: 'badge-member' as const },
-    ...memberItems.map((item) => ({ type: 'item' as const, ...item })),
-    { type: 'badge-org' as const },
-    ...orgItems.map((item) => ({ type: 'item' as const, ...item })),
-  ]
-}
-
-const tickerList = buildTickerList()
 
 export default function HomeContent() {
   const navigate = useNavigate()
@@ -58,19 +54,15 @@ export default function HomeContent() {
         </div>
         <h1
           className="relative z-10 text-center text-[#1c1c26] font-semibold leading-none tracking-[-2px]"
-          style={{ fontFamily: 'Poppins, sans-serif', fontSize: 'clamp(56px, 8vw, 96px)' }}
+          style={{ fontFamily: 'Poppins, sans-serif', fontSize: 'clamp(36px, 8vw, 56px)' }}
         >
-          Pay smarter
+          Pay Anyone, Anywhere.
           <br />
-          not harder
+          No KYC. No Org Exposure. No Custody.
         </h1>
-        <p className="relative z-10 mt-5 text-[#606067] text-[15px] text-center leading-[24px]">
-          Automated Web3 payments.<br />
-          Non-custodial, transparent, effortless.
-        </p>
 
         {/* Get Started button */}
-        <div className="relative z-10 mt-[300px]">
+        <div className="relative z-10 mt-[350px]">
           <button
             onClick={toSignIn}
             className="bg-[#5e85ee] text-white font-bold text-[16px] px-[22px] py-[17px] rounded-[14px] flex items-center gap-2 hover:bg-[#4a73e0] transition-colors shadow-lg"
@@ -141,38 +133,25 @@ export default function HomeContent() {
             <p className="text-[#bbbbbe] leading-[58px] text-[46px] tracking-[-0.9px]" style={{ fontFamily: 'Poppins, sans-serif' }}>of pactpay?</p>
           </div>
 
-          {/* Right — scrolling card list */}
+          {/* Right - scrolling card list */}
           <div className="flex-1 overflow-hidden relative min-w-[300px]" style={{ height: 560 }}>
             {/* Top & bottom fade */}
             <div className="absolute inset-x-0 top-0 h-16 z-10 bg-gradient-to-b from-white to-transparent pointer-events-none" />
             <div className="absolute inset-x-0 bottom-0 h-16 z-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
 
-            {/* Scrolling list — duplicated for seamless loop */}
+            {/* Scrolling list - duplicated for seamless loop */}
             <div style={{ animation: 'tickerScrollUp 22s linear infinite' }} className="flex flex-col gap-4">
-              {[...tickerList, ...tickerList].map((entry, i) => {
-                if (entry.type === 'badge-member') {
-                  return (
-                    <div key={i} className="bg-[rgba(94,133,238,0.12)] self-start px-3 py-1 rounded-full mt-2">
-                      <span className="text-[#5e85ee] font-bold text-[14px]">For members</span>
-                    </div>
-                  )
-                }
-                if (entry.type === 'badge-org') {
-                  return (
-                    <div key={i} className="bg-[rgba(255,168,0,0.08)] self-start px-3 py-1 rounded-full mt-2">
-                      <span className="text-[#ffa800] font-bold text-[14px]">For organisations</span>
-                    </div>
-                  )
-                }
-                return (
-                  <div key={i} className="bg-[rgba(94,133,238,0.04)] flex items-center justify-between px-6 py-5 rounded-[22px]">
-                    <p className="text-[#1c1c26] text-[19px] leading-[30px] flex-1 pr-4" style={{ fontFamily: 'Poppins, sans-serif' }}>{entry.text}</p>
-                    <div className="bg-white p-2.5 rounded-full shrink-0">
-                      <img src={entry.icon} alt="" className="w-[26px] h-[26px] object-contain" />
-                    </div>
+              {[...featureItems, ...featureItems].map((entry, i) => (
+                <div key={`${entry.title}-${i}`} className="bg-[rgba(94,133,238,0.04)] flex items-center justify-between px-6 py-5 rounded-[22px]">
+                  <div className="flex-1 pr-4">
+                    <p className="text-[#1c1c26] text-[19px] leading-[30px]" style={{ fontFamily: 'Poppins, sans-serif' }}>{entry.title}</p>
+                    <p className="text-[#8d8d93] text-[13px] leading-[21px] mt-1">{entry.description}</p>
                   </div>
-                )
-              })}
+                  <div className="bg-white p-2.5 rounded-full shrink-0">
+                    <img src={entry.icon} alt="" className="w-[26px] h-[26px] object-contain" />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -199,10 +178,10 @@ export default function HomeContent() {
             </button>
           </div>
           <div className="border-t border-[rgba(0,0,0,0.12)] pt-5 flex items-center justify-between">
-            <p className="text-black text-[13px]">© All Rights Reserved by PactPay</p>
+            <p className="text-black text-[13px]">Copyright All Rights Reserved by PactPay</p>
             <div className="flex items-center gap-1 text-[13px] text-[#606067]">
               <a href="/legal/terms" className="hover:text-[#1c1c26] transition-colors">Terms of Use</a>
-              <span className="opacity-40">·</span>
+              <span className="opacity-40">|</span>
               <a href="/legal/privacy" className="hover:text-[#1c1c26] transition-colors">Privacy Policy</a>
             </div>
           </div>

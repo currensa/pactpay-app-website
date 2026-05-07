@@ -1,5 +1,6 @@
 import { AccountApi } from './account.api'
 import { ChainAssetApi } from './chain-asset.api'
+import { FavoriteAddressApi } from './favorite-address.api'
 import { NotificationApi } from './notification.api'
 import { OnboardingApi } from './onboarding.api'
 import { OrgnizationApi } from './orgnization.api'
@@ -16,6 +17,7 @@ export default {
   transaction: new TransactionApi(request),
   statistics: new StatisticsApi(request),
   notification: new NotificationApi(request),
+  favoriteAddress: new FavoriteAddressApi(request),
   storage: new StorageApi(request),
   onboarding: new OnboardingApi(request),
 }

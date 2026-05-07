@@ -1,4 +1,5 @@
 import apis from '@/apis'
+import type { FavoriteAddressItem } from '@/apis/favorite-address.api'
 import type { BatchClaimResponse } from '@/apis/transaction.api'
 import { useToast } from '@/components/ui/use-toast'
 import { recoverStealthPrivateKey } from '@/lib/stealth-key'
@@ -8,8 +9,8 @@ import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconLoader2 } from '@tabler/icons-react'
 import { ethers } from 'ethers'
-import { ChevronDown } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { privateKeyToAccount } from 'viem/accounts'
 
@@ -34,6 +35,32 @@ interface PendingToken {
   symbol: string
   amount: number
   iconUrl: string | null
+}
+
+interface RecentRecipientItem {
+  address: string
+  caipChainId: string
+  usedAt: string
+}
+
+interface RecipientSuggestionItem {
+  source: 'recent' | 'addressBook'
+  address: string
+  caipChainId: string
+  label: string | null
+  matchedAddressBookLabel?: string | null
+  usedAt?: string
+}
+
+function formatRecentUsedDate(dateValue: string | undefined) {
+  if (!dateValue) return '--'
+  const date = new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return '--'
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -71,15 +98,72 @@ export default function ClaimPage() {
   const [selectedChain, setSelectedChain] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [recipient, setRecipient] = useState('')
+  const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [claimResult, setClaimResult] = useState<BatchClaimResponse | null>(null)
+  const [favoriteAddresses, setFavoriteAddresses] = useState<FavoriteAddressItem[]>([])
+  const [recentRecipients, setRecentRecipients] = useState<RecentRecipientItem[]>([])
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const recipientDropdownRef = useRef<HTMLDivElement>(null)
 
   // Derived
   const availableChainIds = [...new Set(allPending.map(p => p.caipChainId))]
   const availableChains = chains.filter(c => availableChainIds.includes(c.caipChainId))
   const pendingForChain = selectedChain ? allPending.filter(p => p.caipChainId === selectedChain) : []
   const selectedChainName = chains.find(c => c.caipChainId === selectedChain)?.name ?? ''
+  const trimmedRecipient = recipient.trim()
+
+  const addressBookSuggestions = useMemo<RecipientSuggestionItem[]>(
+    () => favoriteAddresses
+      .filter(item => item.caipChainId === selectedChain)
+      .map(item => ({
+        source: 'addressBook',
+        address: item.address,
+        caipChainId: item.caipChainId,
+        label: item.remark,
+      })),
+    [favoriteAddresses, selectedChain]
+  )
+
+  const recentSuggestions = useMemo<RecipientSuggestionItem[]>(
+    () => recentRecipients
+      .filter(item => item.caipChainId === selectedChain)
+      .map(item => {
+        const matchedAddressBookItem = favoriteAddresses.find(
+          favorite =>
+            favorite.caipChainId === item.caipChainId
+            && favorite.address.toLowerCase() === item.address.toLowerCase()
+        )
+
+        return {
+          source: 'recent' as const,
+          address: item.address,
+          caipChainId: item.caipChainId,
+          label: null,
+          matchedAddressBookLabel: matchedAddressBookItem?.remark ?? null,
+          usedAt: item.usedAt,
+        }
+      }),
+    [recentRecipients, favoriteAddresses, selectedChain]
+  )
+
+  const filterSuggestionItems = (items: RecipientSuggestionItem[]) => {
+    if (!trimmedRecipient) return items
+    const query = trimmedRecipient.toLowerCase()
+    return items.filter(item =>
+      item.address.toLowerCase().includes(query)
+      || item.label?.toLowerCase().includes(query)
+    )
+  }
+
+  const filteredAddressBookSuggestions = filterSuggestionItems(addressBookSuggestions)
+  const filteredRecentSuggestions = filterSuggestionItems(recentSuggestions)
+  const matchedSuggestion = [...addressBookSuggestions, ...recentSuggestions]
+    .find(item => item.address.toLowerCase() === trimmedRecipient.toLowerCase())
+  const recipientChain = chains.find(chain => chain.caipChainId === selectedChain) ?? null
+  const isRecipientKnown = Boolean(matchedSuggestion)
+  const isRecipientValidForChain = Boolean(trimmedRecipient)
+    && (recipientChain?.ecosystem?.toLowerCase() !== 'evm' || ethers.isAddress(trimmedRecipient))
 
   useEffect(() => {
     if (!walletToken) {
@@ -92,13 +176,9 @@ export default function ClaimPage() {
       return
     }
     setHeader({ backUrl: '/member/dashboard' })
-    Promise.all([fetchChainAssets(), fetchChains()]).then(() => loadSummary())
+    Promise.all([fetchChainAssets(), fetchChains(), loadAddressSuggestions(), loadSummary()])
     return () => clearHeader()
   }, [])
-
-  useEffect(() => {
-    if (address && !recipient) setRecipient(address)
-  }, [address])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -106,10 +186,61 @@ export default function ClaimPage() {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false)
       }
+      if (recipientDropdownRef.current && !recipientDropdownRef.current.contains(e.target as Node)) {
+        setRecipientDropdownOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
+
+  useEffect(() => {
+    setRecipientDropdownOpen(false)
+  }, [selectedChain])
+
+  const loadAddressSuggestions = async () => {
+    try {
+      const [favoriteAddressData, historyData] = await Promise.all([
+        apis.favoriteAddress.getList({ page: 1, pageSize: 100 }),
+        apis.transaction.getMyPayrollHistory({ page: 1, pageSize: 100 }),
+      ])
+
+      setFavoriteAddresses(favoriteAddressData.data ?? [])
+
+      const recentMap = new Map<string, RecentRecipientItem>()
+      for (const tx of historyData.data ?? []) {
+        for (const item of tx.items ?? []) {
+          const recipientAddress = item.recipient?.trim()
+          if (!recipientAddress) continue
+
+          const dedupeKey = `${tx.caipChainId}::${recipientAddress.toLowerCase()}`
+          const existing = recentMap.get(dedupeKey)
+          const usedAt = item.updatedAt || tx.createdAt
+
+          if (!existing || new Date(usedAt).getTime() > new Date(existing.usedAt).getTime()) {
+            recentMap.set(dedupeKey, {
+              address: recipientAddress,
+              caipChainId: tx.caipChainId,
+              usedAt,
+            })
+          }
+        }
+      }
+
+      const recentList = Array.from(recentMap.values())
+        .sort((left, right) => new Date(right.usedAt).getTime() - new Date(left.usedAt).getTime())
+        .slice(0, 10)
+
+      setRecentRecipients(recentList)
+    } catch (error: any) {
+      if (error?.response?.status === 401) return
+      toast({
+        title: 'Error',
+        description: error?.response?.data?.message || 'Failed to load saved addresses.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   const loadSummary = async () => {
     try {
@@ -140,8 +271,12 @@ export default function ClaimPage() {
       toast({ description: 'Please select a network.', variant: 'destructive' })
       return
     }
-    if (!recipient.trim()) {
+    if (!trimmedRecipient) {
       toast({ description: 'Please enter a recipient address.', variant: 'destructive' })
+      return
+    }
+    if (!isRecipientValidForChain) {
+      toast({ description: 'Please enter a valid address for the selected network.', variant: 'destructive' })
       return
     }
     if (!address || !walletProvider) {
@@ -235,12 +370,12 @@ export default function ClaimPage() {
               stealthAddress: stealthAccount.address as `0x${string}`,
               token: item.batch.tokenAddress as `0x${string}`,
               amount: BigInt(item.amount),
-              recipient: recipient.trim() as `0x${string}`,
+              recipient: trimmedRecipient as `0x${string}`,
               deadline: BigInt(deadline),
             } as const
 
             const signature = await stealthAccount.signTypedData({ domain, types, primaryType: 'ClaimRequest', message })
-            signedItems.push({ payrollItemId: item.id, recipient: recipient.trim(), deadline, signature })
+            signedItems.push({ payrollItemId: item.id, recipient: trimmedRecipient, deadline, signature })
           } catch {
             skipped.push(item.id)
           } finally {
@@ -261,8 +396,7 @@ export default function ClaimPage() {
         return
       }
 
-      const recipientAddress = recipient.trim()
-      const confirmMessage = `I confirm that the recipient address for this claim is:\n${recipientAddress}`
+      const confirmMessage = `I confirm that the recipient address for this claim is:\n${trimmedRecipient}`
       const recipientSignature = await walletProvider.request<string>({
         method: 'personal_sign',
         params: [confirmMessage, address],
@@ -270,7 +404,7 @@ export default function ClaimPage() {
 
       const result = await apis.transaction.batchClaim({ items: signedItems, recipientSignature })
       setClaimResult(result)
-      await loadSummary()
+      await Promise.all([loadSummary(), loadAddressSuggestions()])
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -367,16 +501,143 @@ export default function ClaimPage() {
         {/* Receive Address */}
         <div className="flex flex-col gap-[8px] max-w-[700px]">
           <p className="text-[14px] leading-[22px] font-semibold text-[#1c1c26]">Receive Address *</p>
-          <div className="flex flex-col gap-[2px]">
-            <input
-              value={recipient}
-              onChange={e => setRecipient(e.target.value)}
-              placeholder="0x..."
-              className="bg-[#f5f5f5] rounded-[12px] px-[16px] py-[12px] text-[14px] leading-[22px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none w-full"
-            />
-            <p className="text-[14px] leading-[22px] text-[#8d8d93]">
-              Pending funds will be sent to this address. Make sure it supports the selected network and token(s).
-            </p>
+          <div className="flex flex-col gap-[8px]">
+            <div className="relative" ref={recipientDropdownRef}>
+              <input
+                value={recipient}
+                onChange={e => {
+                  setRecipient(e.target.value)
+                  setRecipientDropdownOpen(true)
+                }}
+                onFocus={() => setRecipientDropdownOpen(true)}
+                placeholder="0x..."
+                className="w-full rounded-[12px] bg-[#f5f5f5] px-[16px] py-[12px] text-[14px] leading-[22px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
+              />
+
+              {recipientDropdownOpen && selectedChain && (
+                <div className="absolute top-full left-0 right-0 z-20 mt-[6px] overflow-hidden rounded-[16px] border border-[rgba(28,28,38,0.12)] bg-white shadow-[0px_12px_26px_0px_rgba(0,0,0,0.08)]">
+                  <div className="max-h-[380px] overflow-y-auto">
+                    <div className="border-b border-[rgba(28,28,38,0.08)]">
+                      <div className="flex items-center justify-between bg-[#f5f5f5] px-[16px] py-[10px]">
+                        <div className="flex items-center gap-[6px]">
+                          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] leading-[18px] text-[#6b6a67]">Recent</p>
+                        </div>
+                      </div>
+                      {filteredRecentSuggestions.length === 0 ? (
+                        <p className="px-[16px] py-[14px] text-[13px] leading-[20px] text-[#8d8d93]">
+                          No records found
+                        </p>
+                      ) : (
+                        filteredRecentSuggestions.map((item, index) => (
+                          <button
+                            key={`recent-${item.caipChainId}-${item.address}`}
+                            type="button"
+                            onClick={() => {
+                              setRecipient(item.address)
+                              setRecipientDropdownOpen(false)
+                            }}
+                            className={`flex w-full items-start justify-between gap-[12px] px-[16px] py-[14px] text-left transition-colors hover:bg-[#fafafa] ${index < filteredRecentSuggestions.length - 1 ? 'border-t border-[rgba(28,28,38,0.08)]' : ''}`}
+                          >
+                            <div className="flex min-w-0 flex-1 items-start gap-[12px]">
+                              <span className={`mt-[8px] h-[10px] w-[10px] shrink-0 rounded-full ${item.matchedAddressBookLabel ? 'bg-[#57c271]' : 'bg-[#8d8d93]'}`} />
+                              {item.matchedAddressBookLabel ? (
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">{item.matchedAddressBookLabel}</p>
+                                  <p className="break-all text-[13px] leading-[20px] text-[#606067]">{item.address}</p>
+                                </div>
+                              ) : (
+                                <div className="min-w-0 flex-1">
+                                  <p className="break-all text-[14px] font-medium leading-[22px] text-[#1c1c26]">{item.address}</p>
+                                  <p className="text-[12px] leading-[18px] text-[#8d8d93]">
+                                    Used {formatRecentUsedDate(item.usedAt)}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            <div className="shrink-0 rounded-[999px] bg-[rgba(87,194,113,0.14)] px-[10px] py-[4px] text-[12px] font-medium leading-[16px] text-[#57c271]">
+                              Last used
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between gap-[12px] bg-[#f5f5f5] px-[16px] py-[10px]">
+                        <div className="flex items-center gap-[6px]">
+                          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] leading-[18px] text-[#6b6a67]">Address Book</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/member/settings')}
+                          className="flex items-center gap-[2px] text-[12px] font-medium leading-[18px] text-[#5e85ee] hover:opacity-80"
+                        >
+                          Manage
+                          <ChevronRight className="h-[14px] w-[14px]" />
+                        </button>
+                      </div>
+                      {filteredAddressBookSuggestions.length === 0 ? (
+                        <p className="border-t border-[rgba(28,28,38,0.08)] px-[16px] py-[14px] text-[13px] leading-[20px] text-[#8d8d93]">
+                          No records found
+                        </p>
+                      ) : (
+                        filteredAddressBookSuggestions.map((item, index) => (
+                          <button
+                            key={`address-book-${item.caipChainId}-${item.address}`}
+                            type="button"
+                            onClick={() => {
+                              setRecipient(item.address)
+                              setRecipientDropdownOpen(false)
+                            }}
+                            className={`flex w-full items-start justify-between gap-[12px] px-[16px] py-[14px] text-left transition-colors hover:bg-[#fafafa] ${index === 0 ? 'border-t border-[rgba(28,28,38,0.08)]' : 'border-t border-[rgba(28,28,38,0.08)]'}`}
+                          >
+                            <div className="flex min-w-0 flex-1 items-start gap-[12px]">
+                              <span className="mt-[8px] h-[10px] w-[10px] shrink-0 rounded-full bg-[#5e85ee]" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">{item.label || 'Untitled'}</p>
+                                <p className="break-all text-[13px] leading-[20px] text-[#606067]">{item.address}</p>
+                              </div>
+                            </div>
+                            <div className="shrink-0 rounded-[999px] bg-[rgba(94,133,238,0.12)] px-[10px] py-[4px] text-[12px] font-medium leading-[16px] text-[#5e85ee]">
+                              Saved
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {trimmedRecipient && isRecipientValidForChain && isRecipientKnown && (
+              <div className="flex items-start gap-[8px] rounded-[12px] bg-[rgba(93,221,34,0.10)] px-[12px] py-[10px]">
+                <Check className="mt-[2px] h-[16px] w-[16px] shrink-0 text-[#3e9b1f]" />
+                <p className="text-[13px] leading-[20px] text-[#1c1c26]">
+                  Found in {matchedSuggestion?.source === 'addressBook' ? 'Address Book' : 'Recent'}.
+                </p>
+              </div>
+            )}
+
+            {trimmedRecipient && isRecipientValidForChain && !isRecipientKnown && (
+              <div className="flex items-start gap-[8px] rounded-[12px] bg-[rgba(255,168,0,0.12)] px-[12px] py-[10px]">
+                <AlertTriangle className="mt-[2px] h-[16px] w-[16px] shrink-0 text-[#c67b00]" />
+                <p className="text-[13px] leading-[20px] text-[#1c1c26]">
+                  <span className="font-semibold">⚠️ </span>
+                  Not in Recent or Address Book. Double-check carefully — payments to the wrong address cannot be recovered.
+                </p>
+              </div>
+            )}
+
+            {!trimmedRecipient || isRecipientValidForChain ? (
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">
+                Pending funds will be sent to this address. Make sure it supports the selected network and token(s).
+              </p>
+            ) : (
+              <p className="text-[14px] leading-[22px] text-[#d92b2b]">
+                Please enter a valid address for the selected network.
+              </p>
+            )}
           </div>
         </div>
 

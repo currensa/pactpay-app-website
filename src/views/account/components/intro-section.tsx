@@ -3,65 +3,72 @@ const CARDS = [
     icon: (
       <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
         <circle cx="12" cy="12" r="9" stroke="#1c1c26" strokeWidth="1.5" />
-        <path d="M12 8v4m0 4h.01" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M8 12h8" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M12 8v8" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
-    title: 'Non-custodial',
-    desc: 'Your funds stay in your Safe wallet.'
+    title: 'Self-Custody by Default',
+    desc: 'Your rules, signed and locked. The contract only executes.',
   },
   {
     icon: (
       <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
-        <rect x="2" y="5" width="20" height="14" rx="2" stroke="#1c1c26" strokeWidth="1.5" />
-        <path d="M2 10h20" stroke="#1c1c26" strokeWidth="1.5" />
+        <rect x="3" y="5" width="18" height="14" rx="2" stroke="#1c1c26" strokeWidth="1.5" />
+        <path d="M7 9h10" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M7 13h6" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
-    title: 'Automated payouts',
-    desc: 'Set once, runs automatically forever'
-  },
-  {
-    icon: (
-      <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="9" stroke="#1c1c26" strokeWidth="1.5" />
-        <path d="M12 8v8m-4-4h8" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-    title: 'Batch payments',
-    desc: 'Pay hundreds of contractors in one click'
+    title: 'No KYC, End to End',
+    desc: 'Register, pay, and receive with just on-chain wallets. No identity checks at any step.',
   },
   {
     icon: (
       <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
         <path
-          d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z"
+          d="M12 3l7 4v5c0 4.4-2.8 8.4-7 9.7C7.8 20.4 5 16.4 5 12V7l7-4z"
           stroke="#1c1c26"
           strokeWidth="1.5"
         />
+        <path d="M9.5 12.5l1.6 1.6 3.4-4.1" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
-    title: 'Full transparency',
-    desc: 'Every transaction on-chain, auditable'
+    title: 'Identity Stays Hidden',
+    desc: 'Your real address never touches the chain. Only a shielded identity is visible.',
   },
   {
     icon: (
       <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="8" r="4" stroke="#1c1c26" strokeWidth="1.5" />
-        <path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke="#1c1c26" strokeWidth="1.5" />
+        <circle cx="8" cy="8" r="3" stroke="#1c1c26" strokeWidth="1.5" />
+        <circle cx="16" cy="16" r="3" stroke="#1c1c26" strokeWidth="1.5" />
+        <path d="M10.5 10.5l3 3" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
-    title: 'Pay Members Instantly',
-    desc: 'Use invite code for immediate payment.'
+    title: 'Dual-Address Isolation',
+    desc: 'Shielded identity and receiving address are separate and swappable until the moment of claim.',
   },
   {
     icon: (
       <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
-        <path d="M12 6v6l4 2" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M4 12h16" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M12 4v16" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
         <circle cx="12" cy="12" r="9" stroke="#1c1c26" strokeWidth="1.5" />
       </svg>
     ),
-    title: 'Complete payment history',
-    desc: 'Always accessible, fully transparent'
-  }
+    title: 'Self-Custody by Default',
+    desc: 'Your rules, signed and locked. The contract only executes.',
+  },
+  {
+    icon: (
+      <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
+        <path d="M6 8h12" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M6 12h12" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M6 16h8" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
+        <rect x="3" y="4" width="18" height="16" rx="2" stroke="#1c1c26" strokeWidth="1.5" />
+      </svg>
+    ),
+    title: 'No KYC, End to End',
+    desc: 'Register, pay, and receive with just on-chain wallets. No identity checks at any step.',
+  },
 ]
 
 function CardList() {
@@ -88,29 +95,29 @@ function CardList() {
 export default function IntroSection() {
   return (
     <div className="relative hidden h-full w-full overflow-hidden rounded-[32px] border border-black/10 bg-gradient-to-b from-[#fafafa] to-[rgba(250,250,250,0.2)] lg:flex lg:w-[46%] lg:shrink-0">
-      <div className="w-full h-min absolute bottom-0">
+      <div className="absolute bottom-0 h-min w-full">
         <svg viewBox="0 0 760 692" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M741.716 518.528H18.2822L98.2822 390.229H661.716L741.716 518.528Z" fill="#E4E4E4" />
           <path d="M661.716 379.927H98.2822V390.229H661.716V379.927Z" fill="#ECEBEC" />
           <path d="M661.716 379.927H98.2822L158.282 331.234H601.716L661.716 379.927Z" fill="url(#paint0_linear_129_1604)" />
           <path d="M98.2822 379.927L158.282 331.234V379.927H98.2822Z" fill="#CDCECE" />
           <path d="M98.2842 379.924L158.284 331.232L56.4404 289.789C53.9796 288.788 51.1822 289.073 48.9745 290.551L-11.791 331.233L98.2842 379.924Z" fill="#EBEBEB" />
-          <path d="M98.2842 379.924L158.284 331.232L56.4404 289.789C53.9796 288.788 51.1822 289.073 48.9745 290.551L-11.791 331.233L98.2842 379.924Z" fill="url(#paint1_linear_129_1604)" fill-opacity="0.2" />
+          <path d="M98.2842 379.924L158.284 331.232L56.4404 289.789C53.9796 288.788 51.1822 289.073 48.9745 290.551L-11.791 331.233L98.2842 379.924Z" fill="url(#paint1_linear_129_1604)" fillOpacity="0.2" />
           <path d="M661.716 379.924L601.716 331.232L703.56 289.789C706.02 288.788 708.818 289.073 711.025 290.551L771.791 331.233L661.716 379.924Z" fill="#EBEBEB" />
-          <path d="M661.716 379.924L601.716 331.232L703.56 289.789C706.02 288.788 708.818 289.073 711.025 290.551L771.791 331.233L661.716 379.924Z" fill="url(#paint2_linear_129_1604)" fill-opacity="0.2" />
+          <path d="M661.716 379.924L601.716 331.232L703.56 289.789C706.02 288.788 708.818 289.073 711.025 290.551L771.791 331.233L661.716 379.924Z" fill="url(#paint2_linear_129_1604)" fillOpacity="0.2" />
           <path d="M661.716 379.927L601.716 331.234V379.927H661.716Z" fill="#CDCECE" />
           <path d="M741.716 518.528H18.2822V520.294C18.2822 524.712 21.864 528.294 26.2822 528.294H733.716C738.134 528.294 741.716 524.712 741.716 520.294V518.528Z" fill="#D3D3D3" />
           <path d="M664.417 691.893H95.5811V506.093H664.417V691.893Z" fill="url(#paint3_linear_129_1604)" />
           <g filter="url(#filter0_d_129_1604)">
-            <rect x="282.666" y="574.546" width="194.667" height="72" rx="16" fill="#070707" shape-rendering="crispEdges" />
-            <g clip-path="url(#clip0_129_1604)">
-              <path d="M320.922 618.405C320.902 621.938 320.882 625.458 320.865 628.001C320.852 629.818 319.008 631.042 317.332 630.35C314.428 629.155 310.372 627.486 307.786 626.435C307.619 626.368 307.461 626.291 307.307 626.201C306.876 625.538 306.538 623.996 308.656 623.005L309.559 622.667L320.922 618.405Z" fill="white" fill-opacity="0.5" />
+            <rect x="282.666" y="574.546" width="194.667" height="72" rx="16" fill="#070707" shapeRendering="crispEdges" />
+            <g clipPath="url(#clip0_129_1604)">
+              <path d="M320.922 618.405C320.902 621.938 320.882 625.458 320.865 628.001C320.852 629.818 319.008 631.042 317.332 630.35C314.428 629.155 310.372 627.486 307.786 626.435C307.619 626.368 307.461 626.291 307.307 626.201C306.876 625.538 306.538 623.996 308.656 623.005L309.559 622.667L320.922 618.405Z" fill="white" fillOpacity="0.5" />
               <path d="M332.051 596.008V606.996C332.051 611.349 330.545 614.567 325.276 616.772L320.923 618.405C320.946 614.631 320.969 610.843 320.986 608.207C320.989 607.705 320.916 607.216 320.772 606.751L328.581 603.824L328.658 603.794L329.24 603.566C329.672 603.399 329.94 602.987 329.94 602.549C329.94 602.435 329.92 602.318 329.883 602.204C329.692 601.639 329.083 601.331 328.514 601.512L328.377 601.559L319.658 604.827C319.129 604.259 318.46 603.817 317.69 603.549L308.606 600.408C307.937 600.177 307.499 599.548 307.479 598.842C307.462 598.169 307.445 597.677 307.362 597.564C307.355 597.557 307.348 597.55 307.342 597.547C307.335 597.543 307.332 597.54 307.328 597.54H307.312C307.589 597.353 307.89 597.192 308.212 597.075L324.68 590.899C328.247 589.56 332.051 592.197 332.051 596.008Z" fill="white" />
               <path d="M319.658 604.826L309.804 608.52C307.616 609.34 305.284 607.724 305.284 605.388V601.296C305.284 601.203 305.287 601.106 305.294 601.012C305.297 600.918 305.307 600.825 305.32 600.731C305.331 600.637 305.347 600.547 305.364 600.457C305.381 600.363 305.401 600.273 305.424 600.182C305.444 600.102 305.468 600.018 305.494 599.938C305.498 599.931 305.498 599.925 305.501 599.918C305.525 599.841 305.551 599.767 305.578 599.694C305.588 599.667 305.598 599.644 305.608 599.617C305.638 599.547 305.668 599.473 305.702 599.406C305.739 599.322 305.779 599.239 305.822 599.158C305.953 598.918 306.103 598.69 306.277 598.476C306.324 598.416 306.374 598.355 306.428 598.299C306.438 598.285 306.451 598.272 306.465 598.258C306.508 598.208 306.555 598.158 306.609 598.111C306.629 598.084 306.656 598.058 306.682 598.038C306.722 597.994 306.763 597.961 306.803 597.924C306.84 597.887 306.88 597.854 306.92 597.823C306.963 597.787 307.01 597.75 307.054 597.713C307.067 597.706 307.08 597.696 307.09 597.69C307.154 597.639 307.224 597.596 307.291 597.549C307.301 597.542 307.311 597.539 307.321 597.539H307.328C307.331 597.539 307.335 597.542 307.341 597.546C307.348 597.549 307.355 597.556 307.361 597.562C307.445 597.676 307.462 598.168 307.479 598.841C307.499 599.547 307.937 600.176 308.606 600.406L317.69 603.548C318.46 603.816 319.129 604.258 319.658 604.826Z" fill="white" />
-              <path d="M320.772 606.751L309.657 610.92C307.027 611.907 305.284 614.419 305.284 617.226V605.389C305.284 607.724 307.616 609.34 309.804 608.521L319.658 604.827C320.173 605.372 320.554 606.031 320.772 606.751Z" fill="white" fill-opacity="0.5" />
+              <path d="M320.772 606.751L309.657 610.92C307.027 611.907 305.284 614.419 305.284 617.226V605.389C305.284 607.724 307.616 609.34 309.804 608.521L319.658 604.827C320.173 605.372 320.554 606.031 320.772 606.751Z" fill="white" fillOpacity="0.5" />
               <path d="M320.986 608.206C320.969 610.842 320.946 614.63 320.922 618.404L309.56 622.667C309.218 622.771 308.917 622.884 308.656 623.005C306.538 623.995 306.876 625.538 307.308 626.2C306.502 625.742 305.886 625.019 305.555 624.169C305.381 623.714 305.284 623.222 305.284 622.714V617.226C305.284 614.419 307.027 611.906 309.657 610.919L320.772 606.75C320.916 607.216 320.989 607.704 320.986 608.206Z" fill="white" />
             </g>
-            <g clip-path="url(#clip1_129_1604)">
+            <g clipPath="url(#clip1_129_1604)">
               <path d="M460.934 604.176L450.8 628.006H445.472L449.178 619.783L442.605 604.176H448.136L451.871 614.282L455.578 604.176H460.934Z" fill="white" />
               <path d="M424.29 612.226C424.29 610.566 424.599 609.109 425.217 607.854C425.854 606.599 426.713 605.634 427.794 604.959C428.875 604.283 430.081 603.945 431.413 603.945C432.552 603.945 433.546 604.177 434.396 604.64C435.264 605.103 435.93 605.711 436.393 606.464V604.177H441.345V620.334H436.393V618.046C435.911 618.799 435.235 619.407 434.367 619.871C433.517 620.334 432.523 620.566 431.384 620.566C430.072 620.566 428.875 620.228 427.794 619.552C426.713 618.857 425.854 617.882 425.217 616.628C424.599 615.354 424.29 613.886 424.29 612.226ZM436.393 612.255C436.393 611.02 436.046 610.045 435.351 609.331C434.675 608.617 433.845 608.259 432.861 608.259C431.876 608.259 431.037 608.617 430.342 609.331C429.666 610.026 429.328 610.991 429.328 612.226C429.328 613.462 429.666 614.446 430.342 615.18C431.037 615.894 431.876 616.251 432.861 616.251C433.845 616.251 434.675 615.894 435.351 615.18C436.046 614.466 436.393 613.491 436.393 612.255Z" fill="white" />
               <path d="M423.551 606.551C423.551 607.728 423.281 608.809 422.74 609.794C422.2 610.759 421.369 611.541 420.25 612.139C419.13 612.738 417.74 613.037 416.08 613.037H413.011V620.334H408.06V600.007H416.08C417.702 600.007 419.072 600.287 420.192 600.847C421.312 601.406 422.151 602.179 422.711 603.163C423.271 604.147 423.551 605.277 423.551 606.551ZM415.704 609.099C416.65 609.099 417.354 608.877 417.818 608.433C418.281 607.989 418.513 607.362 418.513 606.551C418.513 605.74 418.281 605.113 417.818 604.669C417.354 604.225 416.65 604.003 415.704 604.003H413.011V609.099H415.704Z" fill="white" />
@@ -126,8 +133,8 @@ export default function IntroSection() {
           <circle cx="38.8696" cy="160.734" r="5.38428" fill="url(#paint7_linear_129_1604)" />
           <circle cx="619.996" cy="266.681" r="10.311" fill="url(#paint8_linear_129_1604)" />
           <defs>
-            <filter id="filter0_d_129_1604" x="278.666" y="574.546" width="202.667" height="80" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-              <feFlood flood-opacity="0" result="BackgroundImageFix" />
+            <filter id="filter0_d_129_1604" x="278.666" y="574.546" width="202.667" height="80" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+              <feFlood floodOpacity="0" result="BackgroundImageFix" />
               <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha" />
               <feOffset dy="4" />
               <feGaussianBlur stdDeviation="2" />
@@ -137,40 +144,40 @@ export default function IntroSection() {
               <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_129_1604" result="shape" />
             </filter>
             <linearGradient id="paint0_linear_129_1604" x1="590.944" y1="331.234" x2="590.944" y2="379.927" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#E5E5E5" />
-              <stop offset="1" stop-color="#CCCDCD" />
+              <stop stopColor="#E5E5E5" />
+              <stop offset="1" stopColor="#CCCDCD" />
             </linearGradient>
             <linearGradient id="paint1_linear_129_1604" x1="73.2466" y1="288.188" x2="73.2466" y2="379.924" gradientUnits="userSpaceOnUse">
-              <stop stop-color="white" />
-              <stop offset="1" stop-color="white" stop-opacity="0" />
+              <stop stopColor="white" />
+              <stop offset="1" stopColor="white" stopOpacity="0" />
             </linearGradient>
             <linearGradient id="paint2_linear_129_1604" x1="686.753" y1="288.188" x2="686.753" y2="379.924" gradientUnits="userSpaceOnUse">
-              <stop stop-color="white" />
-              <stop offset="1" stop-color="white" stop-opacity="0" />
+              <stop stopColor="white" />
+              <stop offset="1" stopColor="white" stopOpacity="0" />
             </linearGradient>
             <linearGradient id="paint3_linear_129_1604" x1="664.417" y1="506.093" x2="664.417" y2="676.764" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#CFD0D0" stop-opacity="0.8" />
-              <stop offset="1" stop-color="#CFD0D0" stop-opacity="0" />
+              <stop stopColor="#CFD0D0" stopOpacity="0.8" />
+              <stop offset="1" stopColor="#CFD0D0" stopOpacity="0" />
             </linearGradient>
             <linearGradient id="paint4_linear_129_1604" x1="79.1904" y1="280.194" x2="79.1904" y2="320.229" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#EFEFEF" />
-              <stop offset="1" stop-color="#D5D5D5" />
+              <stop stopColor="#EFEFEF" />
+              <stop offset="1" stopColor="#D5D5D5" />
             </linearGradient>
             <linearGradient id="paint5_linear_129_1604" x1="667.371" y1="0" x2="667.371" y2="40.0352" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#EFEFEF" />
-              <stop offset="1" stop-color="#D5D5D5" />
+              <stop stopColor="#EFEFEF" />
+              <stop offset="1" stopColor="#D5D5D5" />
             </linearGradient>
             <linearGradient id="paint6_linear_129_1604" x1="137.628" y1="75.3408" x2="137.628" y2="94.3115" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#EFEFEF" />
-              <stop offset="1" stop-color="#D5D5D5" />
+              <stop stopColor="#EFEFEF" />
+              <stop offset="1" stopColor="#D5D5D5" />
             </linearGradient>
             <linearGradient id="paint7_linear_129_1604" x1="38.8696" y1="155.35" x2="38.8696" y2="166.118" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#EFEFEF" />
-              <stop offset="1" stop-color="#D5D5D5" />
+              <stop stopColor="#EFEFEF" />
+              <stop offset="1" stopColor="#D5D5D5" />
             </linearGradient>
             <linearGradient id="paint8_linear_129_1604" x1="619.996" y1="256.37" x2="619.996" y2="276.992" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#EFEFEF" />
-              <stop offset="1" stop-color="#D5D5D5" />
+              <stop stopColor="#EFEFEF" />
+              <stop offset="1" stopColor="#D5D5D5" />
             </linearGradient>
             <clipPath id="clip0_129_1604">
               <rect width="26.767" height="40" fill="white" transform="translate(305.283 590.546)" />
@@ -182,20 +189,17 @@ export default function IntroSection() {
         </svg>
       </div>
 
-
-      {/* 滚动卡片区域：底部为 Logo 高度留白 */}
       <div
         className="absolute inset-x-[40px] top-0 z-10 overflow-hidden pl-[60px] pr-[60px]"
         style={{
           bottom: '260px',
           maskImage: 'linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)',
           WebkitMaskImage:
-            'linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)'
+            'linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)',
         }}
       >
         <div className="animate-scroll-cards flex flex-col gap-[24px] pt-[24px]">
           <CardList />
-          {/* 复制一份实现无缝循环 */}
           <CardList />
         </div>
       </div>
