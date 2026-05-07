@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import useOrganizationStore from '@/stores/organization'
+import { getRelativeExecutionDate, getRelativeExecutionDateTextClassName } from '@/utils/date'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -163,7 +164,7 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
           xAxisKey: `${node.batchId}-${node.analyticsDate}`,
           transactionName: name,
           shortName: truncateText(name, 18),
-          executionDateLabel: formatUtcDate(node.analyticsDate),
+          executionDateLabel: getRelativeExecutionDate(node.analyticsDate).label,
           xLabel: formatUtcShortDate(node.analyticsDate),
           amount: toChartNumber(node.amount.amount, decimals),
           amountLabel: `${formatTokenAmount(node.amount.amount, decimals)} ${symbol}`,
@@ -337,11 +338,14 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
                   {recentTransactions.map(item => {
                     const decimals = item.amount.decimals ?? 0
                     const symbol = getTransactionSymbol(item)
+                    const relativeExecutionDate = getRelativeExecutionDate(item.analyticsDate)
 
                     return (
                       <TableRow key={item.batchId}>
                         <TableCell className="pl-0 text-[14px] text-[#1c1c26]">{item.transactionName || 'Untitled Transaction'}</TableCell>
-                        <TableCell className="text-[14px] text-[#1c1c26]">{formatUtcDate(item.analyticsDate)}</TableCell>
+                        <TableCell className={`text-[14px] ${getRelativeExecutionDateTextClassName(relativeExecutionDate.tone)}`}>
+                          {relativeExecutionDate.label}
+                        </TableCell>
                         <TableCell className="text-[14px] text-[#1c1c26]">
                           {formatTokenAmount(item.amount.amount, decimals)} {symbol}
                         </TableCell>

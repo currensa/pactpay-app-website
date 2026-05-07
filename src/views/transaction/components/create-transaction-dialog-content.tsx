@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
+import { getRelativeExecutionDate, getRelativeExecutionDateTextClassName } from '@/utils/date'
 import { IconCalendar, IconLoader2 } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -323,7 +324,8 @@ export function CreateTransactionDialogContent({
   const allSelected = eligibleMembers.length > 0 && selectedMembers.size === eligibleMembers.length
   const someSelected = selectedMembers.size > 0 && !allSelected
 
-  const claimTimePassed = executionDate ? new Date(executionDate) < new Date() : false
+  const relativeExecutionDate = getRelativeExecutionDate(executionDate || null)
+  const claimTimePassed = relativeExecutionDate.tone === 'past'
 
   // ── Dialog variant table (original columns) ──────────────────────────────
   const dialogMemberTable = (
@@ -926,9 +928,14 @@ export function CreateTransactionDialogContent({
                     <div className="flex items-start justify-between">
                       <span className="text-[13px] text-[#1c1c26]">Members can claim from</span>
                       <div className="flex flex-col items-end gap-[2px]">
-                        <span className="text-[14px] font-bold text-[#1c1c26]">
-                          {executionDate} ({offsetToLabel(selectedTimezoneData.offset)})
+                        <span className={`text-[14px] font-bold ${getRelativeExecutionDateTextClassName(relativeExecutionDate.tone)}`}>
+                          {executionDate ? relativeExecutionDate.label : '-'}
                         </span>
+                        {executionDate && (
+                          <span className="text-[12px] text-[#8d8d93]">
+                            {executionDate} ({offsetToLabel(selectedTimezoneData.offset)})
+                          </span>
+                        )}
                         {claimTimePassed && (
                           <span className="text-[12px] text-[#5ddd22]">
                             This time has passed — members can claim immediately after you execute
@@ -1097,7 +1104,9 @@ export function CreateTransactionDialogContent({
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] text-[#8d8d93] leading-[22px]">Execution Date</span>
-                        <span className="text-[13px] text-[#1c1c26] leading-[22px]">{executionDate ? `${executionDate} ${offsetToLabel(selectedTimezoneData.offset)}` : '-'}</span>
+                        <span className={`text-[13px] leading-[22px] ${getRelativeExecutionDateTextClassName(relativeExecutionDate.tone)}`}>
+                          {executionDate ? relativeExecutionDate.label : '-'}
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] text-[#8d8d93] leading-[22px]">Total Amount</span>

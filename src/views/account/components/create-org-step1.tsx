@@ -188,7 +188,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
               />
               <div className="flex flex-col gap-[2px]">
                 <span className="font-['Inter',sans-serif] text-[14px] font-bold leading-[20px] text-[#1c1c26]">
-                  Yes, add me as a member
+                  Yes, bind a receiving wallet
                 </span>
                 <span className="font-['Inter',sans-serif] text-[13px] leading-[20px] text-[#606067]">
                   I'll also receive payroll from this organisation
