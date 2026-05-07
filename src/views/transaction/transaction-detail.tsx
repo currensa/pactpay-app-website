@@ -21,7 +21,7 @@ import {
 } from './components'
 import type { Transaction } from './components/types'
 
-import { formatLocalDateTime } from '@/utils/date'
+import { formatLocalDateTime, getRelativeExecutionDate, getRelativeExecutionDateTextClassName } from '@/utils/date'
 import { getHighestRole, Permission, useHasPermission } from '@/utils/permissions'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { TransactionItemStatusBadge, TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
@@ -97,19 +97,16 @@ export default function TransactionDetail() {
   const txExplorerUrl = buildExplorerTransactionUrl(explorerBaseUrl, plan.depositTxHash)
 
   const payDay = formatLocalDateTime(plan.payPeriod)
-
-  const payPeriodDate = new Date(plan.payPeriod)
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  payPeriodDate.setHours(0, 0, 0, 0)
-  const diffDays = Math.ceil((payPeriodDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  const relativeExecutionDate = getRelativeExecutionDate(plan.payPeriod)
+  const diffDays = relativeExecutionDate.diffDays ?? 0
   const isDueToday = diffDays === 0 && plan.transactionStatus !== PayrollTransactionStatus.COMPLETE
   const isComplete = plan.transactionStatus === PayrollTransactionStatus.COMPLETE
   const isRefunded = plan.transactionStatus === PayrollTransactionStatus.REFUNDED
-  const executionDateLabel = isComplete
-    ? <span className="text-[#1c1c26]">{Math.abs(diffDays) === 0 ? 'Today' : `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''} ago`}</span>
-    : isDueToday
-      ? <span className="text-[#d92b2b]">Due Today</span>
-      : <span className="text-[#1c1c26]">{payDay}</span>
+  const executionDateLabel = (
+    <span className={getRelativeExecutionDateTextClassName(relativeExecutionDate.tone)}>
+      {relativeExecutionDate.label}
+    </span>
+  )
 
   const totalAmountFormatted = (() => {
     try { return parseFloat(formatUnits(BigInt(plan.totalAmount ?? '0'), decimals)).toLocaleString() }

@@ -17,7 +17,7 @@ import {
   formatTokenAmount,
   toChartNumber,
 } from './analytics-utils'
-import { AnalyticsExportButton, AnalyticsStatusBadge, AnalyticsTopBar, MessageState, MetricCard, getMetricValueFontClass } from './shared'
+import { AnalyticsExportButton, AnalyticsTopBar, MessageState, MetricCard, getMetricValueFontClass } from './shared'
 
 function ByTimeLoadingState() {
   return (
@@ -395,7 +395,6 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
                     <TableHead className="w-[220px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Total Payout</TableHead>
                     <TableHead className="w-[200px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Transaction Count</TableHead>
                     <TableHead className="w-[200px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Unique Members</TableHead>
-                    <TableHead className="px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -412,9 +411,6 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
                       </TableCell>
                       <TableCell className="px-0 py-[16px] text-[14px] leading-[22px] text-[#1c1c26]">
                         {item.uniqueMembers.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="px-0 py-[16px]">
-                        <AnalyticsStatusBadge status={item.status} />
                       </TableCell>
                     </TableRow>
                   ))}
