@@ -53,8 +53,8 @@ export default function HomeContent() {
           <HomeSvg />
         </div>
         <h1
-          className="relative z-10 text-center text-[#1c1c26] font-semibold leading-none tracking-[-2px]"
-          style={{ fontFamily: 'Poppins, sans-serif', fontSize: 'clamp(36px, 8vw, 56px)' }}
+          className="relative z-10 text-center text-[#404042] font-semibold leading-none tracking-[-2px]"
+          style={{ fontFamily: 'Poppins, sans-serif', fontSize: 'clamp(36px, 8vw, 40px)', lineHeight: '1.5' }}
         >
           Pay Anyone, Anywhere.
           <br />

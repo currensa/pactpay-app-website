@@ -88,8 +88,11 @@ export default function SelectOrganization({
       </div>
 
       {/* Card grid */}
-      <div className="min-h-0 flex-1 overflow-x-auto pb-2">
-        <div className="flex flex-wrap gap-[16px]" style={{ minWidth: 'max-content' }}>
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-2">
+        <div
+          className="grid content-start justify-start gap-[16px]"
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 320px))' }}
+        >
           {adminOrgs.map(item => {
             const { organization, payrollConfig, lastPayout, memberCount } = item
             const lastPayoutLabel = lastPayout ? formatDate(lastPayout) : null
@@ -105,7 +108,7 @@ export default function SelectOrganization({
                 key={organization.orgId}
                 type="button"
                 onClick={() => onSelectAdminOrg?.(organization.orgId, item.member)}
-                className="group flex w-[260px] shrink-0 flex-col rounded-[24px] border border-[rgba(0,0,0,0.08)] bg-white p-[20px] text-left shadow-[0px_2px_12px_0px_rgba(0,0,0,0.06)] transition-all hover:border-[#5e85ee] hover:shadow-[0px_4px_20px_0px_rgba(94,133,238,0.15)]"
+                className="group flex min-w-0 w-full flex-col rounded-[24px] border border-[rgba(0,0,0,0.08)] bg-white p-[20px] text-left shadow-[0px_2px_12px_0px_rgba(0,0,0,0.06)] transition-all hover:border-[#5e85ee] hover:shadow-[0px_4px_20px_0px_rgba(94,133,238,0.15)]"
               >
                 {/* ── Logo + Name ─────────────────────────────── */}
                 <div className="flex items-center gap-[10px]">
@@ -192,7 +195,7 @@ export default function SelectOrganization({
           <button
             type="button"
             onClick={onCreateNew}
-            className="group flex w-[260px] shrink-0 flex-col items-center justify-center gap-[10px] rounded-[24px] border border-dashed border-[rgba(0,0,0,0.15)] bg-white p-[20px] transition-all hover:border-[#5e85ee] hover:bg-[rgba(94,133,238,0.03)]"
+            className="group flex min-w-0 w-full flex-col items-center justify-center gap-[10px] rounded-[24px] border border-dashed border-[rgba(0,0,0,0.15)] bg-white p-[20px] transition-all hover:border-[#5e85ee] hover:bg-[rgba(94,133,238,0.03)]"
           >
             <div className="flex h-[44px] w-[44px] items-center justify-center rounded-full bg-[rgba(94,133,238,0.1)] transition-colors group-hover:bg-[rgba(94,133,238,0.18)]">
               <IconPlus className="h-[20px] w-[20px] text-[#5e85ee]" />
