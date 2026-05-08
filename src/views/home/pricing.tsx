@@ -94,7 +94,7 @@ export default function PricingPage() {
                 <div className="rounded-[18px] bg-white border border-[rgba(0,0,0,0.08)] p-5 mb-8">
                   <div className="flex items-center gap-2 mb-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1c1c26]">Standard</p>
-                    <span className="text-xs font-semibold text-[#5e85ee]">{network.savingsLabel}</span>
+                    {/* <span className="text-xs font-semibold text-[#5e85ee]">{network.savingsLabel}</span> */}
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-bold text-[#1c1c26]">{network.standardPrice}</span>
