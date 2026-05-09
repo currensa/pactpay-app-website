@@ -5,11 +5,20 @@ import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { timezoneOptions } from '@/lib/timezone-options'
-import { addAmounts, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
 import { getRelativeExecutionDate, getRelativeExecutionDateTextClassName } from '@/utils/date'
+import {
+  addTokenAmounts,
+  areTokenAmountsEqual,
+  formatPreviewAmount,
+  isPositiveTokenAmount,
+  normalizeAmountString,
+  parseTokenAmount,
+  sumTokenAmounts,
+} from '@/utils/token-amount'
 import { IconCalendar, IconLoader2 } from '@tabler/icons-react'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -111,17 +120,6 @@ function getChainName(caipChainId: string): string {
   return map[caipChainId] || caipChainId.split(':')[1] || caipChainId
 }
 
-function formatPreviewAmount(value: string | number | null | undefined, maxDecimals: number = 6): string {
-  if (value === null || value === undefined || value === '') return '0'
-  const num = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(num)) return String(value)
-  return num
-    .toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: maxDecimals })
-    .replace(/(\.\d*?[1-9])0+$/, '$1')
-    .replace(/\.0+$/, '')
-}
-
-
 function offsetToLabel(offset: number): string {
   const sign = offset >= 0 ? '+' : '-'
   const abs = Math.abs(offset)
@@ -171,6 +169,7 @@ export function CreateTransactionDialogContent({
   const currentMember = useOrganizationStore(s => s.currentMember)
   const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
   const getTokenSymbol = useChainAssetStore(s => s.getTokenSymbol)
+  const getTokenDecimals = useChainAssetStore(s => s.getTokenDecimals)
 
   useEffect(() => {
     fetchPayrollTokenSymbol()
@@ -226,7 +225,7 @@ export function CreateTransactionDialogContent({
       try {
         const payload = organizationMembers.map(m => ({
           memberId: m.memberId,
-          amount: selectedMembers.has(m.id) ? (memberAmounts[m.id] || '0') : '0',
+          amount: selectedMembers.has(m.id) ? normalizeAmountString(memberAmounts[m.id] || '0') : '0',
         }))
         const result = await apis.transaction.getFeePreview(payload)
         setFeePreview(result)
@@ -271,6 +270,7 @@ export function CreateTransactionDialogContent({
     ? (getTokenSymbol(payrollConfig.caipChainId, payrollConfig.token) ?? payrollConfig.token.slice(0, 6))
     : (payrollTokenSymbol ?? '')
   const orgConfigCaipChainId = payrollConfig?.caipChainId ?? ''
+  const orgConfigTokenAddress = payrollConfig?.token ?? ''
 
   const displayCurrency = isCreatingFromReaction
     ? (reactionTokenSymbol || derivedCurrency)
@@ -278,12 +278,24 @@ export function CreateTransactionDialogContent({
   const displayCaipChainId = isCreatingFromReaction
     ? (reactionSourceCaipChainId || derivedCaipChainId)
     : (orgConfigCaipChainId || derivedCaipChainId)
+  const displayTokenAddress = isCreatingFromReaction
+    ? (reactionSourceTokenAddress || derivedTokenAddress)
+    : (orgConfigTokenAddress || derivedTokenAddress)
+  const amountDecimals = useMemo(() => {
+    if (!displayCaipChainId) return 18
+    return getTokenDecimals(displayCaipChainId, displayTokenAddress || '')
+  }, [displayCaipChainId, displayTokenAddress, getTokenDecimals])
 
   const totalAmount = useMemo(() => {
-    let sum = 0
-    selectedMembers.forEach(id => { sum += parseFloat(memberAmounts[id] || '0') || 0 })
-    return sum
-  }, [selectedMembers, memberAmounts])
+    return sumTokenAmounts(
+      Array.from(selectedMembers).map(id => memberAmounts[id] || '0'),
+      amountDecimals,
+    )
+  }, [selectedMembers, memberAmounts, amountDecimals])
+  const formattedTotalAmount = useMemo(
+    () => formatPreviewAmount(totalAmount),
+    [totalAmount]
+  )
 
   const feeCurrency = displayCurrency || payrollTokenSymbol || 'USDC'
 
@@ -315,9 +327,9 @@ export function CreateTransactionDialogContent({
       unitPriceSteps,
       billableMemberCount: feePreview.pricingDisplay.billableMemberCount,
       totalServiceFee: feePreview.summary.finalFee,
-      totalFromWallet: addAmounts(String(totalAmount), feePreview.summary.finalFee, feeCurrency),
+      totalFromWallet: addTokenAmounts(totalAmount, feePreview.summary.finalFee, amountDecimals),
     }
-  }, [feePreview, totalAmount, feeCurrency])
+  }, [feePreview, totalAmount, amountDecimals])
 
   const eligibleMembers = useMemo(
     () => organizationMembers.filter(m => !!m.metaPub),
@@ -347,7 +359,7 @@ export function CreateTransactionDialogContent({
   }
 
   const handleAmountChange = (memberId: string, value: string) => {
-    if (value !== '' && parseFloat(value) < 0) return
+    if (value !== '' && !/^\d*(\.\d*)?$/.test(value)) return
     setMemberAmounts(prev => ({ ...prev, [memberId]: value }))
   }
 
@@ -357,8 +369,16 @@ export function CreateTransactionDialogContent({
   const selectedTimezoneData = timezoneOptions.find(tz => tz.value === selectedTimezone) ?? timezoneOptions[13]
 
   const handleCreateTransaction = () => {
+    if (!canProceedToStep2) return
     const utcDate = executionDate ? toUtcIso(executionDate, selectedTimezoneData.offset) : executionDate
-    onCreateTransaction({ selectedMembers, memberAmounts, transactionName, executionDate: utcDate })
+    onCreateTransaction({
+      selectedMembers,
+      memberAmounts: Object.fromEntries(
+        Object.entries(memberAmounts).map(([memberId, amount]) => [memberId, normalizeAmountString(amount || '0')])
+      ),
+      transactionName,
+      executionDate: utcDate,
+    })
   }
 
   const memberDetailsForPreview = useMemo(() => {
@@ -377,18 +397,24 @@ export function CreateTransactionDialogContent({
       }
     })
   }, [selectedMembers, organizationMembers, memberAmounts])
+  const hasInvalidAmountPrecision = useMemo(
+    () => Array.from(selectedMembers).some(id => parseTokenAmount(memberAmounts[id] || '0', amountDecimals) === null),
+    [selectedMembers, memberAmounts, amountDecimals]
+  )
 
   const canProceedToStep2 =
     selectedMembers.size > 0 &&
     !currencyMismatch &&
-    Array.from(selectedMembers).every(id => parseFloat(memberAmounts[id] || '0') > 0) &&
+    !hasInvalidAmountPrecision &&
+    Array.from(selectedMembers).every(id => isPositiveTokenAmount(memberAmounts[id] || '0', amountDecimals)) &&
     transactionName.trim().length > 0 &&
     executionDate.length > 0
 
   const nextTooltipMsg = (() => {
     if (selectedMembers.size === 0) return 'Please select at least one member'
     if (currencyMismatch) return 'Selected members have different currencies'
-    if (!Array.from(selectedMembers).every(id => parseFloat(memberAmounts[id] || '0') > 0))
+    if (hasInvalidAmountPrecision) return `Amount precision exceeds token limit (${amountDecimals} decimals)`
+    if (!Array.from(selectedMembers).every(id => isPositiveTokenAmount(memberAmounts[id] || '0', amountDecimals)))
       return 'All selected members must have an amount greater than 0'
     if (!transactionName.trim()) return 'Please enter a transaction name'
     if (!executionDate) return 'Please select a claim time'
@@ -492,8 +518,8 @@ export function CreateTransactionDialogContent({
                   <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{member.roles[0]?.role || '-'}</TableCell>
                   <TableCell className="py-[14px]" onClick={e => e.stopPropagation()}>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       disabled={!hasMetaPub}
                       value={memberAmounts[member.id] ?? ''}
                       onChange={e => handleAmountChange(member.id, e.target.value)}
@@ -614,8 +640,8 @@ export function CreateTransactionDialogContent({
                   </TableCell>
                   <TableCell className="py-[12px]" onClick={e => e.stopPropagation()}>
                     <input
-                      type="number"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       disabled={!hasMetaPub}
                       value={memberAmounts[member.id] ?? ''}
                       onChange={e => handleAmountChange(member.id, e.target.value)}
@@ -725,7 +751,7 @@ export function CreateTransactionDialogContent({
                     {currencyMismatch ? (
                       <span className="text-[12px] text-[#d92b2b]">Currency mismatch</span>
                     ) : selectedMembers.size > 0 && displayCurrency ? (
-                      <span className="text-[12px] text-[#606067]">{selectedMembers.size} members · {totalAmount} {displayCurrency}</span>
+                      <span className="text-[12px] text-[#606067]">{selectedMembers.size} members · {formattedTotalAmount} {displayCurrency}</span>
                     ) : null}
                   </div>
                 </div>
@@ -783,7 +809,7 @@ export function CreateTransactionDialogContent({
                         <>
                           <div className="flex items-center justify-between">
                             <span className="text-[13px] text-[#8d8d93]">Payout total</span>
-                            <span className="text-[14px] text-[#1c1c26]">{formatPreviewAmount(totalAmount)} {displayCurrency || 'USDC'}</span>
+                            <span className="text-[14px] text-[#1c1c26]">{formattedTotalAmount} {displayCurrency || 'USDC'}</span>
                           </div>
                           <div className="flex items-start justify-between gap-[12px]">
                             <span className="text-[13px] text-[#8d8d93] pt-[2px]">Service fee</span>
@@ -836,7 +862,7 @@ export function CreateTransactionDialogContent({
                           <div className="border-t border-[rgba(0,0,0,0.12)] flex items-center justify-between pt-[14px] pb-[6px]">
                             <span className="text-[13px] text-[#1c1c26]">Total from wallet</span>
                             <span className="text-[13px] text-[#1c1c26]">
-                              {feeBreakdownDisplay?.totalFromWallet || formatPreviewAmount(totalAmount)} {feeCurrency}
+                              {formatPreviewAmount(feeBreakdownDisplay?.totalFromWallet || totalAmount)} {feeCurrency}
                             </span>
                           </div>
                         </>
@@ -930,7 +956,7 @@ export function CreateTransactionDialogContent({
                   {currencyMismatch ? (
                     <span className="text-[13px] text-[#d92b2b]">Currency mismatch</span>
                   ) : selectedMembers.size > 0 && displayCurrency ? (
-                    <span className="text-[13px] text-[#606067]">{selectedMembers.size} members · {totalAmount} {displayCurrency}</span>
+                    <span className="text-[13px] text-[#606067]">{selectedMembers.size} members · {formattedTotalAmount} {displayCurrency}</span>
                   ) : null}
                 </div>
                 <div className="flex items-center gap-[10px]">
@@ -986,7 +1012,7 @@ export function CreateTransactionDialogContent({
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-[13px] text-[#8d8d93]">Payout</span>
-                      <span className="text-[14px] text-[#1c1c26]">{totalAmount} {displayCurrency || 'USDC'}</span>
+                      <span className="text-[14px] text-[#1c1c26]">{formattedTotalAmount} {displayCurrency || 'USDC'}</span>
                     </div>
                     {feePreview && (
                       <div className="flex items-center justify-between">
@@ -1007,7 +1033,7 @@ export function CreateTransactionDialogContent({
                     <div className="flex items-center justify-between">
                       <span className="text-[13px] text-[#1c1c26]">Total from wallet</span>
                       <span className="text-[14px] font-bold text-[#1c1c26]">
-                        {feeBreakdownDisplay?.totalFromWallet || formatPreviewAmount(totalAmount)} {feeCurrency}
+                        {formatPreviewAmount(feeBreakdownDisplay?.totalFromWallet || totalAmount)} {feeCurrency}
                       </span>
                     </div>
                   </div>
@@ -1048,8 +1074,10 @@ export function CreateTransactionDialogContent({
                   <div className="flex flex-col gap-[16px] p-4 overflow-y-auto">
                     {memberDetailsForPreview.map(item => {
                       const originalAmount = organizationMembers.find(m => m.memberId === item.member?.memberId)?.payoutIntent?.amount
-                      const newAmount = parseFloat(String(item.amount)) || 0
-                      const hasChanged = isCreatingFromReaction && originalAmount !== undefined && parseFloat(originalAmount) !== newAmount
+                      const newAmount = String(item.amount ?? '0')
+                      const hasChanged = isCreatingFromReaction &&
+                        originalAmount !== undefined &&
+                        !areTokenAmountsEqual(originalAmount, newAmount, amountDecimals)
                       return (
                         <div key={item.id ?? item.member.memberId} className="flex items-center justify-between">
                           <div className="flex items-center gap-[8px]">
@@ -1072,11 +1100,11 @@ export function CreateTransactionDialogContent({
                           <div className="flex items-center gap-[4px]">
                             {hasChanged && (
                               <span className="text-[13px] text-[#bbbbbe] line-through">
-                                {parseFloat(originalAmount!).toLocaleString()}
+                                {formatPreviewAmount(originalAmount)}
                               </span>
                             )}
                             <span className="text-[14px] text-[#1c1c26]">
-                              {newAmount.toLocaleString()} {displayCurrency}
+                              {formatPreviewAmount(newAmount)} {displayCurrency}
                             </span>
                           </div>
                         </div>
@@ -1128,7 +1156,8 @@ export function CreateTransactionDialogContent({
                   </button>
                   <button
                     onClick={handleCreateTransaction}
-                    className="h-[38px] flex-1 rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity"
+                    disabled={!canProceedToStep2}
+                    className="h-[38px] flex-1 rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-25 disabled:cursor-not-allowed"
                   >
                     Confirm
                   </button>
@@ -1204,7 +1233,7 @@ export function CreateTransactionDialogContent({
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] text-[#8d8d93] leading-[22px]">Total Amount</span>
-                        <span className="text-[13px] text-[#1c1c26] leading-[22px]">{totalAmount} {displayCurrency || '-'}</span>
+                        <span className="text-[13px] text-[#1c1c26] leading-[22px]">{formattedTotalAmount} {displayCurrency || '-'}</span>
                       </div>
                       {feePreview && (
                         <div className="flex items-center justify-between">
@@ -1224,8 +1253,10 @@ export function CreateTransactionDialogContent({
                   <div className="flex flex-col gap-[18px] p-4 overflow-y-auto flex-1">
                     {memberDetailsForPreview.map(item => {
                       const originalAmount = organizationMembers.find(m => m.memberId === (item as any).member?.memberId)?.payoutIntent?.amount
-                      const newAmount = parseFloat(String(item.amount)) || 0
-                      const hasChanged = isCreatingFromReaction && originalAmount !== undefined && parseFloat(originalAmount) !== newAmount
+                      const newAmount = String(item.amount ?? '0')
+                      const hasChanged = isCreatingFromReaction &&
+                        originalAmount !== undefined &&
+                        !areTokenAmountsEqual(originalAmount, newAmount, amountDecimals)
                       return (
                         <div key={item.id ?? item.member.memberId} className="flex items-center justify-between">
                           <div className="flex items-center gap-[6px]">
@@ -1245,11 +1276,11 @@ export function CreateTransactionDialogContent({
                           <div className="flex items-center gap-[4px]">
                             {hasChanged && (
                               <span className="text-[13px] text-[#bbbbbe] line-through leading-[22px]">
-                                {parseFloat(originalAmount!).toLocaleString()}
+                                {formatPreviewAmount(originalAmount)}
                               </span>
                             )}
                             <span className="text-[13px] text-[#1c1c26] leading-[22px]">
-                              {newAmount.toLocaleString()} {displayCurrency}
+                              {formatPreviewAmount(newAmount)} {displayCurrency}
                             </span>
                           </div>
                         </div>
@@ -1274,7 +1305,7 @@ export function CreateTransactionDialogContent({
                   </button>
                   <button
                     onClick={handleCreateTransaction}
-                    disabled={!transactionName || !executionDate}
+                    disabled={!canProceedToStep2}
                     className="h-[38px] px-4 rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-25 disabled:cursor-not-allowed"
                   >
                     Create Transaction

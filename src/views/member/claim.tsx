@@ -158,6 +158,9 @@ export default function ClaimPage() {
 
   const filteredAddressBookSuggestions = filterSuggestionItems(addressBookSuggestions)
   const filteredRecentSuggestions = filterSuggestionItems(recentSuggestions)
+  const latestRecentSuggestionKey = recentSuggestions[0]
+    ? `${recentSuggestions[0].caipChainId}::${recentSuggestions[0].address.toLowerCase()}`
+    : null
   const matchedSuggestion = [...addressBookSuggestions, ...recentSuggestions]
     .find(item => item.address.toLowerCase() === trimmedRecipient.toLowerCase())
   const recipientChain = chains.find(chain => chain.caipChainId === selectedChain) ?? null
@@ -554,9 +557,11 @@ export default function ClaimPage() {
                                 </div>
                               )}
                             </div>
-                            <div className="shrink-0 rounded-[999px] bg-[rgba(87,194,113,0.14)] px-[10px] py-[4px] text-[12px] font-medium leading-[16px] text-[#57c271]">
-                              Last used
-                            </div>
+                            {latestRecentSuggestionKey === `${item.caipChainId}::${item.address.toLowerCase()}` && (
+                              <div className="shrink-0 rounded-[999px] bg-[rgba(87,194,113,0.14)] px-[10px] py-[4px] text-[12px] font-medium leading-[16px] text-[#57c271]">
+                                Last used
+                              </div>
+                            )}
                           </button>
                         ))
                       )}
