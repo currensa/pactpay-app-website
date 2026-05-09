@@ -297,19 +297,50 @@ export class TransactionApi {
   // 预览服务费
   async getFeePreview(members: { memberId: string; amount: string }[]) {
     const res = await this.request.post<{
-      billableMemberCount: number
-      totalMemberCount: number
-      plan: {
-        id: string
-        name: string
-        pricePerMember: number
-        originalPricePerMember: number
-        description: string
-      }
-      originalFee: number
-      discountedFee: number
       caipChainId: string
       token: string
+      summary: {
+        billableMemberCount: number
+        totalMemberCount: number
+        originalUnitPrice: string
+        finalUnitPrice: string
+        originalFee: string
+        finalFee: string
+        appliedDiscountCount: number
+        unitDiscountAmount: string
+        totalDiscountAmount: string
+      }
+      pricingDisplay: {
+        billableMemberCount: number
+        originalUnitPrice: string
+        originalUnitSubtotal: string
+        finalUnitPrice: string
+        finalUnitSubtotal: string
+      }
+      matchedRules: {
+        ruleCode: string
+        name: string
+        description: string
+        ruleType: string
+        targetType: string
+        targetValue: string | null
+        pricePerMember: string | null
+        discountRateBps: number | null
+        discountLabel: string | null
+        beforeUnitPrice: string | null
+        effectiveUnitPrice: string | null
+        unitDiscountAmount: string | null
+        beforeFee: string | null
+        effectiveFee: string | null
+        feeDiscountAmount: string | null
+      }[]
+      referralBenefit: {
+        applied: boolean
+        eligible: boolean
+        state: string
+        referralCode: string | null
+        discountRateBps: number | null
+      }
       gasFeeEstimate: {
         gasPrice: string | null
         maxFeePerGas: string | null
