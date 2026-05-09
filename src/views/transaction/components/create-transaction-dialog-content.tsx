@@ -5,7 +5,7 @@ import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { timezoneOptions } from '@/lib/timezone-options'
-import { cn } from '@/lib/utils'
+import { addAmounts, cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
@@ -20,17 +20,48 @@ const imgTimeForward = '/creat-transaction-tip-4.svg'
 const imgTimePast = '/creat-transaction-tip-5.svg'
 
 interface FeePreview {
-  billableMemberCount: number
-  totalMemberCount: number
-  plan: {
-    id: string
-    name: string
-    pricePerMember: number
-    originalPricePerMember: number
-    description: string
+  summary: {
+    billableMemberCount: number
+    totalMemberCount: number
+    originalUnitPrice: string
+    finalUnitPrice: string
+    originalFee: string
+    finalFee: string
+    appliedDiscountCount: number
+    unitDiscountAmount: string
+    totalDiscountAmount: string
   }
-  originalFee: number
-  discountedFee: number
+  pricingDisplay: {
+    billableMemberCount: number
+    originalUnitPrice: string
+    originalUnitSubtotal: string
+    finalUnitPrice: string
+    finalUnitSubtotal: string
+  }
+  matchedRules: {
+    ruleCode: string
+    name: string
+    description: string
+    ruleType: string
+    targetType: string
+    targetValue: string | null
+    pricePerMember: string | null
+    discountRateBps: number | null
+    discountLabel: string | null
+    beforeUnitPrice: string | null
+    effectiveUnitPrice: string | null
+    unitDiscountAmount: string | null
+    beforeFee: string | null
+    effectiveFee: string | null
+    feeDiscountAmount: string | null
+  }[]
+  referralBenefit: {
+    applied: boolean
+    eligible: boolean
+    state: string
+    referralCode: string | null
+    discountRateBps: number | null
+  }
   caipChainId?: string
   token?: string
   gasFeeEstimate?: {
@@ -78,6 +109,16 @@ function getChainName(caipChainId: string): string {
     'eip155:56': 'BNB Chain',
   }
   return map[caipChainId] || caipChainId.split(':')[1] || caipChainId
+}
+
+function formatPreviewAmount(value: string | number | null | undefined, maxDecimals: number = 6): string {
+  if (value === null || value === undefined || value === '') return '0'
+  const num = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(num)) return String(value)
+  return num
+    .toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: maxDecimals })
+    .replace(/(\.\d*?[1-9])0+$/, '$1')
+    .replace(/\.0+$/, '')
 }
 
 
@@ -243,6 +284,40 @@ export function CreateTransactionDialogContent({
     selectedMembers.forEach(id => { sum += parseFloat(memberAmounts[id] || '0') || 0 })
     return sum
   }, [selectedMembers, memberAmounts])
+
+  const feeCurrency = displayCurrency || payrollTokenSymbol || 'USDC'
+
+  const feeBreakdownDisplay = useMemo(() => {
+    if (!feePreview) return null
+
+    const badgeLabels = feePreview.matchedRules
+      .map(rule => rule.discountLabel)
+      .filter((label): label is string => !!label)
+
+    const unitPriceSteps: string[] = []
+    const pushStep = (value: string | null) => {
+      if (!value) return
+      if (unitPriceSteps[unitPriceSteps.length - 1] !== value) unitPriceSteps.push(value)
+    }
+
+    feePreview.matchedRules.forEach(rule => {
+      pushStep(rule.beforeUnitPrice)
+      pushStep(rule.effectiveUnitPrice)
+    })
+
+    if (unitPriceSteps.length === 0) {
+      pushStep(feePreview.pricingDisplay.originalUnitPrice)
+    }
+    pushStep(feePreview.pricingDisplay.finalUnitPrice)
+
+    return {
+      badgeLabels,
+      unitPriceSteps,
+      billableMemberCount: feePreview.pricingDisplay.billableMemberCount,
+      totalServiceFee: feePreview.summary.finalFee,
+      totalFromWallet: addAmounts(String(totalAmount), feePreview.summary.finalFee, feeCurrency),
+    }
+  }, [feePreview, totalAmount, feeCurrency])
 
   const eligibleMembers = useMemo(
     () => organizationMembers.filter(m => !!m.metaPub),
@@ -708,45 +783,62 @@ export function CreateTransactionDialogContent({
                         <>
                           <div className="flex items-center justify-between">
                             <span className="text-[13px] text-[#8d8d93]">Payout total</span>
-                            <span className="text-[14px] text-[#1c1c26]">{totalAmount} {displayCurrency || 'USDC'}</span>
+                            <span className="text-[14px] text-[#1c1c26]">{formatPreviewAmount(totalAmount)} {displayCurrency || 'USDC'}</span>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-[4px]">
-                              <span className="text-[13px] text-[#8d8d93]">Service fee</span>
-                              {feePreview.originalFee > feePreview.discountedFee && (
-                                <span className="bg-[rgba(93,221,34,0.12)] px-[7px] py-[1px] rounded-[8px] text-[11px] text-[#5ddd22]">
-                                  {Math.round((1 - feePreview.discountedFee / feePreview.originalFee) * 100)}% off
-                                </span>
+                          <div className="flex items-start justify-between gap-[12px]">
+                            <span className="text-[13px] text-[#8d8d93] pt-[2px]">Service fee</span>
+                            <div className="flex flex-col items-end gap-[10px] text-right">
+                              {feeBreakdownDisplay && feeBreakdownDisplay.badgeLabels.length > 0 && (
+                                <div className="flex flex-wrap justify-end gap-[8px]">
+                                  {feeBreakdownDisplay.badgeLabels.map((label, index) => (
+                                    <span
+                                      key={`${label}-${index}`}
+                                      className={cn(
+                                        'rounded-full px-[14px] py-[6px] text-[11px] font-semibold',
+                                        index % 2 === 0 ? 'bg-[#fff7e8] text-[#f5a623]' : 'bg-[#e9f9f0] text-[#48c774]'
+                                      )}
+                                    >
+                                      {label}
+                                    </span>
+                                  ))}
+                                </div>
                               )}
-                            </div>
-                            <div className="flex items-center gap-[2px]">
-                              {feePreview.originalFee > feePreview.discountedFee && (
-                                <span className="text-[13px] text-[#8d8d93] line-through leading-[22px]">
-                                  {feePreview.originalFee}{displayCurrency || payrollTokenSymbol || 'U'}
-                                </span>
-                              )}
-                              <span className="text-[20px] font-bold text-[#1c1c26] leading-[32px]">
-                                {feePreview.discountedFee}{displayCurrency || payrollTokenSymbol || 'U'}
-                              </span>
+                              <div className="flex flex-wrap items-end justify-end gap-x-[10px] gap-y-[4px]">
+                                {feeBreakdownDisplay?.unitPriceSteps.map((price, index) => {
+                                  const isLast = index === feeBreakdownDisplay.unitPriceSteps.length - 1
+                                  return isLast ? (
+                                    <span key={`${price}-${index}`} className="text-[18px] font-semibold leading-[24px] text-[#48c774]">
+                                      {formatPreviewAmount(price)} {feeCurrency} x{feeBreakdownDisplay.billableMemberCount}
+                                    </span>
+                                  ) : (
+                                    <span
+                                      key={`${price}-${index}`}
+                                      className={cn(
+                                        'text-[13px] leading-[22px] line-through',
+                                        index === feeBreakdownDisplay.unitPriceSteps.length - 2 ? 'text-[#5e85ee]' : 'text-[#8d8d93]'
+                                      )}
+                                    >
+                                      {formatPreviewAmount(price)}U
+                                    </span>
+                                  )
+                                })}
+                              </div>
                             </div>
                           </div>
                           {feePreview.gasFeeEstimate?.total?.costNative && (
                             <div className="flex items-center justify-between">
                               <span className="text-[13px] text-[#8d8d93]">Est. gas</span>
                               <span className="text-[13px] text-[#1c1c26]">
-                                {feePreview.gasFeeEstimate.total.costNative}{feePreview.gasFeeEstimate.nativeSymbol || ''}
+                                ~{feePreview.gasFeeEstimate.total.costNative} {feePreview.gasFeeEstimate.nativeSymbol || ''}
                               </span>
                             </div>
                           )}
                           <div className="border-t border-[rgba(0,0,0,0.12)] flex items-center justify-between pt-[14px] pb-[6px]">
                             <span className="text-[13px] text-[#1c1c26]">Total from wallet</span>
                             <span className="text-[13px] text-[#1c1c26]">
-                              {totalAmount + feePreview.discountedFee} {displayCurrency || 'USDC'}
+                              {feeBreakdownDisplay?.totalFromWallet || formatPreviewAmount(totalAmount)} {feeCurrency}
                             </span>
                           </div>
-                          {feePreview.plan.description && (
-                            <p className="text-[11px] text-[#8d8d93] text-center">{feePreview.plan.description}</p>
-                          )}
                         </>
                       ) : (
                         <p className="text-[12px] text-[#8d8d93] text-center py-4">
@@ -899,7 +991,9 @@ export function CreateTransactionDialogContent({
                     {feePreview && (
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] text-[#8d8d93]">Service Fee</span>
-                        <span className="text-[14px] text-[#1c1c26]">{feePreview.discountedFee} {displayCurrency || payrollTokenSymbol || 'USDC'}</span>
+                        <span className="text-[14px] text-[#1c1c26]">
+                          {formatPreviewAmount(feeBreakdownDisplay?.totalServiceFee)} {feeCurrency}
+                        </span>
                       </div>
                     )}
                     {feePreview?.gasFeeEstimate?.total?.costNative && (
@@ -913,7 +1007,7 @@ export function CreateTransactionDialogContent({
                     <div className="flex items-center justify-between">
                       <span className="text-[13px] text-[#1c1c26]">Total from wallet</span>
                       <span className="text-[14px] font-bold text-[#1c1c26]">
-                        {feePreview ? totalAmount + feePreview.discountedFee : totalAmount} {displayCurrency || 'USDC'}
+                        {feeBreakdownDisplay?.totalFromWallet || formatPreviewAmount(totalAmount)} {feeCurrency}
                       </span>
                     </div>
                   </div>
@@ -1115,7 +1209,9 @@ export function CreateTransactionDialogContent({
                       {feePreview && (
                         <div className="flex items-center justify-between">
                           <span className="text-[13px] text-[#8d8d93] leading-[22px]">Service Fee</span>
-                          <span className="text-[13px] text-[#1c1c26] leading-[22px]">{feePreview.discountedFee} {displayCurrency || payrollTokenSymbol || 'USDC'}</span>
+                          <span className="text-[13px] text-[#1c1c26] leading-[22px]">
+                            {formatPreviewAmount(feeBreakdownDisplay?.totalServiceFee)} {feeCurrency}
+                          </span>
                         </div>
                       )}
                     </div>
