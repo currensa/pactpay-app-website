@@ -459,7 +459,7 @@ export default function TransactionDetail() {
             </Button>
             <Button onClick={() => {
               setReactionConfirmOpen(false)
-              navigate(`/orgs/transaction/create?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)
+              navigate(`/orgs/transaction/create-people?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)
             }}>
               Confirm
             </Button>
