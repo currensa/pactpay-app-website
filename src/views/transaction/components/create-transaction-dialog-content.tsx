@@ -180,8 +180,8 @@ export function CreateTransactionDialogContent({
     setHeader({
       backUrl: '/orgs/transaction',
       steps: [
-        { label: '1.Select Members & Amount', active: currentStep === 1 },
-        { label: '2.Review & Confirm', active: currentStep === 2 },
+        { label: '1. Select type & details', active: currentStep === 1 },
+        { label: '2. Review & Confirm', active: currentStep === 2 },
       ],
     })
     return () => clearHeader()

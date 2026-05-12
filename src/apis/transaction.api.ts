@@ -2,6 +2,9 @@ import { PayrollItemStatus, PayrollTransactionStatus } from '@/enums/transaction
 import { AxiosInstance } from 'axios'
 import { MemberRole } from './orgnization.api'
 
+export const TRANSACTION_LIST_TRANSACTION_TYPES = ['stealth_deposit', 'token_usage_plan', 'all'] as const
+export type TransactionListTransactionType = typeof TRANSACTION_LIST_TRANSACTION_TYPES[number]
+
 // ── StealthPay 相关接口 ─────────────────────────────────────────────────────
 
 export interface StealthPayrollItem {
@@ -191,11 +194,13 @@ export class TransactionApi {
     pageSize: number = 20,
     transactionStatus?: string,
     transactionName?: string,
+    transactionType: TransactionListTransactionType = 'stealth_deposit',
   ) {
     const res = await this.request.get<TransactionPlansResponse>(`/transaction/${this.orgId}`, {
       params: {
         page,
         pageSize,
+        transactionType,
         ...(transactionStatus && transactionStatus !== 'all' ? { transactionStatus } : {}),
         ...(transactionName ? { transactionName } : {}),
       }

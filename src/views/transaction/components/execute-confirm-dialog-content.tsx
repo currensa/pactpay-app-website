@@ -48,6 +48,7 @@ export function ExecuteConfirmDialogContent({
   const { getChainAssetByToken, getChain } = useChainAssetStore()
   const [status, setStatus] = useState<DepositStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
+  const isAiTransaction = executingTransaction?.type === 'token_usage_plan'
 
   const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
@@ -181,7 +182,7 @@ export function ExecuteConfirmDialogContent({
       {executingTransaction && (
         <div className="bg-[#f5f5f5] rounded-[12px] p-4 flex flex-col gap-[18px]">
           <InfoRow label="Transaction Name">{executingTransaction.name}</InfoRow>
-          <InfoRow label="Pay Day">{executingTransaction.executionDate}</InfoRow>
+          <InfoRow label={isAiTransaction ? 'Payment Time' : 'Pay Day'}>{executingTransaction.executionDate}</InfoRow>
           <InfoRow label="Network">{executingTransaction.network}</InfoRow>
           <div className="flex items-center justify-between">
             <span className="text-[14px] leading-[22px] text-[#606067]">Status</span>
@@ -190,7 +191,9 @@ export function ExecuteConfirmDialogContent({
           <InfoRow label="Total Amount">
             {executingTransaction.totalAmount} {executingTransaction.currency}
           </InfoRow>
-          <InfoRow label="Total Members">{executingTransaction.members}</InfoRow>
+          <InfoRow label={isAiTransaction ? 'Payees' : 'Total Members'}>
+            {isAiTransaction ? 'API Service' : executingTransaction.members}
+          </InfoRow>
         </div>
       )}
 

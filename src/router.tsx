@@ -54,8 +54,11 @@ const NotificationsPage = lazy(() => import('@/views/notifications'))
 
 const Dashboard = lazy(() => import('@/views/orgs/dashboard'))
 const Members = lazy(() => import('@/views/orgs/members'))
+const TokenUsagePlanDetailPage = lazy(() => import('@/views/orgs/token-usage-plan-detail'))
 const Transaction = lazy(() => import('@/views/transaction/transaction'))
+const CreateTransactionSelector = lazy(() => import('@/views/transaction/create-transaction-selector'))
 const CreateTransaction = lazy(() => import('@/views/transaction/create-transaction'))
+const CreateAiTransaction = lazy(() => import('@/views/transaction/create-ai-transaction'))
 const Analytics = lazy(() => import('@/views/orgs/analytics'))
 const OrganizationSettings = lazy(() => import('@/views/orgs/settings/organization'))
 const TransactionDetailPage = lazy(() => import('@/views/transaction/transaction-detail'))
@@ -115,10 +118,13 @@ const routes: RouteItem[] = [
     children: [
       { index: true, element: <Navigate to="/orgs/dashboard" /> },
       { path: 'dashboard', navIcon: IconLayoutDashboard, element: <Dashboard />, meta: { title: 'Dashboard', subtitle: "Monitor your organization's key metrics and activities" } },
-      { path: 'members', navIcon: IconUsers, element: <Members />, meta: { title: 'Members', subtitle: 'Manage your organization members' } },
+      { path: 'members', navIcon: IconUsers, element: <Members />, meta: { title: 'Payees', subtitle: 'Manage people and services your organisation pays' } },
+      { path: 'members/usage-plans/:id', element: <TokenUsagePlanDetailPage />, meta: { title: 'Usage Plan', hideInMenu: true } },
       // { path: 'roles', navIcon: IconShield, element: <RoleManagement />, meta: { title: 'Role Management' } },
       { path: 'transaction', navIcon: IconCashMove, element: <Transaction />, meta: { title: 'Transactions', subtitle: 'View and manage payment transactions' } },
-      { path: 'transaction/create', element: <CreateTransaction />, meta: { title: 'Create New Transaction', hideInMenu: true } },
+      { path: 'transaction/create', element: <CreateTransactionSelector />, meta: { title: 'Create New Transaction', hideInMenu: true } },
+      { path: 'transaction/create-people', element: <CreateTransaction />, meta: { title: 'Create New Transaction', hideInMenu: true } },
+      { path: 'transaction/create-ai', element: <CreateAiTransaction />, meta: { title: 'New AI API Top Up', hideInMenu: true } },
       { path: 'transaction/:id', element: <TransactionDetailPage />, meta: { title: 'Transaction Detail', hideInMenu: true } },
       { path: 'analytics', navIcon: IconAlignBoxBottomRight, element: <Analytics />, meta: { title: 'Analytics', subtitle: 'Track your payment analytics', hideInMenu: false } },
       { path: 'notifications', element: <NotificationsPage />, meta: { title: 'Notifications', subtitle: 'Showing notifications for Engineering Team', hideInMenu: true } },

@@ -27,6 +27,7 @@ export function ExecuteSuccessDialogContent({
   const { getChain } = useChainAssetStore()
   const explorerUrl = getChain(caipChainId ?? '')?.explorerUrls?.[0]
   const txUrl = buildExplorerTransactionUrl(explorerUrl, depositTxHash)
+  const isAiTransaction = executingTransaction?.type === 'token_usage_plan'
   return (
     <div className="flex flex-col gap-[20px]">
       {/* Header */}
@@ -42,8 +43,14 @@ export function ExecuteSuccessDialogContent({
           </svg>
         </div>
         <div>
-          <p className="text-[13px] font-medium text-[#1c1c26] leading-[22px]">Deposit Confirmed</p>
-          <p className="text-[12px] text-[#606067] leading-[20px]">Members can claim their funds when the claim time arrives.</p>
+          <p className="text-[13px] font-medium text-[#1c1c26] leading-[22px]">
+            {isAiTransaction ? 'Payment Confirmed' : 'Deposit Confirmed'}
+          </p>
+          <p className="text-[12px] text-[#606067] leading-[20px]">
+            {isAiTransaction
+              ? 'The usage plan will be funded after this transaction is confirmed on-chain.'
+              : 'Members can claim their funds when the claim time arrives.'}
+          </p>
         </div>
       </div>
 
@@ -52,12 +59,14 @@ export function ExecuteSuccessDialogContent({
         {executingTransaction && (
           <>
             <InfoRow label="Transaction Name">{executingTransaction.name}</InfoRow>
-            <InfoRow label="Pay Day">{executingTransaction.executionDate}</InfoRow>
+            <InfoRow label={isAiTransaction ? 'Payment Time' : 'Pay Day'}>{executingTransaction.executionDate}</InfoRow>
             <InfoRow label="Network">{executingTransaction.network}</InfoRow>
             <InfoRow label="Total Amount">
               {executingTransaction.totalAmount} {executingTransaction.currency}
             </InfoRow>
-            <InfoRow label="Total Members">{executingTransaction.members}</InfoRow>
+            <InfoRow label={isAiTransaction ? 'Payees' : 'Total Members'}>
+              {isAiTransaction ? 'API Service' : executingTransaction.members}
+            </InfoRow>
           </>
         )}
         {depositTxHash && (
