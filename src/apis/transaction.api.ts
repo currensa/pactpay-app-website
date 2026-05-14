@@ -121,6 +121,7 @@ export interface TransactionPlan {
   createdBy: string
   createdAt: string
   deletedAt: string | null
+  tokenUsagePlanId: string | null
   items: TransactionItem[]
 }
 

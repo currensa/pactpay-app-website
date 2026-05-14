@@ -610,10 +610,7 @@ export default function TokenUsagePlanDetailPage() {
           </div>
 
           <Button
-            onClick={() => navigate(
-              `/orgs/transaction/create-ai?planId=${encodeURIComponent(detail.plan.id)}`,
-              { state: { backUrl: `/orgs/members/usage-plans/${encodeURIComponent(detail.plan.id)}` } },
-            )}
+            onClick={() => navigate(`/orgs/transaction/create-ai?planId=${encodeURIComponent(detail.plan.id)}`)}
           >
             Top up
           </Button>

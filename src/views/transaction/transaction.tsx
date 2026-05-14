@@ -1,8 +1,8 @@
 import apis from '@/apis'
 import {
+  TRANSACTION_LIST_TRANSACTION_TYPES,
   TransactionListTransactionType,
   TransactionPlan,
-  TRANSACTION_LIST_TRANSACTION_TYPES,
 } from '@/apis/transaction.api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -43,7 +43,6 @@ type AiTransactionRow = {
   status: string
   payDay: string
   planId: string | null
-  rechargeId: string | null
   raw: TransactionPlan
 }
 
@@ -60,27 +59,6 @@ type AllTransactionRow = {
   raw: TransactionPlan
 }
 
-function getPlanIdFromTransaction(plan: TransactionPlan): string | null {
-  const raw = plan as TransactionPlan & Record<string, any>
-  return raw.planId
-    || raw.tokenUsagePlanId
-    || raw.usagePlanId
-    || raw.token_usage_plan_id
-    || raw.plan?.id
-    || raw.newApiUserId
-    || raw.new_api_user_id
-    || raw.displayPlanId
-    || raw.display_plan_id
-    || null
-}
-
-function getTokenUsagePlanRechargeIdFromTransaction(plan: TransactionPlan): string | null {
-  const raw = plan as TransactionPlan & Record<string, any>
-  return raw.tokenUsagePlanRecharge?.id
-    || raw.token_usage_plan_recharge?.id
-    || raw.recharge?.id
-    || null
-}
 
 export default function TransactionPage() {
   const { toast } = useToast()
@@ -136,8 +114,6 @@ export default function TransactionPage() {
     chainAssets,
     getTokenSymbol,
     getTokenDecimals,
-    fetchChainAssets,
-    fetchChains,
     getChain,
   } = useChainAssetStore()
 
@@ -240,9 +216,8 @@ export default function TransactionPage() {
   }
 
   const transformAiTransaction = (plan: TransactionPlan): AiTransactionRow => {
-    const rawPlanId = getPlanIdFromTransaction(plan)
+    const rawPlanId = plan.tokenUsagePlanId || null
     const resolvedPlanId = rawPlanId ? (usagePlanIdByKey[rawPlanId] ?? rawPlanId) : null
-    const rechargeId = getTokenUsagePlanRechargeIdFromTransaction(plan)
     const currency = getTokenSymbol(plan.caipChainId, plan.tokenAddress || '') || plan.tokenAddress || ''
     const decimals = getTokenDecimals(plan.caipChainId, plan.tokenAddress || '')
     const formattedAmount = (() => {
@@ -262,7 +237,6 @@ export default function TransactionPage() {
       status: plan.transactionStatus || 'pending',
       payDay: plan.payPeriod || plan.createdAt,
       planId: resolvedPlanId,
-      rechargeId,
       raw: plan,
     }
   }
@@ -414,7 +388,6 @@ export default function TransactionPage() {
       status: transaction.status,
       payDay: transaction.payDay,
       planId: transaction.planId,
-      rechargeId: transaction.rechargeId,
       raw: transaction.raw,
     }))
 
@@ -554,6 +527,8 @@ export default function TransactionPage() {
     const isComplete = transaction.isComplete
     const canExecute = hasPermission(Permission.EXECUTE_TRANSACTION) && !isComplete && transaction.status !== PayrollTransactionStatus.REFUNDED
     const canDelete = hasPermission(Permission.MODIFY_TRANSACTION) && !isComplete
+    const canReaction = hasPermission(Permission.REACTION_TRANSACTION)
+      && (transaction.status === PayrollTransactionStatus.COMPLETE || transaction.status === PayrollTransactionStatus.REFUNDED)
 
     return (
       <div className={actionGroupClassName}>
@@ -570,6 +545,14 @@ export default function TransactionPage() {
         >
           View Details
         </button>
+        {canReaction && (
+          <button
+            className={actionTextButtonClassName}
+            onClick={() => handleReactionClick(transaction)}
+          >
+            Re-action
+          </button>
+        )}
         <button
           className={actionDangerButtonClassName}
           onClick={() => handleDeleteClick(transaction)}
@@ -582,7 +565,8 @@ export default function TransactionPage() {
   }
 
   const renderAiActions = (transaction: AiTransactionRow) => {
-    const rechargeId = transaction.rechargeId || transaction.id
+    const rechargeId = transaction.raw.tokenUsagePlanId
+    if (!rechargeId) return null
     const isComplete = transaction.status === PayrollTransactionStatus.COMPLETE
     const canExecute = hasPermission(Permission.EXECUTE_TRANSACTION) && !isComplete && transaction.status !== PayrollTransactionStatus.REFUNDED
     const canDelete = hasPermission(Permission.MODIFY_TRANSACTION) && !isComplete
