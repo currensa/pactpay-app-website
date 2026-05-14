@@ -1,5 +1,5 @@
 import apis from '@/apis'
-import type { TokenUsagePlanListItem, TokenUsagePlanQuotaProfile } from '@/apis/token-usage-plan.api'
+import type { TokenUsagePlanListItem, TokenUsagePlanProfileResponse } from '@/apis/token-usage-plan.api'
 import { normalizeQuotaToUsdAmount } from '@/apis/token-usage-plan.api'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,12 +26,12 @@ function formatQuotaValue(value: number) {
   return `$${normalizeQuotaToUsdAmount(value)}`
 }
 
-function StatusPill({ status }: { status: 'Funded' | 'Unfunded' }) {
+function StatusPill({ status }: { status: 'Active' | 'Disabled' }) {
   return (
     <span
-      className={`inline-flex rounded-full px-[10px] py-[4px] text-[12px] font-medium ${status === 'Funded'
-          ? 'bg-[rgba(93,221,34,0.12)] text-[#2f9d1d]'
-          : 'bg-[rgba(217,43,43,0.08)] text-[#d92b2b]'
+      className={`inline-flex rounded-full px-[10px] py-[4px] text-[12px] font-medium ${status === 'Active'
+        ? 'bg-[rgba(93,221,34,0.12)] text-[#2f9d1d]'
+        : 'bg-[rgba(28,28,38,0.08)] text-[#606067]'
         }`}
     >
       {status}
@@ -53,7 +53,7 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  const [planProfiles, setPlanProfiles] = useState<Record<string, TokenUsagePlanQuotaProfile>>({})
+  const [planProfiles, setPlanProfiles] = useState<Record<string, TokenUsagePlanProfileResponse>>({})
   const [profileLoadingState, setProfileLoadingState] = useState<Record<string, boolean>>({})
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -70,7 +70,7 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
     try {
       setLoading(true)
       const response = await apis.tokenUsagePlan.getUsagePlanList(page, PAGE_SIZE)
-      setPlans(response.list)
+      setPlans(response.data)
       setTotalPages(Math.max(1, Math.ceil(response.total / PAGE_SIZE)))
       setTotalCount(response.total)
     } catch (error: any) {
@@ -110,7 +110,7 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
 
       if (!active) return
 
-      const nextProfiles: Record<string, TokenUsagePlanQuotaProfile> = {}
+      const nextProfiles: Record<string, TokenUsagePlanProfileResponse> = {}
       const nextLoadingState: Record<string, boolean> = {}
 
       for (const plan of plans) {
@@ -227,7 +227,6 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Plan ID</TableHead>
               <TableHead>Plan Name</TableHead>
               <TableHead>Budget</TableHead>
               <TableHead>Quota</TableHead>
@@ -252,15 +251,17 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
                 <TableRow key={plan.id}>
                   {(() => {
                     const profile = planProfiles[plan.id]
-                    const remainingRatio = profile && profile.quota > 0
-                      ? Math.max(0, Math.min(1, profile.remainingQuota / profile.quota))
+                    const remainingQuota = Math.max(0, profile?.data.quota ?? 0)
+                    const usedQuota = Math.max(0, profile?.data.used_quota ?? 0)
+                    const totalQuota = remainingQuota + usedQuota
+                    const remainingRatio = totalQuota > 0
+                      ? Math.max(0, Math.min(1, remainingQuota / totalQuota))
                       : 0
                     const isProfileLoading = profileLoadingState[plan.id]
-                    const planStatus = profile ? (profile.remainingQuota > 0 ? 'Funded' : 'Unfunded') : plan.status
+                    const planStatus = profile?.data.status === 2 || plan.deletedAt ? 'Disabled' : 'Active'
 
                     return (
                       <>
-                        <TableCell className="font-mono text-[13px]">{plan.displayPlanId || plan.id}</TableCell>
                         <TableCell>
                           {editingPlanId === plan.id && editingField === 'planName' ? (
                             <Input
@@ -302,7 +303,7 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
                             />
                           ) : (
                             <div className="flex items-center gap-[8px]">
-                              <span>{formatDisplayAmount(plan.budget, 'USD')}</span>
+                              <span>${formatDisplayAmount(plan.budget)}</span>
                               <button
                                 type="button"
                                 className="text-[#8d8d93] transition-colors hover:text-[#5e85ee]"
@@ -327,7 +328,7 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
                               ) : (
                                 <div className="flex flex-col gap-[4px]">
                                   <span className="text-[13px] leading-[18px] text-[#1c1c26]">
-                                    {profile ? `${formatQuotaValue(profile.remainingQuota)} / ${formatQuotaValue(profile.quota)}` : '-'}
+                                    {profile ? `${formatQuotaValue(remainingQuota)} / ${formatQuotaValue(totalQuota)}` : '-'}
                                   </span>
                                   <div className="h-[3px] w-[120px] overflow-hidden rounded-full bg-[#d9f0d2]">
                                     <div
@@ -349,7 +350,10 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
                             <button
                               type="button"
                               className="text-[13px] text-[#5e85ee] transition-opacity hover:opacity-70"
-                              onClick={() => navigate(`/orgs/transaction/create-ai?planId=${encodeURIComponent(plan.id)}`)}
+                              onClick={() => navigate(
+                                `/orgs/transaction/create-ai?planId=${encodeURIComponent(plan.id)}`,
+                                { state: { backUrl: '/orgs/members?tab=ai-api' } },
+                              )}
                             >
                               Top up
                             </button>

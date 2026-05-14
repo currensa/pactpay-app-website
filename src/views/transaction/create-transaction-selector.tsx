@@ -137,7 +137,9 @@ export default function CreateTransactionSelector() {
               disabled={!selectedOption}
               onClick={() => {
                 if (!selectedOption) return
-                navigate(selectedOption.continueTo)
+                navigate(selectedOption.continueTo, {
+                  state: { backUrl: `/orgs/transaction/create?type=${selectedOption.id}` },
+                })
               }}
             >
               Continue

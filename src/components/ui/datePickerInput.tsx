@@ -75,7 +75,7 @@ export function DatePickerInput({
       <Popover.Content
         align="start"
         sideOffset={4}
-        className="rounded-md border bg-popover p-2 shadow-md"
+        className="z-[60] rounded-md border bg-popover p-2 shadow-md"
       >
         <DayPicker
           mode="single"

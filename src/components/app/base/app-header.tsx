@@ -11,6 +11,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { getRouteMeta } from '@/router'
 import useHeaderStore from '@/stores/header'
 import useNotificationStore from '@/stores/notification'
@@ -18,8 +19,60 @@ import useOrganizationStore from '@/stores/organization'
 import { useDisconnect } from '@reown/appkit/react'
 import { IconBell, IconBuildingPlus, IconLogout, IconSwitchHorizontal, IconUser, IconUserPlus } from '@tabler/icons-react'
 import { ChevronLeft, ListChecks } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+
+function HeaderSubtitle({ text }: { text: string }) {
+  const subtitleRef = useRef<HTMLParagraphElement>(null)
+  const [isOverflowing, setIsOverflowing] = useState(false)
+
+  useEffect(() => {
+    const element = subtitleRef.current
+    if (!element) return
+
+    const checkOverflow = () => {
+      setIsOverflowing(element.scrollHeight > element.clientHeight + 1)
+    }
+
+    checkOverflow()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', checkOverflow)
+      return () => window.removeEventListener('resize', checkOverflow)
+    }
+
+    const observer = new ResizeObserver(checkOverflow)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [text])
+
+  const subtitleNode = (
+    <p
+      ref={subtitleRef}
+      className="max-w-[720px] overflow-hidden font-['Inter',sans-serif] text-[14px] leading-[18px] text-[#a4a4a8]"
+      style={{
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
+      }}
+    >
+      {text}
+    </p>
+  )
+
+  if (!isOverflowing) return subtitleNode
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {subtitleNode}
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="start" sideOffset={6} className="max-w-[420px] whitespace-pre-wrap px-3 py-2 text-[12px] leading-[14px]">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
 
 export default function AppHeader() {
   const location = useLocation()
@@ -119,9 +172,9 @@ export default function AppHeader() {
   }
 
   return (
-    <div className="flex shrink-0 items-center justify-between h-[64px]">
+    <div className="flex h-[64px] shrink-0 items-center justify-between">
       {/* Page title + subtitle / steps */}
-      <div className="flex flex-col">
+      <div className="flex min-w-0 flex-col pr-[16px]">
         <div className="flex items-center gap-[8px]">
           {backUrl && (
             <button
@@ -131,7 +184,7 @@ export default function AppHeader() {
               <ChevronLeft size={16} className="text-[#1c1c26]" />
             </button>
           )}
-          <p className="font-['Poppins',sans-serif] text-[28px] leading-[40px] text-[#1c1c26]">
+          <p className="flex h-[42px] items-center overflow-visible font-['Poppins',sans-serif] text-[28px] leading-normal text-[#1c1c26]">
             {meta.title}
           </p>
         </div>
@@ -165,9 +218,7 @@ export default function AppHeader() {
             ))}
           </div>
         ) : meta.subtitle ? (
-          <p className="font-['Inter',sans-serif] text-[14px] leading-[22px] text-[#a4a4a8]">
-            {meta.subtitle}
-          </p>
+          <HeaderSubtitle text={meta.subtitle} />
         ) : null}
       </div>
 

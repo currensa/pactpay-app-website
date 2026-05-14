@@ -42,6 +42,8 @@ type KeyEditorState = {
   selectedModels: string[]
 }
 
+type ExpirationPresetMode = Exclude<KeyEditorState['expirationMode'], 'date' | 'never'>
+
 const defaultEditorState: KeyEditorState = {
   open: false,
   mode: 'create',
@@ -57,7 +59,7 @@ const defaultEditorState: KeyEditorState = {
 
 const DEFAULT_GROUP = 'default'
 const USAGE_LOGS_PAGE_SIZE = 20
-const EXPIRATION_OPTIONS: Array<{ label: string; value: KeyEditorState['expirationMode'] }> = [
+const EXPIRATION_OPTIONS: Array<{ label: string; value: 'never' | ExpirationPresetMode }> = [
   { label: 'Never expires', value: 'never' },
   { label: '1 month', value: '1month' },
   { label: '1 week', value: '1week' },
@@ -65,8 +67,8 @@ const EXPIRATION_OPTIONS: Array<{ label: string; value: KeyEditorState['expirati
 ]
 const integerFormatter = new Intl.NumberFormat('en-US')
 
-function StatusPill({ status }: { status: 'Funded' | 'Unfunded' | TokenUsagePlanApiKeyStatus }) {
-  const tone = status === 'Funded' || status === 'Active'
+function StatusPill({ status }: { status: 'Active' | 'Disabled' | TokenUsagePlanApiKeyStatus }) {
+  const tone = status === 'Active'
     ? 'bg-[rgba(93,221,34,0.12)] text-[#2f9d1d]'
     : status === 'Disabled'
       ? 'bg-[rgba(28,28,38,0.08)] text-[#606067]'
@@ -92,7 +94,7 @@ function ModelPill({ model }: { model: string }) {
   )
 }
 
-function addDurationDate(mode: Exclude<KeyEditorState['expirationMode'], 'date' | 'never'>) {
+function addDurationDate(mode: ExpirationPresetMode) {
   const now = new Date()
   if (mode === '1day') return new Date(now.getTime() + 24 * 60 * 60 * 1000)
   if (mode === '1week') return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
@@ -113,12 +115,6 @@ function formatUsdDisplay(value: string) {
   return `$${normalized || '0'}`
 }
 
-function formatApiKeyDisplay(value: string) {
-  const normalized = String(value || '').trim()
-  if (!normalized) return 'sk-'
-  return normalized.startsWith('sk-') ? normalized : `sk-${normalized}`
-}
-
 function formatIntegerDisplay(value: number) {
   return integerFormatter.format(Math.max(0, Number.isFinite(value) ? value : 0))
 }
@@ -136,6 +132,68 @@ function formatUsageLogTime(timestamp: number) {
     padDatePart(date.getMonth() + 1),
     padDatePart(date.getDate()),
   ].join('-') + ` ${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}:${padDatePart(date.getSeconds())}`
+}
+
+function asRecord(value: unknown): Record<string, any> {
+  return value && typeof value === 'object' ? value as Record<string, any> : {}
+}
+
+function readNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
+function readAmount(value: unknown, quotaValue: unknown): number {
+  const direct = readNumber(value)
+  if (direct != null) return Math.max(0, direct)
+  const quota = readNumber(quotaValue)
+  if (quota != null) return Math.max(0, Number(normalizeQuotaToUsdAmount(quota)))
+  return 0
+}
+
+function resolveApiKeyUsage(rawValue: unknown) {
+  const raw = asRecord(rawValue)
+  const unlimitedQuota = Boolean(raw.unlimited_quota)
+  const usedAmount = readAmount(null, raw.used_quota)
+  if (unlimitedQuota) {
+    return {
+      unlimitedQuota: true,
+      usedDisplay: formatUsdDisplay(String(usedAmount)),
+      totalDisplay: null,
+      progress: 0,
+    }
+  }
+
+  const totalAmount = readAmount(null, raw.remain_quota)
+  const progress = totalAmount > 0 ? Math.max(0, Math.min(100, (usedAmount / totalAmount) * 100)) : 0
+
+  return {
+    unlimitedQuota: false,
+    usedDisplay: formatUsdDisplay(String(usedAmount)),
+    totalDisplay: formatUsdDisplay(String(totalAmount)),
+    progress,
+  }
+}
+
+function getApiKeyStatusLabel(apiKey: TokenUsagePlanApiKeyItem): TokenUsagePlanApiKeyStatus {
+  if (apiKey.status === 4) return 'Exhausted'
+  if (apiKey.status === 3) return 'Expired'
+  if (apiKey.status === 2) return 'Disabled'
+  return 'Active'
+}
+
+function formatApiKeyExpiration(expiredTime: number) {
+  if (expiredTime === -1) return 'Never expires'
+  return utc8TimestampToLocalDate(expiredTime)?.toLocaleString() || '-'
+}
+
+function formatApiKeyQuota(apiKey: TokenUsagePlanApiKeyItem) {
+  if (apiKey.unlimited_quota) return 'Unlimited'
+  return formatUsdDisplay(normalizeQuotaToUsdAmount(apiKey.remain_quota))
 }
 
 function shouldBlockInputKey(event: KeyboardEvent<HTMLInputElement>) {
@@ -234,7 +292,7 @@ export default function TokenUsagePlanDetailPage() {
       backUrl: '/orgs/members?tab=ai-api',
       breadcrumb: [
         { label: 'Payees', href: '/orgs/members?tab=ai-api' },
-        { label: response.planName || 'Usage Plan' },
+        { label: response.plan.planName || 'Usage Plan' },
       ],
     })
   }
@@ -243,7 +301,7 @@ export default function TokenUsagePlanDetailPage() {
     setKeysLoading(true)
     try {
       const response = await apis.tokenUsagePlan.getApiKeys(id)
-      setApiKeys(response.list)
+      setApiKeys(response.data.items)
     } finally {
       setKeysLoading(false)
     }
@@ -339,21 +397,18 @@ export default function TokenUsagePlanDetailPage() {
   }
 
   const openEditDialog = (apiKey: TokenUsagePlanApiKeyItem) => {
-    const raw = apiKey.raw
-    const isUnlimited = Boolean(raw.unlimitedQuota ?? raw.unlimited_quota)
-    const expiredTime = raw.expiredTime ?? raw.expired_time ?? raw.expireAt ?? raw.expiresAt
-    const localExpirationDate = utc8TimestampToLocalDate(expiredTime)
+    const localExpirationDate = utc8TimestampToLocalDate(apiKey.expired_time)
     setEditor({
       open: true,
       mode: 'edit',
       apiKey,
-      name: raw.name || raw.apiName || '',
-      group: raw.group || raw.groupName || DEFAULT_GROUP,
-      expirationMode: expiredTime === -1 || expiredTime === '-1' ? 'never' : 'date',
+      name: apiKey.name,
+      group: apiKey.group || DEFAULT_GROUP,
+      expirationMode: apiKey.expired_time === -1 ? 'never' : 'date',
       expirationDate: localExpirationDate,
-      quotaMode: isUnlimited ? 'unlimited' : 'amount',
-      quotaAmount: raw.remainAmount || raw.remain_amount || raw.quota || normalizeQuotaToUsdAmount(raw.remain_quota),
-      selectedModels: String(raw.modelLimits || raw.model_limits || '')
+      quotaMode: apiKey.unlimited_quota ? 'unlimited' : 'amount',
+      quotaAmount: normalizeQuotaToUsdAmount(apiKey.remain_quota),
+      selectedModels: String(apiKey.model_limits || '')
         .split(',')
         .map((item: string) => item.trim())
         .filter(Boolean),
@@ -370,7 +425,7 @@ export default function TokenUsagePlanDetailPage() {
 
   const ensureFullKey = async (apiKey: TokenUsagePlanApiKeyItem) => {
     if (fullKeys[apiKey.id]) return fullKeys[apiKey.id]
-    const key = await apis.tokenUsagePlan.getApiKeyKey(id, apiKey.id)
+    const key = await apis.tokenUsagePlan.getApiKeyKey(id, String(apiKey.id))
     const resolvedKey = key || apiKey.key
     if (!resolvedKey) throw new Error('Failed to load full key.')
     setFullKeys(prev => ({ ...prev, [apiKey.id]: resolvedKey }))
@@ -402,7 +457,7 @@ export default function TokenUsagePlanDetailPage() {
     try {
       setCopyingKeyIds(prev => ({ ...prev, [apiKey.id]: true }))
       const key = await ensureFullKey(apiKey)
-      await navigator.clipboard.writeText(formatApiKeyDisplay(key))
+      await navigator.clipboard.writeText(key)
       toast({ title: 'Success', description: 'Key copied.' })
     } catch (error: any) {
       toast({
@@ -418,7 +473,7 @@ export default function TokenUsagePlanDetailPage() {
   const handleCopyTestCommand = async (apiKey: TokenUsagePlanApiKeyItem) => {
     try {
       setCopyingTestCommandIds(prev => ({ ...prev, [apiKey.id]: true }))
-      const response = await apis.tokenUsagePlan.getApiKeyTestCommand(id, apiKey.id)
+      const response = await apis.tokenUsagePlan.getApiKeyTestCommand(id, String(apiKey.id))
       if (!response.command) throw new Error('Failed to load test command.')
       await navigator.clipboard.writeText(response.command)
       toast({ title: 'Success', description: 'Test command copied.' })
@@ -434,12 +489,12 @@ export default function TokenUsagePlanDetailPage() {
   }
 
   const handleToggleKeyStatus = async (apiKey: TokenUsagePlanApiKeyItem) => {
-    const nextStatus = apiKey.status === 'Disabled' ? 1 : 2
+    const nextStatus = apiKey.status === 1 ? 2 : 1
     const successMessage = nextStatus === 1 ? 'Key enabled.' : 'Key disabled.'
 
     try {
       setUpdatingStatusIds(prev => ({ ...prev, [apiKey.id]: true }))
-      await apis.tokenUsagePlan.updateApiKeyStatus(id, apiKey.id, nextStatus)
+      await apis.tokenUsagePlan.updateApiKeyStatus(id, String(apiKey.id), nextStatus)
       toast({ title: 'Success', description: successMessage })
       await fetchKeys()
     } catch (error: any) {
@@ -480,7 +535,7 @@ export default function TokenUsagePlanDetailPage() {
         await apis.tokenUsagePlan.createApiKey(id, payload)
         toast({ title: 'Success', description: 'Key created' })
       } else if (editor.apiKey) {
-        await apis.tokenUsagePlan.updateApiKey(id, editor.apiKey.id, payload)
+        await apis.tokenUsagePlan.updateApiKey(id, String(editor.apiKey.id), payload)
         toast({ title: 'Success', description: 'Key updated' })
       }
 
@@ -503,7 +558,7 @@ export default function TokenUsagePlanDetailPage() {
 
     try {
       setDeletingKey(true)
-      await apis.tokenUsagePlan.deleteApiKey(id, apiKeyToDelete.id)
+      await apis.tokenUsagePlan.deleteApiKey(id, String(apiKeyToDelete.id))
       toast({
         title: 'Success',
         description: 'Key deleted.',
@@ -521,8 +576,13 @@ export default function TokenUsagePlanDetailPage() {
     }
   }
 
-  const consumedRate = detail?.consumedRate ?? 0
-  const apiKeysCount = apiKeys.length || detail?.apiKeysCount || 0
+  const profile = detail?.profile
+  const remainingQuota = Math.max(0, profile?.quota ?? 0)
+  const usedQuota = Math.max(0, profile?.used_quota ?? 0)
+  const totalPurchased = remainingQuota + usedQuota
+  const consumedRate = totalPurchased > 0 ? Math.round((usedQuota / totalPurchased) * 100) : 0
+  const apiKeysCount = apiKeys.length
+  const planStatus = profile?.status === 2 || detail?.plan.deletedAt ? 'Disabled' : 'Active'
 
   if (loading || !detail) {
     return (
@@ -544,31 +604,38 @@ export default function TokenUsagePlanDetailPage() {
         <div className="flex items-start justify-between gap-[20px]">
           <div className="flex flex-col gap-[12px]">
             <div className="flex items-center gap-[12px]">
-              <p className="text-[24px] font-semibold leading-[34px] text-[#1c1c26]">{detail.planName}</p>
-              <StatusPill status={detail.status} />
-            </div>
-            <div className="flex items-center gap-[10px] text-[13px] text-[#8d8d93]">
-              <span>Plan ID: <span className="font-mono text-[#1c1c26]">{detail.displayPlanId}</span></span>
-              <span>Budget: <span className="text-[#1c1c26]">{formatDisplayAmount(detail.budget, payrollTokenSymbol)}</span></span>
+              <p className="text-[24px] font-semibold leading-[34px] text-[#1c1c26]">{detail.plan.planName}</p>
+              <StatusPill status={planStatus} />
             </div>
           </div>
 
-          <Button onClick={() => navigate(`/orgs/transaction/create-ai?planId=${encodeURIComponent(detail.id)}`)}>
+          <Button
+            onClick={() => navigate(
+              `/orgs/transaction/create-ai?planId=${encodeURIComponent(detail.plan.id)}`,
+              { state: { backUrl: `/orgs/members/usage-plans/${encodeURIComponent(detail.plan.id)}` } },
+            )}
+          >
             Top up
           </Button>
         </div>
 
-        <div className="mt-[20px] grid gap-[12px] md:grid-cols-3">
+        <div className="mt-[20px] grid gap-[12px] md:grid-cols-4">
           <div className="rounded-[20px] bg-[#f5f5f5] p-[16px]">
             <p className="text-[13px] text-[#8d8d93]">Total Purchased</p>
             <p className="mt-[8px] text-[20px] font-semibold text-[#1c1c26]">
-              {formatUsdDisplay(detail.totalPurchased)}
+              {formatUsdDisplay(normalizeQuotaToUsdAmount(totalPurchased))}
             </p>
           </div>
           <div className="rounded-[20px] bg-[#f5f5f5] p-[16px]">
             <p className="text-[13px] text-[#8d8d93]">Remaining</p>
             <p className="mt-[8px] text-[20px] font-semibold text-[#1c1c26]">
-              {formatUsdDisplay(detail.remaining)}
+              {formatUsdDisplay(normalizeQuotaToUsdAmount(remainingQuota))}
+            </p>
+          </div>
+          <div className="rounded-[20px] bg-[#f5f5f5] p-[16px]">
+            <p className="text-[13px] text-[#8d8d93]">Budget</p>
+            <p className="mt-[8px] text-[20px] font-semibold text-[#1c1c26]">
+              ${formatDisplayAmount(detail.plan.budget)}
             </p>
           </div>
           <div className="rounded-[20px] bg-[#f5f5f5] p-[16px]">
@@ -581,7 +648,7 @@ export default function TokenUsagePlanDetailPage() {
           <div className="mb-[8px] flex items-center justify-between text-[13px]">
             <span className="text-[#8d8d93]">Consumption</span>
             <span className="text-[#1c1c26]">
-              {formatUsdDisplay(detail.usedAmount)} / {formatUsdDisplay(detail.totalPurchased)} ({consumedRate}%)
+              {formatUsdDisplay(normalizeQuotaToUsdAmount(usedQuota))} / {formatUsdDisplay(normalizeQuotaToUsdAmount(totalPurchased))} ({consumedRate}%)
             </span>
           </div>
           <div className="h-[8px] rounded-full bg-[#edf0f6]">
@@ -663,11 +730,13 @@ export default function TokenUsagePlanDetailPage() {
                   apiKeys.map(item => {
                     const revealed = revealedKeys[item.id]
                     const fullKey = fullKeys[item.id]
-                    const displayKey = formatApiKeyDisplay(revealed ? (fullKey || item.key) : item.maskedKey)
+                    const displayKey = revealed ? (fullKey || item.key) : item.key
                     const isRevealLoading = Boolean(revealingKeyIds[item.id])
                     const isCopying = Boolean(copyingKeyIds[item.id])
                     const isCopyingTestCommand = Boolean(copyingTestCommandIds[item.id])
                     const isStatusUpdating = Boolean(updatingStatusIds[item.id])
+                    const usage = resolveApiKeyUsage(item)
+                    const statusLabel = getApiKeyStatusLabel(item)
                     return (
                       <TableRow key={item.id}>
                         <TableCell>{item.name}</TableCell>
@@ -713,10 +782,26 @@ export default function TokenUsagePlanDetailPage() {
                             </button>
                           </div>
                         </TableCell>
-                        <TableCell>{item.quotaDisplay}</TableCell>
-                        <TableCell>{item.expirationDisplay}</TableCell>
-                        <TableCell>{item.usageDisplay}</TableCell>
-                        <TableCell><StatusPill status={item.status} /></TableCell>
+                        <TableCell>{formatApiKeyQuota(item)}</TableCell>
+                        <TableCell>{formatApiKeyExpiration(item.expired_time)}</TableCell>
+                        <TableCell>
+                          {usage.unlimitedQuota ? (
+                            <span className="whitespace-nowrap text-[13px] text-[#1c1c26]">{usage.usedDisplay}</span>
+                          ) : (
+                            <div className="min-w-[160px]">
+                              <div className="text-[13px] leading-[18px] text-[#1c1c26]">
+                                {usage.usedDisplay} / {usage.totalDisplay}
+                              </div>
+                              <div className="mt-[6px] h-[4px] w-[140px] overflow-hidden rounded-full bg-[#edf0f6]">
+                                <div
+                                  className="h-full rounded-full bg-[#5e85ee] transition-[width]"
+                                  style={{ width: `${usage.progress}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell><StatusPill status={statusLabel} /></TableCell>
                         <TableCell>
                           <div className="flex items-center gap-[12px]">
                             <button
@@ -725,7 +810,7 @@ export default function TokenUsagePlanDetailPage() {
                               onClick={() => void handleToggleKeyStatus(item)}
                               disabled={isStatusUpdating}
                             >
-                              {isStatusUpdating ? 'Saving...' : item.status === 'Disabled' ? 'Enable' : 'Disable'}
+                              {isStatusUpdating ? 'Saving...' : statusLabel === 'Active' ? 'Disable' : 'Enable'}
                             </button>
                             <button
                               type="button"
