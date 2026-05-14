@@ -168,7 +168,7 @@ function resolveApiKeyUsage(rawValue: unknown) {
     }
   }
 
-  const totalAmount = readAmount(null, raw.remain_quota)
+  const totalAmount = readAmount(null, raw.remain_quota + raw.used_quota)
   const progress = totalAmount > 0 ? Math.max(0, Math.min(100, (usedAmount / totalAmount) * 100)) : 0
 
   return {
