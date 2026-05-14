@@ -1,5 +1,5 @@
 import apis from '@/apis'
-import { normalizeQuotaToUsdAmount, type TokenUsagePlanListItem, type TokenUsagePlanQuotaProfile } from '@/apis/token-usage-plan.api'
+import { normalizeQuotaToUsdAmount, type TokenUsagePlanListItem, type TokenUsagePlanProfileResponse } from '@/apis/token-usage-plan.api'
 import type { TransactionPlan } from '@/apis/transaction.api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
@@ -13,7 +13,7 @@ import { formatLocalDateTime } from '@/utils/date'
 import { formatUnits } from 'ethers'
 import { Bot, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { formatDisplayAmount, getErrorMessage } from '../orgs/components/ai-api/utils'
 import { ExecuteConfirmDialogContent, ExecuteSuccessDialogContent } from './components'
 import type { Transaction } from './components/types'
@@ -119,6 +119,7 @@ function buildAiExecutingTransaction(
 }
 
 export default function CreateAiTransaction() {
+  const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { toast } = useToast()
@@ -141,19 +142,13 @@ export default function CreateAiTransaction() {
   const [executeDialogOpen, setExecuteDialogOpen] = useState(false)
   const [executeSuccessDialogOpen, setExecuteSuccessDialogOpen] = useState(false)
   const [lastDepositTxHash, setLastDepositTxHash] = useState('')
-  const [planProfilesById, setPlanProfilesById] = useState<Record<string, TokenUsagePlanQuotaProfile>>({})
+  const [planProfilesById, setPlanProfilesById] = useState<Record<string, TokenUsagePlanProfileResponse>>({})
+  const backUrl = (location.state as { backUrl?: string } | null)?.backUrl ?? '/orgs/transaction'
 
   const selectedPlan = useMemo(
     () => plans.find(plan => plan.id === selectedPlanId) ?? null,
     [plans, selectedPlanId],
   )
-
-  const selectedChain = useMemo(() => {
-    if (!selectedPlan) return null
-    const raw = selectedPlan.raw
-    const caipChainId = raw.caipChainId || raw.caip_chain_id || raw.chainId
-    return caipChainId ? getChain(String(caipChainId)) : null
-  }, [getChain, selectedPlan])
 
   const executingTransaction = useMemo(
     () => createdTransactionPlan
@@ -163,9 +158,10 @@ export default function CreateAiTransaction() {
   )
 
   const selectedPlanProfile = selectedPlan ? planProfilesById[selectedPlan.id] ?? null : null
+  const selectedPlanRemainingQuota = Math.max(0, selectedPlanProfile?.data.quota ?? 0)
   const selectedPlanBalanceDisplay = selectedPlanProfile
-    ? `$${normalizeQuotaToUsdAmount(selectedPlanProfile.quota)}`
-    : formatDisplayAmount(selectedPlan?.remaining || '0', payrollTokenSymbol)
+    ? `$${normalizeQuotaToUsdAmount(selectedPlanRemainingQuota)}`
+    : '-'
 
   const loadPlans = async () => {
     try {
@@ -175,9 +171,9 @@ export default function CreateAiTransaction() {
         fetchChainAssets(),
       ])
       const response = await apis.tokenUsagePlan.getUsagePlanList(1, 100)
-      setPlans(response.list)
-      if (!selectedPlanId && response.list[0]) {
-        setSelectedPlanId(response.list[0].id)
+      setPlans(response.data)
+      if (!selectedPlanId && response.data[0]) {
+        setSelectedPlanId(response.data[0].id)
       }
     } catch (error: any) {
       toast({
@@ -192,7 +188,7 @@ export default function CreateAiTransaction() {
 
   useEffect(() => {
     setHeader({
-      backUrl: '/orgs/transaction',
+      backUrl,
       steps: [
         { label: '1. Select type & details', active: true },
         { label: '2. Review & Confirm', active: false },
@@ -200,7 +196,7 @@ export default function CreateAiTransaction() {
     })
     void loadPlans()
     return () => clearHeader()
-  }, [])
+  }, [backUrl])
 
   useEffect(() => {
     if (!selectedPlan?.id || planProfilesById[selectedPlan.id]) return
@@ -240,7 +236,6 @@ export default function CreateAiTransaction() {
     const referenceKeys = new Set([
       plan.id,
       plan.newApiUserId,
-      plan.displayPlanId,
     ].filter(Boolean))
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -319,16 +314,16 @@ export default function CreateAiTransaction() {
               type="button"
               onClick={() => setSelectedPlanId(plan.id)}
               className={`rounded-[20px] border px-[16px] py-[14px] text-left transition-colors ${selectedPlanId === plan.id
-                  ? 'border-[#5e85ee] bg-[rgba(94,133,238,0.06)]'
-                  : 'border-[rgba(0,0,0,0.08)] bg-white hover:bg-[#f8f8fb]'
+                ? 'border-[#5e85ee] bg-[rgba(94,133,238,0.06)]'
+                : 'border-[rgba(0,0,0,0.08)] bg-white hover:bg-[#f8f8fb]'
                 }`}
             >
               <div className="flex items-center justify-between gap-[12px]">
                 <div className="min-w-0">
                   <p className="text-[15px] font-medium text-[#1c1c26]">{plan.planName}</p>
-                  <p className="mt-[4px] font-mono text-[12px] text-[#8d8d93]">{plan.id}</p>
+                  <p className="mt-[4px] font-mono text-[12px] text-[#8d8d93]">createdAt：{formatLocalDateTime(plan.createdAt)}</p>
                 </div>
-                <span className="shrink-0 text-[13px] text-[#1c1c26]">{formatDisplayAmount(plan.budget, payrollTokenSymbol)}</span>
+                <span className="shrink-0 text-[13px] text-[#1c1c26]">$ {formatDisplayAmount(plan.budget)}</span>
               </div>
             </button>
           ))}
@@ -348,7 +343,7 @@ export default function CreateAiTransaction() {
           </div>
           {selectedPlan && (
             <p className="mt-[8px] text-[12px] leading-[20px] text-[#8d8d93]">
-              Budget: {formatDisplayAmount(selectedPlan.budget, payrollTokenSymbol)} / Balance: {selectedPlanBalanceDisplay}
+              Budget: ${formatDisplayAmount(selectedPlan.budget)} / Balance: {selectedPlanBalanceDisplay}
             </p>
           )}
         </div>
@@ -365,7 +360,7 @@ export default function CreateAiTransaction() {
               <div className="flex items-center justify-between gap-[12px]">
                 <span className="text-[13px] text-[#606067]">Usage plan</span>
                 <span className="max-w-[180px] truncate font-mono text-[13px] text-[#1c1c26]">
-                  {selectedPlan?.displayPlanId || '-'}
+                  {selectedPlan?.planName || '-'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-[12px]">

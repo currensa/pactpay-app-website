@@ -2,16 +2,13 @@ import { AxiosInstance } from 'axios'
 
 export interface TokenUsagePlanListItem {
   id: string
+  orgId: string
   planName: string
   budget: string
   newApiUserId: string
-  displayPlanId: string
-  remaining: string
-  totalPurchased: string
-  consumedRate: number
-  apiKeysCount: number
-  status: 'Funded' | 'Unfunded'
-  raw: Record<string, any>
+  createdAt: string
+  updatedAt: string
+  deletedAt?: string | null
 }
 
 export interface NewApiUserSelfPermissionsSidebarModules {
@@ -42,63 +39,62 @@ export interface NewApiUserSelfData {
   request_count: number
   role: number
   status: number
+  stripe_customer: string
+  telegram_id: string
   used_quota: number
+  username: string
+  wechat_id: string
 }
 
-export interface TokenUsagePlanUserSelfResponseDto {
+export interface TokenUsagePlanProfileResponse {
   success: boolean
   message: string
   data: NewApiUserSelfData
 }
 
-export interface TokenUsagePlanQuotaProfile {
-  quota: number
-  usedQuota: number
-  remainingQuota: number
-  raw: TokenUsagePlanUserSelfResponseDto | Record<string, any>
+export interface TokenUsagePlanDetail {
+  plan: TokenUsagePlanListItem
+  profile: NewApiUserSelfData
 }
 
 export interface TokenUsagePlanListResponse {
-  list: TokenUsagePlanListItem[]
+  data: TokenUsagePlanListItem[]
   page: number
   pageSize: number
   total: number
-  raw: unknown
-}
-
-export interface TokenUsagePlanDetail {
-  id: string
-  planName: string
-  budget: string
-  newApiUserId: string
-  displayPlanId: string
-  remaining: string
-  totalPurchased: string
-  usedAmount: string
-  consumedRate: number
-  apiKeysCount: number
-  status: 'Funded' | 'Unfunded'
-  profile: Record<string, any> | null
-  raw: Record<string, any>
 }
 
 export interface TokenUsagePlanApiKeyItem {
-  id: string
-  name: string
+  DeletedAt: string | null
+  accessed_time: number
+  allow_ips: string[] | string | null
+  created_time: number
+  cross_group_retry: boolean
+  expired_time: number
+  group: string
+  id: number
   key: string
-  maskedKey: string
-  quotaDisplay: string
-  expirationDisplay: string
-  usageDisplay: string
-  status: TokenUsagePlanApiKeyStatus
-  raw: Record<string, any>
+  model_limits: string | null
+  model_limits_enabled: boolean
+  name: string
+  remain_quota: number
+  status: number
+  unlimited_quota: boolean
+  used_quota: number
+  user_id: number
 }
 
-export type TokenUsagePlanApiKeyStatus = 'Active' | 'Disabled' | 'Revoked'
+export type TokenUsagePlanApiKeyStatus = 'Active' | 'Disabled' | 'Expired' | 'Exhausted'
 
 export interface TokenUsagePlanApiKeyListResponse {
-  list: TokenUsagePlanApiKeyItem[]
-  raw: unknown
+  success: boolean
+  message: string
+  data: {
+    items: TokenUsagePlanApiKeyItem[]
+    page: number
+    page_size: number
+    total: number
+  }
 }
 
 export interface TokenUsagePlanApiKeyTestCommand {
@@ -366,33 +362,6 @@ function buildApiKeyPayload(payload: Partial<CreateApiKeyPayload & UpdateApiKeyP
   })
 }
 
-function formatRatio(value: number) {
-  if (!Number.isFinite(value) || value < 0) return 0
-  if (value <= 1) return Math.round(value * 100)
-  return Math.round(value)
-}
-
-function maskKey(key: string) {
-  if (!key) return '-'
-  if (key.length <= 8) return key
-  return `${key.slice(0, 4)}***${key.slice(-4)}`
-}
-
-function formatExpiration(value: unknown) {
-  if (value === -1 || value === '-1') return 'Never expires'
-  const raw = firstString(value)
-  if (!raw) return 'Never expires'
-  const timestamp = Number(raw)
-  if (Number.isFinite(timestamp) && timestamp > 0) {
-    return utc8TimestampToLocalDate(timestamp)?.toLocaleString() || raw
-  }
-  const parsed = new Date(raw)
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toLocaleString()
-  }
-  return raw
-}
-
 export function extractListFromUnknownPayload<T = Record<string, any>>(payload: unknown): T[] {
   if (Array.isArray(payload)) return payload as T[]
   const record = asRecord(payload)
@@ -404,123 +373,6 @@ export function extractListFromUnknownPayload<T = Record<string, any>>(payload: 
   if (Array.isArray(asRecord(record.data).data)) return asRecord(record.data).data as T[]
   if (Array.isArray(record.rows)) return record.rows as T[]
   return []
-}
-
-export function normalizeUsagePlanListItem(rawValue: unknown): TokenUsagePlanListItem {
-  const raw = asRecord(rawValue)
-  const plan = asRecord(raw.plan)
-  const profile = asRecord(raw.profile)
-  const merged = { ...plan, ...raw }
-  const remaining = firstString(
-    merged.remaining,
-    merged.remainingAmount,
-    merged.balance,
-    merged.availableBalance,
-    profile.balance,
-    '0',
-  )
-  const totalPurchased = firstString(
-    merged.totalPurchased,
-    merged.totalRechargeAmount,
-    merged.rechargedAmount,
-    merged.totalAmount,
-    '0',
-  )
-  const consumedRate = formatRatio(firstNumber(
-    merged.consumedRate,
-    merged.consumeRate,
-    merged.usedRate,
-  ))
-  const apiKeysCount = firstNumber(merged.apiKeysCount, merged.keyCount, merged.apiKeyCount)
-  const displayPlanId = firstString(merged.newApiUserId, merged.new_api_user_id, merged.id)
-
-  return {
-    id: firstString(merged.id),
-    planName: firstString(merged.planName, merged.plan_name, merged.name, 'Untitled plan'),
-    budget: firstString(merged.budget, merged.budgetAmount, '0'),
-    newApiUserId: firstString(merged.newApiUserId, merged.new_api_user_id),
-    displayPlanId,
-    remaining,
-    totalPurchased,
-    consumedRate,
-    apiKeysCount,
-    status: Number(remaining || '0') > 0 ? 'Funded' : 'Unfunded',
-    raw,
-  }
-}
-
-export function normalizeUsagePlanDetail(rawValue: unknown): TokenUsagePlanDetail {
-  const raw = asRecord(rawValue)
-  const detailSource = raw.plan ? { ...asRecord(raw.plan), ...raw } : raw
-  const normalized = normalizeUsagePlanListItem({ ...detailSource, profile: raw.profile })
-  const profile = raw.profile ? normalizeUsagePlanProfile(raw.profile) : null
-  const derivedTotalPurchased = profile ? normalizeQuotaToUsdAmount(profile.quota) : normalized.totalPurchased
-  const derivedRemaining = profile ? normalizeQuotaToUsdAmount(profile.remainingQuota) : normalized.remaining
-  const derivedUsedAmount = profile ? normalizeQuotaToUsdAmount(profile.usedQuota) : '0'
-  const derivedConsumedRate = profile && profile.quota > 0
-    ? formatRatio(profile.usedQuota / profile.quota)
-    : normalized.consumedRate
-
-  return {
-    ...normalized,
-    totalPurchased: derivedTotalPurchased,
-    remaining: derivedRemaining,
-    usedAmount: derivedUsedAmount,
-    consumedRate: derivedConsumedRate,
-    status: profile ? (profile.remainingQuota > 0 ? 'Funded' : 'Unfunded') : normalized.status,
-    profile: raw.profile ? asRecord(raw.profile) : null,
-    raw,
-  }
-}
-
-export function normalizeApiKeyItem(rawValue: unknown): TokenUsagePlanApiKeyItem {
-  const raw = asRecord(rawValue)
-  const key = firstString(raw.key, raw.value, raw.token)
-  const unlimitedQuota = Boolean(raw.unlimitedQuota ?? raw.unlimited_quota)
-  const remainAmount = firstString(raw.remainAmount, raw.remain_amount, raw.quota, raw.remainQuota)
-  const usedAmount = firstString(raw.usedAmount, raw.used_amount, raw.usedQuota)
-  const remainAmountDisplay = remainAmount || normalizeQuotaToUsdAmount(raw.remain_quota)
-  const usedAmountDisplay = usedAmount || normalizeQuotaToUsdAmount(raw.used_quota)
-  const statusSource = firstString(raw.status, raw.keyStatus, raw.state)
-  const statusValue = firstNumber(raw.status, raw.keyStatus, raw.state)
-  const isRevoked = Boolean(
-    raw.revoked ??
-    raw.isRevoked ??
-    raw.is_revoked ??
-    statusSource.toLowerCase() === 'revoked'
-  )
-  const isDisabled = !isRevoked && Boolean(
-    (raw.disabled ??
-    raw.isDisabled ??
-    raw.is_disabled ??
-    statusValue === 2) ||
-    ['disabled', 'inactive'].includes(statusSource.toLowerCase())
-  )
-
-  let usageDisplay = '-'
-  if (!unlimitedQuota && remainAmountDisplay) {
-    const total = Number(remainAmountDisplay)
-    const used = Number(usedAmountDisplay)
-    if (Number.isFinite(total) && total > 0 && Number.isFinite(used) && used >= 0) {
-      usageDisplay = `${Math.min(100, Math.round((used / total) * 100))}%`
-    } else {
-      usageDisplay = `${formatUsdAmount(usedAmountDisplay, true)} / ${formatUsdAmount(remainAmountDisplay, true)}`
-    }
-  } else if (usedAmountDisplay && usedAmountDisplay !== '0') {
-    usageDisplay = formatUsdAmount(usedAmountDisplay, true)
-  }
-
-  return {
-    id: firstString(raw.id, raw.keyId),
-    name: firstString(raw.name, raw.apiName, raw.api_name, 'Untitled key'),
-    key,
-    maskedKey: maskKey(key),
-    quotaDisplay: unlimitedQuota ? 'Unlimited' : formatUsdAmount(remainAmountDisplay, true),
-    expirationDisplay: formatExpiration(raw.expiredTime ?? raw.expired_time ?? raw.expireAt ?? raw.expiresAt),
-    usageDisplay,
-    status: isRevoked ? 'Revoked' : isDisabled ? 'Disabled' : 'Active',
-    raw,
-  }
 }
 
 export function normalizeTransactionItem(rawValue: unknown): TokenUsageRechargeItem {
@@ -576,20 +428,6 @@ export function normalizeUsageLogItem(raw: TokenUsagePlanUsageLogRawItem): Token
   }
 }
 
-export function normalizeUsagePlanProfile(rawValue: unknown): TokenUsagePlanQuotaProfile {
-  const raw = asRecord(rawValue)
-  const data = asRecord(raw.data)
-  const quota = Math.max(0, firstNumber(data.quota, raw.quota))
-  const usedQuota = Math.max(0, firstNumber(data.used_quota, data.usedQuota, raw.used_quota, raw.usedQuota))
-
-  return {
-    quota,
-    usedQuota,
-    remainingQuota: Math.max(0, quota - usedQuota),
-    raw: raw as TokenUsagePlanUserSelfResponseDto,
-  }
-}
-
 export class TokenUsagePlanApi {
   constructor(private readonly request: AxiosInstance) {}
 
@@ -598,18 +436,10 @@ export class TokenUsagePlanApi {
   }
 
   async getUsagePlanList(page = 1, pageSize = 20): Promise<TokenUsagePlanListResponse> {
-    const res = await this.request.get(`/orgs/${this.orgId}/token-usage-plans`, {
+    const res = await this.request.get<TokenUsagePlanListResponse>(`/orgs/${this.orgId}/token-usage-plans`, {
       params: { page, pageSize },
     })
-    const data = res.data
-    const list = extractListFromUnknownPayload(data).map(normalizeUsagePlanListItem)
-    return {
-      list,
-      page: firstNumber(asRecord(data).page, page),
-      pageSize: firstNumber(asRecord(data).pageSize, pageSize),
-      total: firstNumber(asRecord(data).total, list.length),
-      raw: data,
-    }
+    return res.data
   }
 
   async createUsagePlan(payload: { planName: string; budget: string }) {
@@ -623,13 +453,13 @@ export class TokenUsagePlanApi {
   }
 
   async getUsagePlanDetail(id: string): Promise<TokenUsagePlanDetail> {
-    const res = await this.request.get(`/orgs/${this.orgId}/token-usage-plans/${id}`)
-    return normalizeUsagePlanDetail(res.data)
+    const res = await this.request.get<TokenUsagePlanDetail>(`/orgs/${this.orgId}/token-usage-plans/${id}`)
+    return res.data
   }
 
-  async getUsagePlanProfile(id: string): Promise<TokenUsagePlanQuotaProfile> {
-    const res = await this.request.get(`/orgs/${this.orgId}/token-usage-plans/${id}/profile`)
-    return normalizeUsagePlanProfile(res.data)
+  async getUsagePlanProfile(id: string): Promise<TokenUsagePlanProfileResponse> {
+    const res = await this.request.get<TokenUsagePlanProfileResponse>(`/orgs/${this.orgId}/token-usage-plans/${id}/profile`)
+    return res.data
   }
 
   async getPlanGroups(id: string) {
@@ -643,9 +473,8 @@ export class TokenUsagePlanApi {
   }
 
   async getApiKeys(id: string): Promise<TokenUsagePlanApiKeyListResponse> {
-    const res = await this.request.get(`/orgs/${this.orgId}/token-usage-plans/${id}/api-keys`)
-    const list = extractListFromUnknownPayload(res.data).map(normalizeApiKeyItem)
-    return { list, raw: res.data }
+    const res = await this.request.get<TokenUsagePlanApiKeyListResponse>(`/orgs/${this.orgId}/token-usage-plans/${id}/api-keys`)
+    return res.data
   }
 
   async getUsageLogs(id: string, params: TokenUsagePlanUsageLogListParams = {}): Promise<TokenUsagePlanUsageLogListResponse> {

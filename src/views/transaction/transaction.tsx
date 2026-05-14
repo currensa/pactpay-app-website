@@ -193,10 +193,9 @@ export default function TransactionPage() {
         organizationStore.fetchPayrollTokenSymbol(),
         apis.tokenUsagePlan.getUsagePlanList(1, 100),
       ])
-      const usagePlanMap = usagePlanResponse.list.reduce<Record<string, string>>((acc, plan) => {
+      const usagePlanMap = usagePlanResponse.data.reduce<Record<string, string>>((acc, plan) => {
         if (plan.id) acc[plan.id] = plan.id
         if (plan.newApiUserId) acc[plan.newApiUserId] = plan.id
-        if (plan.displayPlanId) acc[plan.displayPlanId] = plan.id
         return acc
       }, {})
       if (!cancelled) setUsagePlanIdByKey(usagePlanMap)

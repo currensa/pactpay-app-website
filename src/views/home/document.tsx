@@ -11,6 +11,7 @@ const navItems = [
   { label: 'Mechanism', id: 'mechanism' },
   { label: 'Why non-custodial', id: 'non-custodial', sub: true },
   { label: 'Address protection', id: 'address-protection', sub: true },
+  { label: 'API Services', id: 'api-services' },
   { label: 'Reference', id: 'reference' },
   { label: 'Pricing', id: 'doc-pricing', sub: true },
   { label: 'FAQ', id: 'faq', sub: true },
@@ -31,6 +32,24 @@ const permissionRows = [
   ['Invite members', 'Yes', 'Yes', 'Yes'],
   ['Create transaction', 'Yes', 'Yes', 'Yes'],
   ['Execute transaction', 'Yes', 'Yes', 'Yes'],
+]
+
+const apiModelPricingRows = [
+  ['Anthropic', 'Claude Opus 4.7', '$5 / MTok', '$25 / MTok', '$3.25 / MTok', '$16.25 / MTok', '65%'],
+  ['Anthropic', 'Claude Opus 4.6', '$5 / MTok', '$25 / MTok', '$3.25 / MTok', '$16.25 / MTok', '65%'],
+  ['Anthropic', 'Claude Opus 4.5', '$5 / MTok', '$25 / MTok', '$3.25 / MTok', '$16.25 / MTok', '65%'],
+  ['Anthropic', 'Claude Opus 4.1', '$15 / MTok', '$75 / MTok', '$9.75 / MTok', '$48.75 / MTok', '65%'],
+  ['Anthropic', 'Claude Opus 4', '$15 / MTok', '$75 / MTok', '$9.75 / MTok', '$48.75 / MTok', '65%'],
+  ['Anthropic', 'Claude Sonnet 4.6', '$3 / MTok', '$15 / MTok', '$1.95 / MTok', '$9.75 / MTok', '65%'],
+  ['Anthropic', 'Claude Sonnet 4.5', '$3 / MTok', '$15 / MTok', '$1.95 / MTok', '$9.75 / MTok', '65%'],
+  ['Anthropic', 'Claude Sonnet 4', '$3 / MTok', '$15 / MTok', '$1.95 / MTok', '$9.75 / MTok', '65%'],
+  ['Anthropic', 'Claude Haiku 4.5', '$1 / MTok', '$5 / MTok', '$0.65 / MTok', '$3.25 / MTok', '65%'],
+  ['OpenAI', 'gpt-5.5', '$5.00 / MTok', '$30.00 / MTok', '$3.25 / MTok', '$19.50 / MTok', '65%'],
+  ['OpenAI', 'gpt-5.5-pro', '$30.00 / MTok', '$180.00 / MTok', '$19.50 / MTok', '$117.00 / MTok', '65%'],
+  ['OpenAI', 'gpt-5.4', '$2.50 / MTok', '$15.00 / MTok', '$1.625 / MTok', '$9.75 / MTok', '65%'],
+  ['OpenAI', 'gpt-5.4-mini', '$0.75 / MTok', '$4.50 / MTok', '$0.4875 / MTok', '$2.925 / MTok', '65%'],
+  ['OpenAI', 'gpt-5.4-nano', '$0.20 / MTok', '$1.25 / MTok', '$0.13 / MTok', '$0.8125 / MTok', '65%'],
+  ['OpenAI', 'gpt-5.4-pro', '$30.00 / MTok', '$180.00 / MTok', '$19.50 / MTok', '$117.00 / MTok', '65%'],
 ]
 
 function SectionAnchor({ id }: { id: string }) {
@@ -244,6 +263,85 @@ Member's receiving wallet`}</pre>
             <li><strong className="text-[#1c1c26]">Privacy:</strong> No one can infer from on-chain records who performed the operation.</li>
           </ul>
 
+          {/* API Services */}
+          <SectionAnchor id="api-services" />
+          <h2 className="text-3xl font-bold border-b border-[rgba(0,0,0,0.08)] pb-2 mb-6 mt-14">API Services</h2>
+          <p className="text-base text-[#606067] mb-4 leading-relaxed">
+            PactPay allows organisations to purchase access to mainstream large language model APIs directly through the platform.
+            Payments are made in the same network and token as transaction settings, with no platform fee and no refunds.
+          </p>
+
+          <h3 className="text-xl font-bold mb-3 mt-8 text-[#1c1c26]">How it works</h3>
+          <ol className="list-decimal list-inside space-y-2 text-base text-[#606067] mb-6 leading-relaxed">
+            <li>Create a usage plan under Payees -&gt; AI API.</li>
+            <li>Top up the plan via a transaction. The balance is available immediately after the transaction is confirmed on-chain.</li>
+            <li>Create API keys under each usage plan. Each key can be assigned an optional spend limit and model restrictions.</li>
+            <li>Use the key to call supported models via the unified API endpoint.</li>
+          </ol>
+
+          <h3 className="text-xl font-bold mb-3 mt-8 text-[#1c1c26]">Usage plans</h3>
+          <p className="text-base text-[#606067] mb-4 leading-relaxed">
+            A usage plan is the top-level container for API access.
+          </p>
+          <div className="overflow-x-auto mb-6">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-[#f5f5f5]">
+                  {['Field', 'Description'].map((h) => (
+                    <th key={h} className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#8d8d93] font-medium text-left">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['Plan ID', 'System-assigned identifier'],
+                  ['Plan name', 'Set by the organisation, for internal reference only'],
+                  ['Budget', 'A reference budget value set by the organisation'],
+                  ['Status', 'Funded - plan has remaining balance / Unfunded - balance is zero'],
+                ].map(([field, description]) => (
+                  <tr key={field} className="hover:bg-[rgba(0,0,0,0.01)]">
+                    <td className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#1c1c26] font-medium">{field}</td>
+                    <td className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#606067]">{description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <h3 className="text-xl font-bold mb-3 mt-8 text-[#1c1c26]">API keys</h3>
+          <p className="text-base text-[#606067] mb-4 leading-relaxed">
+            Each plan can have multiple API keys. Keys share the plan&apos;s balance.
+          </p>
+          <div className="overflow-x-auto mb-4">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-[#f5f5f5]">
+                  {['Field', 'Description'].map((h) => (
+                    <th key={h} className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#8d8d93] font-medium text-left">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['API name', 'Set by the creator, for identification purposes'],
+                  ['Quota', 'Per-key spend cap. Can be set to Unlimited (capped by plan balance) or a specific amount'],
+                  ['Expiration', 'Never expires, or a custom date. Once expired, the key stops working'],
+                  ['Model restrictions', 'Optionally restrict which models this key can access. Leave blank to allow all'],
+                  ['Status', 'Active / Disabled'],
+                ].map(([field, description]) => (
+                  <tr key={field} className="hover:bg-[rgba(0,0,0,0.01)]">
+                    <td className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#1c1c26] font-medium">{field}</td>
+                    <td className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#606067]">{description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           {/* Reference */}
           <SectionAnchor id="reference" />
           <h2 className="text-3xl font-bold border-b border-[rgba(0,0,0,0.08)] pb-2 mb-6 mt-14">Reference</h2>
@@ -277,7 +375,43 @@ Member's receiving wallet`}</pre>
             </table>
           </div>
           <p className="text-base text-[#606067] mb-2 leading-relaxed">Fee calculation example: Executing a USDC payment to 5 members at the early access rate on BSC or other L2s costs 5 x 2 USDC = 10 USDC in service fees, plus gas (paid by the organisation's wallet directly to the network). The service fee is charged when the first member claims. If no one claims, no fee is incurred. Gas fees for member claims are covered by PactPay.</p>
-          <p className="text-base text-[#606067] leading-relaxed">For large teams or high-frequency payment needs, contact <strong className="text-[#1c1c26]">support@pactpay.app</strong> to discuss a custom plan.</p>
+          <p className="text-base text-[#606067] mb-6 leading-relaxed">For large teams or high-frequency payment needs, contact <strong className="text-[#1c1c26]">support@pactpay.app</strong> to discuss a custom plan.</p>
+
+          <p className="text-base text-[#606067] mb-3 leading-relaxed">API purchases are billed at cost. PactPay charges no platform fee on AI API purchases.</p>
+          <ul className="list-disc list-inside space-y-2 text-base text-[#606067] mb-5 leading-relaxed">
+            <li>Payment is made in the same network and token as transaction settings.</li>
+            <li>Gas is paid by the organisation&apos;s wallet directly to the network.</li>
+            <li>All AI API purchases are non-refundable.</li>
+          </ul>
+
+          <p className="text-base font-semibold text-[#1c1c26] mb-3">Main supported models and API prices (MTok = Million tokens)</p>
+          <div className="overflow-x-auto mb-3">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-[#f5f5f5]">
+                  {['Provider', 'Model', 'Input Price', 'Output Price', 'PactPay Input Price', 'PactPay Output Price', 'PactPay Rate'].map((h) => (
+                    <th key={h} className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#8d8d93] font-medium text-left whitespace-nowrap">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {apiModelPricingRows.map(([provider, model, inputPrice, outputPrice, pactPayInputPrice, pactPayOutputPrice, pactPayRate]) => (
+                  <tr key={`${provider}-${model}`} className="hover:bg-[rgba(0,0,0,0.01)]">
+                    <td className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#1c1c26] font-medium whitespace-nowrap">{provider}</td>
+                    <td className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#606067] whitespace-nowrap">{model}</td>
+                    <td className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#606067] whitespace-nowrap">{inputPrice}</td>
+                    <td className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#606067] whitespace-nowrap">{outputPrice}</td>
+                    <td className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#606067] whitespace-nowrap">{pactPayInputPrice}</td>
+                    <td className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#606067] whitespace-nowrap">{pactPayOutputPrice}</td>
+                    <td className="px-4 py-3 border border-[rgba(0,0,0,0.08)] text-[#5e85ee] font-semibold whitespace-nowrap">{pactPayRate}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-base text-[#606067] leading-relaxed">Note: Prices shown for OpenAI models are Standard tier short context (&le;200K input tokens); long context (&gt;200K) doubles input price and adds 50% to output price. This applies only to gpt-5.5, gpt-5.5-pro, gpt-5.4, and gpt-5.4-pro.</p>
 
           <SectionAnchor id="faq" />
           <h3 className="text-xl font-bold mb-5 mt-10 text-[#1c1c26]">FAQ</h3>
@@ -290,6 +424,12 @@ Member's receiving wallet`}</pre>
               ['Can I modify member payment amounts after a transaction is executed?', 'No. Amounts are locked at the point of signing. To make adjustments, you will need to create a new transaction.'],
               ['Who pays the gas fee for executing a transaction?', "The organisation's wallet pays the gas fee. This fee is charged directly by the blockchain network and is separate from PactPay."],
               ['Can I cancel a transaction after it has been executed?', 'Yes. You can request a refund at any time before all members have completed their claims.'],
+              ['When is the balance available after topping up?', 'As soon as the on-chain transaction is confirmed. There is no additional processing delay.'],
+              ['Can I top up a plan multiple times?', 'Yes. Each top-up is a separate transaction and the balance accumulates.'],
+              ["What happens when a key's quota is exhausted?", "The key stops accepting requests. The plan's remaining balance is unaffected and can be used by other keys."],
+              ['Can I recover a revoked key?', 'No. Revocation is permanent. Create a new key if needed.'],
+              ["Can I change a key's quota or model restrictions after creation?", 'Yes, via the Edit action on the key.'],
+              ['Is there a limit on the number of keys per plan?', 'No hard limit is enforced currently.'],
             ].map(([q, a]) => (
               <div key={q} className="bg-white/60 border border-[rgba(0,0,0,0.06)] rounded-[14px] px-5 py-4">
                 <p className="text-base font-semibold text-[#1c1c26] mb-1">{q}</p>
