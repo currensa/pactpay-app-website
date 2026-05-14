@@ -171,6 +171,15 @@ export default function AppHeader() {
     window.location.reload()
   }
 
+  const handleBack = () => {
+    const historyIndex = typeof window !== 'undefined' ? window.history.state?.idx : undefined
+    if (typeof historyIndex === 'number' && historyIndex > 0) {
+      navigate(-1)
+      return
+    }
+    if (backUrl) navigate(backUrl)
+  }
+
   return (
     <div className="flex h-[64px] shrink-0 items-center justify-between">
       {/* Page title + subtitle / steps */}
@@ -178,7 +187,7 @@ export default function AppHeader() {
         <div className="flex items-center gap-[8px]">
           {backUrl && (
             <button
-              onClick={() => navigate(backUrl)}
+              onClick={handleBack}
               className="flex h-[34px] w-[34px] items-center justify-center rounded-[8px] border border-[rgba(0,0,0,0.12)] bg-white hover:bg-[#f5f5f5] transition-colors shrink-0"
             >
               <ChevronLeft size={16} className="text-[#1c1c26]" />

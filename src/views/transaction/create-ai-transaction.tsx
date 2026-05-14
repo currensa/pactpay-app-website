@@ -13,7 +13,7 @@ import { formatLocalDateTime } from '@/utils/date'
 import { formatUnits } from 'ethers'
 import { Bot, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { formatDisplayAmount, getErrorMessage } from '../orgs/components/ai-api/utils'
 import { ExecuteConfirmDialogContent, ExecuteSuccessDialogContent } from './components'
 import type { Transaction } from './components/types'
@@ -87,9 +87,9 @@ function extractCreatedTransactionId(payload: unknown): string | null {
 
 function buildAiExecutingTransaction(
   plan: TransactionPlan,
-  getChain: (caipChainId: string) => { name: string } | undefined,
+  getChain: (caipChainId: string) => { name: string } | null,
   getTokenDecimals: (caipChainId: string, tokenAddress: string) => number,
-  getTokenSymbol: (caipChainId: string, tokenAddress: string) => string | undefined,
+  getTokenSymbol: (caipChainId: string, tokenAddress: string) => string | null,
 ): Transaction {
   const decimals = getTokenDecimals(plan.caipChainId, plan.tokenAddress || '')
   const symbol = getTokenSymbol(plan.caipChainId, plan.tokenAddress || '') || ''
@@ -119,7 +119,6 @@ function buildAiExecutingTransaction(
 }
 
 export default function CreateAiTransaction() {
-  const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { toast } = useToast()
@@ -143,7 +142,6 @@ export default function CreateAiTransaction() {
   const [executeSuccessDialogOpen, setExecuteSuccessDialogOpen] = useState(false)
   const [lastDepositTxHash, setLastDepositTxHash] = useState('')
   const [planProfilesById, setPlanProfilesById] = useState<Record<string, TokenUsagePlanProfileResponse>>({})
-  const backUrl = (location.state as { backUrl?: string } | null)?.backUrl ?? '/orgs/transaction'
 
   const selectedPlan = useMemo(
     () => plans.find(plan => plan.id === selectedPlanId) ?? null,
@@ -162,6 +160,15 @@ export default function CreateAiTransaction() {
   const selectedPlanBalanceDisplay = selectedPlanProfile
     ? `$${normalizeQuotaToUsdAmount(selectedPlanRemainingQuota)}`
     : '-'
+
+  const navigateBack = () => {
+    const historyIndex = typeof window !== 'undefined' ? window.history.state?.idx : undefined
+    if (typeof historyIndex === 'number' && historyIndex > 0) {
+      navigate(-1)
+      return
+    }
+    navigate('/orgs/transaction')
+  }
 
   const loadPlans = async () => {
     try {
@@ -188,7 +195,7 @@ export default function CreateAiTransaction() {
 
   useEffect(() => {
     setHeader({
-      backUrl,
+      backUrl: '/orgs/transaction',
       steps: [
         { label: '1. Select type & details', active: true },
         { label: '2. Review & Confirm', active: false },
@@ -196,7 +203,7 @@ export default function CreateAiTransaction() {
     })
     void loadPlans()
     return () => clearHeader()
-  }, [backUrl])
+  }, [])
 
   useEffect(() => {
     if (!selectedPlan?.id || planProfilesById[selectedPlan.id]) return
@@ -412,7 +419,7 @@ export default function CreateAiTransaction() {
           <Button
             variant="outline"
             className="shrink-0"
-            onClick={() => navigate('/orgs/transaction')}
+            onClick={navigateBack}
           >
             Cancel
           </Button>
@@ -450,7 +457,10 @@ export default function CreateAiTransaction() {
               setExecuteSuccessDialogOpen(false)
               setLastDepositTxHash('')
               if (selectedPlan) {
-                navigate(`/orgs/members/usage-plans/${selectedPlan.id}`)
+                navigate(
+                  `/orgs/members/usage-plans/${selectedPlan.id}`,
+                  { replace: true },
+                )
                 return
               }
               navigate('/orgs/transaction?tab=ai')

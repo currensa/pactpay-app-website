@@ -350,10 +350,7 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
                             <button
                               type="button"
                               className="text-[13px] text-[#5e85ee] transition-opacity hover:opacity-70"
-                              onClick={() => navigate(
-                                `/orgs/transaction/create-ai?planId=${encodeURIComponent(plan.id)}`,
-                                { state: { backUrl: '/orgs/members?tab=ai-api' } },
-                              )}
+                              onClick={() => navigate(`/orgs/transaction/create-ai?planId=${encodeURIComponent(plan.id)}`)}
                             >
                               Top up
                             </button>

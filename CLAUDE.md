@@ -94,6 +94,7 @@ Prefer extending or composing existing components over creating new ones.
 
 - Inter-page data: pass via `navigate('/path', { state: { ... } })` and read with `useLocation().state`.
 - API calls: use `apis.<domain>.<method>()` from `src/apis/index.ts`; handle errors with toast.
+- API response types: update the interface in `src/apis/*.ts` to match the backend response, and derive display-only fields from that typed object at render/helper time. Do not introduce duplicate row/view types that mirror response payloads such as `allTransactions`.
 - Loading / error states: always show a loading indicator and a descriptive error toast on failure.
 - Pagination: server-side; `page` + `pageSize` params. Fetch on `currentPage` change via `useEffect`.
 - Permissions: use `hasPermission(currentUserRole, Permission.X)` from `src/utils/permissions.ts`.
