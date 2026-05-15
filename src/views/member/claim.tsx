@@ -358,6 +358,7 @@ export default function ClaimPage() {
                 { name: 'amount', type: 'uint256' },
                 { name: 'recipient', type: 'address' },
                 { name: 'deadline', type: 'uint256' },
+                { name: 'expectedAmount', type: 'uint256' },
               ],
             } as const
 
@@ -367,6 +368,7 @@ export default function ClaimPage() {
               amount: BigInt(item.amount),
               recipient: trimmedRecipient as `0x${string}`,
               deadline: BigInt(deadline),
+              expectedAmount: BigInt(item.amount),
             } as const
 
             const signature = await stealthAccount.signTypedData({ domain, types, primaryType: 'ClaimRequest', message })
