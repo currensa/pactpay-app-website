@@ -269,12 +269,8 @@ export default function MemberDashboard() {
         rawAmount: Number(item.totalAmount) / Math.pow(10, getTokenDecimals(item.caipChainId, item.tokenAddress)),
         chainName: getChain(item.caipChainId)?.name ?? item.caipChainId,
       })))
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.message || 'Failed to load summary.',
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setSummaryLoading(false)
     }

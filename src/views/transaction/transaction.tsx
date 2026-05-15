@@ -259,12 +259,8 @@ export default function TransactionPage() {
       setRawTransactions(response.data)
       setTotalPages(Math.max(1, Math.ceil(response.total / itemsPerPage)))
       setTotalCount(response.total)
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to load transactions.'),
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setLoading(false)
     }
@@ -331,7 +327,7 @@ export default function TransactionPage() {
       clearSetupPayrollQuery()
       navigate(targetPath)
     } catch {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save payment settings.' })
+      // request interceptor handles API errors
     } finally {
       setSavingPayrollSetup(false)
     }
@@ -444,7 +440,7 @@ export default function TransactionPage() {
         await fetchTransactions(nextPage, statusFilter, debouncedSearch, transactionType)
       }
     } catch {
-      toast({ title: 'Error', description: 'Failed to delete transaction.', variant: 'destructive' })
+      // request interceptor handles API errors
     } finally {
       setIsDeleting(false)
     }

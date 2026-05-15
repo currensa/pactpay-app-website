@@ -15,7 +15,6 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [joinLoading, setJoinLoading] = useState(false)
-  const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,7 +26,6 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
 
   const handleJoin = async () => {
     if (!orgCode.trim() || !showName.trim()) return
-    setError('')
     setJoinLoading(true)
     try {
       let avatarUrl: string | undefined
@@ -42,8 +40,8 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
       await api.organization.joinOrganization({ code: orgCode.trim(), showName: showName.trim(), avatarUrl })
       sessionStorage.removeItem(INVITE_CODE_SESSION_KEY)
       onJoin()
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to join. Please check your code and try again.')
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setJoinLoading(false)
     }
@@ -116,8 +114,6 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
             {"Don't have a code? Ask your organization admin for an invite link or code."}
           </p>
         </div>
-
-        {error && <p className="text-[14px] leading-[22px] text-red-500">{error}</p>}
 
         {/* 按钮组 */}
         <div className="flex gap-[12px]">

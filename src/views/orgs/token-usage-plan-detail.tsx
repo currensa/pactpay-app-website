@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSke
 import { useToast } from '@/components/ui/use-toast'
 import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
+import axios from 'axios'
 import { Check, ChevronDown, Copy, Eye, EyeOff, Plus, Search, Terminal } from 'lucide-react'
 import type { KeyboardEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
@@ -320,12 +321,8 @@ export default function TokenUsagePlanDetailPage() {
     try {
       setLoading(true)
       await Promise.all([fetchDetail(), fetchKeys(), fetchReferenceData()])
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to load usage plan detail.'),
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setLoading(false)
     }
@@ -367,13 +364,8 @@ export default function TokenUsagePlanDetailPage() {
             return next
           }, { replace: true })
         }
-      } catch (error: any) {
+      } catch {
         if (cancelled) return
-        toast({
-          title: 'Error',
-          description: getErrorMessage(error, 'Failed to load usage logs.'),
-          variant: 'destructive',
-        })
       } finally {
         if (!cancelled) setUsageLogsLoading(false)
       }
@@ -443,6 +435,7 @@ export default function TokenUsagePlanDetailPage() {
       await ensureFullKey(apiKey)
       setRevealedKeys(prev => ({ ...prev, [apiKey.id]: true }))
     } catch (error: any) {
+      if (axios.isAxiosError(error)) return
       toast({
         title: 'Error',
         description: getErrorMessage(error, 'Failed to load full key.'),
@@ -460,6 +453,7 @@ export default function TokenUsagePlanDetailPage() {
       await navigator.clipboard.writeText(key)
       toast({ title: 'Success', description: 'Key copied.' })
     } catch (error: any) {
+      if (axios.isAxiosError(error)) return
       toast({
         title: 'Error',
         description: getErrorMessage(error, 'Failed to copy key.'),
@@ -478,6 +472,7 @@ export default function TokenUsagePlanDetailPage() {
       await navigator.clipboard.writeText(response.command)
       toast({ title: 'Success', description: 'Test command copied.' })
     } catch (error: any) {
+      if (axios.isAxiosError(error)) return
       toast({
         title: 'Error',
         description: getErrorMessage(error, 'Failed to copy test command.'),
@@ -497,12 +492,8 @@ export default function TokenUsagePlanDetailPage() {
       await apis.tokenUsagePlan.updateApiKeyStatus(id, String(apiKey.id), nextStatus)
       toast({ title: 'Success', description: successMessage })
       await fetchKeys()
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to update key status.'),
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setUpdatingStatusIds(prev => ({ ...prev, [apiKey.id]: false }))
     }
@@ -542,12 +533,8 @@ export default function TokenUsagePlanDetailPage() {
       closeDialog()
       await fetchKeys()
       await fetchDetail()
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to save API key.'),
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setSavingKey(false)
     }
@@ -565,12 +552,8 @@ export default function TokenUsagePlanDetailPage() {
       })
       setApiKeyToDelete(null)
       await fetchKeys()
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to delete key.'),
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setDeletingKey(false)
     }

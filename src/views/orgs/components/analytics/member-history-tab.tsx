@@ -258,7 +258,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
         if (status === 403) {
           setListErrorMessage('The Member History endpoint is available only to Owner, Admin, and Operator members.')
         } else {
-          setListErrorMessage(error?.response?.data?.message || 'Failed to load member history.')
+          setListErrorMessage('Unable to load member history right now.')
         }
 
         setListData(null)
@@ -302,7 +302,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
         if (status === 403) {
           setDetailErrorMessage('The Member History detail endpoint is available only to Owner, Admin, and Operator members.')
         } else {
-          setDetailErrorMessage(error?.response?.data?.message || 'Failed to load member history detail.')
+          setDetailErrorMessage('Unable to load member history detail right now.')
         }
 
         setDetailData(null)

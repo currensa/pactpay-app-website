@@ -74,8 +74,8 @@ export default function TransactionDetail() {
             ],
           })
         })
-        .catch((err: any) => {
-          toast({ description: `Failed to load transaction: ${err.message}`, variant: 'destructive' })
+        .catch(() => {
+          // request interceptor handles API errors
         })
         .finally(() => setLoading(false))
     })
@@ -160,7 +160,7 @@ export default function TransactionDetail() {
       toast({ title: 'Success', description: 'Transaction deleted.' })
       navigate('/orgs/transaction')
     } catch {
-      toast({ title: 'Error', description: 'Failed to delete transaction.', variant: 'destructive' })
+      // request interceptor handles API errors
     } finally {
       setIsDeleting(false)
       setDeleteOpen(false)

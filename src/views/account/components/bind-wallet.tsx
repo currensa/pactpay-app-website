@@ -4,6 +4,7 @@ import useAuthStore from '@/stores/auth'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconLoader2, IconWallet } from '@tabler/icons-react'
+import axios from 'axios'
 import { useEffect, useState } from 'react'
 
 interface BindWalletProps {
@@ -65,7 +66,8 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
       setMetaPubSubmitted(true)
       onSuccess()
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to submit. Please try again.')
+      if (axios.isAxiosError(err)) return
+      setError(err?.message || 'Failed to submit. Please try again.')
     } finally {
       setLoading(false)
     }

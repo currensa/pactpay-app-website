@@ -182,19 +182,9 @@ export function MemberDetailContent({
       onDrawerClose()
     } catch (error: any) {
       if (error?.response?.status === 404 && error?.response?.data?.message?.includes('payroll')) {
-        toast({
-          title: 'Payroll not configured',
-          description: error.response.data.message,
-          variant: 'destructive',
-        })
         setTimeout(() => navigate('/orgs/settings'), 1500)
         return
       }
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.message || 'Failed to update member information',
-        variant: 'destructive',
-      })
     }
   }
 

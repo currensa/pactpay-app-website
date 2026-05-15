@@ -63,7 +63,7 @@ export default function OrganizationSettings() {
       setSelectedChainId(payrollData?.caipChainId ?? '')
       setSelectedToken(payrollData?.token ?? '')
     } catch {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to load organization data.' })
+      // request interceptor handles API errors
     } finally {
       setLoading(false)
     }
@@ -110,7 +110,7 @@ export default function OrganizationSettings() {
       toast({ title: 'Success', description: 'Organization info updated.' })
       loadData()
     } catch {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save organization info.' })
+      // request interceptor handles API errors
     } finally {
       setSaving(false)
     }
@@ -125,7 +125,7 @@ export default function OrganizationSettings() {
       setReferralCodeInput('')
       toast({ title: 'Success', description: 'Referral code applied.' })
     } catch {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to apply referral code. Please check and try again.' })
+      // request interceptor handles API errors
     } finally {
       setSavingReferralCode(false)
     }
@@ -142,7 +142,7 @@ export default function OrganizationSettings() {
       await fetchPayrollTokenSymbol()
       toast({ title: 'Success', description: 'Payment settings updated.' })
     } catch {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to save payment settings.' })
+      // request interceptor handles API errors
     } finally {
       setSavingPayroll(false)
     }

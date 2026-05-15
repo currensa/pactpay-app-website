@@ -61,11 +61,7 @@ export default function CreateTransaction() {
       const response = await apis.organization.getOrganizationMembers({ page: 1, pageSize: 100, status: 'active' })
       setOrganizationMembers(response.data)
     } catch {
-      toast({
-        title: 'Error',
-        description: 'Failed to load organization members.',
-        variant: 'destructive'
-      })
+      // request interceptor handles API errors
     } finally {
       setMembersLoading(false)
     }
@@ -99,11 +95,7 @@ export default function CreateTransaction() {
           )
         }
       } catch {
-        toast({
-          title: 'Error',
-          description: 'Failed to load source transaction for re-action.',
-          variant: 'destructive'
-        })
+        // request interceptor handles API errors
       } finally {
         setReactionSourceLoading(false)
       }
@@ -151,12 +143,8 @@ export default function CreateTransaction() {
           : 'Transaction created successfully'
       })
       navigate('/orgs/transaction')
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.message || 'Failed to create transaction. Please try again.',
-        variant: 'destructive'
-      })
+    } catch {
+      // request interceptor handles API errors
     }
   }
 

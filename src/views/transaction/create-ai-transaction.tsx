@@ -14,7 +14,7 @@ import { formatUnits } from 'ethers'
 import { Bot, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { formatDisplayAmount, getErrorMessage } from '../orgs/components/ai-api/utils'
+import { formatDisplayAmount } from '../orgs/components/ai-api/utils'
 import { ExecuteConfirmDialogContent, ExecuteSuccessDialogContent } from './components'
 import type { Transaction } from './components/types'
 
@@ -182,12 +182,8 @@ export default function CreateAiTransaction() {
       if (!selectedPlanId && response.data[0]) {
         setSelectedPlanId(response.data[0].id)
       }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to load usage plans.'),
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setLoading(false)
     }
@@ -281,12 +277,8 @@ export default function CreateAiTransaction() {
         title: 'Success',
         description: 'AI top-up transaction created successfully.',
       })
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to create AI API top up transaction.'),
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setSubmitting(false)
     }

@@ -112,9 +112,8 @@ export default function MemberSettings() {
         if (!active) return
         setNotifications(mapPreferencesToState(data.preferences))
       })
-      .catch((error: any) => {
-        if (!active || error?.response?.status === 401) return
-        toast({ description: error?.response?.data?.message || 'Failed to load notification preferences.', variant: 'destructive' })
+      .catch(() => {
+        if (!active) return
       })
       .finally(() => {
         if (active) setNotificationsLoading(false)
@@ -137,9 +136,8 @@ export default function MemberSettings() {
         if (!active) return
         setFavoriteAddresses(data.data ?? [])
       })
-      .catch((error: any) => {
-        if (!active || error?.response?.status === 401) return
-        toast({ description: error?.response?.data?.message || 'Failed to load address book.', variant: 'destructive' })
+      .catch(() => {
+        if (!active) return
       })
       .finally(() => {
         if (active) setFavoriteAddressesLoading(false)
@@ -192,8 +190,8 @@ export default function MemberSettings() {
       setPersonalToken(data.signMessage)
       setTokenUpdatedAt(new Date(data.updatedAt))
       toast({ description: (data as any).message || 'Updated successfully!' })
-    } catch (err: any) {
-      toast({ description: err?.response?.data?.message || 'Failed to generate token. Please try again.', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setTokenLoading(false)
     }
@@ -208,9 +206,8 @@ export default function MemberSettings() {
       setUpdatingNotificationKey(key)
       const data = await api.notification.updatePreferences(payload)
       setNotifications(mapPreferencesToState(data.preferences))
-    } catch (error: any) {
-      if (error?.response?.status === 401 || error?.response?.status === 400) return
-      toast({ description: error?.response?.data?.message || 'Failed to update notification preferences.', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setUpdatingNotificationKey(null)
     }
