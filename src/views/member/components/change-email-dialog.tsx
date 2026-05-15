@@ -55,7 +55,7 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
       await api.auth.sendCurrentEmailCode()
       setOldCodeCountdown(60)
     } catch {
-      toast({ description: 'Failed to send code.', variant: 'destructive' })
+      // request interceptor handles API errors
     }
   }
 
@@ -65,7 +65,7 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
       await api.auth.getEmailCode(newEmail)
       setNewEmailCountdown(60)
     } catch {
-      toast({ description: 'Failed to send code.', variant: 'destructive' })
+      // request interceptor handles API errors
     }
   }
 

@@ -1,7 +1,6 @@
 import apis from '@/apis'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
-import { useToast } from '@/components/ui/use-toast'
 import { PayrollItemStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
@@ -36,7 +35,6 @@ interface PayrollHistoryTableProps {
 }
 
 export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHistoryTableProps) {
-  const { toast } = useToast()
   const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, getChain } = useChainAssetStore()
   const { organizations, getOrganizations } = useOrganizationStore()
 
@@ -100,12 +98,8 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
           }
         })
       )
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.message || 'Failed to load payroll history.',
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setLoading(false)
     }

@@ -40,8 +40,8 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
       const data = await apis.organization.getOrganizationInviteCode()
       setInviteCode(data.code)
       setInviteLink(`${window.location.origin}/join/${data.code}`)
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to load invite code.', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setInviteCodeLoading(false)
     }
@@ -54,8 +54,8 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
       setInviteLink(`${window.location.origin}/join/${newCode.code}`)
       setRegenerateDialogOpen(false)
       toast({ title: 'Success', description: 'Organization invitation regenerated successfully' })
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to regenerate invitation code', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     }
   }
 
@@ -78,7 +78,9 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
     setSendingInvites(true)
     setInviteErrors({})
     try {
-      const results = await Promise.allSettled(pendingInvites.map(({ email }) => apis.organization.sendEmailInvitation({ email })))
+      const results = await Promise.allSettled(
+        pendingInvites.map(({ email }) => apis.organization.sendEmailInvitation({ email }, { skipErrorToast: true }))
+      )
       const errors: Record<string, string> = {}
       results.forEach((result, i) => {
         if (result.status === 'rejected') {
@@ -100,10 +102,9 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
         onInvited()
       } else {
         setInviteErrors(errors)
-        toast({ title: 'Error', description: 'All invitations failed', variant: 'destructive' })
       }
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to send invitations.', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setSendingInvites(false)
     }

@@ -2,6 +2,7 @@ import apis from '@/apis'
 import { useToast } from '@/components/ui/use-toast'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import axios from 'axios'
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -30,9 +31,10 @@ export function useClaimAll() {
       sessionStorage.setItem('metapub-verify-token', result.token)
       navigate('/member/claim')
     } catch (error: any) {
+      if (axios.isAxiosError(error)) return
       toast({
         title: 'Error',
-        description: error?.response?.data?.message || 'Wallet verification failed.',
+        description: error?.message || 'Wallet verification failed.',
         variant: 'destructive',
       })
     } finally {

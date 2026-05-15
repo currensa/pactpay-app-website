@@ -84,7 +84,6 @@ export default function MemberOrgsDetail() {
       })
       toast({ description: 'Profile updated.' })
     } catch {
-      setNameError('Failed to update profile')
       throw new Error('save failed')
     } finally {
       setSaving(false)
@@ -127,11 +126,8 @@ export default function MemberOrgsDetail() {
       toast({ description: 'Left organization.' })
       setLeaveDialogOpen(false)
       navigate('/member/dashboard', { replace: true })
-    } catch (error: any) {
-      toast({
-        description: error?.response?.data?.message || 'Failed to leave organization.',
-        variant: 'destructive'
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setLeaving(false)
     }

@@ -1,7 +1,6 @@
 import apis from '@/apis'
 import type { NotificationItem } from '@/apis/notification.api'
 import { Pagination } from '@/components/ui/pagination'
-import { useToast } from '@/components/ui/use-toast'
 import useNotificationStore from '@/stores/notification'
 import useOrganizationStore from '@/stores/organization'
 import { ChevronDown } from 'lucide-react'
@@ -126,7 +125,6 @@ function NotificationRow({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function NotificationsPage() {
-  const { toast } = useToast()
   const { setUnreadCount } = useNotificationStore()
   const { currentOrgId } = useOrganizationStore()
   const location = useLocation()
@@ -165,8 +163,8 @@ export default function NotificationsPage() {
       })
       setItems(data.data ?? [])
       setTotal(data.total ?? 0)
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to load notifications.', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setLoading(false)
     }
@@ -177,8 +175,8 @@ export default function NotificationsPage() {
       await apis.notification.markAllRead(orgId ? { orgId } : {})
       setUnreadCount(0)
       setItems(prev => prev.map(n => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })))
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to mark all as read.', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     }
   }
 

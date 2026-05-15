@@ -101,8 +101,8 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
       })
       setMembers(res.data)
       setTotal(res.total)
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to load members', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       if (isInitial) setLoading(false)
       else setRefreshing(false)
@@ -158,8 +158,8 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
         member.id === memberToApprove.id ? { ...member, status: 'active' as const } : member
       )))
       toast({ title: 'Success', description: 'Member approved successfully.' })
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to approve member.', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setApproveConfirmDialogOpen(false)
       setMemberToApprove(null)
@@ -171,8 +171,8 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
       await apis.organization.rejectInvite(member.memberId)
       setMembers(prev => prev.filter(item => item.id !== member.id))
       toast({ title: 'Success', description: 'Member rejected. Notification sent.' })
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to reject member.', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     }
   }
 
@@ -185,8 +185,8 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
       setMembers(prev => prev.filter(item => item.id !== memberId))
       setDrawerOpen(false)
       toast({ title: 'Success', description: 'Member removed successfully.' })
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to remove member', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     }
   }
 
@@ -238,8 +238,8 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Members')
       XLSX.writeFile(wb, `members-page-${currentPage}.xlsx`)
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to export members', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     }
   }
 
@@ -266,11 +266,9 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
       toast({ title: 'Success', description: `Amount updated to ${numValue}` })
     } catch (error: any) {
       if (error?.response?.status === 404 && error?.response?.data?.message?.includes('payroll')) {
-        toast({ title: 'Payroll not configured', description: error.response.data.message, variant: 'destructive' })
         setTimeout(() => navigate('/orgs/settings'), 1500)
         return
       }
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to update amount', variant: 'destructive' })
     }
   }
 
@@ -287,8 +285,8 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
       toast({ title: 'Success', description: 'Remark updated.' })
       setRemarkDialogOpen(false)
       setRemarkMember(null)
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to update remark', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setRemarkSaving(false)
     }

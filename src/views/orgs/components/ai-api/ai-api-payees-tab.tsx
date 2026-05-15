@@ -18,7 +18,7 @@ import useOrganizationStore from '@/stores/organization'
 import { Edit2, Plus } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { formatDisplayAmount, getErrorMessage } from './utils'
+import { formatDisplayAmount } from './utils'
 
 const PAGE_SIZE = 10
 
@@ -73,12 +73,8 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
       setPlans(response.data)
       setTotalPages(Math.max(1, Math.ceil(response.total / PAGE_SIZE)))
       setTotalCount(response.total)
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to load usage plans.'),
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setLoading(false)
     }
@@ -154,12 +150,8 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
       resetCreateForm()
       setCurrentPage(1)
       await fetchPlans(1)
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to create usage plan.'),
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setCreating(false)
     }
@@ -196,12 +188,8 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
       )))
       toast({ title: 'Success', description: 'Usage plan updated.' })
       clearInlineEdit()
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to update usage plan.'),
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setSavingInline(false)
     }

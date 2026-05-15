@@ -105,8 +105,8 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
       const a = document.createElement('a')
       a.href = url; a.download = filename; a.click()
       URL.revokeObjectURL(url)
-    } catch (error: any) {
-      toast({ title: 'Error', description: error?.response?.data?.message || 'Failed to download template', variant: 'destructive' })
+    } catch {
+      // request interceptor handles API errors
     }
   }
 
@@ -128,7 +128,7 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
       const email = emailIdx >= 0 ? (row.cells[activeHeaders[emailIdx].idx] ?? '') : ''
       const rowNum = previewRows.indexOf(row) + 2
       try {
-        await apis.organization.sendEmailInvitation(payload)
+        await apis.organization.sendEmailInvitation(payload, { skipErrorToast: true })
         results.push({ row: rowNum, email, success: true, message: '' })
       } catch (error: any) {
         results.push({ row: rowNum, email, success: false, message: error?.response?.data?.message || 'Failed' })

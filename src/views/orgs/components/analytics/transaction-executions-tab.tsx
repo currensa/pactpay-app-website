@@ -162,9 +162,9 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
 
         if (cancelled) return
         setExecutionPlans(response)
-      } catch (error: any) {
+      } catch {
         if (cancelled) return
-        setExecutionsErrorMessage(error?.response?.data?.message || 'Failed to load completed transaction executions.')
+        setExecutionsErrorMessage('Unable to load completed transaction executions right now.')
         setExecutionPlans(null)
       } finally {
         if (!cancelled) {

@@ -75,12 +75,8 @@ export default function Dashboard() {
       })
 
       setTodayTransactions(todayTransactionsRes.data)
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load dashboard data.',
-        variant: 'destructive'
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setLoading(false)
     }

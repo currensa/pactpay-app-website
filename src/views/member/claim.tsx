@@ -8,6 +8,7 @@ import useHeaderStore from '@/stores/header'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconLoader2 } from '@tabler/icons-react'
+import axios from 'axios'
 import { ethers } from 'ethers'
 import { AlertTriangle, Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -235,13 +236,8 @@ export default function ClaimPage() {
         .slice(0, 10)
 
       setRecentRecipients(recentList)
-    } catch (error: any) {
-      if (error?.response?.status === 401) return
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.message || 'Failed to load saved addresses.',
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     }
   }
 
@@ -258,12 +254,8 @@ export default function ClaimPage() {
       }))
       setAllPending(tokens)
       if (tokens.length > 0 && !selectedChain) setSelectedChain(tokens[0].caipChainId)
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error?.response?.data?.message || 'Failed to load pending summary.',
-        variant: 'destructive',
-      })
+    } catch {
+      // request interceptor handles API errors
     } finally {
       setSummaryLoading(false)
     }
@@ -366,6 +358,7 @@ export default function ClaimPage() {
                 { name: 'amount', type: 'uint256' },
                 { name: 'recipient', type: 'address' },
                 { name: 'deadline', type: 'uint256' },
+                { name: 'expectedAmount', type: 'uint256' },
               ],
             } as const
 
@@ -375,6 +368,7 @@ export default function ClaimPage() {
               amount: BigInt(item.amount),
               recipient: trimmedRecipient as `0x${string}`,
               deadline: BigInt(deadline),
+              expectedAmount: BigInt(item.amount),
             } as const
 
             const signature = await stealthAccount.signTypedData({ domain, types, primaryType: 'ClaimRequest', message })
@@ -409,9 +403,12 @@ export default function ClaimPage() {
       setClaimResult(result)
       await Promise.all([loadSummary(), loadAddressSuggestions()])
     } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        return
+      }
       toast({
         title: 'Error',
-        description: error?.message || error?.response?.data?.message || 'Failed to submit claim.',
+        description: error?.message || 'Failed to submit claim.',
         variant: 'destructive',
       })
     } finally {

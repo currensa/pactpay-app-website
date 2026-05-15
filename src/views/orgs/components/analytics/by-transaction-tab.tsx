@@ -118,7 +118,7 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
         if (status === 403) {
           setErrorMessage('The By Transaction analytics endpoint is available only to Owner, Admin, and Operator members.')
         } else {
-          setErrorMessage(error?.response?.data?.message || 'Failed to load transaction analytics.')
+          setErrorMessage('Unable to load transaction analytics right now.')
         }
 
         setStats(null)

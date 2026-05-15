@@ -107,8 +107,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [codeSent, setCodeSent] = useState(false)
   const [sendCodeLoading, setSendCodeLoading] = useState(false)
   const [emailLoginLoading, setEmailLoginLoading] = useState(false)
-  const [sendCodeError, setSendCodeError] = useState('')
-  const [emailLoginError, setEmailLoginError] = useState('')
   const [countdown, setCountdown] = useState(0)
 
   useEffect(() => {
@@ -121,7 +119,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
   const handleSendCode = async () => {
     if (!email) return
-    setSendCodeError('')
     setSendCodeLoading(true)
     try {
       await api.auth.getEmailCode(email)
@@ -129,7 +126,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       setCountdown(60)
     } catch (error) {
       console.error('Failed to send code:', error)
-      setSendCodeError('Failed to send verification code. Please try again.')
     } finally {
       setSendCodeLoading(false)
     }
@@ -138,7 +134,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const emailLogin = async (e: FormEvent) => {
     e.preventDefault()
     if (!email || !emailCode) return
-    setEmailLoginError('')
     setEmailLoginLoading(true)
     try {
       const { token, userId } = await api.auth.login({
@@ -150,7 +145,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       onLoginSuccess()
     } catch (error) {
       console.error('Failed to sign in with email:', error)
-      setEmailLoginError('Invalid or expired code. Please try again.')
     } finally {
       setEmailLoginLoading(false)
     }
@@ -205,8 +199,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               </button>
             </div>
 
-            {sendCodeError && <p className="text-[14px] text-red-500">{sendCodeError}</p>}
-
             {codeSent && (
               <div className="flex h-[38px] items-center overflow-hidden rounded-[6px] border border-[#d9d9db] bg-white px-[12px] py-[4px]">
                 <input
@@ -219,8 +211,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 />
               </div>
             )}
-
-            {emailLoginError && <p className="text-[14px] text-red-500">{emailLoginError}</p>}
 
             <button
               type="submit"

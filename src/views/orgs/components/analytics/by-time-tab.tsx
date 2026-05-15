@@ -176,7 +176,7 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
         if (status === 403) {
           setErrorMessage('The By Time analytics endpoint is available only to Owner, Admin, and Operator members.')
         } else {
-          setErrorMessage(error?.response?.data?.message || 'Failed to load time-based analytics.')
+          setErrorMessage('Unable to load time-based analytics right now.')
         }
 
         setStats(null)
