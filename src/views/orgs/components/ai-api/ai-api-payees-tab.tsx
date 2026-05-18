@@ -14,13 +14,46 @@ import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
-import useOrganizationStore from '@/stores/organization'
 import { Edit2, Plus } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { formatDisplayAmount } from './utils'
 
 const PAGE_SIZE = 10
+
+function sanitizeBudgetInput(value: string) {
+  const digitsOnly = value.replace(/[^\d.]/g, '')
+  const firstDotIndex = digitsOnly.indexOf('.')
+
+  if (firstDotIndex === -1) return digitsOnly
+
+  const integerPart = digitsOnly.slice(0, firstDotIndex)
+  const decimalPart = digitsOnly
+    .slice(firstDotIndex + 1)
+    .replace(/\./g, '')
+    .slice(0, 2)
+
+  return `${integerPart}.${decimalPart}`
+}
+
+function validateBudgetInput(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return { error: 'Budget is required.', value: '' }
+  }
+
+  if (!/^\d+(\.\d{0,2})?$/.test(trimmed)) {
+    return { error: 'Budget must be a number with at most 2 decimal places.', value: '' }
+  }
+
+  const normalized = trimmed.endsWith('.') ? trimmed.slice(0, -1) : trimmed
+  const amount = Number(normalized)
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { error: 'Budget must be greater than 0.', value: '' }
+  }
+
+  return { error: null, value: normalized }
+}
 
 function formatQuotaValue(value: number) {
   return `$${normalizeQuotaToUsdAmount(value)}`
@@ -46,7 +79,6 @@ type AiApiPayeesTabProps = {
 export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
   const { toast } = useToast()
   const navigate = useNavigate()
-  const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
 
   const [plans, setPlans] = useState<TokenUsagePlanListItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -134,8 +166,14 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
   }
 
   const handleCreatePlan = async () => {
-    if (!newPlanName.trim() || !newBudget.trim()) {
-      toast({ title: 'Error', description: 'Plan name and budget are required.', variant: 'destructive' })
+    if (!newPlanName.trim()) {
+      toast({ title: 'Error', description: 'Plan name is required.', variant: 'destructive' })
+      return
+    }
+
+    const budgetValidation = validateBudgetInput(newBudget)
+    if (budgetValidation.error) {
+      toast({ title: 'Error', description: budgetValidation.error, variant: 'destructive' })
       return
     }
 
@@ -143,7 +181,7 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
       setCreating(true)
       await apis.tokenUsagePlan.createUsagePlan({
         planName: newPlanName.trim(),
-        budget: newBudget.trim(),
+        budget: budgetValidation.value,
       })
       toast({ title: 'Success', description: 'Usage plan created successfully.' })
       setCreateOpen(false)
@@ -171,18 +209,32 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
 
   const saveInlineEdit = async () => {
     if (!editingPlanId || !editingField) return
+
+    if (editingField === 'planName' && !editingValue.trim()) {
+      toast({ title: 'Error', description: 'Plan name is required.', variant: 'destructive' })
+      return
+    }
+
+    const budgetValidation = editingField === 'budget' ? validateBudgetInput(editingValue) : null
+    if (editingField === 'budget' && budgetValidation?.error) {
+      toast({ title: 'Error', description: budgetValidation.error, variant: 'destructive' })
+      return
+    }
+
+    const nextValue = editingField === 'budget' && budgetValidation ? budgetValidation.value : editingValue.trim()
+
     try {
       setSavingInline(true)
       const payload = editingField === 'planName'
-        ? { planName: editingValue.trim() }
-        : { budget: editingValue.trim() }
+        ? { planName: nextValue }
+        : { budget: nextValue }
       await apis.tokenUsagePlan.updateUsagePlan(editingPlanId, payload)
       setPlans(prev => prev.map(plan => (
         plan.id === editingPlanId
           ? {
             ...plan,
-            planName: editingField === 'planName' ? editingValue.trim() : plan.planName,
-            budget: editingField === 'budget' ? editingValue.trim() : plan.budget,
+            planName: editingField === 'planName' ? nextValue : plan.planName,
+            budget: editingField === 'budget' ? nextValue : plan.budget,
           }
           : plan
       )))
@@ -238,15 +290,15 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
               plans.map(plan => (
                 <TableRow key={plan.id}>
                   {(() => {
-                    const profile = planProfiles[plan.id]
-                    const remainingQuota = Math.max(0, profile?.data.quota ?? 0)
-                    const usedQuota = Math.max(0, profile?.data.used_quota ?? 0)
+                    const profileData = planProfiles[plan.id]?.data
+                    const remainingQuota = Math.max(0, profileData?.quota ?? 0)
+                    const usedQuota = Math.max(0, profileData?.used_quota ?? 0)
                     const totalQuota = remainingQuota + usedQuota
                     const remainingRatio = totalQuota > 0
                       ? Math.max(0, Math.min(1, remainingQuota / totalQuota))
                       : 0
                     const isProfileLoading = profileLoadingState[plan.id]
-                    const planStatus = profile?.data.status === 2 || plan.deletedAt ? 'Disabled' : 'Active'
+                    const planStatus = profileData?.status === 2 || plan.deletedAt ? 'Disabled' : 'Active'
 
                     return (
                       <>
@@ -279,8 +331,12 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
                         <TableCell>
                           {editingPlanId === plan.id && editingField === 'budget' ? (
                             <Input
+                              type="number"
+                              min="0.01"
+                              step="0.01"
+                              inputMode="decimal"
                               value={editingValue}
-                              onChange={event => setEditingValue(event.target.value)}
+                              onChange={event => setEditingValue(sanitizeBudgetInput(event.target.value))}
                               onBlur={() => void saveInlineEdit()}
                               onKeyDown={event => {
                                 if (event.key === 'Enter') void saveInlineEdit()
@@ -316,7 +372,7 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
                               ) : (
                                 <div className="flex flex-col gap-[4px]">
                                   <span className="text-[13px] leading-[18px] text-[#1c1c26]">
-                                    {profile ? `${formatQuotaValue(remainingQuota)} / ${formatQuotaValue(totalQuota)}` : '-'}
+                                    {profileData ? `${formatQuotaValue(remainingQuota)} / ${formatQuotaValue(totalQuota)}` : '-'}
                                   </span>
                                   <div className="h-[3px] w-[120px] overflow-hidden rounded-full bg-[#d9f0d2]">
                                     <div
@@ -393,8 +449,12 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
             <div className="flex flex-col gap-[8px]">
               <span className="text-[13px] font-medium text-[#1c1c26]">Budget</span>
               <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                inputMode="decimal"
                 value={newBudget}
-                onChange={event => setNewBudget(event.target.value)}
+                onChange={event => setNewBudget(sanitizeBudgetInput(event.target.value))}
                 placeholder="eg, 500."
               />
             </div>

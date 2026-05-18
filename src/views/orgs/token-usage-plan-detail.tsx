@@ -25,8 +25,8 @@ import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
 import axios from 'axios'
 import { Check, ChevronDown, Copy, Eye, EyeOff, Plus, Search, Terminal } from 'lucide-react'
-import type { KeyboardEvent } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import type { KeyboardEvent, WheelEvent as ReactWheelEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { formatDisplayAmount, getErrorMessage, getModelLabel, getModelValue } from './components/ai-api/utils'
 
@@ -239,6 +239,7 @@ export default function TokenUsagePlanDetailPage() {
   const [apiKeyToDelete, setApiKeyToDelete] = useState<TokenUsagePlanApiKeyItem | null>(null)
   const [modelPopoverOpen, setModelPopoverOpen] = useState(false)
   const [modelSearch, setModelSearch] = useState('')
+  const dialogContentRef = useRef<HTMLDivElement | null>(null)
   const activeTab = searchParams.get('tab') === 'usage-logs' ? 'usage-logs' : 'api-keys'
   const usageLogsPage = useMemo(() => {
     const parsed = Number(searchParams.get('logsPage') || '1')
@@ -262,6 +263,10 @@ export default function TokenUsagePlanDetailPage() {
       label: matchedModel ? getModelLabel(matchedModel) : modelValue,
     }
   }), [editor.selectedModels, models])
+
+  const handleModelListWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+  }
 
   const usageLogsTotalPages = useMemo(
     () => Math.max(1, Math.ceil(usageLogsTotal / Math.max(usageLogsPageSize, 1))),
@@ -887,7 +892,7 @@ export default function TokenUsagePlanDetailPage() {
       </div>
 
       <Dialog open={editor.open} onOpenChange={open => setEditor(prev => ({ ...prev, open }))}>
-        <DialogContent className="max-w-[640px]">
+        <DialogContent ref={dialogContentRef} className="max-w-[640px]">
           <DialogHeader>
             <DialogTitle>{editor.mode === 'create' ? 'Create API Key' : 'Edit API Key'}</DialogTitle>
           </DialogHeader>
@@ -1016,7 +1021,11 @@ export default function TokenUsagePlanDetailPage() {
                     <ChevronDown className="mt-[4px] h-[16px] w-[16px] shrink-0 text-[#9ca3af]" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] rounded-[14px] border-[rgba(0,0,0,0.12)] p-[10px]">
+                <PopoverContent
+                  container={dialogContentRef.current}
+                  align="start"
+                  className="w-[var(--radix-popover-trigger-width)] rounded-[14px] border-[rgba(0,0,0,0.12)] p-[10px]"
+                >
                   <div className="flex items-center gap-[8px] rounded-[10px] border border-[rgba(0,0,0,0.08)] px-[10px]">
                     <Search className="h-[15px] w-[15px] text-[#9ca3af]" />
                     <input
@@ -1026,7 +1035,10 @@ export default function TokenUsagePlanDetailPage() {
                       className="h-[36px] w-full border-0 bg-transparent text-[14px] outline-none placeholder:text-[#9ca3af]"
                     />
                   </div>
-                  <div className="mt-[10px] max-h-[220px] overflow-y-auto">
+                  <div
+                    className="mt-[10px] max-h-[220px] overflow-y-auto overscroll-contain"
+                    onWheel={handleModelListWheel}
+                  >
                     {filteredModels.length === 0 ? (
                       <div className="px-[10px] py-[12px] text-[13px] text-[#8d8d93]">No models found.</div>
                     ) : (
