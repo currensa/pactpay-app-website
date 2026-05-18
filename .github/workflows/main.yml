@@ -1,12 +1,26 @@
-name: Deploy to Production
+﻿name: Deploy Website
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: Deploy target environment
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - test
 
 jobs:
   build-and-deploy:
     name: Build, Push, and Deploy
     runs-on: ubuntu-latest
+    env:
+      IMAGE_ENV_PREFIX: ${{ inputs.environment == 'production' && 'PROD' || 'TEST' }}
+      CVM_HOST: ${{ inputs.environment == 'production' && secrets.CVM_HOST || secrets.CVM_HOST_TEST }}
+      CVM_USERNAME: ${{ inputs.environment == 'production' && secrets.CVM_USERNAME || secrets.CVM_USERNAME_TEST }}
+      CVM_SSH_KEY: ${{ inputs.environment == 'production' && secrets.CVM_SSH_KEY || secrets.CVM_SSH_KEY_TEST }}
 
     steps:
       - name: Checkout code
@@ -31,18 +45,18 @@ jobs:
         with:
           context: .
           push: true
-          tags: sgccr.ccs.tencentyun.com/pactpay/pactpay-app-website:PROD_${{ steps.tag.outputs.IMAGE_TAG }}
+          tags: sgccr.ccs.tencentyun.com/pactpay/pactpay-app-website:${{ env.IMAGE_ENV_PREFIX }}_${{ steps.tag.outputs.IMAGE_TAG }}
           build-args: |
             VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Deploy to CVM via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.CVM_HOST_PROD }}
-          username: ${{ secrets.CVM_USERNAME }}
-          key: ${{ secrets.CVM_SSH_KEY }}
+          host: ${{ env.CVM_HOST }}
+          username: ${{ env.CVM_USERNAME }}
+          key: ${{ env.CVM_SSH_KEY }}
           script: |
-            IMAGE="sgccr.ccs.tencentyun.com/pactpay/pactpay-app-website:PROD_${{ steps.tag.outputs.IMAGE_TAG }}"
+            IMAGE="sgccr.ccs.tencentyun.com/pactpay/pactpay-app-website:${{ env.IMAGE_ENV_PREFIX }}_${{ steps.tag.outputs.IMAGE_TAG }}"
             CONTAINER="pactpay-app-website"
 
             echo "${{ secrets.TCR_PASSWORD }}" | docker login sgccr.ccs.tencentyun.com \
