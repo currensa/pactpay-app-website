@@ -3,6 +3,7 @@ import AuthChecker from '@/components/app/base/auth-checker'
 import OrgSidebar from '@/components/app/orgs/sidebar'
 import useOrganizationStore from '@/stores/organization'
 import { Permission, useHasPermission } from '@/utils/permissions'
+import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
 function OrgGuard({ children }: { children: React.ReactNode }) {
@@ -20,6 +21,16 @@ function OrgGuard({ children }: { children: React.ReactNode }) {
 }
 
 export default function OrgLayout() {
+  const currentOrgId = useOrganizationStore(s => s.currentOrgId)
+  const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
+
+  useEffect(() => {
+    if (!currentOrgId) return
+    void fetchPayrollTokenSymbol().catch(() => {
+      // request interceptor handles API errors
+    })
+  }, [currentOrgId, fetchPayrollTokenSymbol])
+
   return (
     <AuthChecker>
       <OrgGuard>

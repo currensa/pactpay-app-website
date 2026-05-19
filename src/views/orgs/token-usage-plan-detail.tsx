@@ -25,8 +25,8 @@ import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
 import axios from 'axios'
 import { Check, ChevronDown, Copy, Eye, EyeOff, Plus, Search, Terminal } from 'lucide-react'
-import type { KeyboardEvent } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import type { KeyboardEvent, WheelEvent as ReactWheelEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { formatDisplayAmount, getErrorMessage, getModelLabel, getModelValue } from './components/ai-api/utils'
 
@@ -59,6 +59,7 @@ const defaultEditorState: KeyEditorState = {
 }
 
 const DEFAULT_GROUP = 'default'
+const API_KEYS_PAGE_SIZE = 20
 const USAGE_LOGS_PAGE_SIZE = 20
 const EXPIRATION_OPTIONS: Array<{ label: string; value: 'never' | ExpirationPresetMode }> = [
   { label: 'Never expires', value: 'never' },
@@ -197,6 +198,12 @@ function formatApiKeyQuota(apiKey: TokenUsagePlanApiKeyItem) {
   return formatUsdDisplay(normalizeQuotaToUsdAmount(apiKey.remain_quota))
 }
 
+function formatApiKeyDisplayValue(value: string) {
+  const normalized = String(value || '').trim()
+  if (!normalized) return 'sk-'
+  return normalized.startsWith('sk-') ? normalized : `sk-${normalized}`
+}
+
 function shouldBlockInputKey(event: KeyboardEvent<HTMLInputElement>) {
   if (event.ctrlKey || event.metaKey || event.altKey) return false
 
@@ -224,6 +231,8 @@ export default function TokenUsagePlanDetailPage() {
   const [models, setModels] = useState<Array<string | Record<string, any>>>([])
   const [loading, setLoading] = useState(true)
   const [keysLoading, setKeysLoading] = useState(true)
+  const [apiKeysTotal, setApiKeysTotal] = useState(0)
+  const [apiKeysPageSize, setApiKeysPageSize] = useState(API_KEYS_PAGE_SIZE)
   const [usageLogsLoading, setUsageLogsLoading] = useState(false)
   const [usageLogsTotal, setUsageLogsTotal] = useState(0)
   const [usageLogsPageSize, setUsageLogsPageSize] = useState(USAGE_LOGS_PAGE_SIZE)
@@ -239,7 +248,12 @@ export default function TokenUsagePlanDetailPage() {
   const [apiKeyToDelete, setApiKeyToDelete] = useState<TokenUsagePlanApiKeyItem | null>(null)
   const [modelPopoverOpen, setModelPopoverOpen] = useState(false)
   const [modelSearch, setModelSearch] = useState('')
+  const dialogContentRef = useRef<HTMLDivElement | null>(null)
   const activeTab = searchParams.get('tab') === 'usage-logs' ? 'usage-logs' : 'api-keys'
+  const apiKeysPage = useMemo(() => {
+    const parsed = Number(searchParams.get('keysPage') || '1')
+    return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1
+  }, [searchParams])
   const usageLogsPage = useMemo(() => {
     const parsed = Number(searchParams.get('logsPage') || '1')
     return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1
@@ -263,17 +277,37 @@ export default function TokenUsagePlanDetailPage() {
     }
   }), [editor.selectedModels, models])
 
+  const handleModelListWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+  }
+
   const usageLogsTotalPages = useMemo(
     () => Math.max(1, Math.ceil(usageLogsTotal / Math.max(usageLogsPageSize, 1))),
     [usageLogsPageSize, usageLogsTotal],
   )
+  const apiKeysTotalPages = useMemo(
+    () => Math.max(1, Math.ceil(apiKeysTotal / Math.max(apiKeysPageSize, 1))),
+    [apiKeysPageSize, apiKeysTotal],
+  )
+  const apiKeysPageCountDisplay = apiKeysTotal === 0 ? 0 : apiKeysTotalPages
   const usageLogsPageCountDisplay = usageLogsTotal === 0 ? 0 : usageLogsTotalPages
 
   const setActiveTab = (tab: 'api-keys' | 'usage-logs') => {
     const next = new URLSearchParams(searchParams)
     if (tab === 'usage-logs') next.set('tab', 'usage-logs')
     else next.delete('tab')
+    next.delete('keysPage')
     next.delete('logsPage')
+    setSearchParams(next, { replace: true })
+  }
+
+  const setApiKeysPageParam = (page: number) => {
+    const normalizedPage = Math.max(1, Math.floor(page))
+    const next = new URLSearchParams(searchParams)
+    next.delete('tab')
+    next.delete('logsPage')
+    if (normalizedPage === 1) next.delete('keysPage')
+    else next.set('keysPage', String(normalizedPage))
     setSearchParams(next, { replace: true })
   }
 
@@ -281,6 +315,7 @@ export default function TokenUsagePlanDetailPage() {
     const normalizedPage = Math.max(1, Math.floor(page))
     const next = new URLSearchParams(searchParams)
     next.set('tab', 'usage-logs')
+    next.delete('keysPage')
     if (normalizedPage === 1) next.delete('logsPage')
     else next.set('logsPage', String(normalizedPage))
     setSearchParams(next, { replace: true })
@@ -301,8 +336,26 @@ export default function TokenUsagePlanDetailPage() {
   const fetchKeys = async () => {
     setKeysLoading(true)
     try {
-      const response = await apis.tokenUsagePlan.getApiKeys(id)
-      setApiKeys(response.data.items)
+      const response = await apis.tokenUsagePlan.getApiKeys(id, {
+        page: apiKeysPage,
+        pageSize: API_KEYS_PAGE_SIZE,
+      })
+      setApiKeys(response.data)
+      setApiKeysTotal(response.total)
+      setApiKeysPageSize(response.pageSize || API_KEYS_PAGE_SIZE)
+
+      const resolvedTotalPages = Math.max(1, Math.ceil(response.total / Math.max(response.pageSize || API_KEYS_PAGE_SIZE, 1)))
+      const resolvedPage = Math.min(Math.max(response.page, 1), resolvedTotalPages)
+      if (resolvedPage !== apiKeysPage) {
+        setSearchParams(prev => {
+          const next = new URLSearchParams(prev)
+          next.delete('tab')
+          next.delete('logsPage')
+          if (resolvedPage === 1) next.delete('keysPage')
+          else next.set('keysPage', String(resolvedPage))
+          return next
+        }, { replace: true })
+      }
     } finally {
       setKeysLoading(false)
     }
@@ -331,7 +384,7 @@ export default function TokenUsagePlanDetailPage() {
   useEffect(() => {
     void refreshAll()
     return () => clearHeader()
-  }, [id])
+  }, [id, apiKeysPage])
 
   useEffect(() => {
     if (activeTab !== 'usage-logs') return
@@ -450,7 +503,7 @@ export default function TokenUsagePlanDetailPage() {
     try {
       setCopyingKeyIds(prev => ({ ...prev, [apiKey.id]: true }))
       const key = await ensureFullKey(apiKey)
-      await navigator.clipboard.writeText(key)
+      await navigator.clipboard.writeText(formatApiKeyDisplayValue(key))
       toast({ title: 'Success', description: 'Key copied.' })
     } catch (error: any) {
       if (axios.isAxiosError(error)) return
@@ -564,7 +617,7 @@ export default function TokenUsagePlanDetailPage() {
   const usedQuota = Math.max(0, profile?.used_quota ?? 0)
   const totalPurchased = remainingQuota + usedQuota
   const consumedRate = totalPurchased > 0 ? Math.round((usedQuota / totalPurchased) * 100) : 0
-  const apiKeysCount = apiKeys.length
+  const apiKeysCount = apiKeysTotal
   const planStatus = profile?.status === 2 || detail?.plan.deletedAt ? 'Disabled' : 'Active'
 
   if (loading || !detail) {
@@ -681,140 +734,155 @@ export default function TokenUsagePlanDetailPage() {
         </div>
 
         {activeTab === 'api-keys' ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>API name</TableHead>
-                  <TableHead>Key</TableHead>
-                  <TableHead>Quota</TableHead>
-                  <TableHead>Expiration time</TableHead>
-                  <TableHead>Usage</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {keysLoading ? (
-                  <TableSkeletonRows rows={4} cols={7} />
-                ) : apiKeys.length === 0 ? (
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7}>
-                      <div className="flex flex-col items-center justify-center gap-[10px] py-[32px]">
-                        <img src="/empty-table.svg" alt="No API keys" className="h-[120px] w-[120px]" />
-                        <p className="text-[13px] leading-[20px] text-[#8d8d93]">No API keys found</p>
-                      </div>
-                    </TableCell>
+                    <TableHead>API name</TableHead>
+                    <TableHead>Key</TableHead>
+                    <TableHead>Quota</TableHead>
+                    <TableHead>Expiration time</TableHead>
+                    <TableHead>Usage</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : (
-                  apiKeys.map(item => {
-                    const revealed = revealedKeys[item.id]
-                    const fullKey = fullKeys[item.id]
-                    const displayKey = revealed ? (fullKey || item.key) : item.key
-                    const isRevealLoading = Boolean(revealingKeyIds[item.id])
-                    const isCopying = Boolean(copyingKeyIds[item.id])
-                    const isCopyingTestCommand = Boolean(copyingTestCommandIds[item.id])
-                    const isStatusUpdating = Boolean(updatingStatusIds[item.id])
-                    const usage = resolveApiKeyUsage(item)
-                    const statusLabel = getApiKeyStatusLabel(item)
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.name}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-[8px]">
-                            <Input
-                              value={displayKey}
-                              onChange={() => { }}
-                              onBeforeInput={event => event.preventDefault()}
-                              onPaste={event => event.preventDefault()}
-                              onDrop={event => event.preventDefault()}
-                              onCut={event => event.preventDefault()}
-                              onKeyDown={event => {
-                                if (shouldBlockInputKey(event)) event.preventDefault()
-                              }}
-                              className="h-[32px] w-[200px] cursor-text rounded-[10px] border-0 bg-[#f5f5f5] px-[10px] font-mono text-[12px] text-[#606067] shadow-none focus-visible:ring-0"
-                            />
-                            <button
-                              type="button"
-                              className="text-[#8d8d93] transition-colors hover:text-[#5e85ee] disabled:cursor-not-allowed disabled:opacity-50"
-                              onClick={() => void handleToggleReveal(item)}
-                              disabled={isRevealLoading || isCopying}
-                            >
-                              {revealed ? <EyeOff className="h-[14px] w-[14px]" /> : <Eye className="h-[14px] w-[14px]" />}
-                            </button>
-                            <button
-                              type="button"
-                              className="text-[#8d8d93] transition-colors hover:text-[#5e85ee] disabled:cursor-not-allowed disabled:opacity-50"
-                              onClick={() => void handleCopyKey(item)}
-                              disabled={isRevealLoading || isCopying}
-                              title="Copy API key"
-                            >
-                              <Copy className="h-[14px] w-[14px]" />
-                            </button>
-                            <button
-                              type="button"
-                              className="text-[#8d8d93] transition-colors hover:text-[#5e85ee] disabled:cursor-not-allowed disabled:opacity-50"
-                              onClick={() => void handleCopyTestCommand(item)}
-                              disabled={isCopyingTestCommand}
-                              title="Copy test command"
-                            >
-                              <Terminal className="h-[14px] w-[14px]" />
-                            </button>
-                          </div>
-                        </TableCell>
-                        <TableCell>{formatApiKeyQuota(item)}</TableCell>
-                        <TableCell>{formatApiKeyExpiration(item.expired_time)}</TableCell>
-                        <TableCell>
-                          {usage.unlimitedQuota ? (
-                            <span className="whitespace-nowrap text-[13px] text-[#1c1c26]">{usage.usedDisplay}</span>
-                          ) : (
-                            <div className="min-w-[160px]">
-                              <div className="text-[13px] leading-[18px] text-[#1c1c26]">
-                                {usage.usedDisplay} / {usage.totalDisplay}
-                              </div>
-                              <div className="mt-[6px] h-[4px] w-[140px] overflow-hidden rounded-full bg-[#edf0f6]">
-                                <div
-                                  className="h-full rounded-full bg-[#5e85ee] transition-[width]"
-                                  style={{ width: `${usage.progress}%` }}
-                                />
-                              </div>
+                </TableHeader>
+                <TableBody>
+                  {keysLoading ? (
+                    <TableSkeletonRows rows={4} cols={7} />
+                  ) : apiKeys.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7}>
+                        <div className="flex flex-col items-center justify-center gap-[10px] py-[32px]">
+                          <img src="/empty-table.svg" alt="No API keys" className="h-[120px] w-[120px]" />
+                          <p className="text-[13px] leading-[20px] text-[#8d8d93]">No API keys found</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    apiKeys.map(item => {
+                      const revealed = revealedKeys[item.id]
+                      const fullKey = fullKeys[item.id]
+                      const displayKey = revealed ? (fullKey || item.key) : item.key
+                      const displayKeyWithPrefix = formatApiKeyDisplayValue(displayKey)
+                      const isRevealLoading = Boolean(revealingKeyIds[item.id])
+                      const isCopying = Boolean(copyingKeyIds[item.id])
+                      const isCopyingTestCommand = Boolean(copyingTestCommandIds[item.id])
+                      const isStatusUpdating = Boolean(updatingStatusIds[item.id])
+                      const usage = resolveApiKeyUsage(item)
+                      const statusLabel = getApiKeyStatusLabel(item)
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.name}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-[8px]">
+                              <Input
+                                value={displayKeyWithPrefix}
+                                onChange={() => { }}
+                                onBeforeInput={event => event.preventDefault()}
+                                onPaste={event => event.preventDefault()}
+                                onDrop={event => event.preventDefault()}
+                                onCut={event => event.preventDefault()}
+                                onKeyDown={event => {
+                                  if (shouldBlockInputKey(event)) event.preventDefault()
+                                }}
+                                className="h-[32px] w-[200px] cursor-text rounded-[10px] border-0 bg-[#f5f5f5] px-[10px] font-mono text-[12px] text-[#606067] shadow-none focus-visible:ring-0"
+                              />
+                              <button
+                                type="button"
+                                className="text-[#8d8d93] transition-colors hover:text-[#5e85ee] disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => void handleToggleReveal(item)}
+                                disabled={isRevealLoading || isCopying}
+                              >
+                                {revealed ? <EyeOff className="h-[14px] w-[14px]" /> : <Eye className="h-[14px] w-[14px]" />}
+                              </button>
+                              <button
+                                type="button"
+                                className="text-[#8d8d93] transition-colors hover:text-[#5e85ee] disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => void handleCopyKey(item)}
+                                disabled={isRevealLoading || isCopying}
+                                title="Copy API key"
+                              >
+                                <Copy className="h-[14px] w-[14px]" />
+                              </button>
+                              <button
+                                type="button"
+                                className="text-[#8d8d93] transition-colors hover:text-[#5e85ee] disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => void handleCopyTestCommand(item)}
+                                disabled={isCopyingTestCommand}
+                                title="Copy test command"
+                              >
+                                <Terminal className="h-[14px] w-[14px]" />
+                              </button>
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell><StatusPill status={statusLabel} /></TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-[12px]">
-                            <button
-                              type="button"
-                              className="text-[13px] text-[#606067] transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
-                              onClick={() => void handleToggleKeyStatus(item)}
-                              disabled={isStatusUpdating}
-                            >
-                              {isStatusUpdating ? 'Saving...' : statusLabel === 'Active' ? 'Disable' : 'Enable'}
-                            </button>
-                            <button
-                              type="button"
-                              className="text-[13px] text-[#5e85ee] transition-opacity hover:opacity-70"
-                              onClick={() => openEditDialog(item)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="text-[13px] text-[#d92b2b] transition-opacity hover:opacity-70"
-                              onClick={() => setApiKeyToDelete(item)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                          </TableCell>
+                          <TableCell>{formatApiKeyQuota(item)}</TableCell>
+                          <TableCell>{formatApiKeyExpiration(item.expired_time)}</TableCell>
+                          <TableCell>
+                            {usage.unlimitedQuota ? (
+                              <span className="whitespace-nowrap text-[13px] text-[#1c1c26]">{usage.usedDisplay}</span>
+                            ) : (
+                              <div className="min-w-[160px]">
+                                <div className="text-[13px] leading-[18px] text-[#1c1c26]">
+                                  {usage.usedDisplay} / {usage.totalDisplay}
+                                </div>
+                                <div className="mt-[6px] h-[4px] w-[140px] overflow-hidden rounded-full bg-[#edf0f6]">
+                                  <div
+                                    className="h-full rounded-full bg-[#5e85ee] transition-[width]"
+                                    style={{ width: `${usage.progress}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell><StatusPill status={statusLabel} /></TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-[12px]">
+                              <button
+                                type="button"
+                                className="text-[13px] text-[#606067] transition-opacity hover:opacity-70 disabled:cursor-not-allowed disabled:opacity-50"
+                                onClick={() => void handleToggleKeyStatus(item)}
+                                disabled={isStatusUpdating}
+                              >
+                                {isStatusUpdating ? 'Saving...' : statusLabel === 'Active' ? 'Disable' : 'Enable'}
+                              </button>
+                              <button
+                                type="button"
+                                className="text-[13px] text-[#5e85ee] transition-opacity hover:opacity-70"
+                                onClick={() => openEditDialog(item)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="text-[13px] text-[#d92b2b] transition-opacity hover:opacity-70"
+                                onClick={() => setApiKeyToDelete(item)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="mt-[20px]">
+              <Pagination
+                currentPage={apiKeysPage}
+                totalPages={apiKeysTotalPages}
+                onPageChange={setApiKeysPageParam}
+                totalItems={apiKeysTotal}
+                pageSize={apiKeysPageSize}
+                itemLabel="keys"
+                summaryText={`Total ${formatIntegerDisplay(apiKeysTotal)} keys, ${formatIntegerDisplay(apiKeysPageCountDisplay)} page${apiKeysPageCountDisplay === 1 ? '' : 's'}`}
+              />
+            </div>
+          </>
         ) : (
           <>
             <div className="overflow-x-auto">
@@ -887,7 +955,7 @@ export default function TokenUsagePlanDetailPage() {
       </div>
 
       <Dialog open={editor.open} onOpenChange={open => setEditor(prev => ({ ...prev, open }))}>
-        <DialogContent className="max-w-[640px]">
+        <DialogContent ref={dialogContentRef} className="max-w-[640px]">
           <DialogHeader>
             <DialogTitle>{editor.mode === 'create' ? 'Create API Key' : 'Edit API Key'}</DialogTitle>
           </DialogHeader>
@@ -1016,7 +1084,11 @@ export default function TokenUsagePlanDetailPage() {
                     <ChevronDown className="mt-[4px] h-[16px] w-[16px] shrink-0 text-[#9ca3af]" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] rounded-[14px] border-[rgba(0,0,0,0.12)] p-[10px]">
+                <PopoverContent
+                  container={dialogContentRef.current}
+                  align="start"
+                  className="w-[var(--radix-popover-trigger-width)] rounded-[14px] border-[rgba(0,0,0,0.12)] p-[10px]"
+                >
                   <div className="flex items-center gap-[8px] rounded-[10px] border border-[rgba(0,0,0,0.08)] px-[10px]">
                     <Search className="h-[15px] w-[15px] text-[#9ca3af]" />
                     <input
@@ -1026,7 +1098,10 @@ export default function TokenUsagePlanDetailPage() {
                       className="h-[36px] w-full border-0 bg-transparent text-[14px] outline-none placeholder:text-[#9ca3af]"
                     />
                   </div>
-                  <div className="mt-[10px] max-h-[220px] overflow-y-auto">
+                  <div
+                    className="mt-[10px] max-h-[220px] overflow-y-auto overscroll-contain"
+                    onWheel={handleModelListWheel}
+                  >
                     {filteredModels.length === 0 ? (
                       <div className="px-[10px] py-[12px] text-[13px] text-[#8d8d93]">No models found.</div>
                     ) : (

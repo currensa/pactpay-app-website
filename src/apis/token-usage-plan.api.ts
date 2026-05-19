@@ -87,14 +87,11 @@ export interface TokenUsagePlanApiKeyItem {
 export type TokenUsagePlanApiKeyStatus = 'Active' | 'Disabled' | 'Expired' | 'Exhausted'
 
 export interface TokenUsagePlanApiKeyListResponse {
-  success: boolean
-  message: string
-  data: {
-    items: TokenUsagePlanApiKeyItem[]
-    page: number
-    page_size: number
-    total: number
-  }
+  data: TokenUsagePlanApiKeyItem[]
+  page: number
+  pageSize: number
+  total: number
+  raw: unknown
 }
 
 export interface TokenUsagePlanApiKeyTestCommand {
@@ -177,17 +174,6 @@ export interface TokenUsagePlanUsageLogListResponse {
   pageSize: number
   total: number
   raw: unknown
-}
-
-interface TokenUsagePlanUsageLogApiResponse {
-  success: boolean
-  message: string
-  data: {
-    page: number
-    pageSize: number
-    total: number
-    list: TokenUsagePlanUsageLogRawItem[]
-  }
 }
 
 export interface UpdateUsagePlanPayload {
@@ -396,6 +382,8 @@ function extractCacheReadTokens(raw: Record<string, any>) {
     'cache_read_tokens',
     'cacheReadInputTokens',
     'cacheReadTokens',
+    'cache_tokens',
+    'cacheTokens',
     'cache_read',
     'cacheRead',
     'prompt_cache_hit_tokens',
@@ -472,25 +460,42 @@ export class TokenUsagePlanApi {
     return extractListFromUnknownPayload<string | Record<string, any>>(res.data)
   }
 
-  async getApiKeys(id: string): Promise<TokenUsagePlanApiKeyListResponse> {
-    const res = await this.request.get<TokenUsagePlanApiKeyListResponse>(`/orgs/${this.orgId}/token-usage-plans/${id}/api-keys`)
-    return res.data
+  async getApiKeys(
+    id: string,
+    params: { page?: number; pageSize?: number } = {},
+  ): Promise<TokenUsagePlanApiKeyListResponse> {
+    const { page = 1, pageSize = 20 } = params
+    const res = await this.request.get(`/orgs/${this.orgId}/token-usage-plans/${id}/api-keys`, {
+      params: { page, pageSize },
+    })
+    const raw = res.data
+    const payload = asRecord(raw)
+    const dataRecord = asRecord(payload.data)
+
+    return {
+      data: extractListFromUnknownPayload<TokenUsagePlanApiKeyItem>(raw),
+      page: firstNumber(payload.page, dataRecord.page, page),
+      pageSize: firstNumber(payload.pageSize, payload.page_size, dataRecord.pageSize, dataRecord.page_size, pageSize),
+      total: firstNumber(payload.total, dataRecord.total, 0),
+      raw,
+    }
   }
 
   async getUsageLogs(id: string, params: TokenUsagePlanUsageLogListParams = {}): Promise<TokenUsagePlanUsageLogListResponse> {
     const { page = 1, pageSize = 20, type = 2, ...rest } = params
-    const res = await this.request.get<TokenUsagePlanUsageLogApiResponse>(`/orgs/${this.orgId}/token-usage-plans/${id}/logs`, {
+    const res = await this.request.get(`/orgs/${this.orgId}/token-usage-plans/${id}/logs`, {
       params: compactRecord({ page, pageSize, type, ...rest }),
     })
     const raw = res.data
-    const payload = raw.data
-    const list = (payload.list ?? []).map(normalizeUsageLogItem)
+    const payload = asRecord(raw)
+    const dataRecord = asRecord(payload.data)
+    const list = extractListFromUnknownPayload<TokenUsagePlanUsageLogRawItem>(raw).map(normalizeUsageLogItem)
 
     return {
       list,
-      page: payload.page ?? page,
-      pageSize: payload.pageSize ?? pageSize,
-      total: payload.total ?? list.length,
+      page: firstNumber(payload.page, dataRecord.page, page),
+      pageSize: firstNumber(payload.pageSize, payload.page_size, dataRecord.pageSize, dataRecord.page_size, pageSize),
+      total: firstNumber(payload.total, dataRecord.total, list.length),
       raw,
     }
   }

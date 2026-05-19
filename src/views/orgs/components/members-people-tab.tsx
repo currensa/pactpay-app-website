@@ -43,6 +43,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
   const [members, setMembers] = useState<OrganizationMember[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [total, setTotal] = useState(0)
   const [inited, setInited] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -84,21 +85,23 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
     return field as 'lastPayment'
   }
 
+  const buildMemberQueryParams = (page: number, customPageSize = pageSize) => ({
+    page,
+    pageSize: customPageSize,
+    keyword: debouncedSearch || undefined,
+    role: roleFilter !== 'All' ? roleFilter : undefined,
+    status: statusFilter !== 'All' ? statusFilter : undefined,
+    sortBy: toApiSortBy(sortField),
+    sortOrder: sortDirection ?? undefined,
+  })
+
   const fetchMembers = async (page = currentPage, isInitial = false) => {
     if (!localStorage.getItem('organizationId')) return
     if (isInitial) setLoading(true)
     else setRefreshing(true)
 
     try {
-      const res = await apis.organization.getOrganizationMembers({
-        page,
-        pageSize,
-        keyword: debouncedSearch || undefined,
-        role: roleFilter !== 'All' ? roleFilter : undefined,
-        status: statusFilter !== 'All' ? statusFilter : undefined,
-        sortBy: toApiSortBy(sortField),
-        sortOrder: sortDirection ?? undefined,
-      })
+      const res = await apis.organization.getOrganizationMembers(buildMemberQueryParams(page))
       setMembers(res.data)
       setTotal(res.total)
     } catch {
@@ -199,6 +202,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
 
   const handleExport = async () => {
     try {
+      setExporting(true)
       const { blob, filename } = await apis.organization.getInviteImportTemplate()
       const isXlsx = filename?.toLowerCase().endsWith('.xlsx')
       let headers: string[] = []
@@ -232,14 +236,33 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
         }
       }
 
-      const dataRows = members.map(member => headers.map(header => getMemberField(member, header)))
+      const exportPageSize = 100
+      const firstPage = await apis.organization.getOrganizationMembers(buildMemberQueryParams(1, exportPageSize))
+      const totalPagesToExport = Math.max(1, Math.ceil(firstPage.total / exportPageSize))
+      const remainingPages = totalPagesToExport > 1
+        ? await Promise.all(
+          Array.from({ length: totalPagesToExport - 1 }, (_, index) =>
+            apis.organization.getOrganizationMembers(buildMemberQueryParams(index + 2, exportPageSize)),
+          ),
+        )
+        : []
+      const exportMembers = [firstPage, ...remainingPages].flatMap(response => response.data)
+
+      if (exportMembers.length === 0) {
+        toast({ title: 'Info', description: 'No members match the current filters.' })
+        return
+      }
+
+      const dataRows = exportMembers.map(member => headers.map(header => getMemberField(member, header)))
       const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows])
       ws['!cols'] = headers.map(header => ({ wch: Math.max(20, header.length + 4) }))
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Members')
-      XLSX.writeFile(wb, `members-page-${currentPage}.xlsx`)
+      XLSX.writeFile(wb, 'members-export.xlsx')
     } catch {
       // request interceptor handles API errors
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -418,10 +441,11 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
             </button>
             <button
               onClick={() => void handleExport()}
+              disabled={exporting}
               className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
             >
               <Upload className="h-[14px] w-[14px]" />
-              Export
+              {exporting ? 'Exporting...' : 'Export'}
             </button>
           </div>
         </div>
