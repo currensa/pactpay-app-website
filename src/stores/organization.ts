@@ -46,7 +46,12 @@ const useOrganizationStore = create<OrganizationState>((set) => ({
   setCurrentOrg: (orgId: string, member: OrganizationMember) => {
     localStorage.setItem('organizationId', orgId)
     localStorage.setItem('currentMember', JSON.stringify(member))
-    set({ currentOrgId: orgId, currentMember: member })
+    set({
+      currentOrgId: orgId,
+      currentMember: member,
+      payrollConfig: null,
+      payrollTokenSymbol: null,
+    })
   },
   fetchPayrollTokenSymbol: async () => {
     const chainAssetStore = useChainAssetStore.getState()

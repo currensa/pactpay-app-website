@@ -14,6 +14,7 @@ import { formatUnits } from 'ethers'
 import { Bot, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import CreateUsagePlanDialog from '../orgs/components/ai-api/create-usage-plan-dialog'
 import { formatDisplayAmount } from '../orgs/components/ai-api/utils'
 import { ExecuteConfirmDialogContent, ExecuteSuccessDialogContent } from './components'
 import type { Transaction } from './components/types'
@@ -142,6 +143,7 @@ export default function CreateAiTransaction() {
   const [executeSuccessDialogOpen, setExecuteSuccessDialogOpen] = useState(false)
   const [lastDepositTxHash, setLastDepositTxHash] = useState('')
   const [planProfilesById, setPlanProfilesById] = useState<Record<string, TokenUsagePlanProfileResponse>>({})
+  const [createPlanDialogOpen, setCreatePlanDialogOpen] = useState(false)
 
   const selectedPlan = useMemo(
     () => plans.find(plan => plan.id === selectedPlanId) ?? null,
@@ -179,7 +181,9 @@ export default function CreateAiTransaction() {
       ])
       const response = await apis.tokenUsagePlan.getUsagePlanList(1, 100)
       setPlans(response.data)
-      if (!selectedPlanId && response.data[0]) {
+      if (response.data.length === 0) {
+        setSelectedPlanId('')
+      } else if (!response.data.some(plan => plan.id === selectedPlanId)) {
         setSelectedPlanId(response.data[0].id)
       }
     } catch {
@@ -294,6 +298,8 @@ export default function CreateAiTransaction() {
     return <div className="flex h-full items-center justify-center text-[13px] text-[#8d8d93]">Loading...</div>
   }
 
+  const hasPlans = plans.length > 0
+
   return (
     <div className="flex h-full min-h-0 gap-[26px]">
       <div className="flex min-h-0 flex-1 flex-col gap-[18px] rounded-[32px] bg-white p-[20px]">
@@ -306,27 +312,42 @@ export default function CreateAiTransaction() {
           </p>
         </div>
 
-        <div className="grid gap-[12px] overflow-y-auto pr-[2px]">
-          {plans.map(plan => (
-            <button
-              key={plan.id}
-              type="button"
-              onClick={() => setSelectedPlanId(plan.id)}
-              className={`rounded-[20px] border px-[16px] py-[14px] text-left transition-colors ${selectedPlanId === plan.id
-                ? 'border-[#5e85ee] bg-[rgba(94,133,238,0.06)]'
-                : 'border-[rgba(0,0,0,0.08)] bg-white hover:bg-[#f8f8fb]'
-                }`}
-            >
-              <div className="flex items-center justify-between gap-[12px]">
-                <div className="min-w-0">
-                  <p className="text-[15px] font-medium text-[#1c1c26]">{plan.planName}</p>
-                  <p className="mt-[4px] font-mono text-[12px] text-[#8d8d93]">createdAt：{formatLocalDateTime(plan.createdAt)}</p>
+        {hasPlans ? (
+          <div className="grid gap-[12px] overflow-y-auto pr-[2px]">
+            {plans.map(plan => (
+              <button
+                key={plan.id}
+                type="button"
+                onClick={() => setSelectedPlanId(plan.id)}
+                className={`rounded-[20px] border px-[16px] py-[14px] text-left transition-colors ${selectedPlanId === plan.id
+                  ? 'border-[#5e85ee] bg-[rgba(94,133,238,0.06)]'
+                  : 'border-[rgba(0,0,0,0.08)] bg-white hover:bg-[#f8f8fb]'
+                  }`}
+              >
+                <div className="flex items-center justify-between gap-[12px]">
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-medium text-[#1c1c26]">{plan.planName}</p>
+                    <p className="mt-[4px] font-mono text-[12px] text-[#8d8d93]">createdAt: {formatLocalDateTime(plan.createdAt)}</p>
+                  </div>
+                  <span className="shrink-0 text-[13px] text-[#1c1c26]">$ {formatDisplayAmount(plan.budget)}</span>
                 </div>
-                <span className="shrink-0 text-[13px] text-[#1c1c26]">$ {formatDisplayAmount(plan.budget)}</span>
-              </div>
-            </button>
-          ))}
-        </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-[16px] rounded-[24px] border border-dashed border-[rgba(0,0,0,0.12)] bg-[#fafafb] px-[24px] py-[40px] text-center">
+            <img src="/empty-table.svg" alt="No usage plans" className="h-[120px] w-[120px]" />
+            <div className="space-y-[6px]">
+              <p className="text-[15px] font-medium text-[#1c1c26]">No usage plans found</p>
+              <p className="text-[12px] leading-[20px] text-[#8d8d93]">
+                Create a usage plan first, then come back to fund it.
+              </p>
+            </div>
+            <Button onClick={() => setCreatePlanDialogOpen(true)}>
+              Create Usage Plan
+            </Button>
+          </div>
+        )}
 
         <div className="shrink-0">
           <p className="text-[13px] font-semibold leading-[22px] text-[#1c1c26]">
@@ -460,6 +481,14 @@ export default function CreateAiTransaction() {
           />
         </DialogContent>
       </Dialog>
+
+      <CreateUsagePlanDialog
+        open={createPlanDialogOpen}
+        onOpenChange={setCreatePlanDialogOpen}
+        onSuccess={async () => {
+          await loadPlans()
+        }}
+      />
     </div>
   )
 }

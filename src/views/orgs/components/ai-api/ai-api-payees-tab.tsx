@@ -2,14 +2,6 @@ import apis from '@/apis'
 import type { TokenUsagePlanListItem, TokenUsagePlanProfileResponse } from '@/apis/token-usage-plan.api'
 import { normalizeQuotaToUsdAmount } from '@/apis/token-usage-plan.api'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
@@ -17,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Edit2, Plus } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import CreateUsagePlanDialog from './create-usage-plan-dialog'
 import { formatDisplayAmount } from './utils'
 
 const PAGE_SIZE = 10
@@ -89,9 +82,6 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
   const [profileLoadingState, setProfileLoadingState] = useState<Record<string, boolean>>({})
 
   const [createOpen, setCreateOpen] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [newPlanName, setNewPlanName] = useState('')
-  const [newBudget, setNewBudget] = useState('')
 
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [editingField, setEditingField] = useState<'planName' | 'budget' | null>(null)
@@ -159,41 +149,6 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
       active = false
     }
   }, [plans])
-
-  const resetCreateForm = () => {
-    setNewPlanName('')
-    setNewBudget('')
-  }
-
-  const handleCreatePlan = async () => {
-    if (!newPlanName.trim()) {
-      toast({ title: 'Error', description: 'Plan name is required.', variant: 'destructive' })
-      return
-    }
-
-    const budgetValidation = validateBudgetInput(newBudget)
-    if (budgetValidation.error) {
-      toast({ title: 'Error', description: budgetValidation.error, variant: 'destructive' })
-      return
-    }
-
-    try {
-      setCreating(true)
-      await apis.tokenUsagePlan.createUsagePlan({
-        planName: newPlanName.trim(),
-        budget: budgetValidation.value,
-      })
-      toast({ title: 'Success', description: 'Usage plan created successfully.' })
-      setCreateOpen(false)
-      resetCreateForm()
-      setCurrentPage(1)
-      await fetchPlans(1)
-    } catch {
-      // request interceptor handles API errors
-    } finally {
-      setCreating(false)
-    }
-  }
 
   const startInlineEdit = (plan: TokenUsagePlanListItem, field: 'planName' | 'budget') => {
     setEditingPlanId(plan.id)
@@ -428,57 +383,14 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
         className="shrink-0"
       />
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Usage Plan</DialogTitle>
-            <DialogDescription>
-              Set a plan name and reference budget for an AI API account.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="mt-[20px] flex flex-col gap-[14px]">
-            <div className="flex flex-col gap-[8px]">
-              <span className="text-[13px] font-medium text-[#1c1c26]">Plan Name</span>
-              <Input
-                value={newPlanName}
-                onChange={event => setNewPlanName(event.target.value)}
-                placeholder="Please enter a plan name, eg, dev team."
-              />
-            </div>
-            <div className="flex flex-col gap-[8px]">
-              <span className="text-[13px] font-medium text-[#1c1c26]">Budget</span>
-              <Input
-                type="number"
-                min="0.01"
-                step="0.01"
-                inputMode="decimal"
-                value={newBudget}
-                onChange={event => setNewBudget(sanitizeBudgetInput(event.target.value))}
-                placeholder="eg, 500."
-              />
-            </div>
-            <p className="text-[12px] leading-[18px] text-[#8d8d93]">
-              Budget is a reference target only and uses your organisation payment currency.
-            </p>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setCreateOpen(false)
-                resetCreateForm()
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={() => void handleCreatePlan()} disabled={creating}>
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateUsagePlanDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSuccess={async () => {
+          setCurrentPage(1)
+          await fetchPlans(1)
+        }}
+      />
     </div>
   )
 }
