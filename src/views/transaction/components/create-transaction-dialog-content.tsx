@@ -110,16 +110,6 @@ function truncateAddress(addr: string): string {
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
 
-function getChainName(caipChainId: string): string {
-  const map: Record<string, string> = {
-    'eip155:1': 'Ethereum',
-    'eip155:11155111': 'Sepolia Testnet',
-    'eip155:137': 'Polygon',
-    'eip155:56': 'BNB Chain',
-  }
-  return map[caipChainId] || caipChainId.split(':')[1] || caipChainId
-}
-
 function offsetToLabel(offset: number): string {
   const sign = offset >= 0 ? '+' : '-'
   const abs = Math.abs(offset)
@@ -168,12 +158,18 @@ export function CreateTransactionDialogContent({
   const payrollConfig = useOrganizationStore(s => s.payrollConfig)
   const currentMember = useOrganizationStore(s => s.currentMember)
   const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
+  const fetchChains = useChainAssetStore(s => s.fetchChains)
+  const getChain = useChainAssetStore(s => s.getChain)
   const getTokenSymbol = useChainAssetStore(s => s.getTokenSymbol)
   const getTokenDecimals = useChainAssetStore(s => s.getTokenDecimals)
 
   useEffect(() => {
     fetchPayrollTokenSymbol()
   }, [])
+
+  useEffect(() => {
+    void fetchChains()
+  }, [fetchChains])
 
   useEffect(() => {
     if (variant !== 'page') return
@@ -285,6 +281,10 @@ export function CreateTransactionDialogContent({
     if (!displayCaipChainId) return 18
     return getTokenDecimals(displayCaipChainId, displayTokenAddress || '')
   }, [displayCaipChainId, displayTokenAddress, getTokenDecimals])
+  const displayChainName = useMemo(() => {
+    if (!displayCaipChainId) return ''
+    return getChain(displayCaipChainId)?.name ?? ''
+  }, [displayCaipChainId, getChain])
 
   const totalAmount = useMemo(() => {
     return sumTokenAmounts(
@@ -1003,7 +1003,7 @@ export function CreateTransactionDialogContent({
                     {displayCaipChainId && (
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] text-[#8d8d93]">Network</span>
-                        <span className="text-[14px] text-[#1c1c26]">{getChainName(displayCaipChainId)}</span>
+                        <span className="text-[14px] text-[#1c1c26]">{displayChainName}</span>
                       </div>
                     )}
                     <div className="flex items-center justify-between">
