@@ -10,6 +10,7 @@ const navItems = [
   { label: 'For members', id: 'for-members', sub: true },
   { label: 'Mechanism', id: 'mechanism' },
   { label: 'Why non-custodial', id: 'non-custodial', sub: true },
+  { label: 'Contract addresses', id: 'contract-addresses', sub: true },
   { label: 'Address protection', id: 'address-protection', sub: true },
   { label: 'API Services', id: 'api-services' },
   { label: 'Reference', id: 'reference' },
@@ -50,6 +51,27 @@ const apiModelPricingRows = [
   ['OpenAI', 'gpt-5.4-mini', '$0.75 / MTok', '$4.50 / MTok', '$0.4875 / MTok', '$2.925 / MTok', '65%'],
   ['OpenAI', 'gpt-5.4-nano', '$0.20 / MTok', '$1.25 / MTok', '$0.13 / MTok', '$0.8125 / MTok', '65%'],
   ['OpenAI', 'gpt-5.4-pro', '$30.00 / MTok', '$180.00 / MTok', '$19.50 / MTok', '$117.00 / MTok', '65%'],
+]
+
+const contractAddresses = [
+  {
+    chain: 'Base',
+    environment: 'Mainnet',
+    address: '0x16458100Aa146046067831827cdB91f6a6E0535D',
+    href: 'https://basescan.org/address/0x16458100aa146046067831827cdb91f6a6e0535d',
+  },
+  {
+    chain: 'BNB Smart Chain',
+    environment: 'Mainnet',
+    address: '0x16458100Aa146046067831827cdB91f6a6E0535D',
+    href: 'https://bscscan.com/address/0x16458100aa146046067831827cdb91f6a6e0535d',
+  },
+  {
+    chain: 'Sepolia',
+    environment: 'Testnet',
+    address: '0x5F2E184B850E552f1B66f754EAD5d278475f6811',
+    href: 'https://sepolia.etherscan.io/address/0x5F2E184B850E552f1B66f754EAD5d278475f6811',
+  },
 ]
 
 function SectionAnchor({ id }: { id: string }) {
@@ -137,8 +159,8 @@ export default function DocumentPage() {
 
           <SectionAnchor id="what-is-pactpay" />
           <h3 className="text-xl font-bold mb-3 mt-8 text-[#1c1c26]">What is PactPay</h3>
-          <p className="text-[#606067] mb-3 text-base leading-relaxed">PactPay is a non-custodial crypto payment platform. Organisations can define custom payment rules and schedules, then execute payments to their members through smart contracts. No fund custody. No KYC required.</p>
-          <p className="text-[#606067] mb-6 text-base leading-relaxed">PactPay is built for Web3 teams, DAOs, and any organisation that pays contributors in cryptocurrency and values privacy, on-chain transparency, and self-custody.</p>
+          <p className="text-[#606067] mb-3 text-base leading-relaxed">PactPay is a non-custodial crypto payment platform for organisations. Pay contributors, purchase services, and manage all crypto spending in one place — no KYC, no fund custody, no org info needed, no intermediary.</p>
+          <p className="text-[#606067] mb-6 text-base leading-relaxed">PactPay is built for Web3 teams, DAOs, and any organisation that operates in crypto. Whether you're running payroll, buying infrastructure like AI APIs, cloud services, or other third-party services, every payment goes through a smart contract that guards your privacy.</p>
 
           <SectionAnchor id="core-principles" />
           <h3 className="text-xl font-bold mb-3 mt-8 text-[#1c1c26]">Core principles</h3>
@@ -163,8 +185,8 @@ export default function DocumentPage() {
           <ol className="list-decimal list-inside space-y-1 text-base text-[#606067] mb-5">
             <li>Connect your wallet or sign in with email and register</li>
             <li>Create your organisation</li>
-            <li>Invite members</li>
-            <li>Create and execute payment transactions</li>
+            <li>Invite members (optional)</li>
+            <li>Create and execute payment transactions to people or services</li>
           </ol>
           <p className="text-base font-semibold text-[#1c1c26] mb-2">Member flow</p>
           <ol className="list-decimal list-inside space-y-1 text-base text-[#606067]">
@@ -176,15 +198,19 @@ export default function DocumentPage() {
 
           <SectionAnchor id="for-organisations" />
           <h3 className="text-xl font-bold mb-3 mt-10 text-[#1c1c26]">For organisations</h3>
+          <p className="text-base font-semibold text-[#1c1c26] mb-1">Setting up</p>
           <ol className="list-decimal list-inside space-y-2 text-base text-[#606067] mb-6 leading-relaxed">
             <li>Go to pactpay.app and connect your wallet or sign in with email.</li>
             <li>Create your organisation and fill in the basic details.</li>
-            <li>Go to Members, click Invite Members, share the invite link, and approve incoming members.</li>
-            <li>Configure payment settings, including chain and token type.</li>
-            <li>On the Members page, set the payment amount for each member.</li>
-            <li>Go to Transactions, click New Transaction, select members, confirm amounts, and set a claim time.</li>
+            <li>Configure payment settings under Settings, including the chain and token type you want to use for transactions.</li>
+          </ol>
+          <p className="text-base font-semibold text-[#1c1c26] mb-1">Running payroll</p>
+          <ol className="list-decimal list-inside space-y-2 text-base text-[#606067] mb-6 leading-relaxed">
+            <li>Go to Payees → People, click Invite Members, share the invite link, and approve incoming members.</li>
+            <li>Set the payment amount for each member on the People page.</li>
+            <li>Go to Transactions, click New Transaction, select People payment, choose members and amounts, and set a claim time.</li>
             <li>Review the transaction summary and click Sign & Execute. Make sure to execute before the claim time.</li>
-            <li>You can also assign other members as Admin or Operator to help manage and execute transactions.</li>
+            <li>You can assign members as Admin or Operator to help manage and execute transactions.</li>
           </ol>
           <div className="overflow-x-auto">
             <table className="w-full text-xs border-collapse">
@@ -208,6 +234,15 @@ export default function DocumentPage() {
             </table>
           </div>
 
+          <p className="text-base font-semibold text-[#1c1c26] mb-1">Purchasing services</p>
+          <ol className="list-decimal list-inside space-y-2 text-base text-[#606067] mb-6 leading-relaxed">
+            <li>Beyond payroll, organisations can purchase services directly through PactPay and pay with crypto. </li>
+            <li>Available services are listed under Payees → Services.</li>
+            <li>To purchase a service, go to Payees, choose a service category, configure what you need, and confirm. A transaction is created and goes through the same on-chain payment flow as payroll. Once payment is confirmed on-chain, the service is provisioned automatically.</li>
+            <li>All service purchases share the same rules: no platform fee, non-refundable once confirmed, and no KYC required. You can view all service purchase records under Transactions.</li>
+            <li>Service transactions do not use claim time — payment settles directly and the service is activated upon on-chain confirmation.</li>
+          </ol>
+
           <SectionAnchor id="for-members" />
           <h3 className="text-xl font-bold mb-3 mt-10 text-[#1c1c26]">For members</h3>
           <ol className="list-decimal list-inside space-y-2 text-base text-[#606067] leading-relaxed">
@@ -230,13 +265,36 @@ Payment smart contract (on-chain, publicly verifiable)
     -> Unlocks automatically when claim time arrives
 Member's receiving wallet`}</pre>
           <p className="text-base text-[#606067] mb-3 leading-relaxed">There is no PactPay-controlled account anywhere in this path. The payment smart contract logic is fully public.</p>
-          <p className="text-base font-semibold text-[#1c1c26] mb-1">Contract addresses:</p>
-          <p className="text-base text-[#606067] mb-4">
-            Sepolia Testnet:{' '}
-            <a href="https://sepolia.etherscan.io/address/0x5F2E184B850E552f1B66f754EAD5d278475f6811" target="_blank" rel="noreferrer" className="text-[#5e85ee] hover:underline break-all">
-              0x5F2E184B850E552f1B66f754EAD5d278475f6811
-            </a>
-          </p>
+          <SectionAnchor id="contract-addresses" />
+          <div className="mb-5 rounded-[18px] border border-[rgba(94,133,238,0.12)] bg-[linear-gradient(135deg,rgba(94,133,238,0.08),rgba(255,255,255,0.98))] p-4 md:p-5">
+            <div className="mb-3 flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+              <p className="text-base font-semibold text-[#1c1c26]">Contract addresses</p>
+              <span className="inline-flex w-fit rounded-full bg-white px-2.5 py-1 text-xs font-medium text-[#5e85ee] shadow-[0_1px_6px_rgba(94,133,238,0.12)]">
+                Public and verifiable
+              </span>
+            </div>
+            <div className="grid gap-3">
+              {contractAddresses.map(({ chain, environment, address, href }) => (
+                <a
+                  key={`${chain}-${environment}`}
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group rounded-[14px] border border-[rgba(0,0,0,0.06)] bg-white/90 p-4 hover:border-[rgba(94,133,238,0.3)]"
+                >
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-[#1c1c26]">{chain}</span>
+                    <span className="rounded-full bg-[rgba(94,133,238,0.08)] px-2 py-0.5 text-xs font-medium text-[#5e85ee]">
+                      {environment}
+                    </span>
+                  </div>
+                  <code className="block break-all rounded-[10px] bg-[#f6f8fc] px-3 py-2 text-sm text-[#5e85ee] underline decoration-[1.5px] underline-offset-3">
+                    {address}
+                  </code>
+                </a>
+              ))}
+            </div>
+          </div>
           <p className="text-base text-[#606067] mb-2">When an operator creates and signs a transaction, the following parameters are encoded on-chain:</p>
           <ul className="list-disc list-inside space-y-1 text-base text-[#606067] mb-4">
             <li>The recipient list (each member's shielded identity address)</li>
@@ -377,14 +435,14 @@ Member's receiving wallet`}</pre>
           <p className="text-base text-[#606067] mb-2 leading-relaxed">Fee calculation example: Executing a USDC payment to 5 members at the early access rate on BSC or other L2s costs 5 x 2 USDC = 10 USDC in service fees, plus gas (paid by the organisation's wallet directly to the network). The service fee is charged when the first member claims. If no one claims, no fee is incurred. Gas fees for member claims are covered by PactPay.</p>
           <p className="text-base text-[#606067] mb-6 leading-relaxed">For large teams or high-frequency payment needs, contact <strong className="text-[#1c1c26]">support@pactpay.app</strong> to discuss a custom plan.</p>
 
-          <p className="text-base text-[#606067] mb-3 leading-relaxed">API purchases are billed at cost. PactPay charges no platform fee on AI API purchases.</p>
+          <p className="text-base text-[#606067] mb-3 leading-relaxed">API purchases are billed at cost. PactPay charges <strong className="text-[#1c1c26]">no platform fee</strong> on AI API purchases.</p>
           <ul className="list-disc list-inside space-y-2 text-base text-[#606067] mb-5 leading-relaxed">
             <li>Payment is made in the same network and token as transaction settings.</li>
             <li>Gas is paid by the organisation&apos;s wallet directly to the network.</li>
             <li>All AI API purchases are non-refundable.</li>
           </ul>
 
-          <p className="text-base font-semibold text-[#1c1c26] mb-3">Main supported models and API prices (MTok = Million tokens)</p>
+          {/* <p className="text-base font-semibold text-[#1c1c26] mb-3">Main supported models and API prices (MTok = Million tokens)</p>
           <div className="overflow-x-auto mb-3">
             <table className="w-full text-sm border-collapse">
               <thead>
@@ -411,7 +469,7 @@ Member's receiving wallet`}</pre>
               </tbody>
             </table>
           </div>
-          <p className="text-base text-[#606067] leading-relaxed">Note: Prices shown for OpenAI models are Standard tier short context (&le;200K input tokens); long context (&gt;200K) doubles input price and adds 50% to output price. This applies only to gpt-5.5, gpt-5.5-pro, gpt-5.4, and gpt-5.4-pro.</p>
+          <p className="text-base text-[#606067] leading-relaxed">Note: Prices shown for OpenAI models are Standard tier short context (&le;200K input tokens); long context (&gt;200K) doubles input price and adds 50% to output price. This applies only to gpt-5.5, gpt-5.5-pro, gpt-5.4, and gpt-5.4-pro.</p> */}
 
           <SectionAnchor id="faq" />
           <h3 className="text-xl font-bold mb-5 mt-10 text-[#1c1c26]">FAQ</h3>
