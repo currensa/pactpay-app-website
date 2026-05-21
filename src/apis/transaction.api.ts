@@ -229,6 +229,22 @@ export class TransactionApi {
     return res.data
   }
 
+  async confirmDeposit(batchId: string, depositTxHash: string) {
+    const res = await this.request.post<{ success: boolean }>(
+      `/transaction/${this.orgId}/batches/${batchId}/confirm-deposit`,
+      { depositTxHash },
+    )
+    return res.data
+  }
+
+  async confirmRefund(batchId: string, refundTxHash: string) {
+    const res = await this.request.post<{ success: boolean }>(
+      `/transaction/${this.orgId}/batches/${batchId}/confirm-refund`,
+      { depositTxHash: refundTxHash },
+    )
+    return res.data
+  }
+
   // 删除交易计划
   async deleteTransactionPlan(transaction_id: string) {
     const res = await this.request.delete<string>(`/transaction/${this.orgId}/batch/${transaction_id}`)
