@@ -37,6 +37,7 @@ const TermsPage = lazy(() => import('@/views/home/terms'))
 const PrivacyPage = lazy(() => import('@/views/home/privacy'))
 
 const Login = lazy(() => import('@/views/account/login'))
+const McpAuthPage = lazy(() => import('@/views/account/mcp-auth'))
 const WelcomeStep = lazy(() => import('@/views/account/steps/welcome-step'))
 const SignInStep = lazy(() => import('@/views/account/steps/sign-in-step'))
 const IdentityStep = lazy(() => import('@/views/account/steps/identity-step'))
@@ -98,6 +99,13 @@ const routes: RouteItem[] = [
   {
     path: 'join/:code',
     element: <JoinInvite />,
+  },
+  {
+    path: 'mcp-auth',
+    element: <Login />,
+    children: [
+      { index: true, element: <McpAuthPage /> },
+    ]
   },
   {
     path: 'welcome',

@@ -1,3 +1,4 @@
+import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
 import { vaultAbi } from '@/lib/vault-abi'
 import useChainAssetStore from '@/stores/chain-asset'
@@ -117,9 +118,11 @@ export function RefundConfirmDialogContent({
         abi: vaultAbi,
         functionName: 'refund',
         args: [merkleRoot],
+        chain: undefined,
       })
       const receipt = await publicClient.waitForTransactionReceipt({ hash: refundTx })
       if (receipt.status !== 'success') throw new Error('refund transaction reverted.')
+      await apis.transaction.confirmRefund(transactionPlan.id, refundTx)
 
       setStatus('done')
       onSuccess(refundTx)

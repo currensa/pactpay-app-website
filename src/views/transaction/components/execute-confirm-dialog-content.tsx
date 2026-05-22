@@ -161,6 +161,7 @@ export function ExecuteConfirmDialogContent({
       })
       const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
       if (receipt.status !== 'success') throw new Error('depositForPayroll transaction reverted.')
+      await apis.transaction.confirmDeposit(transactionPlan.id, depositTx)
 
       setStatus('done')
       onSuccess(depositTx)
