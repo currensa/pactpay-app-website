@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { Permission, useHasPermission } from '@/utils/permissions'
 import { OnboardingGuide } from '@/views/orgs/components/onboarding-guide'
 import { TokenAmountStatCard, formatTokenAmountItem, getTokenAmountFontClass } from '@/views/orgs/components/token-amount-stat-card'
@@ -30,6 +31,7 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { toast } = useToast()
+  const { language, t } = useTranslation()
   const navigate = useNavigate()
   const hasPermission = useHasPermission()
   const [loading, setLoading] = useState(true)
@@ -183,7 +185,7 @@ export default function Dashboard() {
         {/* Total Members */}
         <div className="flex flex-1 items-start justify-between bg-white rounded-[24px] p-[24px]">
           <div className="flex flex-col gap-[6px]">
-            <span className="text-[14px] leading-[22px] text-[#1c1c26]">Total Members</span>
+            <span className="text-[14px] leading-[22px] text-[#1c1c26]">{t('pages.orgDashboard.totalMembers')}</span>
             <span className="text-[28px] font-medium leading-[40px] text-[#1c1c26]">
               {stats.totalMembers.toLocaleString()}
             </span>
@@ -209,7 +211,7 @@ export default function Dashboard() {
           return (
             <>
               <TokenAmountStatCard
-                title="Total Paid"
+                title={t('pages.orgDashboard.totalPaid')}
                 items={stats.totalPaid}
                 icon={DollarSign}
                 dropdownKey="totalPaid"
@@ -220,7 +222,7 @@ export default function Dashboard() {
                 valueFontClass={sharedFontClass}
               />
               <TokenAmountStatCard
-                title="Year to Date"
+                title={t('pages.orgDashboard.yearToDate')}
                 items={stats.yearToDate}
                 icon={CreditCardIcon}
                 dropdownKey="yearToDate"
@@ -231,7 +233,7 @@ export default function Dashboard() {
                 valueFontClass={sharedFontClass}
               />
               <TokenAmountStatCard
-                title="This Month"
+                title={t('pages.orgDashboard.thisMonth')}
                 items={stats.thisMonth}
                 icon={Calendar}
                 dropdownKey="thisMonth"
@@ -249,12 +251,12 @@ export default function Dashboard() {
       {/* 今日执行任务区域 */}
       <div className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[26px] text-[#1c1c26]">
-          Today's Executions
+          {t('pages.orgDashboard.todaysExecutions')}
         </p>
         {todayTransactions.length === 0 ? (
           <div className="bg-white rounded-[32px] p-[20px] flex flex-col items-center justify-center gap-[12px]">
-            <img src="/empty-data.svg" alt="No executions" className="h-[120px] w-[120px]" />
-            <p className="text-[13px] leading-[20px] text-[#8d8d93]">No transactions ready to execute today</p>
+            <img src="/empty-data.svg" alt={t('pages.orgDashboard.noExecutionsAlt')} className="h-[120px] w-[120px]" />
+            <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.orgDashboard.noTransactionsToday')}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-[12px]">
@@ -271,8 +273,8 @@ export default function Dashboard() {
               const networkName = getNetworkName(transaction.caipChainId) || transaction.caipChainId
               const payDate = (() => {
                 const d = new Date(transaction.payPeriod)
-                const date = d.toLocaleDateString('zh-CN').replace(/\//g, '/')
-                const time = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+                const date = d.toLocaleDateString(language).replace(/\//g, '/')
+                const time = d.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit', hour12: false })
                 return `${date} ${time}`
               })()
               const isComplete = transaction.transactionStatus === PayrollTransactionStatus.COMPLETE
@@ -311,24 +313,24 @@ export default function Dashboard() {
                           onClick={() => handleExecuteNow(transaction)}
                           className="rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[12px] leading-[18px] text-white hover:opacity-90 transition-opacity whitespace-nowrap"
                         >
-                          Execute Now
+                          {t('pages.orgDashboard.executeNow')}
                         </button>
                       )}
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(`${window.location.origin}/orgs/transaction/${transaction.id}`)
-                          toast({ description: 'Link copied.' })
+                          toast({ description: t('pages.orgDashboard.linkCopied') })
                         }}
                         className="rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[12px] leading-[18px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors flex items-center gap-[4px] whitespace-nowrap"
                       >
                         <Copy className="h-[12px] w-[12px]" />
-                        Copy Link
+                        {t('pages.orgDashboard.copyLink')}
                       </button>
                       <button
                         onClick={() => handleViewDetails(transaction)}
                         className="text-[12px] leading-[18px] text-[#5e85ee] hover:opacity-70 transition-opacity whitespace-nowrap"
                       >
-                        View Details
+                        {t('pages.orgDashboard.viewDetails')}
                       </button>
                     </div>
                   </div>
@@ -354,20 +356,20 @@ export default function Dashboard() {
                     {/* Stats row */}
                     <div className="flex items-center gap-[14px] text-[13px] leading-[20px] flex-wrap">
                       <span>
-                        <span className="text-[#8d8d93]">Members: </span>
+                        <span className="text-[#8d8d93]">{t('pages.orgDashboard.members')}: </span>
                         <span className="text-[#1c1c26]">{transaction.items.length.toLocaleString()}</span>
                       </span>
                       <span>
-                        <span className="text-[#8d8d93]">Amount: </span>
+                        <span className="text-[#8d8d93]">{t('pages.orgDashboard.amount')}: </span>
                         <span className="text-[#1c1c26]">{formattedAmount}{symbol ? ` ${symbol}` : ''}</span>
                       </span>
                     </div>
 
                     {/* Created date */}
                     <div className="text-[13px] leading-[20px]">
-                      <span className="text-[#8d8d93]">Created: </span>
+                      <span className="text-[#8d8d93]">{t('pages.orgDashboard.created')}: </span>
                       <span className="text-[#1c1c26]">
-                        {new Date(transaction.createdAt).toLocaleDateString('zh-CN').replace(/\//g, '/')}
+                        {new Date(transaction.createdAt).toLocaleDateString(language).replace(/\//g, '/')}
                       </span>
                     </div>
                   </div>
@@ -381,7 +383,7 @@ export default function Dashboard() {
       {/* Execute 确认弹窗 */}
       <Dialog open={depositConfirmDialogOpen} onOpenChange={setDepositConfirmDialogOpen}>
         <DialogContent disableOutsideClose>
-          <DialogTitle className="sr-only">Transaction Summary</DialogTitle>
+          <DialogTitle className="sr-only">{t('pages.orgDashboard.transactionSummary')}</DialogTitle>
           <ExecuteConfirmDialogContent
             executingTransaction={depositingTransaction}
             transactionPlan={depositingTransactionPlan}

@@ -1,4 +1,5 @@
 import useChainAssetStore from '@/stores/chain-asset'
+import { useTranslation } from '@/utils/i18n'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { Transaction } from './types'
 
@@ -24,6 +25,7 @@ export function ExecuteSuccessDialogContent({
   caipChainId,
   onClose,
 }: ExecuteSuccessDialogContentProps) {
+  const { t } = useTranslation()
   const { getChain } = useChainAssetStore()
   const explorerUrl = getChain(caipChainId ?? '')?.explorerUrls?.[0]
   const txUrl = buildExplorerTransactionUrl(explorerUrl, depositTxHash)
@@ -32,7 +34,7 @@ export function ExecuteSuccessDialogContent({
     <div className="flex flex-col gap-[20px]">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">Transaction Confirmed</span>
+        <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">{t('pages.transactions.transactionConfirmed')}</span>
       </div>
 
       {/* Success indicator */}
@@ -44,12 +46,12 @@ export function ExecuteSuccessDialogContent({
         </div>
         <div>
           <p className="text-[13px] font-medium text-[#1c1c26] leading-[22px]">
-            {isAiTransaction ? 'Payment Confirmed' : 'Deposit Confirmed'}
+            {isAiTransaction ? t('pages.transactions.paymentConfirmed') : t('pages.transactions.depositConfirmed')}
           </p>
           <p className="text-[12px] text-[#606067] leading-[20px]">
             {isAiTransaction
-              ? 'The usage plan will be funded after this transaction is confirmed on-chain.'
-              : 'Members can claim their funds when the claim time arrives.'}
+              ? t('pages.transactions.usagePlanFundedAfterConfirm')
+              : t('pages.transactions.membersCanClaimAtClaimTime')}
           </p>
         </div>
       </div>
@@ -58,20 +60,20 @@ export function ExecuteSuccessDialogContent({
       <div className="bg-[#f5f5f5] rounded-[12px] p-4 flex flex-col gap-[18px]">
         {executingTransaction && (
           <>
-            <InfoRow label="Transaction Name">{executingTransaction.name}</InfoRow>
-            <InfoRow label={isAiTransaction ? 'Payment Time' : 'Pay Day'}>{executingTransaction.executionDate}</InfoRow>
-            <InfoRow label="Network">{executingTransaction.network}</InfoRow>
-            <InfoRow label="Total Amount">
+            <InfoRow label={t('pages.transactions.transactionName')}>{executingTransaction.name}</InfoRow>
+            <InfoRow label={isAiTransaction ? t('pages.transactions.paymentTime') : t('pages.transactions.payDay')}>{executingTransaction.executionDate}</InfoRow>
+            <InfoRow label={t('pages.transactions.network')}>{executingTransaction.network}</InfoRow>
+            <InfoRow label={t('pages.transactions.totalAmount')}>
               {executingTransaction.totalAmount} {executingTransaction.currency}
             </InfoRow>
-            <InfoRow label={isAiTransaction ? 'Payees' : 'Total Members'}>
-              {isAiTransaction ? 'API Service' : executingTransaction.members}
+            <InfoRow label={isAiTransaction ? t('pages.transactions.payees') : t('pages.transactions.totalMembers')}>
+              {isAiTransaction ? t('pages.transactions.apiService') : executingTransaction.members}
             </InfoRow>
           </>
         )}
         {depositTxHash && (
           <div className="flex flex-col gap-[4px]">
-            <span className="text-[13px] text-[#606067] leading-[22px]">Tx Hash</span>
+            <span className="text-[13px] text-[#606067] leading-[22px]">{t('pages.transactions.txHash')}</span>
             {txUrl ? (
               <a
                 href={txUrl}
@@ -94,7 +96,7 @@ export function ExecuteSuccessDialogContent({
           onClick={onClose}
           className="h-[38px] px-[16px] rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity"
         >
-          Done
+          {t('pages.transactions.done')}
         </button>
       </div>
     </div>

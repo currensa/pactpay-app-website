@@ -1,5 +1,7 @@
 import apis from '@/apis'
+import type { I18nKey } from '@/i18n/messages'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { useClaimAll } from '@/views/member/hooks/use-claim-all'
 import { Check, ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -8,9 +10,9 @@ import { useNavigate } from 'react-router-dom'
 
 interface StepDef {
   id: number
-  label: string
-  description: string
-  buttonText: string
+  labelKey: I18nKey
+  descriptionKey: I18nKey
+  buttonKey: I18nKey
   navigateTo: string | null
   isExternal?: boolean
 }
@@ -18,44 +20,45 @@ interface StepDef {
 const STEPS: StepDef[] = [
   {
     id: 1,
-    label: 'Join an organisation',
-    description: 'Sign up via an invite link, or enter an invite code during registration.',
-    buttonText: 'Got it',
+    labelKey: 'pages.memberOnboardingGuide.steps.joinOrg.label',
+    descriptionKey: 'pages.memberOnboardingGuide.steps.joinOrg.description',
+    buttonKey: 'pages.memberOnboardingGuide.steps.joinOrg.button',
     navigateTo: null,
   },
   {
     id: 2,
-    label: 'Bind your wallet',
-    description: 'Add your signing wallet address in Account settings. The address to receive your funds can be entered at the time of claim.',
-    buttonText: 'Go to Account',
+    labelKey: 'pages.memberOnboardingGuide.steps.bindWallet.label',
+    descriptionKey: 'pages.memberOnboardingGuide.steps.bindWallet.description',
+    buttonKey: 'pages.memberOnboardingGuide.steps.bindWallet.button',
     navigateTo: '/member/settings',
   },
   {
     id: 3,
-    label: 'Get verified by organisation owner',
-    description: "Once you join an organisation, your owner will verify your membership. You'll receive an email when approved.",
-    buttonText: 'Go to set up email',
+    labelKey: 'pages.memberOnboardingGuide.steps.verify.label',
+    descriptionKey: 'pages.memberOnboardingGuide.steps.verify.description',
+    buttonKey: 'pages.memberOnboardingGuide.steps.verify.button',
     navigateTo: '/member/settings',
   },
   {
     id: 4,
-    label: 'Learn how claiming works',
-    description: 'Your org sends payroll on-chain. Funds go directly to your wallet — no intermediary.',
-    buttonText: 'Read the tutorial',
+    labelKey: 'pages.memberOnboardingGuide.steps.tutorial.label',
+    descriptionKey: 'pages.memberOnboardingGuide.steps.tutorial.description',
+    buttonKey: 'pages.memberOnboardingGuide.steps.tutorial.button',
     navigateTo: '/document#for-members',
     isExternal: true,
   },
   {
     id: 5,
-    label: 'Claim your first payment',
-    description: "When your org runs payroll, you'll be able to claim it when pay time arrives.",
-    buttonText: 'Claim now',
+    labelKey: 'pages.memberOnboardingGuide.steps.firstPayment.label',
+    descriptionKey: 'pages.memberOnboardingGuide.steps.firstPayment.description',
+    buttonKey: 'pages.memberOnboardingGuide.steps.firstPayment.button',
     navigateTo: null,
   },
 ]
 
 export function MemberOnboardingGuide() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { handleClaimAll, verifying } = useClaimAll()
   const [dismissed, setDismissed] = useState<boolean | null>(null) // null = loading
   const [completedSteps, setCompletedSteps] = useState<boolean[]>([false, false, false, false, false])
@@ -195,7 +198,7 @@ export function MemberOnboardingGuide() {
           className="fixed top-6 left-0 right-0 mx-auto w-fit z-[9999] px-5 py-3 rounded-[14px] bg-[#1c1c26] text-white text-[14px] font-medium shadow-lg pointer-events-none select-none"
           style={{ animation: 'fadeInDown 0.25s ease' }}
         >
-          🎉 Now you're ready to receive your first payment!
+          {t('pages.memberOnboardingGuide.toastReady')}
         </div>,
         document.body
       )}
@@ -210,18 +213,18 @@ export function MemberOnboardingGuide() {
         <div className="flex flex-col items-start justify-between py-[8px] self-stretch shrink-0 w-[150px]">
           <div className="flex flex-col gap-[8px]">
             <div>
-              <p className="font-['Poppins',sans-serif] text-[18px] leading-[26px] text-[#bbbbbe] tracking-[-0.36px]">Get start with</p>
+              <p className="font-['Poppins',sans-serif] text-[18px] leading-[26px] text-[#bbbbbe] tracking-[-0.36px]">{t('pages.memberOnboardingGuide.getStartWith')}</p>
               <p className="font-['Poppins',sans-serif] font-semibold text-[32px] leading-none text-[#1c1c26] tracking-[-0.64px]">PactPay</p>
             </div>
             <p className="text-[12px] leading-[18px] text-[#8d8d93]">
-              Learn how you receive your first payment with PactPay.
+              {t('pages.memberOnboardingGuide.description')}
             </p>
           </div>
           <button
             onClick={handleDismiss}
             className="border border-[rgba(0,0,0,0.12)] rounded-[10px] px-[14px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
           >
-            Dismiss
+            {t('pages.memberOnboardingGuide.dismiss')}
           </button>
         </div>
 
@@ -252,10 +255,10 @@ export function MemberOnboardingGuide() {
 
                   <div className="flex flex-col gap-[3px]">
                     <p className="text-[13px] leading-[18px] font-semibold text-[#1c1c26]">
-                      {step.label}
+                      {t(step.labelKey)}
                     </p>
                     <p className="text-[12px] leading-[17px] text-[#8d8d93]">
-                      {step.description}
+                      {t(step.descriptionKey)}
                     </p>
                   </div>
                 </div>
@@ -269,7 +272,7 @@ export function MemberOnboardingGuide() {
                         className="flex items-center gap-[4px] text-[13px] leading-[20px] text-[#5e85ee] hover:opacity-80 transition-opacity"
                       >
                         <ExternalLink className="w-[13px] h-[13px]" />
-                        {step.buttonText}
+                        {t(step.buttonKey)}
                       </button>
                     ) : (
                       <button
@@ -277,7 +280,7 @@ export function MemberOnboardingGuide() {
                         disabled={step.id === 5 && (stepsLoading || !hasPendingClaim || verifying)}
                         className="rounded-[10px] px-[10px] py-[8px] text-[13px] leading-[20px] bg-[#5e85ee] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
                       >
-                        {step.buttonText}
+                        {t(step.buttonKey)}
                       </button>
                     )}
                   </div>

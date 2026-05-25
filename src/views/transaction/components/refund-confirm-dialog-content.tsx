@@ -2,6 +2,7 @@ import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
 import { vaultAbi } from '@/lib/vault-abi'
 import useChainAssetStore from '@/stores/chain-asset'
+import { useTranslation } from '@/utils/i18n'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { useEffect, useState } from 'react'
@@ -9,14 +10,6 @@ import { createPublicClient, createWalletClient, custom, type Hex } from 'viem'
 import type { Transaction } from './types'
 
 type RefundStatus = 'idle' | 'connecting' | 'refunding' | 'done' | 'error'
-
-const STEP_LABELS: Record<RefundStatus, string> = {
-  idle: 'Connect Wallet',
-  connecting: 'Connecting…',
-  refunding: 'Refunding…',
-  done: 'Done',
-  error: 'Retry',
-}
 
 interface RefundConfirmDialogContentProps {
   transaction: Transaction | null
@@ -43,6 +36,14 @@ export function RefundConfirmDialogContent({
   const { getChain } = useChainAssetStore()
   const [status, setStatus] = useState<RefundStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
+  const { t } = useTranslation()
+  const stepLabels: Record<RefundStatus, string> = {
+    idle: t('pages.transactions.connectWallet'),
+    connecting: t('pages.transactions.connecting'),
+    refunding: t('pages.transactions.refunding'),
+    done: t('pages.transactions.done'),
+    error: t('pages.transactions.retry'),
+  }
 
   const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
@@ -141,21 +142,21 @@ export function RefundConfirmDialogContent({
     <div className="flex flex-col gap-[20px]">
       {/* Header */}
       <div>
-        <p className="text-[16px] font-bold leading-[26px] text-[#1c1c26]">Refund Unclaimed Funds</p>
+        <p className="text-[16px] font-bold leading-[26px] text-[#1c1c26]">{t('pages.transactionDetail.refundUnclaimedFunds')}</p>
         <p className="mt-[4px] text-[13px] leading-[20px] text-[#606067]">
-          Reclaim tokens from payroll items that have not been claimed by members.
+          {t('pages.transactions.refundDescription')}
         </p>
       </div>
 
       {/* Summary card */}
       {transaction && transactionPlan && (
         <div className="bg-[#f5f5f5] rounded-[12px] p-4 flex flex-col gap-[14px]">
-          <InfoRow label="Transaction">{transaction.name}</InfoRow>
-          <InfoRow label="Network">{transaction.network}</InfoRow>
-          <InfoRow label="Total Amount">{transaction.totalAmount} {transaction.currency}</InfoRow>
-          <InfoRow label="Total Members">{transaction.members}</InfoRow>
+          <InfoRow label={t('pages.transactions.transaction')}>{transaction.name}</InfoRow>
+          <InfoRow label={t('pages.transactions.network')}>{transaction.network}</InfoRow>
+          <InfoRow label={t('pages.transactions.totalAmount')}>{transaction.totalAmount} {transaction.currency}</InfoRow>
+          <InfoRow label={t('pages.transactions.totalMembers')}>{transaction.members}</InfoRow>
           <div className="border-t border-[rgba(0,0,0,0.08)] pt-[14px]">
-            <InfoRow label="Unclaimed Members">
+            <InfoRow label={t('pages.transactions.unclaimedMembers')}>
               <span className="text-[#ffa800] font-medium">{unclaimedCount}</span>
             </InfoRow>
           </div>
@@ -164,8 +165,7 @@ export function RefundConfirmDialogContent({
 
       {/* Warning */}
       <div className="rounded-[12px] border border-[rgba(255,168,0,0.3)] bg-[rgba(255,168,0,0.06)] px-4 py-3 text-[13px] leading-[20px] text-[#c47d00]">
-        Only unclaimed amounts will be refunded. Members who have already claimed their funds are not affected.
-        This action requires a wallet transaction and cannot be undone.
+        {t('pages.transactions.refundWarning')}
       </div>
 
       {/* Error */}
@@ -182,14 +182,14 @@ export function RefundConfirmDialogContent({
           disabled={isBusy}
           className="h-[38px] px-[16px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           onClick={handleRefund}
           disabled={isBusy || status === 'done'}
           className="h-[38px] px-[16px] rounded-[12px] bg-[#ffa800] text-[13px] text-white hover:bg-[#ffa800]/90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {STEP_LABELS[status]}
+          {stepLabels[status]}
         </button>
       </div>
     </div>

@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { formatLocalDateTime } from '@/utils/date'
+import { useTranslation } from '@/utils/i18n'
 import { Permission, useHasPermission } from '@/utils/permissions'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { getErrorMessage } from '@/views/orgs/components/ai-api/utils'
@@ -62,6 +63,7 @@ type AllTransactionRow = {
 
 export default function TransactionPage() {
   const { toast } = useToast()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -320,7 +322,7 @@ export default function TransactionPage() {
       setSavingPayrollSetup(true)
       await apis.organization.upsertOrgPayrollConfig({ caipChainId: selectedChainId, token: selectedToken })
       await fetchPayrollTokenSymbol()
-      toast({ title: 'Success', description: 'Payment settings updated.' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.transactions.paymentSettingsUpdated') })
       const targetPath = pendingCreatePath ?? '/orgs/transaction/create-people'
       setPayrollSetupDialogOpen(false)
       resetPayrollSetupState()
@@ -428,7 +430,7 @@ export default function TransactionPage() {
     setIsDeleting(true)
     try {
       await apis.transaction.deleteTransactionPlan(transactionToDelete.id)
-      toast({ title: 'Success', description: 'Transaction deleted successfully' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.transactions.transactionDeleted') })
       setDeleteConfirmDialogOpen(false)
       setTransactionToDelete(null)
       const nextTotalCount = Math.max(0, totalCount - 1)
@@ -492,7 +494,7 @@ export default function TransactionPage() {
   }
 
   const STATUS_OPTIONS = [
-    { value: 'all', label: 'All Statuses' },
+    { value: 'all', label: t('pages.transactions.allStatuses') },
     { value: PayrollTransactionStatus.READY, label: 'Ready' },
     { value: PayrollTransactionStatus.COMPLETE, label: 'Complete' },
     { value: PayrollTransactionStatus.REFUNDED, label: 'Refunded' },
@@ -533,20 +535,20 @@ export default function TransactionPage() {
           onClick={() => handleDepositClick(transaction)}
           disabled={!canExecute}
         >
-          Execute
+          {t('pages.transactions.execute')}
         </button>
         <button
           className={actionTextButtonClassName}
           onClick={() => handleViewDetails(transaction)}
         >
-          View Details
+          {t('pages.transactions.viewDetails')}
         </button>
         {canReaction && (
           <button
             className={actionTextButtonClassName}
             onClick={() => handleReactionClick(transaction)}
           >
-            Re-action
+            {t('pages.transactions.reaction')}
           </button>
         )}
         <button
@@ -554,7 +556,7 @@ export default function TransactionPage() {
           onClick={() => handleDeleteClick(transaction)}
           disabled={!canDelete}
         >
-          Delete
+          {t('pages.transactions.delete')}
         </button>
       </div>
     )
@@ -574,20 +576,20 @@ export default function TransactionPage() {
           onClick={() => handleDepositClick(buildAiActionTransaction(transaction))}
           disabled={!canExecute}
         >
-          Execute
+          {t('pages.transactions.execute')}
         </button>
         <button
           className={actionTextButtonClassName}
           onClick={() => navigate(`/orgs/members/usage-plans/${encodeURIComponent(rechargeId)}`)}
         >
-          View Details
+          {t('pages.transactions.viewDetails')}
         </button>
         <button
           className={actionDangerButtonClassName}
           onClick={() => handleDeleteClick(buildAiActionTransaction(transaction))}
           disabled={!canDelete}
         >
-          Delete
+          {t('pages.transactions.delete')}
         </button>
       </div>
     )
@@ -612,7 +614,7 @@ export default function TransactionPage() {
               <input
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search transactions..."
+                placeholder={t('pages.transactions.searchPlaceholder')}
                 className="flex-1 bg-transparent text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#8d8d93] outline-none"
               />
               <Search className="h-[16px] w-[16px] shrink-0 text-[#8d8d93]" />
@@ -625,7 +627,7 @@ export default function TransactionPage() {
                   className="flex h-[36px] w-[130px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]"
                 >
                   <span className={`text-[13px] leading-[20px] ${statusFilter === 'all' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
-                    {STATUS_OPTIONS.find(option => option.value === statusFilter)?.label ?? 'Status'}
+                    {STATUS_OPTIONS.find(option => option.value === statusFilter)?.label ?? t('pages.transactions.statusFallback')}
                   </span>
                   <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
@@ -659,7 +661,7 @@ export default function TransactionPage() {
                 }}
               >
                 <Plus className="h-[14px] w-[14px]" />
-                New Transaction
+                {t('pages.transactions.newTransaction')}
               </Button>
             )}
           </div>
@@ -669,22 +671,22 @@ export default function TransactionPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                {activeTab === 'all' && <TableHead>Type</TableHead>}
-                <TableHead>Transaction</TableHead>
-                <TableHead>Network</TableHead>
-                <TableHead>Payees</TableHead>
-                <TableHead>Amount</TableHead>
+                {activeTab === 'all' && <TableHead>{t('pages.transactions.type')}</TableHead>}
+                <TableHead>{t('pages.transactions.transaction')}</TableHead>
+                <TableHead>{t('pages.transactions.network')}</TableHead>
+                <TableHead>{t('pages.transactions.payees')}</TableHead>
+                <TableHead>{t('pages.transactions.amount')}</TableHead>
                 <TableHead>
                   <button onClick={() => handleSort('status')} className="flex items-center gap-[4px]">
-                    Status <SortIcon field="status" />
+                    {t('pages.transactions.status')} <SortIcon field="status" />
                   </button>
                 </TableHead>
                 <TableHead>
                   <button onClick={() => handleSort('payDay')} className="flex items-center gap-[4px]">
-                    Pay Day (Local) <SortIcon field="payDay" />
+                    {t('pages.transactions.payDayLocal')} <SortIcon field="payDay" />
                   </button>
                 </TableHead>
-                <TableHead>Action</TableHead>
+                <TableHead>{t('pages.transactions.action')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -694,8 +696,8 @@ export default function TransactionPage() {
                 <TableRow>
                   <TableCell colSpan={7} className="py-[24px]">
                     <div className="flex flex-col items-center justify-center gap-[10px]">
-                      <img src="/empty-table.svg" alt="No transactions" className="h-[120px] w-[120px]" />
-                      <p className="text-[13px] leading-[20px] text-[#8d8d93]">No transactions found</p>
+                      <img src="/empty-table.svg" alt={t('pages.transactions.noTransactionsAlt')} className="h-[120px] w-[120px]" />
+                      <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.transactions.noTransactionsFound')}</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -703,8 +705,8 @@ export default function TransactionPage() {
                 <TableRow>
                   <TableCell colSpan={7} className="py-[24px]">
                     <div className="flex flex-col items-center justify-center gap-[10px]">
-                      <img src="/empty-table.svg" alt="No AI purchases" className="h-[120px] w-[120px]" />
-                      <p className="text-[13px] leading-[20px] text-[#8d8d93]">No AI API purchases found</p>
+                      <img src="/empty-table.svg" alt={t('pages.transactions.noAiPurchasesAlt')} className="h-[120px] w-[120px]" />
+                      <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.transactions.noAiPurchasesFound')}</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -712,8 +714,8 @@ export default function TransactionPage() {
                 <TableRow>
                   <TableCell colSpan={8} className="py-[24px]">
                     <div className="flex flex-col items-center justify-center gap-[10px]">
-                      <img src="/empty-table.svg" alt="No transactions" className="h-[120px] w-[120px]" />
-                      <p className="text-[13px] leading-[20px] text-[#8d8d93]">No transactions found</p>
+                      <img src="/empty-table.svg" alt={t('pages.transactions.noTransactionsAlt')} className="h-[120px] w-[120px]" />
+                      <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.transactions.noTransactionsFound')}</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -788,23 +790,23 @@ export default function TransactionPage() {
             activeTab === 'people'
               ? (
                 visiblePeopleTransactions.length === 0
-                  ? `Showing 0 of ${totalCount} transactions`
-                  : `Showing ${startIndex}-${endIndex} of ${totalCount} transactions`
+                  ? t('pages.transactions.showingZero', { total: totalCount })
+                  : t('pages.transactions.showingRange', { from: startIndex, to: endIndex, total: totalCount })
               )
               : activeTab === 'ai'
                 ? (
                   aiTransactions.length === 0
-                    ? `Showing 0 of ${totalCount} transactions`
-                    : `Showing ${aiStartIndex}-${aiEndIndex} of ${totalCount} transactions`
+                    ? t('pages.transactions.showingZero', { total: totalCount })
+                    : t('pages.transactions.showingRange', { from: aiStartIndex, to: aiEndIndex, total: totalCount })
                 )
-                : `Showing ${allTransactions.length} of ${totalCount} transactions`
+                : t('pages.transactions.showingCount', { count: allTransactions.length, total: totalCount })
           }
           className="shrink-0"
         />
 
         <Dialog open={depositConfirmDialogOpen} onOpenChange={setDepositConfirmDialogOpen}>
           <DialogContent disableOutsideClose>
-            <DialogTitle className="sr-only">Transaction Summary</DialogTitle>
+            <DialogTitle className="sr-only">{t('pages.transactions.transactionSummary')}</DialogTitle>
             <ExecuteConfirmDialogContent
               executingTransaction={depositingTransaction}
               transactionPlan={depositingTransactionPlan}
@@ -865,9 +867,9 @@ export default function TransactionPage() {
         <Dialog open={refundSuccessDialogOpen} onOpenChange={setRefundSuccessDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Refund Submitted</DialogTitle>
+              <DialogTitle>{t('pages.transactions.refundSubmitted')}</DialogTitle>
               <DialogDescription>
-                Your refund transaction has been submitted successfully.
+                {t('pages.transactions.refundSubmittedDescription')}
               </DialogDescription>
             </DialogHeader>
             {lastRefundTxHash && (() => {
@@ -875,7 +877,7 @@ export default function TransactionPage() {
               const txUrl = buildExplorerTransactionUrl(explorerUrl, lastRefundTxHash)
               return (
                 <p className="mt-[16px] break-all text-[13px] text-[#606067]">
-                  Tx:{' '}
+                  {t('pages.transactions.tx')}:{' '}
                   {txUrl ? (
                     <a
                       href={txUrl}
@@ -898,7 +900,7 @@ export default function TransactionPage() {
                 setLastRefundTxHash('')
               }}
               >
-                Close
+                {t('pages.transactions.close')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -907,28 +909,28 @@ export default function TransactionPage() {
         <Dialog open={reactionConfirmDialogOpen} onOpenChange={setReactionConfirmDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Re-action Transaction</DialogTitle>
+              <DialogTitle>{t('pages.transactions.reactionTitle')}</DialogTitle>
               <DialogDescription>
-                Are you sure you want to create a new transaction based on this one? The original transaction will remain unchanged.
+                {t('pages.transactions.reactionDescription')}
               </DialogDescription>
             </DialogHeader>
 
             {transactionToReaction && (
               <div className="mt-[16px] flex flex-col gap-[10px] rounded-[12px] bg-[#f5f5f5] p-[14px]">
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#606067]">Transaction Name</span>
+                  <span className="text-[13px] text-[#606067]">{t('pages.transactions.transactionName')}</span>
                   <span className="text-[13px] font-medium text-[#1c1c26]">{transactionToReaction.name}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#606067]">Transaction ID</span>
+                  <span className="text-[13px] text-[#606067]">{t('pages.transactions.transactionId')}</span>
                   <span className="font-mono text-[13px] font-medium text-[#1c1c26]">{transactionToReaction.id}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#606067]">Payees</span>
+                  <span className="text-[13px] text-[#606067]">{t('pages.transactions.payees')}</span>
                   <span className="text-[13px] font-medium text-[#1c1c26]">{transactionToReaction.members}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#606067]">Total Amount</span>
+                  <span className="text-[13px] text-[#606067]">{t('pages.transactions.totalAmount')}</span>
                   <span className="text-[13px] font-medium text-[#1c1c26]">
                     ${transactionToReaction.totalAmount} {transactionToReaction.currency}
                   </span>
@@ -944,9 +946,9 @@ export default function TransactionPage() {
                   setTransactionToReaction(null)
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
-              <Button onClick={handleConfirmReaction}>Confirm</Button>
+              <Button onClick={handleConfirmReaction}>{t('pages.orgMembers.confirm')}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

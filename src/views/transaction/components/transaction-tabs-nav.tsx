@@ -1,3 +1,5 @@
+import { useTranslation } from '@/utils/i18n'
+
 type TransactionsTab = 'all' | 'people' | 'ai'
 
 type TransactionTabsNavProps = {
@@ -6,12 +8,14 @@ type TransactionTabsNavProps = {
 }
 
 export function TransactionTabsNav({ activeTab, onTabChange }: TransactionTabsNavProps) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex items-center gap-[10px] rounded-[24px] bg-[rgba(94,133,238,0.08)] p-[8px] w-fit">
       {[
-        { id: 'all' as const, label: 'All' },
-        { id: 'people' as const, label: 'People payment' },
-        { id: 'ai' as const, label: 'AI API purchases' },
+        { id: 'all' as const, label: t('pages.transactions.all') },
+        { id: 'people' as const, label: t('pages.transactions.peoplePayment') },
+        { id: 'ai' as const, label: t('pages.transactions.aiApiPurchases') },
       ].map(tab => (
         <button
           key={tab.id}

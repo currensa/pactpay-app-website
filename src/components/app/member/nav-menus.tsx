@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { getMemberNavItems, type OrgNavItem } from '@/router'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { IconBuilding } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -8,6 +9,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 export default function MemberNavMenus() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation()
   const staticItems = getMemberNavItems()
   const [orgChildren, setOrgChildren] = useState<OrgNavItem['children']>([])
   const { organizations } = useOrganizationStore()
@@ -58,7 +60,7 @@ export default function MemberNavMenus() {
       >
         <item.icon className="h-[22px] w-[22px] shrink-0" />
         <span className="font-['Poppins',sans-serif] text-[15px] font-medium leading-[24px] whitespace-nowrap">
-          {item.title}
+          {item.titleKey ? t(item.titleKey) : item.title}
         </span>
       </button>
     )
@@ -77,7 +79,7 @@ export default function MemberNavMenus() {
           )}>
             <IconBuilding className="h-[22px] w-[22px] shrink-0" />
             <span className="font-['Poppins',sans-serif] text-[15px] font-medium leading-[24px] whitespace-nowrap">
-              Organizations
+              {t('nav.organizations')}
             </span>
           </div>
           <div className="mt-[4px] flex flex-col gap-[2px] pl-[16px]">

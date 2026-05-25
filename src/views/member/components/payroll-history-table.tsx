@@ -5,6 +5,7 @@ import { PayrollItemStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { formatUtcDateTime } from '@/utils/date'
+import { useTranslation } from '@/utils/i18n'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { TransactionItemStatusBadge } from '@/views/transaction/components/transaction-status-badge'
 import { useEffect, useRef, useState } from 'react'
@@ -35,6 +36,7 @@ interface PayrollHistoryTableProps {
 }
 
 export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHistoryTableProps) {
+  const { t } = useTranslation()
   const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, getChain } = useChainAssetStore()
   const { organizations, getOrganizations } = useOrganizationStore()
 
@@ -114,13 +116,13 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Scheduled for</TableHead>
-            {showOrgColumn && <TableHead>Organization</TableHead>}
-            <TableHead>Transaction</TableHead>
-            <TableHead>Amount</TableHead>
-            <TableHead>Network</TableHead>
-            <TableHead>Tx Hash</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead>{t('components.payrollHistoryTable.scheduledFor')}</TableHead>
+            {showOrgColumn && <TableHead>{t('components.payrollHistoryTable.organization')}</TableHead>}
+            <TableHead>{t('components.payrollHistoryTable.transaction')}</TableHead>
+            <TableHead>{t('components.payrollHistoryTable.amount')}</TableHead>
+            <TableHead>{t('components.payrollHistoryTable.network')}</TableHead>
+            <TableHead>{t('components.payrollHistoryTable.txHash')}</TableHead>
+            <TableHead>{t('components.payrollHistoryTable.status')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -130,8 +132,8 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
             <TableRow>
               <TableCell colSpan={showOrgColumn ? 7 : 6} className="py-[24px]">
                 <div className="flex flex-col items-center justify-center gap-[10px]">
-                  <img src="/empty-table.svg" alt="No records" className="h-[120px] w-[120px]" />
-                  <p className="text-[14px] leading-[22px] text-[#8d8d93]">No records found</p>
+                  <img src="/empty-table.svg" alt={t('common.noRecordsAlt')} className="h-[120px] w-[120px]" />
+                  <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('components.payrollHistoryTable.noRecordsFound')}</p>
                 </div>
               </TableCell>
             </TableRow>
@@ -196,7 +198,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
         onPageChange={handlePageChange}
         totalItems={total}
         pageSize={PAGE_SIZE}
-        itemLabel="records"
+        itemLabel={t('components.payrollHistoryTable.records')}
       />
     </div>
   )

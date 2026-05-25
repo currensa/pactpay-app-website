@@ -1,5 +1,6 @@
 import apis from '@/apis'
 import { useToast } from '@/components/ui/use-toast'
+import { t } from '@/utils/i18n'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import axios from 'axios'
@@ -25,7 +26,7 @@ export function useClaimAll() {
       })
       const result = await apis.auth.verifyMetaPub({ address: addr, nonce, signature })
       if (!result.verified) {
-        toast({ title: 'Verification failed', description: result.reason, variant: 'destructive' })
+        toast({ title: t('pages.memberClaim.verificationFailedTitle'), description: result.reason, variant: 'destructive' })
         return
       }
       sessionStorage.setItem('metapub-verify-token', result.token)
@@ -33,8 +34,8 @@ export function useClaimAll() {
     } catch (error: any) {
       if (axios.isAxiosError(error)) return
       toast({
-        title: 'Error',
-        description: error?.message || 'Wallet verification failed.',
+        title: t('common.error'),
+        description: error?.message || t('pages.memberClaim.walletVerificationFailed'),
         variant: 'destructive',
       })
     } finally {

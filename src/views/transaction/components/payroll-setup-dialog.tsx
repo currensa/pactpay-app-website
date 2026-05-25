@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useTranslation } from '@/utils/i18n'
 import { PaymentConfigFields } from '@/views/orgs/components/payment-config-fields'
 import { Loader2 } from 'lucide-react'
 import { useMemo } from 'react'
@@ -27,18 +28,19 @@ export function PayrollSetupDialog({
   onSelectedChainIdChange,
   onSelectedTokenChange,
 }: PayrollSetupDialogProps) {
+  const { t } = useTranslation()
   const footerHint = useMemo(
-    () => 'Saved as this organisation\'s default. Change anytime in Settings.',
-    []
+    () => t('pages.transactions.payrollSetupFooterHint'),
+    [t]
   )
 
   return (
     <Dialog open={open} onOpenChange={nextOpen => { if (!nextOpen) onClose() }}>
       <DialogContent disableOutsideClose>
         <DialogHeader>
-          <DialogTitle>Set up network & token first</DialogTitle>
+          <DialogTitle>{t('pages.transactions.payrollSetupTitle')}</DialogTitle>
           <DialogDescription>
-            You haven&apos;t configured a payment network or token for this organisation. This is required before creating a transaction.
+            {t('pages.transactions.payrollSetupDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -48,8 +50,8 @@ export function PayrollSetupDialog({
           selectedToken={selectedToken}
           onSelectedChainIdChange={onSelectedChainIdChange}
           onSelectedTokenChange={onSelectedTokenChange}
-          chainLabel="Network *"
-          tokenLabel="Token *"
+          chainLabel={t('pages.transactions.networkRequired')}
+          tokenLabel={t('pages.transactions.tokenRequired')}
           dropdownPlacement="bottom"
           footerHint={footerHint}
           className="mt-[8px]"
@@ -57,14 +59,14 @@ export function PayrollSetupDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={onSave}
             disabled={!selectedChainId || !selectedToken || saving}
           >
             {saving && <Loader2 className="mr-[6px] h-[14px] w-[14px] animate-spin" />}
-            Save & continue
+            {t('pages.transactions.saveContinue')}
           </Button>
         </DialogFooter>
       </DialogContent>

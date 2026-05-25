@@ -4,6 +4,7 @@ import type { TransactionItem } from '@/apis/transaction.api'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { CreateTransactionDialogContent } from '@/views/transaction/components'
 import { formatUnits } from 'ethers'
 import { useEffect, useState } from 'react'
@@ -14,6 +15,7 @@ export default function CreateTransaction() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const isCreatingFromReaction = searchParams.get('fromReaction') === '1'
   const reactionSourceTransactionId = searchParams.get('transactionId') ?? ''
 
@@ -106,7 +108,7 @@ export default function CreateTransaction() {
   if (!accessChecked) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-[13px] text-[#8d8d93]">Loading...</div>
+        <div className="text-[13px] text-[#8d8d93]">{t('common.loading')}</div>
       </div>
     )
   }
@@ -131,16 +133,16 @@ export default function CreateTransaction() {
 
       await apis.transaction.createTransactionPlan({
         payPeriod: params.executionDate ? new Date(params.executionDate).toISOString() : new Date().toISOString(),
-        transactionName: params.transactionName || 'New Transaction',
+        transactionName: params.transactionName || t('pages.transactions.newTransaction'),
         members,
         ...(isCreatingFromReaction && reactionSourceTransactionId ? { reactionFromId: reactionSourceTransactionId } : {}),
       })
 
       toast({
-        title: 'Success',
+        title: t('pages.orgMembers.success'),
         description: isCreatingFromReaction
-          ? 'New transaction created from re-action'
-          : 'Transaction created successfully'
+          ? t('pages.transactions.reactionCreated')
+          : t('pages.transactions.transactionCreated')
       })
       navigate('/orgs/transaction')
     } catch {

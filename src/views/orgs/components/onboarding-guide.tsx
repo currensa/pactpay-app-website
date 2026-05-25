@@ -1,4 +1,6 @@
 import apis from '@/apis'
+import type { I18nKey } from '@/i18n/messages'
+import { useTranslation } from '@/utils/i18n'
 import { Check, Zap } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -6,9 +8,9 @@ import { useNavigate } from 'react-router-dom'
 
 interface StepDef {
   id: number
-  label: string
-  buttonText: string
-  description: string
+  labelKey: I18nKey
+  buttonKey: I18nKey
+  descriptionKey: I18nKey
   navigateTo: string | null
   isExternal?: boolean
 }
@@ -16,43 +18,44 @@ interface StepDef {
 const STEPS: StepDef[] = [
   {
     id: 1,
-    label: 'Learn how payments work',
-    buttonText: 'View Docs',
-    description: 'Understand how PactPay sends payroll on-chain — non-custodial, transparent, and direct to your members.',
+    labelKey: 'pages.orgOnboardingGuide.steps.docs.label',
+    buttonKey: 'pages.orgOnboardingGuide.steps.docs.button',
+    descriptionKey: 'pages.orgOnboardingGuide.steps.docs.description',
     navigateTo: '/document',
     isExternal: true,
   },
   {
     id: 2,
-    label: 'Configure payment settings',
-    buttonText: 'Go to Settings',
-    description: 'Choose your chain and token (e.g. USDC on Ethereum mainnet).',
+    labelKey: 'pages.orgOnboardingGuide.steps.settings.label',
+    buttonKey: 'pages.orgOnboardingGuide.steps.settings.button',
+    descriptionKey: 'pages.orgOnboardingGuide.steps.settings.description',
     navigateTo: '/orgs/settings',
   },
   {
     id: 3,
-    label: 'Invite your first member',
-    buttonText: 'Invite Members',
-    description: 'Add your team members so you can start scheduling payments for them.',
+    labelKey: 'pages.orgOnboardingGuide.steps.invite.label',
+    buttonKey: 'pages.orgOnboardingGuide.steps.invite.button',
+    descriptionKey: 'pages.orgOnboardingGuide.steps.invite.description',
     navigateTo: '/orgs/members',
   },
   {
     id: 4,
-    label: 'Set member payout amounts',
-    buttonText: 'Set Amounts',
-    description: 'Configure the amount each member should receive each pay period.',
+    labelKey: 'pages.orgOnboardingGuide.steps.amounts.label',
+    buttonKey: 'pages.orgOnboardingGuide.steps.amounts.button',
+    descriptionKey: 'pages.orgOnboardingGuide.steps.amounts.description',
     navigateTo: '/orgs/members',
   },
   {
     id: 5,
-    label: 'Create first transaction',
-    buttonText: 'Create Transaction',
-    description: 'Execute your first on-chain transaction to pay your members.',
+    labelKey: 'pages.orgOnboardingGuide.steps.transaction.label',
+    buttonKey: 'pages.orgOnboardingGuide.steps.transaction.button',
+    descriptionKey: 'pages.orgOnboardingGuide.steps.transaction.description',
     navigateTo: '/orgs/transaction/create',
   },
 ]
 
 export function OnboardingGuide() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const orgId = localStorage.getItem('organizationId') ?? undefined
 
@@ -215,7 +218,7 @@ export function OnboardingGuide() {
           className="fixed top-6 left-0 right-0 mx-auto w-fit z-[9999] px-5 py-3 rounded-[14px] bg-[#1c1c26] text-white text-[14px] font-medium shadow-lg pointer-events-none select-none"
           style={{ animation: 'fadeInDown 0.25s ease' }}
         >
-          🎉 Congratulations! You've completed your first transaction!
+          {t('pages.orgOnboardingGuide.completedToast')}
         </div>,
         document.body
       )}
@@ -230,18 +233,18 @@ export function OnboardingGuide() {
         <div className="flex flex-col items-start justify-between py-[8px] self-stretch shrink-0 w-[160px]">
           <div className="flex flex-col gap-[8px]">
             <div>
-              <p className="font-['Poppins',sans-serif] text-[18px] leading-[26px] text-[#bbbbbe] tracking-[-0.36px]">Get started with</p>
-              <p className="font-['Poppins',sans-serif] font-semibold text-[32px] leading-none text-[#1c1c26] tracking-[-0.64px]">PactPay</p>
+              <p className="font-['Poppins',sans-serif] text-[18px] leading-[26px] text-[#bbbbbe] tracking-[-0.36px]">{t('pages.orgOnboardingGuide.getStartedWith')}</p>
+              <p className="font-['Poppins',sans-serif] font-semibold text-[32px] leading-none text-[#1c1c26] tracking-[-0.64px]">{t('pages.orgOnboardingGuide.brand')}</p>
             </div>
             <p className="text-[12px] leading-[18px] text-[#8d8d93]">
-              Complete these steps to learn how PactPay works with you.
+              {t('pages.orgOnboardingGuide.description')}
             </p>
           </div>
           <button
             onClick={handleDismiss}
             className="border border-[rgba(0,0,0,0.12)] rounded-[10px] px-[14px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
           >
-            Dismiss
+            {t('pages.orgOnboardingGuide.dismiss')}
           </button>
         </div>
 
@@ -290,7 +293,7 @@ export function OnboardingGuide() {
                       isActive ? 'font-semibold text-[#1c1c26]' : 'text-[#606067]',
                     ].join(' ')}
                   >
-                    {step.label}
+                    {t(step.labelKey)}
                   </p>
                 </button>
               )
@@ -300,13 +303,13 @@ export function OnboardingGuide() {
           {/* Active step detail */}
           <div className="bg-white rounded-[10px] px-[14px] py-[12px] flex items-center justify-between gap-[16px]">
             <p className="text-[13px] leading-[20px] text-[#1c1c26]">
-              {activeStepDef.description}
+              {t(activeStepDef.descriptionKey)}
             </p>
             <button
               onClick={handleAction}
               className="bg-[#5e85ee] hover:opacity-90 transition-opacity rounded-[10px] px-[12px] py-[8px] text-[13px] leading-[20px] text-white whitespace-nowrap shrink-0"
             >
-              {activeStepDef.buttonText}
+              {t(activeStepDef.buttonKey)}
             </button>
           </div>
         </div>

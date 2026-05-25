@@ -1,4 +1,5 @@
 import ModalContainer from '@/components/ui/modal-container'
+import { useTranslation } from '@/utils/i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 
@@ -49,6 +50,7 @@ export default function AddressBookDialog({
   onSubmit,
   validateAddress,
 }: AddressBookDialogProps) {
+  const { t } = useTranslation()
   const [remark, setRemark] = useState('')
   const [caipChainId, setCaipChainId] = useState('')
   const [address, setAddress] = useState('')
@@ -92,10 +94,10 @@ export default function AddressBookDialog({
     const trimmedRemark = remark.trim()
     const trimmedAddress = address.trim()
 
-    if (!trimmedRemark) nextErrors.remark = 'Label is required.'
-    if (mode === 'create' && !caipChainId) nextErrors.caipChainId = 'Network is required.'
+    if (!trimmedRemark) nextErrors.remark = t('settings.labelRequired')
+    if (mode === 'create' && !caipChainId) nextErrors.caipChainId = t('settings.networkRequired')
     if (mode === 'create' && !trimmedAddress) {
-      nextErrors.address = 'Address is required.'
+      nextErrors.address = t('settings.addressRequired')
     } else if (mode === 'create') {
       const addressError = validateAddress({ caipChainId, address: trimmedAddress })
       if (addressError) nextErrors.address = addressError
@@ -121,25 +123,25 @@ export default function AddressBookDialog({
       <div className="flex flex-col gap-[24px] pr-[32px]">
         <div className="flex flex-col gap-[8px]">
           <p className="font-bold text-[18px] leading-[28px] text-[#1c1c26]">
-            {mode === 'create' ? 'Add address' : 'Edit address'}
+            {mode === 'create' ? t('settings.addAddress') : t('settings.editAddress')}
           </p>
           <p className="text-[14px] leading-[22px] text-[#606067]">
             {mode === 'create'
-              ? 'Save a trusted address for faster account setup and transfers.'
-              : 'Update the label for this saved address.'}
+              ? t('settings.addAddressDescription')
+              : t('settings.editAddressDescription')}
           </p>
         </div>
 
         <div className="flex flex-col gap-[20px]">
           <div className="flex flex-col gap-[8px]">
-            <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">Label *</p>
+            <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">{t('settings.label')}</p>
             <input
               value={remark}
               onChange={event => {
                 setRemark(event.target.value)
                 if (errors.remark) setErrors(prev => ({ ...prev, remark: undefined }))
               }}
-              placeholder="e.g. My exchange wallet"
+              placeholder={t('settings.labelPlaceholder')}
               maxLength={256}
               className="w-full rounded-[12px] bg-[#f5f5f5] px-[16px] py-[12px] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#8d8d93] outline-none"
             />
@@ -149,7 +151,7 @@ export default function AddressBookDialog({
           {mode === 'create' ? (
             <>
               <div className="flex flex-col gap-[8px]">
-                <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">Network *</p>
+                <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">{t('settings.networkRequiredLabel')}</p>
                 <div className="relative" ref={chainDropdownRef}>
                   <button
                     type="button"
@@ -165,7 +167,7 @@ export default function AddressBookDialog({
                           <span>{selectedChain.name}</span>
                         </div>
                       ) : (
-                        <span className="text-[#8d8d93]">Select a network</span>
+                        <span className="text-[#8d8d93]">{t('settings.selectNetwork')}</span>
                       )}
                       <ChevronDown className={`h-[16px] w-[16px] shrink-0 text-[#606067] transition-transform ${chainDropdownOpen ? 'rotate-180' : ''}`} />
                     </div>
@@ -199,7 +201,7 @@ export default function AddressBookDialog({
               </div>
 
               <div className="flex flex-col gap-[8px]">
-                <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">Address *</p>
+                <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">{t('settings.addressRequiredLabel')}</p>
                 <input
                   value={address}
                   onChange={event => {
@@ -216,7 +218,7 @@ export default function AddressBookDialog({
           ) : (
             <>
               <div className="flex flex-col gap-[8px]">
-                <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">Network</p>
+                <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">{t('settings.network')}</p>
                 <div className="rounded-[12px] bg-[#f5f5f5] px-[16px] py-[12px] text-[16px] leading-[24px] text-[#1c1c26]">
                   <div className="flex items-center gap-[8px]">
                     {selectedChain?.iconUrl && (
@@ -228,7 +230,7 @@ export default function AddressBookDialog({
               </div>
 
               <div className="flex flex-col gap-[8px]">
-                <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">Address</p>
+                <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">{t('settings.address')}</p>
                 <div className="break-all rounded-[12px] bg-[#f5f5f5] px-[16px] py-[12px] text-[16px] leading-[24px] text-[#1c1c26]">
                   {value?.address ?? '-'}
                 </div>
@@ -244,7 +246,7 @@ export default function AddressBookDialog({
             disabled={loading}
             className="rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[16px] py-[10px] text-[14px] leading-[22px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5] disabled:opacity-50"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -252,7 +254,7 @@ export default function AddressBookDialog({
             disabled={loading}
             className="rounded-[12px] bg-[#5e85ee] px-[16px] py-[10px] text-[14px] leading-[22px] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? 'Saving...' : 'Save'}
+            {loading ? t('common.saving') : t('common.save')}
           </button>
         </div>
       </div>

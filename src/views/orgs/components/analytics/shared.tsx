@@ -1,8 +1,16 @@
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/utils/i18n'
 import { ArrowUpRight, ChartColumn, Download } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { ANALYTICS_TABS, type AnalyticsTab, type TrendMeta, formatStatusLabel } from './analytics-utils'
+import { type AnalyticsTab, type TrendMeta, formatTranslatedStatusLabel } from './analytics-utils'
+
+const ANALYTICS_TAB_KEYS: Array<{ id: AnalyticsTab; labelKey: 'pages.analytics.byTime' | 'pages.analytics.byTransaction' | 'pages.analytics.transactionExecutions' | 'pages.analytics.byMember' }> = [
+  { id: 'time', labelKey: 'pages.analytics.byTime' },
+  { id: 'transaction', labelKey: 'pages.analytics.byTransaction' },
+  { id: 'executions', labelKey: 'pages.analytics.transactionExecutions' },
+  { id: 'members', labelKey: 'pages.analytics.byMember' },
+]
 
 function AnalyticsTabButton({
   active,
@@ -35,13 +43,15 @@ export function AnalyticsTabsNav({
   activeTab: AnalyticsTab
   onTabChange: (tab: AnalyticsTab) => void
 }) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex flex-wrap items-center gap-[20px] md:gap-[24px]">
-      {ANALYTICS_TABS.map(tab => (
+      {ANALYTICS_TAB_KEYS.map(tab => (
         <AnalyticsTabButton
           key={tab.id}
           active={tab.id === activeTab}
-          label={tab.label}
+          label={t(tab.labelKey)}
           onClick={() => onTabChange(tab.id)}
         />
       ))}
@@ -116,7 +126,7 @@ export function MetricCard({
 export function MessageState({ title, description }: { title: string; description: string }) {
   return (
     <div className="rounded-[32px] bg-white px-[24px] py-[20px] flex flex-col items-center justify-center gap-[12px] text-center">
-      <img src="/empty-data.svg" alt="No data" className="h-[120px] w-[120px]" />
+      <img src="/empty-data.svg" alt="" className="h-[120px] w-[120px]" />
       <p className="text-[18px] leading-[28px] text-[#1c1c26]">{title}</p>
       <p className="mx-auto max-w-[520px] text-[14px] leading-[22px] text-[#8d8d93]">{description}</p>
     </div>
@@ -124,18 +134,21 @@ export function MessageState({ title, description }: { title: string; descriptio
 }
 
 export function PlaceholderState({ label }: { label: string }) {
+  const { t } = useTranslation()
+
   return (
     <div className="rounded-[32px] bg-white px-[24px] py-[20px] text-center">
       <div className="mx-auto flex h-[56px] w-[56px] items-center justify-center rounded-[18px] bg-[#f5f5f5]">
         <ChartColumn className="h-[24px] w-[24px] text-[#606067]" />
       </div>
       <p className="mt-[16px] text-[18px] leading-[28px] text-[#1c1c26]">{label}</p>
-      <p className="mt-[8px] text-[14px] leading-[22px] text-[#8d8d93]">This view is not part of the current implementation scope.</p>
+      <p className="mt-[8px] text-[14px] leading-[22px] text-[#8d8d93]">{t('pages.analytics.notInScope')}</p>
     </div>
   )
 }
 
 export function AnalyticsStatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation()
   const normalized = status.toLowerCase()
   const colorClasses = (() => {
     if (normalized === 'complete' || normalized === 'completed') {
@@ -159,7 +172,7 @@ export function AnalyticsStatusBadge({ status }: { status: string }) {
 
   return (
     <span className={cn('inline-flex items-center rounded-[8px] px-[8px] py-[2px] text-[12px] leading-[18px] whitespace-nowrap md:text-[14px] md:leading-[22px]', colorClasses)}>
-      {formatStatusLabel(status)}
+      {formatTranslatedStatusLabel(status, t)}
     </span>
   )
 }
@@ -171,6 +184,8 @@ export function AnalyticsExportButton({
   onClick: () => void
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
+
   return (
     <Button
       variant="outline"
@@ -179,7 +194,7 @@ export function AnalyticsExportButton({
       disabled={disabled}
     >
       <Download className="h-[16px] w-[16px]" />
-      Export
+      {t('pages.analytics.export')}
     </Button>
   )
 }

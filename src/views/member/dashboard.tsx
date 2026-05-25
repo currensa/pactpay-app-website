@@ -1,6 +1,7 @@
 import apis from '@/apis'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
+import { useTranslation } from '@/utils/i18n'
 import { MemberOnboardingGuide } from '@/views/member/components/member-onboarding-guide'
 import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
 import { useClaimAll } from '@/views/member/hooks/use-claim-all'
@@ -65,6 +66,7 @@ interface SummaryCardProps {
 }
 
 function SummaryCard({ title, icon, tokens, loading, claimButton }: SummaryCardProps) {
+  const { t } = useTranslation()
   const [showAll, setShowAll] = useState(false)
   const hasMore = tokens.length > 3
   const visibleTokens = showAll ? tokens : tokens.slice(0, 3)
@@ -86,12 +88,12 @@ function SummaryCard({ title, icon, tokens, loading, claimButton }: SummaryCardP
       <div className="flex flex-col gap-[8px]">
         <div className={`flex flex-col gap-[10px] ${hasMore ? 'max-h-[208px]' : ''} ${showAll ? 'overflow-y-auto pr-[4px]' : 'overflow-visible'}`}>
           {loading
-            ? <p className="text-[14px] text-[#8d8d93] py-[8px]">Loading...</p>
+            ? <p className="text-[14px] text-[#8d8d93] py-[8px]">{t('common.loading')}</p>
             : tokens.length === 0
               ? (
                 <div className="flex h-full flex-col items-center justify-center gap-[10px]">
-                  <img src="/empty-data.svg" alt="No data" className="h-[120px] w-[120px]" />
-                  <p className="text-[13px] leading-[20px] text-[#8d8d93]">No data available</p>
+                  <img src="/empty-data.svg" alt={t('common.noDataAlt')} className="h-[120px] w-[120px]" />
+                  <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.memberDashboard.noDataAvailable')}</p>
                 </div>
               )
               : visibleTokens.map(item => <TokenRow key={`${item.chainName}:${item.symbol}`} item={item} />)
@@ -102,7 +104,7 @@ function SummaryCard({ title, icon, tokens, loading, claimButton }: SummaryCardP
             onClick={() => setShowAll(v => !v)}
             className="text-[14px] leading-[22px] text-[#5e85ee] text-left hover:opacity-80 transition-opacity"
           >
-            {showAll ? 'Show Less' : 'Show All'}
+            {showAll ? t('pages.memberDashboard.showLess') : t('pages.memberDashboard.showAll')}
           </button>
         )}
       </div>
@@ -113,6 +115,7 @@ function SummaryCard({ title, icon, tokens, loading, claimButton }: SummaryCardP
 // ─── Donut chart ──────────────────────────────────────────────────────────────
 
 function DonutChart({ data, getTokenSymbol }: { data: DistributionItem[]; getTokenSymbol: (caipChainId: string, token: string) => string | null }) {
+  const { t } = useTranslation()
   // Group by token, sum raw amounts
   const tokenTotals: Record<string, { amount: number; symbol: string; chainName: string }> = {}
   for (const d of data) {
@@ -123,8 +126,8 @@ function DonutChart({ data, getTokenSymbol }: { data: DistributionItem[]; getTok
   }
   const entries = Object.values(tokenTotals)
   const centerAmount = entries.reduce((s, e) => s + e.amount, 0).toLocaleString()
-  const centerSymbol = entries.length === 1 ? entries[0].symbol : 'Mixed'
-  const centerChainName = entries.length === 1 ? entries[0].chainName : 'Multiple networks'
+  const centerSymbol = entries.length === 1 ? entries[0].symbol : t('pages.memberDashboard.mixed')
+  const centerChainName = entries.length === 1 ? entries[0].chainName : t('pages.memberDashboard.multipleNetworks')
 
   return (
     <div className="relative shrink-0 h-[160px] w-[160px]" style={{ overflow: 'visible' }}>
@@ -167,6 +170,7 @@ function DonutChart({ data, getTokenSymbol }: { data: DistributionItem[]; getTok
 // ─── Income Distribution card ─────────────────────────────────────────────────
 
 function IncomeDistributionCard({ data, loading, getTokenSymbol }: { data: DistributionItem[]; loading?: boolean; getTokenSymbol: (caipChainId: string, token: string) => string | null }) {
+  const { t } = useTranslation()
   return (
     <div className="bg-white rounded-[24px] p-[20px] flex flex-1 flex-col gap-[16px] min-w-0 self-stretch">
       {/* Header */}
@@ -175,20 +179,20 @@ function IncomeDistributionCard({ data, loading, getTokenSymbol }: { data: Distr
           <div className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-[14px] bg-[#f5f5f5]">
             <IconChartPie className="h-[26px] w-[26px] text-[#1c1c26]" />
           </div>
-          <p className="text-[15px] leading-[24px] text-[#1c1c26]">Income Distribution</p>
+          <p className="text-[15px] leading-[24px] text-[#1c1c26]">{t('pages.memberDashboard.incomeDistribution')}</p>
         </div>
-        <p className="text-[14px] leading-[22px] text-[#606067]">Last 30 days</p>
+        <p className="text-[14px] leading-[22px] text-[#606067]">{t('pages.memberDashboard.last30Days')}</p>
       </div>
 
       {/* Chart + legend */}
       <div className="flex items-center gap-[24px]">
         {loading
-          ? <p className="text-[14px] text-[#8d8d93]">Loading...</p>
+          ? <p className="text-[14px] text-[#8d8d93]">{t('common.loading')}</p>
           : data.length === 0
             ? (
               <div className="flex h-full w-full flex-col items-center justify-center gap-[10px]">
-                <img src="/empty-data.svg" alt="No data" className="h-[120px] w-[120px]" />
-                <p className="text-[13px] leading-[20px] text-[#8d8d93]">No data available</p>
+                <img src="/empty-data.svg" alt={t('common.noDataAlt')} className="h-[120px] w-[120px]" />
+                <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.memberDashboard.noDataAvailable')}</p>
               </div>
             )
             : (
@@ -219,6 +223,7 @@ function IncomeDistributionCard({ data, loading, getTokenSymbol }: { data: Distr
 export default function MemberDashboard() {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { t } = useTranslation()
 
   const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, getTokenIconUrl, getChain } = useChainAssetStore()
   const { verifying, userAction, address, walletProvider, handleClaimAll, runClaimAll } = useClaimAll()
@@ -288,13 +293,13 @@ export default function MemberDashboard() {
       {/* Summary Cards */}
       <div className="flex gap-[24px]">
         <SummaryCard
-          title="Total Claimed"
+          title={t('pages.memberDashboard.totalClaimed')}
           icon={<IconMoneybag className="h-[32px] w-[32px] text-[#1c1c26]" />}
           tokens={claimedTokens}
           loading={summaryLoading}
         />
         <SummaryCard
-          title="Pending"
+          title={t('pages.memberDashboard.pending')}
           icon={<IconCurrencyDollar className="h-[32px] w-[32px] text-[#1c1c26]" />}
           tokens={pendingTokens}
           loading={summaryLoading}
@@ -305,7 +310,7 @@ export default function MemberDashboard() {
               className="flex items-center justify-center gap-[6px] rounded-[12px] bg-[#5e85ee] px-[14px] py-[10px] text-[14px] leading-[22px] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
             >
               {verifying && <IconLoader2 className="h-[14px] w-[14px] animate-spin" />}
-              Claim all
+              {t('pages.memberDashboard.claimAll')}
             </button>
           }
         />
@@ -314,7 +319,7 @@ export default function MemberDashboard() {
 
       {/* Data Summary */}
       <div>
-        <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26] pb-[16px]">Data Summary</p>
+        <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26] pb-[16px]">{t('pages.memberDashboard.dataSummary')}</p>
         <div className="bg-white rounded-[32px] p-[16px]">
           <PayrollHistoryTable onOrgClick={handleOrganizationClick} />
         </div>

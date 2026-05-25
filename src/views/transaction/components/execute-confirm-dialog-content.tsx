@@ -2,6 +2,7 @@ import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
 import { erc20Abi, vaultAbi } from '@/lib/vault-abi'
 import useChainAssetStore from '@/stores/chain-asset'
+import { useTranslation } from '@/utils/i18n'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { useEffect, useState } from 'react'
@@ -11,17 +12,6 @@ import type { Transaction } from './types'
 const ETH_SENTINEL = '0x0000000000000000000000000000000000000000' as Hex
 
 type DepositStatus = 'idle' | 'connecting' | 'authorizing' | 'checking' | 'approving' | 'depositing' | 'done' | 'error'
-
-const STEP_LABELS: Record<DepositStatus, string> = {
-  idle: 'Connect Wallet',
-  connecting: 'Connecting…',
-  authorizing: 'Authorizing…',
-  checking: 'Checking allowance…',
-  approving: 'Approving…',
-  depositing: 'Depositing…',
-  done: 'Done',
-  error: 'Retry',
-}
 
 interface ExecuteConfirmDialogContentProps {
   executingTransaction: Transaction | null
@@ -49,6 +39,17 @@ export function ExecuteConfirmDialogContent({
   const [status, setStatus] = useState<DepositStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const isAiTransaction = executingTransaction?.type === 'token_usage_plan'
+  const { t } = useTranslation()
+  const stepLabels: Record<DepositStatus, string> = {
+    idle: t('pages.transactions.connectWallet'),
+    connecting: t('pages.transactions.connecting'),
+    authorizing: t('pages.transactions.authorizing'),
+    checking: t('pages.transactions.checkingAllowance'),
+    approving: t('pages.transactions.approving'),
+    depositing: t('pages.transactions.depositing'),
+    done: t('pages.transactions.done'),
+    error: t('pages.transactions.retry'),
+  }
 
   const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
@@ -180,24 +181,24 @@ export function ExecuteConfirmDialogContent({
     <div className="flex flex-col gap-[20px]">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">Transaction Summary</span>
+        <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">{t('pages.transactions.transactionSummary')}</span>
       </div>
 
       {/* Summary card */}
       {executingTransaction && (
         <div className="bg-[#f5f5f5] rounded-[12px] p-4 flex flex-col gap-[18px]">
-          <InfoRow label="Transaction Name">{executingTransaction.name}</InfoRow>
-          <InfoRow label={isAiTransaction ? 'Payment Time' : 'Pay Day'}>{executingTransaction.executionDate}</InfoRow>
-          <InfoRow label="Network">{executingTransaction.network}</InfoRow>
+          <InfoRow label={t('pages.transactions.transactionName')}>{executingTransaction.name}</InfoRow>
+          <InfoRow label={isAiTransaction ? t('pages.transactions.paymentTime') : t('pages.transactions.payDay')}>{executingTransaction.executionDate}</InfoRow>
+          <InfoRow label={t('pages.transactions.network')}>{executingTransaction.network}</InfoRow>
           <div className="flex items-center justify-between">
-            <span className="text-[14px] leading-[22px] text-[#606067]">Status</span>
+            <span className="text-[14px] leading-[22px] text-[#606067]">{t('pages.transactions.status')}</span>
             <TransactionStatusBadge status={executingTransaction.status} />
           </div>
-          <InfoRow label="Total Amount">
+          <InfoRow label={t('pages.transactions.totalAmount')}>
             {executingTransaction.totalAmount} {executingTransaction.currency}
           </InfoRow>
-          <InfoRow label={isAiTransaction ? 'Payees' : 'Total Members'}>
-            {isAiTransaction ? 'API Service' : executingTransaction.members}
+          <InfoRow label={isAiTransaction ? t('pages.transactions.payees') : t('pages.transactions.totalMembers')}>
+            {isAiTransaction ? t('pages.transactions.apiService') : executingTransaction.members}
           </InfoRow>
         </div>
       )}
@@ -235,7 +236,7 @@ export function ExecuteConfirmDialogContent({
           disabled={isBusy || status === 'done'}
           className="h-[38px] px-[16px] rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {STEP_LABELS[status]}
+          {stepLabels[status]}
         </button>
       </div>
     </div>
