@@ -430,7 +430,7 @@ export function CreateTransactionDialogContent({
 
   // ── Dialog variant table (original columns) ──────────────────────────────
   const dialogMemberTable = (
-    <div className="flex-1 overflow-x-auto">
+    <div className="flex-1 min-h-0 max-h-[52vh] overflow-x-auto overflow-y-auto">
       <Table>
         <TableHeader>
           <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
@@ -552,7 +552,7 @@ export function CreateTransactionDialogContent({
 
   // ── Page variant table (Figma columns: Member, Wallet, Amount, Status) ────
   const pageMemberTable = (
-    <div className="flex-1 overflow-x-auto">
+    <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto">
       <Table>
         <TableHeader>
           <TableRow className="bg-[#f5f5f5] border-b border-[rgba(0,0,0,0.12)] hover:bg-[#f5f5f5]">
@@ -673,7 +673,7 @@ export function CreateTransactionDialogContent({
   )
 
   return (
-    <div className="flex flex-col h-full">
+    <div className={cn('flex flex-col min-h-0', variant === 'dialog' ? 'max-h-[80vh]' : 'h-full')}>
       {variant === 'dialog' && (
         <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <DialogTitle>Create New Transaction</DialogTitle>
@@ -731,7 +731,7 @@ export function CreateTransactionDialogContent({
                       Selected members have different currencies. All members in a transaction must share the same currency.
                     </p>
                   )}
-                  <div className="flex-1 overflow-hidden min-h-0 border border-[rgba(0,0,0,0.12)] rounded-[12px]">
+                  <div className="flex flex-1 min-h-0 overflow-hidden border border-[rgba(0,0,0,0.12)] rounded-[12px]">
                     {pageMemberTable}
                   </div>
                   {/* Select controls */}
@@ -938,7 +938,7 @@ export function CreateTransactionDialogContent({
             </div>
           ) : (
             /* Dialog variant */
-            <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="flex flex-col flex-1 overflow-hidden min-h-0">
               {currencyMismatch && (
                 <p className="text-[#d92b2b] text-[13px] mb-3">
                   Selected members have different currencies. All members in a transaction must share the same currency.
