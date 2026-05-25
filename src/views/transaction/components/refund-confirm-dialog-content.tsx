@@ -5,7 +5,7 @@ import useChainAssetStore from '@/stores/chain-asset'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { useEffect, useState } from 'react'
-import { createPublicClient, createWalletClient, custom, http, type Hex } from 'viem'
+import { createPublicClient, createWalletClient, custom, type Hex } from 'viem'
 import type { Transaction } from './types'
 
 type RefundStatus = 'idle' | 'connecting' | 'refunding' | 'done' | 'error'
@@ -85,8 +85,6 @@ export function RefundConfirmDialogContent({
       const numericChainId = parseInt(chainEntry.chainId, 10)
       const vaultAddress = chainEntry.vaultAddress as Hex
       const merkleRoot = transactionPlan.merkleRoot as Hex
-      const rpcUrl = (chainEntry.rpcUrls as string[])[0]
-
       const currentChainIdHex = await provider.request<string>({ method: 'eth_chainId' })
       if (parseInt(currentChainIdHex, 16) !== numericChainId) {
         await provider.request({
@@ -94,12 +92,18 @@ export function RefundConfirmDialogContent({
           params: [{ chainId: `0x${numericChainId.toString(16)}` }],
         })
       }
-
       const viemChain = {
         id: numericChainId,
         name: chainEntry.name,
-        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-        rpcUrls: { default: { http: chainEntry.rpcUrls as string[] } },
+        nativeCurrency: {
+          name: chainEntry.name,
+          symbol: chainEntry.name,
+          decimals: 18,
+        },
+        rpcUrls: {
+          default: { http: [] },
+          public: { http: [] },
+        },
       } as const
 
       const walletClient = createWalletClient({
@@ -109,7 +113,7 @@ export function RefundConfirmDialogContent({
       })
       const publicClient = createPublicClient({
         chain: viemChain as any,
-        transport: http(rpcUrl),
+        transport: custom(provider),
       })
 
       setStatus('refunding')
@@ -118,7 +122,7 @@ export function RefundConfirmDialogContent({
         abi: vaultAbi,
         functionName: 'refund',
         args: [merkleRoot],
-        chain: undefined,
+        chain: viemChain as any,
       })
       const receipt = await publicClient.waitForTransactionReceipt({ hash: refundTx })
       if (receipt.status !== 'success') throw new Error('refund transaction reverted.')

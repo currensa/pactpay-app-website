@@ -5,7 +5,7 @@ import useChainAssetStore from '@/stores/chain-asset'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { useEffect, useState } from 'react'
-import { createPublicClient, createWalletClient, custom, http, type Hex } from 'viem'
+import { createPublicClient, createWalletClient, custom, type Hex } from 'viem'
 import { TransactionStatusBadge } from './transaction-status-badge'
 import type { Transaction } from './types'
 const ETH_SENTINEL = '0x0000000000000000000000000000000000000000' as Hex
@@ -90,8 +90,6 @@ export function ExecuteConfirmDialogContent({
       const vaultAddress = chainEntry.vaultAddress as Hex
       const tokenAddress = (transactionPlan.tokenAddress || ETH_SENTINEL) as Hex
       const merkleRoot = transactionPlan.merkleRoot as Hex
-      const rpcUrl = (chainEntry.rpcUrls as string[])[0]
-
       const currentChainIdHex = await provider.request<string>({ method: 'eth_chainId' })
       if (parseInt(currentChainIdHex, 16) !== numericChainId) {
         await provider.request({
@@ -107,12 +105,18 @@ export function ExecuteConfirmDialogContent({
         throw new Error('Total payroll amount is zero.')
       }
       const totalAmount = BigInt(transactionPlan.totalAmount)
-
       const viemChain = {
         id: numericChainId,
         name: chainEntry.name,
-        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-        rpcUrls: { default: { http: chainEntry.rpcUrls as string[] } },
+        nativeCurrency: {
+          name: chainEntry.name,
+          symbol: chainEntry.name,
+          decimals: 18,
+        },
+        rpcUrls: {
+          default: { http: [] },
+          public: { http: [] },
+        },
       } as const
 
       const walletClient = createWalletClient({
@@ -122,7 +126,7 @@ export function ExecuteConfirmDialogContent({
       })
       const publicClient = createPublicClient({
         chain: viemChain as any,
-        transport: http(rpcUrl),
+        transport: custom(provider),
       })
 
       if (!isNative) {
@@ -141,7 +145,7 @@ export function ExecuteConfirmDialogContent({
             abi: erc20Abi,
             functionName: 'approve',
             args: [vaultAddress, totalAmount],
-            chain: undefined
+            chain: viemChain as any,
           })
           await publicClient.waitForTransactionReceipt({ hash: approveTx })
         }
@@ -157,7 +161,7 @@ export function ExecuteConfirmDialogContent({
         functionName: 'depositForPayroll',
         args: [merkleRoot, tokenAddress, totalAmount, BigInt(claimTime), authSignature as Hex],
         ...(isNative ? { value: totalAmount } : {}),
-        chain: undefined
+        chain: viemChain as any,
       })
       const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
       if (receipt.status !== 'success') throw new Error('depositForPayroll transaction reverted.')
