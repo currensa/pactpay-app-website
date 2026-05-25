@@ -1,11 +1,12 @@
 import api from '@/apis'
 import { Organization } from '@/apis/orgnization.api'
+import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { useTranslation } from '@/utils/i18n'
 import { PaymentConfigFields } from '@/views/orgs/components/payment-config-fields'
-import { Check, Loader2, Upload, XCircle } from 'lucide-react'
+import { BookOpen, Check, Copy, Loader2, Upload, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
@@ -37,6 +38,7 @@ export default function OrganizationSettings() {
 
   const logoInputRef = useRef<HTMLInputElement>(null)
   const organizationId = localStorage.getItem('organizationId')
+  const mcpInstallCommand = 'npm i -g @pactpay/mcp-server'
 
   useEffect(() => {
     if (!organizationId) {
@@ -147,6 +149,15 @@ export default function OrganizationSettings() {
       // request interceptor handles API errors
     } finally {
       setSavingPayroll(false)
+    }
+  }
+
+  const handleCopyMcpCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(mcpInstallCommand)
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgSettings.commandCopied') })
+    } catch {
+      toast({ variant: 'destructive', title: t('common.error'), description: t('pages.orgSettings.failedCopyCommand') })
     }
   }
 
@@ -314,6 +325,53 @@ export default function OrganizationSettings() {
               className="rounded-[12px] bg-[#5e85ee] px-[16px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
             >
               {savingPayroll ? t('pages.orgSettings.saving') : t('pages.orgSettings.savePaymentSettings')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-[12px]">
+        <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[26px] text-[#1c1c26]">
+          {t('pages.orgSettings.mcp')}
+        </p>
+
+        <div className="bg-white rounded-[32px] p-[20px] flex flex-col gap-[16px]">
+          <div className="flex flex-col gap-[4px] max-w-[620px]">
+            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgSettings.mcpConnectTitle')}</p>
+            <p className="text-[13px] leading-[20px] text-[#8d8d93]">
+              {t('pages.orgSettings.mcpConnectDescription')}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-[8px] max-w-[620px]">
+            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgSettings.mcpInstallCommand')}</p>
+            <div className="flex flex-col overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-[#f5f5f5] md:flex-row">
+              <div className="min-w-0 flex-1 px-[14px] py-[10px]">
+                <code className="block overflow-x-auto whitespace-nowrap text-[13px] leading-[20px] text-[#1c1c26]">
+                {mcpInstallCommand}
+                </code>
+              </div>
+              <div className="border-t border-[rgba(0,0,0,0.08)] md:border-l md:border-t-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void handleCopyMcpCommand()}
+                className="h-full w-full rounded-none px-[12px] text-[13px] text-[#606067] hover:bg-[#ebebef] md:min-w-[110px]"
+              >
+                <Copy className="h-[14px] w-[14px]" />
+                  {t('pages.orgSettings.copyCommand')}
+                </Button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/document#api-services')}
+              className="inline-flex items-center gap-[8px] text-[13px] leading-[20px] text-[#5e85ee] hover:underline"
+            >
+              <BookOpen className="h-[16px] w-[16px]" />
+              {t('pages.orgSettings.readDocumentation')}
             </button>
           </div>
         </div>
