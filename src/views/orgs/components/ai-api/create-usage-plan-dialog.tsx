@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
+import { useTranslation } from '@/utils/i18n'
 import { useState } from 'react'
 
 function sanitizeBudgetInput(value: string) {
@@ -27,20 +28,20 @@ function sanitizeBudgetInput(value: string) {
   return `${integerPart}.${decimalPart}`
 }
 
-function validateBudgetInput(value: string) {
+function validateBudgetInput(value: string, t: ReturnType<typeof useTranslation>['t']) {
   const trimmed = value.trim()
   if (!trimmed) {
-    return { error: 'Budget is required.', value: '' }
+    return { error: t('pages.orgAiApiPayees.budgetRequired'), value: '' }
   }
 
   if (!/^\d+(\.\d{0,2})?$/.test(trimmed)) {
-    return { error: 'Budget must be a number with at most 2 decimal places.', value: '' }
+    return { error: t('pages.orgAiApiPayees.budgetDecimalLimit'), value: '' }
   }
 
   const normalized = trimmed.endsWith('.') ? trimmed.slice(0, -1) : trimmed
   const amount = Number(normalized)
   if (!Number.isFinite(amount) || amount <= 0) {
-    return { error: 'Budget must be greater than 0.', value: '' }
+    return { error: t('pages.orgAiApiPayees.budgetGreaterThanZero'), value: '' }
   }
 
   return { error: null, value: normalized }
@@ -58,6 +59,7 @@ export default function CreateUsagePlanDialog({
   onSuccess,
 }: CreateUsagePlanDialogProps) {
   const { toast } = useToast()
+  const { t } = useTranslation()
 
   const [creating, setCreating] = useState(false)
   const [newPlanName, setNewPlanName] = useState('')
@@ -77,13 +79,13 @@ export default function CreateUsagePlanDialog({
 
   const handleCreatePlan = async () => {
     if (!newPlanName.trim()) {
-      toast({ title: 'Error', description: 'Plan name is required.', variant: 'destructive' })
+      toast({ title: t('pages.orgAiApiPayees.error'), description: t('pages.orgAiApiPayees.planNameRequired'), variant: 'destructive' })
       return
     }
 
-    const budgetValidation = validateBudgetInput(newBudget)
+    const budgetValidation = validateBudgetInput(newBudget, t)
     if (budgetValidation.error) {
-      toast({ title: 'Error', description: budgetValidation.error, variant: 'destructive' })
+      toast({ title: t('pages.orgAiApiPayees.error'), description: budgetValidation.error, variant: 'destructive' })
       return
     }
 
@@ -93,7 +95,7 @@ export default function CreateUsagePlanDialog({
         planName: newPlanName.trim(),
         budget: budgetValidation.value,
       })
-      toast({ title: 'Success', description: 'Usage plan created successfully.' })
+      toast({ title: t('pages.orgAiApiPayees.success'), description: t('pages.orgAiApiPayees.usagePlanCreated') })
       handleOpenChange(false)
       await onSuccess?.()
     } catch {
@@ -107,23 +109,23 @@ export default function CreateUsagePlanDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Usage Plan</DialogTitle>
+          <DialogTitle>{t('pages.orgAiApiPayees.createUsagePlan')}</DialogTitle>
           <DialogDescription>
-            Set a plan name and reference budget for an AI API account.
+            {t('pages.orgAiApiPayees.createDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="mt-[20px] flex flex-col gap-[14px]">
           <div className="flex flex-col gap-[8px]">
-            <span className="text-[13px] font-medium text-[#1c1c26]">Plan Name</span>
+            <span className="text-[13px] font-medium text-[#1c1c26]">{t('pages.orgAiApiPayees.planName')}</span>
             <Input
               value={newPlanName}
               onChange={event => setNewPlanName(event.target.value)}
-              placeholder="Please enter a plan name, eg, dev team."
+              placeholder={t('pages.orgAiApiPayees.planNamePlaceholder')}
             />
           </div>
           <div className="flex flex-col gap-[8px]">
-            <span className="text-[13px] font-medium text-[#1c1c26]">Budget</span>
+            <span className="text-[13px] font-medium text-[#1c1c26]">{t('pages.orgAiApiPayees.budget')}</span>
             <div className="relative">
               <span className="pointer-events-none absolute left-[12px] top-1/2 -translate-y-1/2 text-[13px] text-[#606067]">$</span>
               <Input
@@ -134,12 +136,12 @@ export default function CreateUsagePlanDialog({
                 className="pl-[28px]"
                 value={newBudget}
                 onChange={event => setNewBudget(sanitizeBudgetInput(event.target.value))}
-                placeholder="eg, 500."
+                placeholder={t('pages.orgAiApiPayees.budgetPlaceholder')}
               />
             </div>
           </div>
           <p className="text-[12px] leading-[18px] text-[#8d8d93]">
-            Budget is a reference target only and uses your organisation payment currency.
+            {t('pages.orgAiApiPayees.budgetHint')}
           </p>
         </div>
 
@@ -148,10 +150,10 @@ export default function CreateUsagePlanDialog({
             variant="outline"
             onClick={() => handleOpenChange(false)}
           >
-            Cancel
+            {t('pages.orgAiApiPayees.cancel')}
           </Button>
           <Button onClick={() => void handleCreatePlan()} disabled={creating}>
-            Create
+            {t('pages.orgAiApiPayees.create')}
           </Button>
         </DialogFooter>
       </DialogContent>
