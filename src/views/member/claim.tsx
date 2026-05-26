@@ -394,8 +394,7 @@ export default function ClaimPage() {
         })
         return
       }
-
-      const confirmMessage = t('pages.memberClaim.confirmRecipient', { address: trimmedRecipient })
+      const confirmMessage = `I confirm that the recipient address for this claim is:\n${trimmedRecipient}`
       const recipientSignature = await walletProvider.request<string>({
         method: 'personal_sign',
         params: [confirmMessage, address],

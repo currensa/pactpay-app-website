@@ -215,7 +215,6 @@ export const messages = {
         claimedSuccessfully: '{count} item(s) claimed successfully',
         failedCount: '{count} item(s) failed',
         view: 'View',
-        confirmRecipient: 'I confirm that the recipient address for this claim is:\n{address}',
       },
       orgDashboard: {
         totalMembers: 'Total Members',
@@ -1051,7 +1050,6 @@ export const messages = {
         claimedSuccessfully: '{count} 个项目领取成功',
         failedCount: '{count} 个项目失败',
         view: '查看',
-        confirmRecipient: '我确认本次领取的收款地址为：\n{address}',
       },
       orgDashboard: {
         totalMembers: '成员总数',
