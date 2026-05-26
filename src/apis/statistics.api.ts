@@ -72,7 +72,7 @@ export interface GetByTransactionStatisticsParams {
   tokenAddress?: string
 }
 
-export type MemberHistoryStatus = 'current' | 'left' | 'deleted'
+export type MemberHistoryStatus = 'active' | 'left' | 'deleted'
 
 export interface MemberHistoryTotalPayment {
   caipChainId: string

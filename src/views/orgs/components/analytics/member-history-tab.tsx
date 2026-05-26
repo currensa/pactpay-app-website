@@ -11,25 +11,25 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
-import { getMemberStatusDisplayName } from '@/enums/org'
 import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { formatActivityDescription, formatActivityTime } from '@/utils/activity'
 import { formatUtcDateTime } from '@/utils/date'
+import { useTranslation } from '@/utils/i18n'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { escapeCsvValue, formatTokenAmount } from './analytics-utils'
+import { escapeCsvValue, formatTokenAmount, getOrgMemberStatusLabel } from './analytics-utils'
 import { AnalyticsExportButton, AnalyticsTopBar, MessageState } from './shared'
 
 const PAGE_SIZE = 20
 
-const STATUS_FILTER_OPTIONS: Array<{ value: 'all' | MemberHistoryStatus; label: string }> = [
-  { value: 'all', label: 'All Statuses' },
-  { value: 'current', label: 'Active' },
+const STATUS_FILTER_OPTIONS: Array<{ value: 'all' | MemberHistoryStatus; labelKey: 'pages.analytics.allStatuses' | 'pages.analytics.active' | 'pages.analytics.delete' }> = [
+  { value: 'all', labelKey: 'pages.analytics.allStatuses' },
+  { value: 'active', labelKey: 'pages.analytics.active' },
   // { value: 'left', label: 'Left' },
-  { value: 'deleted', label: 'Delete' },
+  { value: 'deleted', labelKey: 'pages.analytics.delete' },
 ]
 
 
@@ -49,14 +49,8 @@ function getInitials(value: string) {
   return `${tokens[0][0] || ''}${tokens[1][0] || ''}`.toUpperCase()
 }
 
-function getMemberHistoryStatusLabel(status: MemberHistoryStatus) {
-  if (status === 'current') return 'Active'
-  if (status === 'left') return 'Left'
-  return 'Delete'
-}
-
 function MemberHistoryStatusBadge({ status }: { status: MemberHistoryStatus }) {
-  const colorClasses = status === 'current'
+  const colorClasses = status === 'active'
     ? 'bg-[rgba(93,221,34,0.12)] text-[#5ddd22]'
     : status === 'left'
       ? 'bg-[rgba(255,168,0,0.12)] text-[#ffa800]'
@@ -64,7 +58,7 @@ function MemberHistoryStatusBadge({ status }: { status: MemberHistoryStatus }) {
 
   return (
     <span className={cn('inline-flex items-center rounded-[8px] px-[8px] py-[2px] text-[14px] leading-[22px] whitespace-nowrap', colorClasses)}>
-      {getMemberHistoryStatusLabel(status)}
+      {status}
     </span>
   )
 }
@@ -190,6 +184,7 @@ function DetailMetaItem({ label, value }: { label: string; value: string }) {
 export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const currentMember = useOrganizationStore(s => s.currentMember)
   const { getTokenSymbol, getTokenIconUrl, getChain, getTokenDecimals } = useChainAssetStore()
   const activityTokenResolver = { getTokenSymbol, getTokenIconUrl, getChain }
@@ -256,9 +251,9 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
 
         const status = error?.response?.status
         if (status === 403) {
-          setListErrorMessage('The Member History endpoint is available only to Owner, Admin, and Operator members.')
+          setListErrorMessage(t('pages.analytics.ownerAdminOperatorOnly'))
         } else {
-          setListErrorMessage('Unable to load member history right now.')
+          setListErrorMessage(t('pages.analytics.unableToLoadMemberHistory'))
         }
 
         setListData(null)
@@ -274,7 +269,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [canAccessMemberHistory, currentPage, debouncedSearch, statusFilter])
+  }, [canAccessMemberHistory, currentPage, debouncedSearch, statusFilter, t])
 
   useEffect(() => {
     let cancelled = false
@@ -290,7 +285,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
       try {
         setDetailLoading(true)
         setDetailErrorMessage(null)
-
+        if (!selectedMemberId) return
         const response = await apis.statistics.getMemberHistoryDetail(selectedMemberId)
 
         if (cancelled) return
@@ -300,9 +295,9 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
 
         const status = error?.response?.status
         if (status === 403) {
-          setDetailErrorMessage('The Member History detail endpoint is available only to Owner, Admin, and Operator members.')
+          setDetailErrorMessage(t('pages.analytics.ownerAdminOperatorOnly'))
         } else {
-          setDetailErrorMessage('Unable to load member history detail right now.')
+          setDetailErrorMessage(t('pages.analytics.unableToLoadMemberHistoryDetail'))
         }
 
         setDetailData(null)
@@ -318,21 +313,21 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [canAccessMemberHistory, selectedMemberId])
+  }, [canAccessMemberHistory, selectedMemberId, t])
 
   const handleExport = () => {
     if (!listData?.data.length) {
-      toast({ description: 'No member history data is available to export.' })
+      toast({ description: t('pages.analytics.noMemberHistoryExportData') })
       return
     }
 
     const rows = [
-      ['Member ID', 'Display Name', 'Email', 'Status', 'Deleted At'],
+      [t('pages.analytics.memberId'), t('pages.analytics.displayName'), t('pages.analytics.email'), t('pages.analytics.status'), t('pages.analytics.deletedAt')],
       ...listData.data.map(item => [
         item.memberId,
         item.showName || '',
         item.email || '',
-        getMemberHistoryStatusLabel(item.status),
+        item.status,
         item.deletedAt ? formatUtcDateTime(item.deletedAt) : '',
       ]),
     ]
@@ -351,8 +346,8 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
     if (!canAccessMemberHistory) {
       return (
         <MessageState
-          title="Access restricted"
-          description="The Member History endpoint is available only to Owner, Admin, and Operator members."
+          title={t('pages.analytics.accessRestricted')}
+          description={t('pages.analytics.ownerAdminOperatorOnly')}
         />
       )
     }
@@ -362,7 +357,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
     }
 
     if (listErrorMessage) {
-      return <MessageState title="Unable to load member history" description={listErrorMessage} />
+      return <MessageState title={t('pages.analytics.unableToLoadMemberHistory')} description={listErrorMessage} />
     }
 
     const items = listData?.data ?? []
@@ -380,12 +375,12 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
             <Table className="min-w-[900px]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-[220px] pl-0">Members</TableHead>
-                  <TableHead className="w-[200px]">Email</TableHead>
-                  <TableHead className="w-[130px]">Join Date</TableHead>
-                  <TableHead className="w-[180px]">Total</TableHead>
-                  <TableHead className="w-[100px]">Status</TableHead>
-                  <TableHead className="w-[100px] pr-0">Action</TableHead>
+                  <TableHead className="w-[220px] pl-0">{t('pages.analytics.members')}</TableHead>
+                  <TableHead className="w-[200px]">{t('pages.analytics.email')}</TableHead>
+                  <TableHead className="w-[130px]">{t('pages.analytics.joinDate')}</TableHead>
+                  <TableHead className="w-[180px]">{t('pages.analytics.total')}</TableHead>
+                  <TableHead className="w-[100px]">{t('pages.analytics.status')}</TableHead>
+                  <TableHead className="w-[100px] pr-0">{t('pages.analytics.action')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -393,8 +388,8 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                   <TableRow className="hover:bg-transparent">
                     <TableCell colSpan={6} className="px-0 py-[24px]">
                       <div className="flex flex-col items-center justify-center gap-[10px]">
-                        <img src="/empty-table.svg" alt="No member history" className="h-[120px] w-[120px]" />
-                        <p className="text-[14px] leading-[22px] text-[#8d8d93]">No member history found</p>
+                        <img src="/empty-table.svg" alt={t('pages.analytics.noMemberHistoryAlt')} className="h-[120px] w-[120px]" />
+                        <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('pages.analytics.noMemberHistoryFound')}</p>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -454,7 +449,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                             className="h-auto px-0 py-0 text-[14px] font-normal text-[#5e85ee] hover:bg-transparent hover:text-[#4d69bd]"
                             onClick={() => setSelectedMemberId(item.memberId)}
                           >
-                            View Details
+                            {t('pages.analytics.viewDetails')}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -467,7 +462,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
 
           <div className="mt-[24px] flex flex-col gap-[16px] md:flex-row md:items-center md:justify-between">
             <p className="text-[14px] leading-[22px] text-[#606067]">
-              Showing {showingStart}-{showingEnd} of {total.toLocaleString()} members
+              {t('pages.analytics.showingMembers', { start: showingStart, end: showingEnd, total: total.toLocaleString() })}
             </p>
             <MemberHistoryPagination currentPage={page} totalPages={totalPages} onPageChange={setCurrentPage} />
           </div>
@@ -488,11 +483,11 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
     }
 
     if (detailErrorMessage) {
-      return <MessageState title="Unable to load member history detail" description={detailErrorMessage} />
+      return <MessageState title={t('pages.analytics.unableToLoadMemberHistoryDetail')} description={detailErrorMessage} />
     }
 
     if (!detailData) {
-      return <MessageState title="Member not found" description="The selected member history record is unavailable." />
+      return <MessageState title={t('pages.analytics.memberNotFound')} description={t('pages.analytics.memberNotFoundDescription')} />
     }
 
     const { member, payoutHistory, activityLogs } = detailData
@@ -516,37 +511,37 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                   <MemberHistoryStatusBadge status={member.status} />
                 </div>
                 <p className="mt-[4px] max-w-[420px] truncate text-[14px] leading-[22px] text-[#606067]" title={member.email || undefined}>
-                  {member.email || 'No email on record'}
+                  {member.email || t('pages.analytics.noEmailOnRecord')}
                 </p>
                 {member.remark && (
                   <p className="mt-[2px] max-w-[420px] truncate text-[13px] leading-[20px] text-[#8d8d93]" title={member.remark}>
-                    Remark: {member.remark}
+                    {t('pages.analytics.remark')}: {member.remark}
                   </p>
                 )}
-                <p className="mt-[2px] text-[13px] leading-[20px] text-[#8d8d93]">Member ID: {member.memberId}</p>
+                <p className="mt-[2px] text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.analytics.memberId')}: {member.memberId}</p>
               </div>
             </div>
 
             <div className="grid gap-[12px] md:grid-cols-2 xl:min-w-[460px]">
-              <DetailMetaItem label="Member Status" value={getMemberStatusDisplayName(member.memberStatus)} />
-              {member.createdAt && <DetailMetaItem label="Join date" value={formatUtcDateTime(member.createdAt)} />}
-              {member.deletedAt && <DetailMetaItem label="Leave date" value={formatUtcDateTime(member.deletedAt)} />}
+              <DetailMetaItem label={t('pages.analytics.memberStatus')} value={getOrgMemberStatusLabel(member.memberStatus, t)} />
+              {member.createdAt && <DetailMetaItem label={t('pages.analytics.joinDate')} value={formatUtcDateTime(member.createdAt)} />}
+              {member.deletedAt && <DetailMetaItem label={t('pages.analytics.leaveDate')} value={formatUtcDateTime(member.deletedAt)} />}
             </div>
           </div>
         </div>
 
         <div className="flex flex-col gap-[32px]">
           <div className="flex flex-col gap-[12px]">
-            <p className="text-[18px] leading-[28px] text-[#1c1c26]">Payout Summary (This Org)</p>
+            <p className="text-[18px] leading-[28px] text-[#1c1c26]">{t('pages.analytics.payoutSummaryThisOrg')}</p>
 
             <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
               <div className="overflow-x-auto">
                 <Table className="min-w-[720px]">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-[220px] pl-0">Date</TableHead>
-                      <TableHead className="w-[320px]">Transaction</TableHead>
-                      <TableHead className="pr-0">Amount</TableHead>
+                      <TableHead className="w-[220px] pl-0">{t('pages.analytics.date')}</TableHead>
+                      <TableHead className="w-[320px]">{t('pages.analytics.transaction')}</TableHead>
+                      <TableHead className="pr-0">{t('pages.analytics.amount')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -554,8 +549,8 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                       <TableRow className="hover:bg-transparent">
                         <TableCell colSpan={3} className="px-0 py-[24px]">
                           <div className="flex flex-col items-center justify-center gap-[10px]">
-                            <img src="/empty-table.svg" alt="No payout history" className="h-[120px] w-[120px]" />
-                            <p className="text-[14px] leading-[22px] text-[#8d8d93]">No payout history for this member</p>
+                            <img src="/empty-table.svg" alt={t('pages.analytics.noPayoutHistoryAlt')} className="h-[120px] w-[120px]" />
+                            <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('pages.analytics.noPayoutHistoryForMember')}</p>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -595,13 +590,13 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
           </div>
 
           <div className="flex flex-col gap-[12px]">
-            <p className="text-[18px] leading-[28px] text-[#1c1c26]">Activity Log</p>
+            <p className="text-[18px] leading-[28px] text-[#1c1c26]">{t('pages.analytics.activityLog')}</p>
 
             <div className="rounded-[32px] bg-white p-[24px]">
               {activityLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-[10px] py-[20px]">
-                  <img src="/empty-data.svg" alt="No activity logs" className="h-[120px] w-[120px]" />
-                  <p className="text-[14px] leading-[22px] text-[#8d8d93]">No activity logs for this member</p>
+                  <img src="/empty-data.svg" alt={t('pages.analytics.noActivityLogsAlt')} className="h-[120px] w-[120px]" />
+                  <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('pages.analytics.noActivityLogsForMember')}</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-[24px]">
@@ -632,7 +627,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
               onClick={() => setSelectedMemberId(null)}
             >
               <ChevronLeft className="h-[16px] w-[16px]" />
-              Back to List
+              {t('pages.analytics.backToList')}
             </Button>
           ) : (
             <>
@@ -641,7 +636,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                 <Input
                   value={searchQuery}
                   onChange={event => setSearchQuery(event.target.value)}
-                  placeholder="Search name, email..."
+                  placeholder={t('pages.analytics.searchNameEmail')}
                   className="h-auto border-0 bg-transparent px-0 py-0 text-[14px] leading-[22px] text-[#1c1c26] shadow-none focus-visible:ring-0"
                 />
               </div>
@@ -653,7 +648,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                 <SelectContent className="rounded-[16px]">
                   {STATUS_FILTER_OPTIONS.map(option => (
                     <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                      {t(option.labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>

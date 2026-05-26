@@ -10,6 +10,7 @@ import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
 import { formatLocalDateTime } from '@/utils/date'
+import { t as globalT, useTranslation } from '@/utils/i18n'
 import { formatUnits } from 'ethers'
 import { Bot, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -104,7 +105,7 @@ function buildAiExecutingTransaction(
 
   return {
     id: plan.id,
-    name: plan.transactionName || 'AI API Top up',
+    name: plan.transactionName || globalT('pages.createAiTransaction.aiTopUpName'),
     transactionId: plan.id,
     type: plan.transactionType,
     status: (plan.transactionStatus as Transaction['status']) || PayrollTransactionStatus.READY,
@@ -123,6 +124,7 @@ export default function CreateAiTransaction() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const { setHeader, clearHeader } = useHeaderStore()
   const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
   const {
@@ -197,13 +199,13 @@ export default function CreateAiTransaction() {
     setHeader({
       backUrl: '/orgs/transaction',
       steps: [
-        { label: '1. Select type & details', active: true },
-        { label: '2. Review & Confirm', active: false },
+        { label: t('pages.createTransactionSelector.step1'), active: true },
+        { label: t('pages.createTransactionSelector.step2'), active: false },
       ],
     })
     void loadPlans()
     return () => clearHeader()
-  }, [])
+  }, [clearHeader, setHeader, t])
 
   useEffect(() => {
     if (!selectedPlan?.id || planProfilesById[selectedPlan.id]) return
@@ -260,7 +262,7 @@ export default function CreateAiTransaction() {
       await new Promise(resolve => setTimeout(resolve, 400))
     }
 
-    throw new Error('Recharge transaction was created, but the transaction plan could not be loaded.')
+    throw new Error(t('pages.createAiTransaction.transactionLoadFailed'))
   }
 
   const handleConfirm = async () => {
@@ -278,8 +280,8 @@ export default function CreateAiTransaction() {
       setCreatedTransactionPlan(plan)
       setExecuteDialogOpen(true)
       toast({
-        title: 'Success',
-        description: 'AI top-up transaction created successfully.',
+        title: t('pages.orgMembers.success'),
+        description: t('pages.createAiTransaction.topUpCreated'),
       })
     } catch {
       // request interceptor handles API errors
@@ -295,7 +297,7 @@ export default function CreateAiTransaction() {
   }
 
   if (loading) {
-    return <div className="flex h-full items-center justify-center text-[13px] text-[#8d8d93]">Loading...</div>
+    return <div className="flex h-full items-center justify-center text-[13px] text-[#8d8d93]">{t('common.loading')}</div>
   }
 
   const hasPlans = plans.length > 0
@@ -305,10 +307,10 @@ export default function CreateAiTransaction() {
       <div className="flex min-h-0 flex-1 flex-col gap-[18px] rounded-[32px] bg-white p-[20px]">
         <div className="shrink-0">
           <p className="text-[13px] font-semibold leading-[22px] text-[#1c1c26]">
-            Usage plan <span className="text-[#d92b2b]">*</span>
+            {t('pages.createAiTransaction.usagePlan')} <span className="text-[#d92b2b]">*</span>
           </p>
           <p className="mt-[4px] text-[12px] leading-[20px] text-[#8d8d93]">
-            Choose which AI usage plan you want to fund. This only creates the top-up transaction. The actual wallet payment happens in the next step.
+            {t('pages.createAiTransaction.usagePlanDescription')}
           </p>
         </div>
 
@@ -327,7 +329,7 @@ export default function CreateAiTransaction() {
                 <div className="flex items-center justify-between gap-[12px]">
                   <div className="min-w-0">
                     <p className="text-[15px] font-medium text-[#1c1c26]">{plan.planName}</p>
-                    <p className="mt-[4px] font-mono text-[12px] text-[#8d8d93]">createdAt: {formatLocalDateTime(plan.createdAt)}</p>
+                    <p className="mt-[4px] font-mono text-[12px] text-[#8d8d93]">{t('pages.createAiTransaction.createdAt')}: {formatLocalDateTime(plan.createdAt)}</p>
                   </div>
                   <span className="shrink-0 text-[13px] text-[#1c1c26]">$ {formatDisplayAmount(plan.budget)}</span>
                 </div>
@@ -336,34 +338,34 @@ export default function CreateAiTransaction() {
           </div>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center gap-[16px] rounded-[24px] border border-dashed border-[rgba(0,0,0,0.12)] bg-[#fafafb] px-[24px] py-[40px] text-center">
-            <img src="/empty-table.svg" alt="No usage plans" className="h-[120px] w-[120px]" />
+            <img src="/empty-table.svg" alt={t('pages.createAiTransaction.noUsagePlansAlt')} className="h-[120px] w-[120px]" />
             <div className="space-y-[6px]">
-              <p className="text-[15px] font-medium text-[#1c1c26]">No usage plans found</p>
+              <p className="text-[15px] font-medium text-[#1c1c26]">{t('pages.createAiTransaction.noUsagePlansFound')}</p>
               <p className="text-[12px] leading-[20px] text-[#8d8d93]">
-                Create a usage plan first, then come back to fund it.
+                {t('pages.createAiTransaction.createUsagePlanFirst')}
               </p>
             </div>
             <Button onClick={() => setCreatePlanDialogOpen(true)}>
-              Create Usage Plan
+              {t('pages.createAiTransaction.createUsagePlan')}
             </Button>
           </div>
         )}
 
         <div className="shrink-0">
           <p className="text-[13px] font-semibold leading-[22px] text-[#1c1c26]">
-            Top-up amount <span className="text-[#d92b2b]">*</span>
+            {t('pages.createAiTransaction.topUpAmount')} <span className="text-[#d92b2b]">*</span>
           </p>
           <div className="mt-[8px] rounded-[12px] bg-[#f5f5f5]">
             <Input
               className="border-0 bg-transparent"
               value={amount}
               onChange={event => setAmount(event.target.value)}
-              placeholder="Enter amount"
+              placeholder={t('pages.createAiTransaction.enterAmount')}
             />
           </div>
           {selectedPlan && (
             <p className="mt-[8px] text-[12px] leading-[20px] text-[#8d8d93]">
-              Budget: ${formatDisplayAmount(selectedPlan.budget)} / Balance: {selectedPlanBalanceDisplay}
+              {t('pages.createAiTransaction.budget')}: ${formatDisplayAmount(selectedPlan.budget)} / {t('pages.createAiTransaction.balance')}: {selectedPlanBalanceDisplay}
             </p>
           )}
         </div>
@@ -372,29 +374,29 @@ export default function CreateAiTransaction() {
       <div className="flex w-[320px] shrink-0 flex-col justify-between rounded-[32px] bg-white p-[20px]">
         <div className="flex flex-col gap-[14px]">
           <p className="text-[16px] text-[#1c1c26]" style={{ fontFamily: 'Poppins, sans-serif' }}>
-            Payment summary
+            {t('pages.createAiTransaction.paymentSummary')}
           </p>
 
           <div className="rounded-[20px] bg-[#f5f5f5] p-[16px]">
             <div className="flex flex-col gap-[14px]">
               <div className="flex items-center justify-between gap-[12px]">
-                <span className="text-[13px] text-[#606067]">Usage plan</span>
+                <span className="text-[13px] text-[#606067]">{t('pages.createAiTransaction.usagePlan')}</span>
                 <span className="max-w-[180px] truncate font-mono text-[13px] text-[#1c1c26]">
                   {selectedPlan?.planName || '-'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-[12px]">
-                <span className="text-[13px] text-[#606067]">Top-up amount</span>
+                <span className="text-[13px] text-[#606067]">{t('pages.createAiTransaction.topUpAmount')}</span>
                 <span className="text-[13px] text-[#1c1c26]">
                   {amount.trim() ? formatDisplayAmount(amount.trim(), payrollTokenSymbol) : '-'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-[12px]">
-                <span className="text-[13px] text-[#606067]">Platform fee</span>
-                <span className="text-[13px] text-[#1c1c26]">None</span>
+                <span className="text-[13px] text-[#606067]">{t('pages.createAiTransaction.platformFee')}</span>
+                <span className="text-[13px] text-[#1c1c26]">{t('pages.createAiTransaction.none')}</span>
               </div>
               <div className="flex items-center justify-between gap-[12px] border-t border-[rgba(0,0,0,0.08)] pt-[14px]">
-                <span className="text-[13px] font-medium text-[#1c1c26]">Total from wallet</span>
+                <span className="text-[13px] font-medium text-[#1c1c26]">{t('pages.createAiTransaction.totalFromWallet')}</span>
                 <span className="text-[14px] font-semibold text-[#1c1c26]">
                   {amount.trim() ? `${formatDisplayAmount(amount.trim(), payrollTokenSymbol)} + gas` : '-'}
                 </span>
@@ -408,10 +410,10 @@ export default function CreateAiTransaction() {
                 <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-white">
                   <Bot className="h-[16px] w-[16px] text-[#5e85ee]" />
                 </div>
-                <span className="text-[13px] font-semibold text-[#1c1c26]">After you confirm</span>
+                <span className="text-[13px] font-semibold text-[#1c1c26]">{t('pages.createAiTransaction.afterConfirm')}</span>
               </div>
               <p className="mt-[10px] text-[12px] leading-[20px] text-[#606067]">
-                PactPay creates an AI top-up transaction first, then opens the wallet execution step in Transaction Summary.
+                {t('pages.createAiTransaction.afterConfirmDescription')}
               </p>
             </div>
             <div className="rounded-[18px] bg-[#f5f5f5] p-[18px]">
@@ -419,10 +421,10 @@ export default function CreateAiTransaction() {
                 <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[8px] bg-white">
                   <Wallet className="h-[16px] w-[16px] text-[#5e85ee]" />
                 </div>
-                <span className="text-[13px] font-semibold text-[#1c1c26]">Execution requirement</span>
+                <span className="text-[13px] font-semibold text-[#1c1c26]">{t('pages.createAiTransaction.executionRequirement')}</span>
               </div>
               <p className="mt-[10px] text-[12px] leading-[20px] text-[#606067]">
-                Funds are not transferred yet. You still need to sign and execute the transaction in your wallet.
+                {t('pages.createAiTransaction.executionRequirementDescription')}
               </p>
             </div>
           </div>
@@ -434,7 +436,7 @@ export default function CreateAiTransaction() {
             className="shrink-0"
             onClick={navigateBack}
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             className="flex-1"
@@ -442,15 +444,15 @@ export default function CreateAiTransaction() {
             onClick={() => void handleConfirm()}
           >
             {createdTransactionPlan && createdTransactionPlan.transactionStatus !== PayrollTransactionStatus.COMPLETE
-              ? 'Open Transaction Summary'
-              : 'Confirm & Pay'}
+              ? t('pages.createAiTransaction.openTransactionSummary')
+              : t('pages.createAiTransaction.confirmPay')}
           </Button>
         </div>
       </div>
 
       <Dialog open={executeDialogOpen} onOpenChange={setExecuteDialogOpen}>
         <DialogContent disableOutsideClose>
-          <DialogTitle className="sr-only">Transaction Summary</DialogTitle>
+          <DialogTitle className="sr-only">{t('pages.createAiTransaction.transactionSummary')}</DialogTitle>
           <ExecuteConfirmDialogContent
             executingTransaction={executingTransaction}
             transactionPlan={createdTransactionPlan}

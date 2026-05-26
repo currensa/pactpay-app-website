@@ -2,11 +2,13 @@ import { getOrgNavItems } from '@/router'
 import { cn } from '@/lib/utils'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useHasPermission, Permission } from '@/utils/permissions'
+import { useTranslation } from '@/utils/i18n'
 
 export default function OrgNavMenus() {
   const navigate = useNavigate()
   const location = useLocation()
   const hasPermission = useHasPermission()
+  const { t } = useTranslation()
   const canViewSettings = hasPermission(Permission.MODIFY_ORG_NETWORK)
   const navItems = getOrgNavItems().filter(item => item.key !== 'settings' || canViewSettings)
 
@@ -30,7 +32,7 @@ export default function OrgNavMenus() {
           >
             <item.icon className="h-[22px] w-[22px] shrink-0" />
             <span className="font-['Poppins',sans-serif] text-[15px] font-medium leading-[24px] whitespace-nowrap">
-              {item.title}
+              {item.titleKey ? t(item.titleKey) : item.title}
             </span>
           </button>
         )

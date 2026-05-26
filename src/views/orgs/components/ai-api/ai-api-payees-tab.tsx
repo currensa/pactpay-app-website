@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
+import { useTranslation } from '@/utils/i18n'
 import { Edit2, Plus } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -29,20 +30,20 @@ function sanitizeBudgetInput(value: string) {
   return `${integerPart}.${decimalPart}`
 }
 
-function validateBudgetInput(value: string) {
+function validateBudgetInput(value: string, t: ReturnType<typeof useTranslation>['t']) {
   const trimmed = value.trim()
   if (!trimmed) {
-    return { error: 'Budget is required.', value: '' }
+    return { error: t('pages.orgAiApiPayees.budgetRequired'), value: '' }
   }
 
   if (!/^\d+(\.\d{0,2})?$/.test(trimmed)) {
-    return { error: 'Budget must be a number with at most 2 decimal places.', value: '' }
+    return { error: t('pages.orgAiApiPayees.budgetDecimalLimit'), value: '' }
   }
 
   const normalized = trimmed.endsWith('.') ? trimmed.slice(0, -1) : trimmed
   const amount = Number(normalized)
   if (!Number.isFinite(amount) || amount <= 0) {
-    return { error: 'Budget must be greater than 0.', value: '' }
+    return { error: t('pages.orgAiApiPayees.budgetGreaterThanZero'), value: '' }
   }
 
   return { error: null, value: normalized }
@@ -52,7 +53,7 @@ function formatQuotaValue(value: number) {
   return `$${normalizeQuotaToUsdAmount(value)}`
 }
 
-function StatusPill({ status }: { status: 'Active' | 'Disabled' }) {
+function StatusPill({ status, label }: { status: 'Active' | 'Disabled'; label: string }) {
   return (
     <span
       className={`inline-flex rounded-full px-[10px] py-[4px] text-[12px] font-medium ${status === 'Active'
@@ -60,7 +61,7 @@ function StatusPill({ status }: { status: 'Active' | 'Disabled' }) {
         : 'bg-[rgba(28,28,38,0.08)] text-[#606067]'
         }`}
     >
-      {status}
+      {label}
     </span>
   )
 }
@@ -71,6 +72,7 @@ type AiApiPayeesTabProps = {
 
 export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
   const { toast } = useToast()
+  const { t } = useTranslation()
   const navigate = useNavigate()
 
   const [plans, setPlans] = useState<TokenUsagePlanListItem[]>([])
@@ -166,13 +168,13 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
     if (!editingPlanId || !editingField) return
 
     if (editingField === 'planName' && !editingValue.trim()) {
-      toast({ title: 'Error', description: 'Plan name is required.', variant: 'destructive' })
+      toast({ title: t('pages.orgAiApiPayees.error'), description: t('pages.orgAiApiPayees.planNameRequired'), variant: 'destructive' })
       return
     }
 
-    const budgetValidation = editingField === 'budget' ? validateBudgetInput(editingValue) : null
+    const budgetValidation = editingField === 'budget' ? validateBudgetInput(editingValue, t) : null
     if (editingField === 'budget' && budgetValidation?.error) {
-      toast({ title: 'Error', description: budgetValidation.error, variant: 'destructive' })
+      toast({ title: t('pages.orgAiApiPayees.error'), description: budgetValidation.error, variant: 'destructive' })
       return
     }
 
@@ -193,7 +195,7 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
           }
           : plan
       )))
-      toast({ title: 'Success', description: 'Usage plan updated.' })
+      toast({ title: t('pages.orgAiApiPayees.success'), description: t('pages.orgAiApiPayees.usagePlanUpdated') })
       clearInlineEdit()
     } catch {
       // request interceptor handles API errors
@@ -207,14 +209,14 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
       {tabsNav}
       <div className="flex shrink-0 items-center justify-between">
         <div>
-          <p className="text-[20px] font-semibold leading-[30px] text-[#1c1c26]">Usage plans</p>
+          <p className="text-[20px] font-semibold leading-[30px] text-[#1c1c26]">{t('pages.orgAiApiPayees.usagePlans')}</p>
           <p className="text-[13px] leading-[20px] text-[#8d8d93]">
-            Manage budget accounts for AI API access across your organisation.
+            {t('pages.orgAiApiPayees.description')}
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" />
-          New Plan
+          {t('pages.orgAiApiPayees.newPlan')}
         </Button>
       </div>
 
@@ -222,11 +224,11 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Plan Name</TableHead>
-              <TableHead>Budget</TableHead>
-              <TableHead>Quota</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>{t('pages.orgAiApiPayees.planName')}</TableHead>
+              <TableHead>{t('pages.orgAiApiPayees.budget')}</TableHead>
+              <TableHead>{t('pages.orgAiApiPayees.quota')}</TableHead>
+              <TableHead>{t('pages.orgAiApiPayees.status')}</TableHead>
+              <TableHead>{t('pages.orgAiApiPayees.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -236,8 +238,8 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
               <TableRow>
                 <TableCell colSpan={6}>
                   <div className="flex flex-col items-center justify-center gap-[10px] py-[32px]">
-                    <img src="/empty-table.svg" alt="No usage plans" className="h-[120px] w-[120px]" />
-                    <p className="text-[13px] leading-[20px] text-[#8d8d93]">No usage plans found</p>
+                    <img src="/empty-table.svg" alt={t('pages.orgAiApiPayees.noUsagePlansAlt')} className="h-[120px] w-[120px]" />
+                    <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.orgAiApiPayees.noUsagePlansFound')}</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -307,7 +309,7 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
                                 type="button"
                                 className="text-[#8d8d93] transition-colors hover:text-[#5e85ee]"
                                 onClick={() => startInlineEdit(plan, 'budget')}
-                                title="Edit budget"
+                                title={t('pages.orgAiApiPayees.editBudget')}
                               >
                                 <Edit2 className="h-[14px] w-[14px]" />
                               </button>
@@ -316,7 +318,7 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
                         </TableCell>
                         <TableCell>
                           {editingPlanId === plan.id && editingField === 'budget' ? (
-                            <span className="text-[13px] leading-[20px] text-[#8d8d93]">Editing budget...</span>
+                            <span className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.orgAiApiPayees.editingBudget')}</span>
                           ) : (
                             <div className="min-w-[140px]">
                               {isProfileLoading ? (
@@ -342,7 +344,10 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
                           )}
                         </TableCell>
                         <TableCell>
-                          <StatusPill status={planStatus} />
+                          <StatusPill
+                            status={planStatus}
+                            label={planStatus === 'Active' ? t('pages.orgAiApiPayees.active') : t('pages.orgAiApiPayees.disabled')}
+                          />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-[12px]">
@@ -351,14 +356,14 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
                               className="text-[13px] text-[#5e85ee] transition-opacity hover:opacity-70"
                               onClick={() => navigate(`/orgs/transaction/create-ai?planId=${encodeURIComponent(plan.id)}`)}
                             >
-                              Top up
+                              {t('pages.orgAiApiPayees.topUp')}
                             </button>
                             <button
                               type="button"
                               className="text-[13px] text-[#5e85ee] transition-opacity hover:opacity-70"
                               onClick={() => navigate(`/orgs/members/usage-plans/${plan.id}`)}
                             >
-                              View details
+                              {t('pages.orgAiApiPayees.viewDetails')}
                             </button>
                           </div>
                         </TableCell>
@@ -376,10 +381,16 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
         currentPage={currentPage}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
-        summaryText={plans.length === 0 ? `Showing 0 of ${totalCount} usage plans` : undefined}
+        summaryText={plans.length === 0
+          ? t('pages.orgAiApiPayees.showingZero', { total: totalCount })
+          : t('pages.orgAiApiPayees.showingRange', {
+            from: (currentPage - 1) * PAGE_SIZE + 1,
+            to: Math.min(currentPage * PAGE_SIZE, totalCount),
+            total: totalCount,
+          })}
         totalItems={totalCount}
         pageSize={PAGE_SIZE}
-        itemLabel="usage plans"
+        itemLabel={t('pages.orgAiApiPayees.usagePlansItemLabel')}
         className="shrink-0"
       />
 

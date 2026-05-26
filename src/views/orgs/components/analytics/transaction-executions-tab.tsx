@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { getStatusDisplayName, PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import { Permission, useHasPermission } from '@/utils/permissions'
+import { useTranslation } from '@/utils/i18n'
 import { TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -128,6 +129,7 @@ function TransactionExecutionsPagination({
 export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const hasPermission = useHasPermission()
   const canViewExecutions = hasPermission(Permission.VIEW_HISTORY)
   const { fetchChainAssets, fetchChains, getTokenDecimals, getTokenSymbol } = useChainAssetStore()
@@ -143,7 +145,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
 
     if (!canViewExecutions) {
       setExecutionsLoading(false)
-      setExecutionsErrorMessage('You do not have permission to view transaction execution history.')
+      setExecutionsErrorMessage(t('pages.analytics.ownerAdminOperatorOnly'))
       setExecutionPlans(null)
       return
     }
@@ -164,7 +166,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
         setExecutionPlans(response)
       } catch {
         if (cancelled) return
-        setExecutionsErrorMessage('Unable to load completed transaction executions right now.')
+        setExecutionsErrorMessage(t('pages.analytics.unableToLoadTransactionExecutionsDescription'))
         setExecutionPlans(null)
       } finally {
         if (!cancelled) {
@@ -178,7 +180,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [canViewExecutions, executionsPage, fetchChainAssets, fetchChains])
+  }, [canViewExecutions, executionsPage, fetchChainAssets, fetchChains, t])
 
   const executionRows = useMemo(() => {
     const rows = (executionPlans?.data ?? []).map(plan => {
@@ -187,7 +189,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
         || plan.tokenAddress?.slice(0, 6).toUpperCase()
         || 'TOKEN'
       const totalAmount = formatPlanTokenAmount(plan.totalAmount || '0', decimals)
-      const name = getTransactionPlanName(plan)
+      const name = getTransactionPlanName(plan, t)
       const payDayTimestamp = new Date(plan.payPeriod).getTime()
 
       return {
@@ -206,16 +208,16 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
         ? left.payDayTimestamp - right.payDayTimestamp
         : right.payDayTimestamp - left.payDayTimestamp
     )
-  }, [executionPlans, executionsSortDirection, getTokenDecimals, getTokenSymbol])
+  }, [executionPlans, executionsSortDirection, getTokenDecimals, getTokenSymbol, t])
 
   const handleExport = () => {
     if (executionRows.length === 0) {
-      toast({ description: 'No completed transaction executions are available to export.' })
+      toast({ description: t('pages.analytics.noExecutionExportData') })
       return
     }
 
     const rows = [
-      ['Transaction', 'Members', 'Amount', 'Status', 'Pay Day', 'Transaction ID'],
+      [t('pages.analytics.transaction'), t('pages.analytics.members'), t('pages.analytics.amount'), t('pages.analytics.status'), t('pages.analytics.payDay'), 'Transaction ID'],
       ...executionRows.map(item => [
         item.name,
         item.membersCount,
@@ -240,8 +242,8 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
     if (!canViewExecutions) {
       return (
         <MessageState
-          title="Access restricted"
-          description="You do not have permission to view transaction execution history."
+          title={t('pages.analytics.accessRestricted')}
+          description={t('pages.analytics.ownerAdminOperatorOnly')}
         />
       )
     }
@@ -251,14 +253,14 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
     }
 
     if (executionsErrorMessage) {
-      return <MessageState title="Unable to load transaction executions" description={executionsErrorMessage} />
+      return <MessageState title={t('pages.analytics.unableToLoadTransactionExecutions')} description={executionsErrorMessage} />
     }
 
     if (!executionPlans || executionRows.length === 0) {
       return (
         <MessageState
-          title="No completed transaction executions"
-          description="Completed transactions will appear here once they have been executed."
+          title={t('pages.analytics.noCompletedTransactionExecutions')}
+          description={t('pages.analytics.noCompletedTransactionExecutionsDescription')}
         />
       )
     }
@@ -274,21 +276,21 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
           <Table className="min-w-[960px]">
             <TableHeader>
               <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
-                <TableHead className="h-auto w-[240px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Transaction</TableHead>
-                <TableHead className="h-auto w-[120px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Members</TableHead>
-                <TableHead className="h-auto w-[120px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Amount</TableHead>
-                <TableHead className="h-auto w-[90px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Status</TableHead>
+                <TableHead className="h-auto w-[240px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.transaction')}</TableHead>
+                <TableHead className="h-auto w-[120px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.members')}</TableHead>
+                <TableHead className="h-auto w-[120px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.amount')}</TableHead>
+                <TableHead className="h-auto w-[90px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.status')}</TableHead>
                 <TableHead className="h-auto w-[120px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">
                   <button
                     type="button"
                     className="inline-flex items-center gap-[4px] text-[14px] font-normal text-[#8d8d93]"
                     onClick={() => setExecutionsSortDirection(direction => direction === 'asc' ? 'desc' : 'asc')}
                   >
-                    Pay Day
+                    {t('pages.analytics.payDay')}
                     <PayDaySortIcon className="h-[14px] w-[14px]" />
                   </button>
                 </TableHead>
-                <TableHead className="h-auto px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Action</TableHead>
+                <TableHead className="h-auto px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.action')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -315,7 +317,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
                       className="text-[14px] leading-[22px] text-[#5e85ee] transition-opacity hover:opacity-70"
                       onClick={() => navigate(`/orgs/transaction/${item.id}`)}
                     >
-                      View Details
+                      {t('pages.analytics.viewDetails')}
                     </button>
                   </TableCell>
                 </TableRow>
@@ -326,7 +328,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
 
         <div className="mt-[24px] flex flex-col gap-[16px] md:flex-row md:items-center md:justify-between">
           <p className="text-[14px] leading-[22px] text-[#606067]">
-            Showing {startIndex}-{endIndex} of {executionPlans.total} transactions
+            {t('pages.analytics.showingTransactions', { start: startIndex, end: endIndex, total: executionPlans.total })}
           </p>
 
           <TransactionExecutionsPagination

@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useTranslation } from '@/utils/i18n'
 import { IconLoader2 } from '@tabler/icons-react'
 import { Transaction } from './types'
 
@@ -16,31 +17,33 @@ export function DeleteConfirmDialogContent({
   onCancel,
   onConfirm,
 }: DeleteConfirmDialogContentProps) {
+  const { t } = useTranslation()
+
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Delete Transaction</DialogTitle>
+        <DialogTitle>{t('pages.transactions.deleteTransaction')}</DialogTitle>
         <DialogDescription>
-          Are you sure you want to delete this transaction? This action cannot be undone.
+          {t('pages.transactions.deleteTransactionDescription')}
         </DialogDescription>
       </DialogHeader>
 
       {transactionToDelete && (
         <div className="mt-[16px] bg-[#f5f5f5] rounded-[12px] p-[14px] flex flex-col gap-[10px]">
           <div className="flex items-center justify-between">
-            <span className="text-[13px] text-[#606067]">Transaction Name</span>
+            <span className="text-[13px] text-[#606067]">{t('pages.transactions.transactionName')}</span>
             <span className="text-[13px] font-medium text-[#1c1c26]">{transactionToDelete.name}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[13px] text-[#606067]">Transaction ID</span>
+            <span className="text-[13px] text-[#606067]">{t('pages.transactions.transactionId')}</span>
             <span className="font-mono text-[13px] font-medium text-[#1c1c26]">{transactionToDelete.id}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[13px] text-[#606067]">Members</span>
+            <span className="text-[13px] text-[#606067]">{t('pages.transactions.members')}</span>
             <span className="text-[13px] font-medium text-[#1c1c26]">{transactionToDelete.members}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[13px] text-[#606067]">Total Amount</span>
+            <span className="text-[13px] text-[#606067]">{t('pages.transactions.totalAmount')}</span>
             <span className="text-[13px] font-medium text-[#1c1c26]">
               ${transactionToDelete.totalAmount} {transactionToDelete.currency}
             </span>
@@ -54,16 +57,16 @@ export function DeleteConfirmDialogContent({
           onClick={onCancel}
           disabled={isDeleting}
         >
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button variant="destructive" onClick={onConfirm} disabled={isDeleting}>
           {isDeleting ? (
             <>
               <IconLoader2 className="h-[14px] w-[14px] animate-spin" />
-              Deleting...
+              {t('pages.transactions.deleting')}
             </>
           ) : (
-            'Delete'
+            t('pages.transactions.delete')
           )}
         </Button>
       </div>

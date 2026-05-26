@@ -1,5 +1,6 @@
 import { Sidebar, SidebarContent, SidebarHeader, useSidebar } from '@/components/ui/sidebar'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/utils/i18n'
 import { IconArrowLeft } from '@tabler/icons-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import AccountNavMenus from './nav-menus'
@@ -8,6 +9,7 @@ export default function AccountSidebar() {
   const { state } = useSidebar()
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation()
 
   const handleBack = () => {
     const from = location.state?.from
@@ -28,7 +30,7 @@ export default function AccountSidebar() {
               className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
             >
               <IconArrowLeft className="h-4 w-4" />
-              {state === 'expanded' && <span>Back</span>}
+              {state === 'expanded' && <span>{t('common.back')}</span>}
             </button>
           </SidebarHeader>
           <SidebarContent className="pt-4">

@@ -4,6 +4,7 @@ import { OrganizationSwitcher } from '@/components/app/base/switcher'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import type { OrgNavItem } from '@/router'
+import { useTranslation } from '@/utils/i18n'
 import {
   IconChevronDown,
   IconLayoutSidebarLeftCollapse,
@@ -21,6 +22,7 @@ interface AppSidebarProps {
 export default function AppSidebar({ navItems, hideSwitchButton }: AppSidebarProps) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState(false)
   const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({})
 
@@ -71,6 +73,7 @@ export default function AppSidebar({ navItems, hideSwitchButton }: AppSidebarPro
             const active = defaultIsActive(item.url)
             const hasChildren = !!item.children?.length
             const isOpen = openKeys[item.key]
+            const itemTitle = item.titleKey ? t(item.titleKey) : item.title
 
             /* ── Collapsed: icon only, children via Popover ── */
             if (collapsed) {
@@ -79,7 +82,7 @@ export default function AppSidebar({ navItems, hideSwitchButton }: AppSidebarPro
                   <button
                     key={item.key}
                     onClick={() => navigate(item.url)}
-                    title={item.title}
+                    title={itemTitle}
                     className={cn(
                       'flex w-full items-center justify-center rounded-[16px] p-[16px] transition-colors',
                       active ? 'bg-[#5e85ee] text-white' : 'text-[#8d8d93] hover:bg-[#f5f5f5] hover:text-[#1c1c26]'
@@ -94,7 +97,7 @@ export default function AppSidebar({ navItems, hideSwitchButton }: AppSidebarPro
                 <Popover key={item.key}>
                   <PopoverTrigger asChild>
                     <button
-                      title={item.title}
+                      title={itemTitle}
                       className={cn(
                         'flex w-full items-center justify-center rounded-[16px] p-[16px] transition-colors',
                         active ? 'bg-[#5e85ee] text-white' : 'text-[#8d8d93] hover:bg-[#f5f5f5] hover:text-[#1c1c26]'
@@ -105,7 +108,7 @@ export default function AppSidebar({ navItems, hideSwitchButton }: AppSidebarPro
                   </PopoverTrigger>
                   <PopoverContent side="right" align="start" sideOffset={8} className="w-[180px] rounded-[16px] p-[8px]">
                     <p className="mb-[4px] px-[12px] py-[6px] font-['Poppins',sans-serif] text-[13px] font-semibold text-[#8d8d93]">
-                      {item.title}
+                      {itemTitle}
                     </p>
                     {item.children!.map(child => (
                       <button
@@ -122,7 +125,7 @@ export default function AppSidebar({ navItems, hideSwitchButton }: AppSidebarPro
                           ? <img src={child.logoUrl} alt="" className="h-[20px] w-[20px] shrink-0 rounded-full object-cover" />
                           : <span className="h-[20px] w-[20px] shrink-0 rounded-full bg-[#f5f5f5]" />
                         }
-                        <span className="truncate">{child.title}</span>
+                        <span className="truncate">{child.titleKey ? t(child.titleKey) : child.title}</span>
                       </button>
                     ))}
                   </PopoverContent>
@@ -144,7 +147,7 @@ export default function AppSidebar({ navItems, hideSwitchButton }: AppSidebarPro
                 >
                   <item.icon className="h-[22px] w-[22px] shrink-0" />
                   <span className="whitespace-nowrap font-['Poppins',sans-serif] text-[15px] font-medium leading-[24px]">
-                    {item.title}
+                    {itemTitle}
                   </span>
                   {hasChildren && (
                     <IconChevronDown
@@ -170,7 +173,7 @@ export default function AppSidebar({ navItems, hideSwitchButton }: AppSidebarPro
                           ? <img src={child.logoUrl} alt="" className="h-[20px] w-[20px] shrink-0 rounded-full object-cover" />
                           : <span className="h-[20px] w-[20px] shrink-0 rounded-full bg-[#f5f5f5]" />
                         }
-                        <span className="truncate">{child.title}</span>
+                        <span className="truncate">{child.titleKey ? t(child.titleKey) : child.title}</span>
                       </button>
                     ))}
                   </div>
@@ -188,7 +191,7 @@ export default function AppSidebar({ navItems, hideSwitchButton }: AppSidebarPro
           'flex h-[56px] w-[56px] items-center justify-center rounded-[16px] text-[#8d8d93] transition-colors hover:bg-[#f5f5f5] hover:text-[#1c1c26]',
           collapsed && 'self-center'
         )}
-        title={collapsed ? 'Expand' : 'Collapse'}
+        title={collapsed ? t('common.expand') : t('common.collapse')}
       >
         {collapsed
           ? <IconLayoutSidebarLeftExpand className="h-[22px] w-[22px]" />

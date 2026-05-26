@@ -1,16 +1,19 @@
 import api from '@/apis'
 import { Organization } from '@/apis/orgnization.api'
+import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { PaymentConfigFields } from '@/views/orgs/components/payment-config-fields'
-import { Check, Loader2, Upload, XCircle } from 'lucide-react'
+import { BookOpen, Check, Copy, Loader2, Upload, XCircle } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 export default function OrganizationSettings() {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const fetchChainAssets = useChainAssetStore(s => s.fetchChainAssets)
   const chainAssets = useChainAssetStore(s => s.chainAssets)
   const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
@@ -35,6 +38,7 @@ export default function OrganizationSettings() {
 
   const logoInputRef = useRef<HTMLInputElement>(null)
   const organizationId = localStorage.getItem('organizationId')
+  const mcpInstallCommand = 'npm i -g @pactpay/mcp-server'
 
   useEffect(() => {
     if (!organizationId) {
@@ -73,11 +77,11 @@ export default function OrganizationSettings() {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 2 * 1024 * 1024) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Image must be under 2 MB.' })
+      toast({ variant: 'destructive', title: t('common.error'), description: t('pages.orgSettings.imageUnder2Mb') })
       return
     }
     if (!file.type.startsWith('image/')) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please upload a PNG or JPG file.' })
+      toast({ variant: 'destructive', title: t('common.error'), description: t('pages.orgSettings.uploadPngOrJpg') })
       return
     }
 
@@ -90,7 +94,7 @@ export default function OrganizationSettings() {
       const url = await api.storage.uploadFile(file)
       setLogoUrl(url)
     } catch {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to upload logo. Please try again.' })
+      toast({ variant: 'destructive', title: t('common.error'), description: t('pages.orgSettings.uploadLogoFailed') })
       setLogoPreview(null)
     } finally {
       setLogoUploading(false)
@@ -107,7 +111,7 @@ export default function OrganizationSettings() {
     try {
       setSaving(true)
       await api.organization.uploadOrganizationDetail({ orgName, desc: description, logoUrl: logoUrl ?? undefined })
-      toast({ title: 'Success', description: 'Organization info updated.' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgSettings.organizationUpdated') })
       loadData()
     } catch {
       // request interceptor handles API errors
@@ -123,7 +127,7 @@ export default function OrganizationSettings() {
       const updated = await api.organization.bindReferralCode(referralCodeInput.trim())
       setExistingReferralCode(updated.referralCode ?? null)
       setReferralCodeInput('')
-      toast({ title: 'Success', description: 'Referral code applied.' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgSettings.referralCodeApplied') })
     } catch {
       // request interceptor handles API errors
     } finally {
@@ -133,14 +137,14 @@ export default function OrganizationSettings() {
 
   const handleSavePayroll = async () => {
     if (!selectedChainId || !selectedToken) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Please select a chain and token.' })
+      toast({ variant: 'destructive', title: t('common.error'), description: t('pages.orgSettings.selectChainAndToken') })
       return
     }
     try {
       setSavingPayroll(true)
       await api.organization.upsertOrgPayrollConfig({ caipChainId: selectedChainId, token: selectedToken })
       await fetchPayrollTokenSymbol()
-      toast({ title: 'Success', description: 'Payment settings updated.' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgSettings.paymentSettingsUpdated') })
     } catch {
       // request interceptor handles API errors
     } finally {
@@ -148,10 +152,19 @@ export default function OrganizationSettings() {
     }
   }
 
+  const handleCopyMcpCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(mcpInstallCommand)
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgSettings.commandCopied') })
+    } catch {
+      toast({ variant: 'destructive', title: t('common.error'), description: t('pages.orgSettings.failedCopyCommand') })
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="text-[13px] text-[#8d8d93]">Loading...</div>
+        <div className="text-[13px] text-[#8d8d93]">{t('common.loading')}</div>
       </div>
     )
   }
@@ -160,19 +173,19 @@ export default function OrganizationSettings() {
     <div className="flex flex-col gap-[20px]">
       <div className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[26px] text-[#1c1c26]">
-          Organization Settings
+          {t('pages.orgSettings.organizationSettings')}
         </p>
 
         <div className="bg-white rounded-[32px] p-[20px] flex flex-col gap-[20px]">
           <div className="flex flex-col gap-[8px] max-w-[620px]">
-            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Organization Logo</p>
+            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgSettings.organizationLogo')}</p>
             <div className="flex items-start gap-[14px]">
               <div
                 className="w-[100px] h-[100px] rounded-[14px] overflow-hidden bg-[#1c1c26] shrink-0 flex items-center justify-center cursor-pointer"
                 onClick={() => logoInputRef.current?.click()}
               >
                 {logoPreview ? (
-                  <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                  <img src={logoPreview} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-white text-[28px] font-semibold select-none">
                     {orgName?.[0]?.toUpperCase() || '?'}
@@ -189,10 +202,10 @@ export default function OrganizationSettings() {
                     ? <Loader2 className="h-[14px] w-[14px] animate-spin" />
                     : <Upload className="h-[14px] w-[14px]" />
                   }
-                  {logoUploading ? 'Uploading...' : 'Upload New Logo'}
+                  {logoUploading ? t('pages.orgSettings.uploading') : t('pages.orgSettings.uploadNewLogo')}
                 </button>
                 <p className="text-[12px] leading-[18px] text-[#bbbbbe]">
-                  Recommended: square image, at least 200x200 px. PNG or JPG.
+                  {t('pages.orgSettings.logoHint')}
                 </p>
               </div>
               <input
@@ -206,29 +219,29 @@ export default function OrganizationSettings() {
           </div>
 
           <div className="flex flex-col gap-[8px] max-w-[620px]">
-            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Organization Name *</p>
+            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgSettings.organizationName')}</p>
             <div className="flex flex-col gap-[4px]">
               <input
                 value={orgName}
                 onChange={e => { setOrgName(e.target.value); if (e.target.value.trim()) setNameError(false) }}
-                placeholder="e.g. Engineering Team"
+                placeholder={t('pages.orgSettings.organizationNamePlaceholder')}
                 className="w-full bg-[#f5f5f5] rounded-[12px] px-[14px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
               />
               {nameError && (
                 <div className="flex items-center gap-[4px]">
                   <XCircle className="h-[14px] w-[14px] text-[#d92b2b] shrink-0" />
-                  <p className="text-[12px] leading-[20px] text-[#d92b2b]">Please enter organization name</p>
+                  <p className="text-[12px] leading-[20px] text-[#d92b2b]">{t('pages.orgSettings.organizationNameRequired')}</p>
                 </div>
               )}
             </div>
           </div>
 
           <div className="flex flex-col gap-[8px] max-w-[620px]">
-            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Organization Description</p>
+            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgSettings.organizationDescription')}</p>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Describe your organization..."
+              placeholder={t('pages.orgSettings.organizationDescriptionPlaceholder')}
               className="w-full bg-[#f5f5f5] rounded-[12px] px-[14px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none resize-none h-[80px]"
             />
           </div>
@@ -239,7 +252,7 @@ export default function OrganizationSettings() {
               disabled={saving || logoUploading}
               className="rounded-[12px] bg-[#5e85ee] px-[16px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
             >
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? t('pages.orgSettings.saving') : t('pages.orgSettings.saveChanges')}
             </button>
           </div>
         </div>
@@ -247,12 +260,12 @@ export default function OrganizationSettings() {
 
       <div className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[26px] text-[#1c1c26]">
-          Referral Code
+          {t('pages.orgSettings.referralCode')}
         </p>
 
         <div className="bg-white rounded-[32px] p-[20px] flex flex-col gap-[16px]">
           <div className="flex flex-col gap-[8px] max-w-[620px]">
-            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Referral Code</p>
+            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgSettings.referralCode')}</p>
             {existingReferralCode ? (
               <div className="flex items-center gap-[10px]">
                 <div className="flex-1 bg-[#f5f5f5] rounded-[12px] px-[14px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] font-mono select-all">
@@ -260,7 +273,7 @@ export default function OrganizationSettings() {
                 </div>
                 <div className="flex items-center gap-[6px] rounded-[10px] bg-[rgba(93,221,34,0.12)] px-[10px] py-[6px]">
                   <Check className="h-[13px] w-[13px] text-[#5ddd22] shrink-0" />
-                  <span className="text-[12px] leading-[18px] text-[#5ddd22] font-medium">Applied</span>
+                  <span className="text-[12px] leading-[18px] text-[#5ddd22] font-medium">{t('pages.orgSettings.applied')}</span>
                 </div>
               </div>
             ) : (
@@ -268,7 +281,7 @@ export default function OrganizationSettings() {
                 <input
                   value={referralCodeInput}
                   onChange={e => setReferralCodeInput(e.target.value)}
-                  placeholder="Enter referral code"
+                  placeholder={t('pages.orgSettings.referralCodePlaceholder')}
                   className="flex-1 bg-[#f5f5f5] rounded-[12px] px-[14px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
                 />
                 <button
@@ -276,7 +289,7 @@ export default function OrganizationSettings() {
                   disabled={savingReferralCode || !referralCodeInput.trim()}
                   className="rounded-[12px] bg-[#5e85ee] px-[16px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60 shrink-0"
                 >
-                  {savingReferralCode ? 'Applying...' : 'Apply'}
+                  {savingReferralCode ? t('pages.orgSettings.applying') : t('pages.orgSettings.apply')}
                 </button>
               </div>
             )}
@@ -286,7 +299,7 @@ export default function OrganizationSettings() {
 
       <div className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[26px] text-[#1c1c26]">
-          Payment
+          {t('pages.orgSettings.payment')}
         </p>
 
         <div className="bg-white rounded-[32px] p-[20px] flex flex-col gap-[20px]">
@@ -298,7 +311,7 @@ export default function OrganizationSettings() {
             onSelectedTokenChange={setSelectedToken}
             networkLabelExtra={
               <a href="/testing.html" target="_blank" rel="noopener noreferrer" className="text-[12px] text-[#5e85ee] hover:underline">
-                New to PactPay? Test on Sepolia first
+                {t('pages.orgSettings.testOnSepolia')}
               </a>
             }
             dropdownPlacement="top"
@@ -311,7 +324,54 @@ export default function OrganizationSettings() {
               disabled={savingPayroll}
               className="rounded-[12px] bg-[#5e85ee] px-[16px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
             >
-              {savingPayroll ? 'Saving...' : 'Save Payment Settings'}
+              {savingPayroll ? t('pages.orgSettings.saving') : t('pages.orgSettings.savePaymentSettings')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-[12px]">
+        <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[26px] text-[#1c1c26]">
+          {t('pages.orgSettings.mcp')}
+        </p>
+
+        <div className="bg-white rounded-[32px] p-[20px] flex flex-col gap-[16px]">
+          <div className="flex flex-col gap-[4px] max-w-[620px]">
+            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgSettings.mcpConnectTitle')}</p>
+            <p className="text-[13px] leading-[20px] text-[#8d8d93]">
+              {t('pages.orgSettings.mcpConnectDescription')}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-[8px] max-w-[620px]">
+            <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgSettings.mcpInstallCommand')}</p>
+            <div className="flex flex-col overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-[#f5f5f5] md:flex-row">
+              <div className="min-w-0 flex-1 px-[14px] py-[10px]">
+                <code className="block overflow-x-auto whitespace-nowrap text-[13px] leading-[20px] text-[#1c1c26]">
+                {mcpInstallCommand}
+                </code>
+              </div>
+              <div className="border-t border-[rgba(0,0,0,0.08)] md:border-l md:border-t-0">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void handleCopyMcpCommand()}
+                className="h-full w-full rounded-none px-[12px] text-[13px] text-[#606067] hover:bg-[#ebebef] md:min-w-[110px]"
+              >
+                <Copy className="h-[14px] w-[14px]" />
+                  {t('pages.orgSettings.copyCommand')}
+                </Button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate('/document#api-services')}
+              className="inline-flex items-center gap-[8px] text-[13px] leading-[20px] text-[#5e85ee] hover:underline"
+            >
+              <BookOpen className="h-[16px] w-[16px]" />
+              {t('pages.orgSettings.readDocumentation')}
             </button>
           </div>
         </div>

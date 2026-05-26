@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -12,12 +13,15 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { LANGUAGE_OPTIONS } from '@/i18n/messages'
 import { getRouteMeta } from '@/router'
 import useHeaderStore from '@/stores/header'
 import useNotificationStore from '@/stores/notification'
 import useOrganizationStore from '@/stores/organization'
+import usePreferenceStore from '@/stores/preference'
+import { useTranslation } from '@/utils/i18n'
 import { useDisconnect } from '@reown/appkit/react'
-import { IconBell, IconBuildingPlus, IconLogout, IconSwitchHorizontal, IconUser, IconUserPlus } from '@tabler/icons-react'
+import { IconBell, IconBuildingPlus, IconLanguage, IconLogout, IconSwitchHorizontal, IconUser, IconUserPlus } from '@tabler/icons-react'
 import { ChevronLeft, ListChecks } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -79,14 +83,18 @@ export default function AppHeader() {
   const navigate = useNavigate()
   const { disconnect } = useDisconnect()
   const { steps, breadcrumb, backUrl } = useHeaderStore()
+  const { t } = useTranslation()
   const { organizations, getOrganizations, setCurrentOrg, currentMember, currentOrgId } = useOrganizationStore()
   const { unreadCount, fetchUnreadCount } = useNotificationStore()
+  const language = usePreferenceStore(s => s.language)
+  const updateLanguagePreference = usePreferenceStore(s => s.updateLanguage)
   const [onboardingDismissed, setOnboardingDismissed] = useState(
     () => localStorage.getItem('pactpay_onboarding_dismissed') === '1'
   )
+  const [languageUpdating, setLanguageUpdating] = useState(false)
 
-  const [orgId, setOrgId] = useState<string | undefined>(undefined);
-  const [isMember, setIsMember] = useState(false)
+  const isMember = location.pathname.startsWith('/member')
+  const orgId = isMember ? undefined : (currentOrgId ?? undefined)
 
   const hasMemberRole = useMemo(() => {
     return organizations.some(o =>
@@ -101,15 +109,8 @@ export default function AppHeader() {
   }, [organizations])
 
   useEffect(() => {
-
-    setIsMember(location.pathname.startsWith('/member'))
-    setOrgId(isMember ? undefined : (currentOrgId ?? undefined))
-
-  }, [location])
-
-  useEffect(() => {
     getOrganizations()
-  }, [setIsMember])
+  }, [getOrganizations])
 
   useEffect(() => {
     const onDismissed = () => setOnboardingDismissed(true)
@@ -134,8 +135,6 @@ export default function AppHeader() {
   const showCreateOrg = isMember && changeRoleCount <= 1
 
   function handleSwitchToMember() {
-    if (organizations.length === 0) return
-    setCurrentOrg(organizations[0].organization.orgId, organizations[0].member)
     navigate('/member/dashboard')
   }
 
@@ -151,11 +150,16 @@ export default function AppHeader() {
   const meta = useMemo(() => {
     const routeMeta = getRouteMeta(location.pathname) ?? {}
     const state = location.state as { orgName?: string; desc?: string } | null
-    if (state?.orgName) {
-      return { ...routeMeta, title: state.orgName, subtitle: state.desc ?? routeMeta.subtitle }
+    const translatedMeta = {
+      ...routeMeta,
+      title: routeMeta.titleKey ? t(routeMeta.titleKey) : routeMeta.title,
+      subtitle: routeMeta.subtitleKey ? t(routeMeta.subtitleKey) : routeMeta.subtitle,
     }
-    return routeMeta
-  }, [location.pathname, location.state])
+    if (state?.orgName) {
+      return { ...translatedMeta, title: state.orgName, subtitle: state.desc ?? translatedMeta.subtitle }
+    }
+    return translatedMeta
+  }, [location.pathname, location.state, t])
 
   async function handleLogout() {
     await disconnect()
@@ -178,6 +182,19 @@ export default function AppHeader() {
       return
     }
     if (backUrl) navigate(backUrl)
+  }
+
+  const handleLanguageChange = async (nextLanguage: (typeof LANGUAGE_OPTIONS)[number]['value']) => {
+    if (languageUpdating || nextLanguage === language) return
+
+    try {
+      setLanguageUpdating(true)
+      await updateLanguagePreference(nextLanguage)
+    } catch {
+      // The request interceptor handles visible API errors.
+    } finally {
+      setLanguageUpdating(false)
+    }
   }
 
   return (
@@ -236,12 +253,46 @@ export default function AppHeader() {
         {location.pathname === '/orgs/dashboard' && onboardingDismissed && (
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('pactpay:show-onboarding'))}
-            title="Getting started guide"
+            title={t('common.gettingStartedGuide')}
             className="relative flex h-[48px] w-[48px] items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f5f5f5]"
           >
             <ListChecks className="h-[22px] w-[22px] text-[#1c1c26]" />
           </button>
         )}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t('settings.language')}
+                  className="relative flex h-[48px] w-[48px] items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={languageUpdating}
+                >
+                  <IconLanguage className="h-[22px] w-[22px] text-[#1c1c26]" />
+                </button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" sideOffset={6}>
+              {t('settings.language')}
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent className="min-w-[160px] rounded-[12px]" align="end" sideOffset={8}>
+            <DropdownMenuLabel>{t('settings.preferredLanguage')}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {LANGUAGE_OPTIONS.map(option => (
+              <DropdownMenuCheckboxItem
+                key={option.value}
+                checked={option.value === language}
+                disabled={languageUpdating}
+                onSelect={() => { void handleLanguageChange(option.value) }}
+                className="cursor-pointer"
+              >
+                {t(option.labelKey)}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <button
           onClick={() => navigate(isMember ? '/member/notifications' : '/orgs/notifications')}
           className="relative flex h-[48px] w-[48px] items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f5f5f5]"
@@ -275,7 +326,7 @@ export default function AppHeader() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f5f5f5] shrink-0">
                   <IconUser className="h-4 w-4 text-[#606067]" />
                 </div>
-                <span className="text-sm font-medium text-[#1c1c26]">Account</span>
+                <span className="text-sm font-medium text-[#1c1c26]">{t('common.account')}</span>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -286,14 +337,14 @@ export default function AppHeader() {
                   className="cursor-pointer"
                 >
                   <IconBuildingPlus className="mr-2 h-4 w-4" />
-                  Create organization
+                  {t('common.createOrganization')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => navigate('/welcome/join-org')}
                   className="cursor-pointer"
                 >
                   <IconUserPlus className="mr-2 h-4 w-4" />
-                  Join a new organization
+                  {t('common.joinOrganization')}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             ) : (hasMemberRole || hasManagerRole) && (
@@ -304,7 +355,7 @@ export default function AppHeader() {
                     className="cursor-pointer"
                   >
                     <IconUserPlus className="mr-2 h-4 w-4" />
-                    Join a new organization
+                    {t('common.joinOrganization')}
                   </DropdownMenuItem>
                 )}
                 {!isMember && (
@@ -313,23 +364,23 @@ export default function AppHeader() {
                     className="cursor-pointer"
                   >
                     <IconBuildingPlus className="mr-2 h-4 w-4" />
-                    Create organization
+                    {t('common.createOrganization')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger className="cursor-pointer">
                     <IconSwitchHorizontal className="mr-2 h-4 w-4" />
-                    Change Role
+                    {t('common.changeRole')}
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent className="rounded-[12px] min-w-[160px]">
                     {(
                       <DropdownMenuItem onClick={handleSwitchToMember} className="cursor-pointer">
-                        <span className="text-[13px] text-[#1c1c26]">As Member</span>
+                        <span className="text-[13px] text-[#1c1c26]">{t('common.asMember')}</span>
                       </DropdownMenuItem>
                     )}
                     {hasManagerRole && (
                       <DropdownMenuItem onClick={handleSwitchToManager} className="cursor-pointer">
-                        <span className="text-[13px] text-[#1c1c26]">As Manager</span>
+                        <span className="text-[13px] text-[#1c1c26]">{t('common.asManager')}</span>
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuSubContent>
@@ -339,7 +390,7 @@ export default function AppHeader() {
             {(showCreateOrg || hasMemberRole || hasManagerRole) && <DropdownMenuSeparator />}
             <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-500 focus:text-red-500">
               <IconLogout className="mr-2 h-4 w-4" />
-              Log out
+              {t('common.logOut')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

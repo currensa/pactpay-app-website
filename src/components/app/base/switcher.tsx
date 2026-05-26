@@ -2,11 +2,13 @@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { IconArrowsLeftRight } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 
 export function OrganizationSwitcher() {
   const [open, setOpen] = useState(false)
+  const { t } = useTranslation()
 
   const { organizations, currentOrgId, setCurrentOrg, getOrganizations } = useOrganizationStore()
 
@@ -33,7 +35,7 @@ export function OrganizationSwitcher() {
       <PopoverTrigger asChild>
         <button
           className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white transition-colors hover:bg-[#f5f5f5]"
-          title="Switch Organization"
+          title={t('common.switchOrganization')}
         >
           <IconArrowsLeftRight className="h-[20px] w-[20px] text-[#1c1c26]" />
         </button>
@@ -45,7 +47,7 @@ export function OrganizationSwitcher() {
         className="w-[272px] rounded-[20px] border border-[rgba(0,0,0,0.08)] p-[4px] shadow-[0px_12px_26px_0px_rgba(0,0,0,0.08)]"
       >
         {adminOrgs.length === 0 ? (
-          <p className="px-[18px] py-[12px] text-[13px] text-[#8d8d93]">No admin organizations</p>
+          <p className="px-[18px] py-[12px] text-[13px] text-[#8d8d93]">{t('common.noAdminOrganizations')}</p>
         ) : (
           <div className="flex flex-col">
             {adminOrgs.map(({ organization, member }, index) => {

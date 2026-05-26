@@ -1,6 +1,5 @@
 import api from '@/apis'
 import type { FavoriteAddressItem } from '@/apis/favorite-address.api'
-import type { NotificationPreference, UpdateNotificationPreferencesPayload } from '@/apis/notification.api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
@@ -8,6 +7,9 @@ import { prepareMetaPubSubmission } from '@/lib/meta-pub'
 import { formatDateTime } from '@/lib/utils'
 import useAuthStore from '@/stores/auth'
 import useChainAssetStore from '@/stores/chain-asset'
+import { LANGUAGE_OPTIONS } from '@/i18n/messages'
+import usePreferenceStore from '@/stores/preference'
+import { useTranslation } from '@/utils/i18n'
 import AddressBookDialog from '@/views/member/components/address-book-dialog'
 import ChangeEmailDialog from '@/views/member/components/change-email-dialog'
 import type { Provider } from '@reown/appkit/react'
@@ -16,35 +18,13 @@ import { IconChevronDown, IconEye, IconEyeOff, IconPencil, IconPlus, IconRefresh
 import { isAddress } from 'ethers'
 import { useEffect, useState } from 'react'
 
-const LANGUAGES = ['English']
-
 const NOTIFICATION_ITEMS = [
-  { key: 'paymentsClaim', apiKey: 'payments_claim', label: 'Payments & claim' },
-  { key: 'organizationInvitesUpdates', apiKey: 'organization_invites_updates', label: 'Organization invites & updates' },
-  { key: 'securityLogin', apiKey: 'security_login', label: 'Security & login' },
+  { key: 'paymentsClaim', labelKey: 'settings.notification.paymentsClaim' },
+  { key: 'organizationInvitesUpdates', labelKey: 'settings.notification.organizationInvitesUpdates' },
+  { key: 'securityLogin', labelKey: 'settings.notification.securityLogin' },
 ] as const
 
 type NotificationStateKey = (typeof NOTIFICATION_ITEMS)[number]['key']
-
-type NotificationSettingsState = Record<NotificationStateKey, boolean>
-
-const DEFAULT_NOTIFICATIONS: NotificationSettingsState = {
-  paymentsClaim: true,
-  organizationInvitesUpdates: true,
-  securityLogin: true,
-}
-
-function mapPreferencesToState(preferences: NotificationPreference[]): NotificationSettingsState {
-  const nextState = { ...DEFAULT_NOTIFICATIONS }
-
-  for (const preference of preferences) {
-    const item = NOTIFICATION_ITEMS.find(entry => entry.apiKey === preference.key)
-    if (!item) continue
-    nextState[item.key] = preference.enabled
-  }
-
-  return nextState
-}
 
 function maskAddress(address: string) {
   if (address.length <= 6) return address
@@ -59,14 +39,19 @@ export default function MemberSettings() {
   const setMetaPub = useAuthStore(s => s.setMetaPub)
   const chains = useChainAssetStore(s => s.chains)
   const fetchChains = useChainAssetStore(s => s.fetchChains)
+  const { t } = useTranslation()
+  const notifications = usePreferenceStore(s => s.notifications)
+  const language = usePreferenceStore(s => s.language)
+  const preferencesLoading = usePreferenceStore(s => s.loading)
+  const fetchPreferences = usePreferenceStore(s => s.fetchPreferences)
+  const updatePreferences = usePreferenceStore(s => s.updatePreferences)
+  const updatePreferenceLanguage = usePreferenceStore(s => s.updateLanguage)
 
   const [showChangeEmail, setShowChangeEmail] = useState(false)
   const [showUid, setShowUid] = useState(false)
   const [showAddress, setShowAddress] = useState(false)
-  const [notifications, setNotifications] = useState<NotificationSettingsState>(DEFAULT_NOTIFICATIONS)
-  const [notificationsLoading, setNotificationsLoading] = useState(true)
   const [updatingNotificationKey, setUpdatingNotificationKey] = useState<NotificationStateKey | null>(null)
-  const [language, setLanguage] = useState('English')
+  const [languageUpdating, setLanguageUpdating] = useState(false)
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false)
 
   const [email, setEmail] = useState('')
@@ -105,24 +90,8 @@ export default function MemberSettings() {
   }, [])
 
   useEffect(() => {
-    let active = true
-
-    api.notification.getPreferences()
-      .then(data => {
-        if (!active) return
-        setNotifications(mapPreferencesToState(data.preferences))
-      })
-      .catch(() => {
-        if (!active) return
-      })
-      .finally(() => {
-        if (active) setNotificationsLoading(false)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [toast])
+    fetchPreferences().catch(() => { })
+  }, [fetchPreferences])
 
   useEffect(() => {
     fetchChains().catch(() => { })
@@ -160,12 +129,12 @@ export default function MemberSettings() {
   }
 
   const validateFavoriteAddress = ({ caipChainId, address }: { caipChainId: string; address: string }) => {
-    if (!caipChainId) return 'Network is required.'
-    if (!address) return 'Address is required.'
+    if (!caipChainId) return t('settings.networkRequired')
+    if (!address) return t('settings.addressRequired')
     const matchedChain = chains.find(chain => chain.caipChainId === caipChainId)
-    if (!matchedChain) return 'Selected network does not exist.'
+    if (!matchedChain) return t('settings.networkMissing')
     if (matchedChain.ecosystem?.toLowerCase() === 'evm' && !isAddress(address)) {
-      return 'Address format is invalid.'
+      return t('settings.invalidAddress')
     }
     return null
   }
@@ -189,7 +158,7 @@ export default function MemberSettings() {
       const data = await api.auth.getMySignMessage()
       setPersonalToken(data.signMessage)
       setTokenUpdatedAt(new Date(data.updatedAt))
-      toast({ description: (data as any).message || 'Updated successfully!' })
+      toast({ description: (data as any).message || t('common.updatedSuccessfully') })
     } catch {
       // request interceptor handles API errors
     } finally {
@@ -198,18 +167,32 @@ export default function MemberSettings() {
   }
 
   const toggleNotification = async (key: NotificationStateKey) => {
-    if (notificationsLoading || updatingNotificationKey) return
-
-    const payload = { [key]: !notifications[key] } as UpdateNotificationPreferencesPayload
+    if (preferencesLoading || updatingNotificationKey) return
 
     try {
       setUpdatingNotificationKey(key)
-      const data = await api.notification.updatePreferences(payload)
-      setNotifications(mapPreferencesToState(data.preferences))
+      await updatePreferences({ notifications: { [key]: !notifications[key] } })
     } catch {
       // request interceptor handles API errors
     } finally {
       setUpdatingNotificationKey(null)
+    }
+  }
+
+  const updateLanguage = async (nextLanguage: (typeof LANGUAGE_OPTIONS)[number]['value']) => {
+    if (languageUpdating || nextLanguage === language) {
+      setShowLanguageDropdown(false)
+      return
+    }
+
+    try {
+      setLanguageUpdating(true)
+      await updatePreferenceLanguage(nextLanguage)
+      setShowLanguageDropdown(false)
+    } catch {
+      // request interceptor handles API errors
+    } finally {
+      setLanguageUpdating(false)
     }
   }
 
@@ -232,11 +215,11 @@ export default function MemberSettings() {
       if (addressDialogMode === 'create') {
         const created = await api.favoriteAddress.create(payload)
         setFavoriteAddresses(prev => [created, ...prev])
-        toast({ description: 'Address added successfully.' })
+        toast({ description: t('settings.addressAdded') })
       } else if (editingAddress) {
         const updated = await api.favoriteAddress.update(editingAddress.id, { remark: payload.remark })
         setFavoriteAddresses(prev => prev.map(item => item.id === updated.id ? updated : item))
-        toast({ description: 'Address updated successfully.' })
+        toast({ description: t('settings.addressUpdated') })
       }
 
       setAddressDialogOpen(false)
@@ -255,7 +238,7 @@ export default function MemberSettings() {
       setRemovingAddress(true)
       await api.favoriteAddress.remove(addressToRemove.id)
       setFavoriteAddresses(prev => prev.filter(item => item.id !== addressToRemove.id))
-      toast({ description: 'Address removed successfully.' })
+      toast({ description: t('settings.addressRemoved') })
       setRemoveDialogOpen(false)
       setAddressToRemove(null)
     } catch {
@@ -265,31 +248,33 @@ export default function MemberSettings() {
     }
   }
 
+  const currentLanguageOption = LANGUAGE_OPTIONS.find(option => option.value === language)
+
   return (
     <div className="flex flex-col gap-[32px]">
       {/* Account */}
       <section className="flex flex-col gap-[12px]">
-        <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">Account</p>
+        <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">{t('common.account')}</p>
         <div className="flex gap-[20px] items-start bg-white rounded-[32px] pr-[24px]">
           {/* Account info card */}
           <div className="flex-1  p-[24px] flex flex-col gap-[24px]">
             {/* Login Email */}
             <div className="flex flex-col gap-[8px]">
-              <p className="text-[14px] leading-[22px] text-[#8d8d93]">Login Email</p>
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('settings.loginEmail')}</p>
               <div className="flex items-center gap-[8px]">
                 <p className="text-[16px] leading-[24px] text-[#1c1c26]">{email || '—'}</p>
                 <button
                   onClick={() => setShowChangeEmail(true)}
                   className="text-[14px] leading-[22px] text-[#5e85ee] hover:opacity-80 transition-opacity"
                 >
-                  {email ? 'Change' : 'Bind'}
+                  {email ? t('common.change') : t('common.bind')}
                 </button>
               </div>
             </div>
 
             {/* UID */}
             <div className="flex flex-col gap-[8px]">
-              <p className="text-[14px] leading-[22px] text-[#8d8d93]">UID</p>
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('settings.uid')}</p>
               <div className="flex items-center gap-[8px]">
                 <p className="text-[16px] leading-[24px] text-[#1c1c26]">
                   {uid ? (showUid ? uid : '••••••••••••••') : '—'}
@@ -310,7 +295,7 @@ export default function MemberSettings() {
 
             {/* Login address */}
             <div className="flex flex-col gap-[8px]">
-              <p className="text-[14px] leading-[22px] text-[#8d8d93]">Bound Wallet Address (For login and fund claim)</p>
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('settings.boundWalletAddress')}</p>
               <div className="flex items-center gap-[8px]">
                 <p className="text-[16px] leading-[24px] text-[#1c1c26]">
                   {walletAddress
@@ -337,16 +322,16 @@ export default function MemberSettings() {
             {/* Header */}
             <div className="flex flex-col gap-[8px]">
               <div className="flex items-center justify-between">
-                <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26]">Privacy Identity</p>
+                <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26]">{t('settings.privacyIdentity')}</p>
                 {tokenUpdatedAt && (
                   <span className="flex items-center border border-[rgba(0,0,0,0.12)] rounded-[100px] px-[10px] py-[2px] text-[12px] leading-[20px] whitespace-nowrap">
-                    <span className="text-[#8d8d93]">Last updated </span>
+                    <span className="text-[#8d8d93]">{t('settings.lastUpdated')} </span>
                     <span className="text-[#1c1c26] ml-[2px]">{formatDateTime(tokenUpdatedAt)}</span>
                   </span>
                 )}
               </div>
               <p className="text-[13px] leading-[20px] text-[#606067]">
-                Update your privacy identity credential to keep your on-chain activity private. This privacy identity links your wallet to the organization without revealing your identity. Refresh it periodically for better security.
+                {t('settings.privacyIdentityDescription')}
               </p>
             </div>
             {/* Refresh button */}
@@ -354,10 +339,10 @@ export default function MemberSettings() {
               onClick={handleGenerateToken}
               disabled={tokenLoading}
               className="flex items-center justify-center gap-[6px] w-full py-[8px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] leading-[20px] hover:opacity-90 transition-opacity disabled:opacity-60"
-              title="Refresh token"
+              title={t('settings.refreshToken')}
             >
               <IconRefresh className={`h-[14px] w-[14px] ${tokenLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              {t('settings.refresh')}
             </button>
           </div>
         </div>
@@ -365,13 +350,13 @@ export default function MemberSettings() {
 
       {/* Address Book */}
       <section className="flex flex-col gap-[12px]">
-        <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">Address Book</p>
+        <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">{t('settings.addressBook')}</p>
         <div className="bg-white rounded-[32px] p-[24px] flex flex-col gap-[20px]">
           <div className="flex items-start justify-between gap-[16px]">
             <div className="flex flex-col gap-[4px]">
-              <p className="text-[16px] leading-[24px] text-[#1c1c26]">Saved addresses</p>
+              <p className="text-[16px] leading-[24px] text-[#1c1c26]">{t('settings.savedAddresses')}</p>
               <p className="text-[14px] leading-[22px] text-[#606067]">
-                Manage trusted payout addresses and labels for quick reuse.
+                {t('settings.savedAddressesDescription')}
               </p>
             </div>
             <button
@@ -381,19 +366,19 @@ export default function MemberSettings() {
               className="shrink-0 flex items-center gap-[6px] rounded-[12px] bg-[#5e85ee] px-[14px] py-[8px] text-[13px] leading-[20px] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               <IconPlus className="h-[14px] w-[14px]" />
-              Add address
+              {t('settings.addAddress')}
             </button>
           </div>
 
           {favoriteAddressesLoading ? (
             <div className="flex min-h-[120px] items-center justify-center text-[13px] text-[#8d8d93]">
-              Loading...
+              {t('common.loading')}
             </div>
           ) : favoriteAddresses.length === 0 ? (
             <div className="flex min-h-[120px] flex-col items-center justify-center gap-[8px] rounded-[20px] border border-dashed border-[rgba(0,0,0,0.12)] bg-[#fafafa] px-[24px] text-center">
-              <p className="text-[16px] leading-[24px] text-[#1c1c26]">No saved addresses yet</p>
+              <p className="text-[16px] leading-[24px] text-[#1c1c26]">{t('settings.noSavedAddresses')}</p>
               <p className="text-[13px] leading-[20px] text-[#8d8d93]">
-                Add your first trusted address to build your Address Book.
+                {t('settings.noSavedAddressesDescription')}
               </p>
             </div>
           ) : (
@@ -420,7 +405,7 @@ export default function MemberSettings() {
                       className="flex items-center gap-[4px] rounded-[10px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
                     >
                       <IconPencil className="h-[14px] w-[14px]" />
-                      Edit
+                      {t('settings.edit')}
                     </button>
                     <button
                       type="button"
@@ -428,7 +413,7 @@ export default function MemberSettings() {
                       className="flex items-center gap-[4px] rounded-[10px] border border-[rgba(217,43,43,0.2)] px-[12px] py-[8px] text-[13px] leading-[20px] text-[#d92b2b] transition-colors hover:bg-[rgba(217,43,43,0.06)]"
                     >
                       <IconTrash className="h-[14px] w-[14px]" />
-                      Remove
+                      {t('common.remove')}
                     </button>
                   </div>
                 </div>
@@ -440,14 +425,14 @@ export default function MemberSettings() {
 
       {/* Notifications */}
       <section className="flex flex-col gap-[12px]">
-        <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">Notifications</p>
+        <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">{t('settings.notifications')}</p>
         <div className="bg-white rounded-[32px] p-[24px] flex flex-col gap-[16px] min-h-[152px]">
-          {notificationsLoading ? (
+          {preferencesLoading ? (
             <div className="flex flex-1 items-center justify-center">
-              <div className="text-[13px] text-[#8d8d93]">Loading...</div>
+              <div className="text-[13px] text-[#8d8d93]">{t('common.loading')}</div>
             </div>
           ) : (
-            NOTIFICATION_ITEMS.map(({ key, label }, i, arr) => {
+            NOTIFICATION_ITEMS.map(({ key, labelKey }, i, arr) => {
               const disabled = updatingNotificationKey !== null
 
               return (
@@ -455,7 +440,7 @@ export default function MemberSettings() {
                   key={key}
                   className={`flex items-center justify-between ${i < arr.length - 1 ? 'pb-[16px] border-b border-[rgba(0,0,0,0.12)]' : ''}`}
                 >
-                  <p className="text-[16px] leading-[24px] text-[#1c1c26]">{label}</p>
+                  <p className="text-[16px] leading-[24px] text-[#1c1c26]">{t(labelKey)}</p>
                   <button
                     type="button"
                     disabled={disabled}
@@ -475,27 +460,28 @@ export default function MemberSettings() {
 
       {/* Language */}
       <section className="flex flex-col gap-[12px]">
-        <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">Language</p>
+        <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">{t('settings.language')}</p>
         <div className="bg-white rounded-[32px] p-[24px]">
           <div className="flex items-center justify-between">
-            <p className="text-[16px] leading-[24px] text-[#1c1c26]">Preferred language</p>
+            <p className="text-[16px] leading-[24px] text-[#1c1c26]">{t('settings.preferredLanguage')}</p>
             <div className="relative">
               <button
                 onClick={() => setShowLanguageDropdown(v => !v)}
                 className="flex items-center gap-[8px] justify-between min-w-[140px] px-[16px] py-[10px] rounded-[12px] border border-[rgba(0,0,0,0.12)] text-[16px] leading-[24px] text-[#1c1c26]"
               >
-                <span>{language}</span>
+                <span>{currentLanguageOption ? t(currentLanguageOption.labelKey) : language}</span>
                 <IconChevronDown className={`h-[20px] w-[20px] text-[#1c1c26] transition-transform ${showLanguageDropdown ? 'rotate-180' : ''}`} />
               </button>
               {showLanguageDropdown && (
                 <div className="absolute right-0 bottom-full mb-[4px] min-w-[140px] bg-white rounded-[12px] border border-[rgba(0,0,0,0.12)] shadow-lg z-10 overflow-hidden">
-                  {LANGUAGES.map(lang => (
+                  {LANGUAGE_OPTIONS.map(option => (
                     <button
-                      key={lang}
-                      onClick={() => { setLanguage(lang); setShowLanguageDropdown(false) }}
-                      className={`w-full text-left px-[16px] py-[10px] text-[16px] leading-[24px] hover:bg-[#f5f5f5] transition-colors ${lang === language ? 'text-[#5e85ee]' : 'text-[#1c1c26]'}`}
+                      key={option.value}
+                      disabled={languageUpdating}
+                      onClick={() => { void updateLanguage(option.value) }}
+                      className={`w-full text-left px-[16px] py-[10px] text-[16px] leading-[24px] hover:bg-[#f5f5f5] transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${option.value === language ? 'text-[#5e85ee]' : 'text-[#1c1c26]'}`}
                     >
-                      {lang}
+                      {t(option.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -531,17 +517,17 @@ export default function MemberSettings() {
       <Dialog open={removeDialogOpen} onOpenChange={openState => { if (!removingAddress) { setRemoveDialogOpen(openState); if (!openState) setAddressToRemove(null) } }}>
         <DialogContent className="max-w-[416px]">
           <DialogHeader>
-            <DialogTitle>Remove address?</DialogTitle>
+            <DialogTitle>{t('settings.removeAddress')}</DialogTitle>
             <DialogDescription>
-              {addressToRemove ? `Remove 【${addressToRemove.remark || addressToRemove.address}】 from your Address Book?` : ''}
+              {addressToRemove ? t('settings.removeAddressDescription', { name: addressToRemove.remark || addressToRemove.address }) : ''}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setRemoveDialogOpen(false); setAddressToRemove(null) }} disabled={removingAddress}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleConfirmRemoveAddress} disabled={removingAddress}>
-              Remove
+              {t('common.remove')}
             </Button>
           </DialogFooter>
         </DialogContent>

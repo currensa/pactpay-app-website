@@ -1,5 +1,7 @@
 import { Button } from '@/components/ui/button'
+import type { I18nKey } from '@/i18n/messages'
 import useHeaderStore from '@/stores/header'
+import { useTranslation } from '@/utils/i18n'
 import { Bot, CalendarDays, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -8,44 +10,45 @@ type TransactionType = 'people' | 'ai'
 
 const TYPE_OPTIONS: {
   id: TransactionType
-  title: string
-  description: string
+  titleKey: I18nKey
+  descriptionKey: I18nKey
   continueTo: string
-  summaryItems: { label: string; value: string }[]
+  summaryItems: { labelKey: I18nKey; valueKey: I18nKey }[]
   icon: typeof Users
-  iconLabel: string
+  iconLabelKey: I18nKey
 }[] = [
   {
     id: 'people',
-    title: 'People payroll',
-    description: 'Pay team members. Claim time required. Platform service fee applies.',
+    titleKey: 'pages.createTransactionSelector.peoplePayroll',
+    descriptionKey: 'pages.createTransactionSelector.peopleDescription',
     continueTo: '/orgs/transaction/create-people',
     summaryItems: [
-      { label: 'Payment type', value: 'People payroll' },
-      { label: 'Payees', value: 'Organisation members' },
-      { label: 'Platform fee', value: 'Applied at transaction creation' },
-      { label: 'Claim timing', value: 'Required before members can claim' },
+      { labelKey: 'pages.createTransactionSelector.paymentTypeLabel', valueKey: 'pages.createTransactionSelector.peoplePayroll' },
+      { labelKey: 'pages.createTransactionSelector.payeesLabel', valueKey: 'pages.createTransactionSelector.organizationMembers' },
+      { labelKey: 'pages.createTransactionSelector.platformFeeLabel', valueKey: 'pages.createTransactionSelector.platformFeeApplied' },
+      { labelKey: 'pages.createTransactionSelector.claimTimingLabel', valueKey: 'pages.createTransactionSelector.claimTimingRequired' },
     ],
     icon: Users,
-    iconLabel: 'People payment',
+    iconLabelKey: 'pages.createTransactionSelector.peoplePayment',
   },
   {
     id: 'ai',
-    title: 'AI API purchase',
-    description: 'Top up a usage plan. Direct payment. No platform fee. No refunds.',
+    titleKey: 'pages.createTransactionSelector.aiPurchase',
+    descriptionKey: 'pages.createTransactionSelector.aiDescription',
     continueTo: '/orgs/transaction/create-ai',
     summaryItems: [
-      { label: 'Payment type', value: 'AI API purchase' },
-      { label: 'Payees', value: 'API service usage plan' },
-      { label: 'Platform fee', value: 'None' },
-      { label: 'Refund policy', value: 'No refunds after payment' },
+      { labelKey: 'pages.createTransactionSelector.paymentTypeLabel', valueKey: 'pages.createTransactionSelector.aiPurchase' },
+      { labelKey: 'pages.createTransactionSelector.payeesLabel', valueKey: 'pages.createTransactionSelector.apiServiceUsagePlan' },
+      { labelKey: 'pages.createTransactionSelector.platformFeeLabel', valueKey: 'pages.createTransactionSelector.none' },
+      { labelKey: 'pages.createTransactionSelector.refundPolicyLabel', valueKey: 'pages.createTransactionSelector.noRefunds' },
     ],
     icon: Bot,
-    iconLabel: 'AI API purchase',
+    iconLabelKey: 'pages.createTransactionSelector.aiPurchase',
   },
 ]
 
 export default function CreateTransactionSelector() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { setHeader, clearHeader } = useHeaderStore()
@@ -58,12 +61,12 @@ export default function CreateTransactionSelector() {
     setHeader({
       backUrl: '/orgs/transaction',
       steps: [
-        { label: '1. Select type & details', active: true },
-        { label: '2. Review & Confirm', active: false },
+        { label: t('pages.createTransactionSelector.step1'), active: true },
+        { label: t('pages.createTransactionSelector.step2'), active: false },
       ],
     })
     return () => clearHeader()
-  }, [clearHeader, setHeader])
+  }, [clearHeader, setHeader, t])
 
   const selectedOption = useMemo(
     () => TYPE_OPTIONS.find(option => option.id === selectedType) ?? null,
@@ -79,17 +82,17 @@ export default function CreateTransactionSelector() {
               <span className="flex h-[30px] min-w-[30px] items-center justify-center rounded-full bg-[#5e85ee] px-[8px] text-[13px] font-semibold text-white">
                 1
               </span>
-              <span className="text-[14px] font-medium text-[#5e85ee]">Payment type</span>
+              <span className="text-[14px] font-medium text-[#5e85ee]">{t('pages.createTransactionSelector.paymentType')}</span>
             </div>
             <span className="text-[14px] text-[#c0c0c5]">/</span>
             <div className="flex items-center gap-[10px]">
               <span className="text-[14px] font-medium text-[#a4a4a8]">2</span>
-              <span className="text-[14px] font-medium text-[#a4a4a8]">Details</span>
+              <span className="text-[14px] font-medium text-[#a4a4a8]">{t('pages.createTransactionSelector.details')}</span>
             </div>
           </div>
 
           <div className="pt-[28px]">
-            <p className="text-[18px] font-semibold text-[#1c1c26]">What are you paying for?</p>
+            <p className="text-[18px] font-semibold text-[#1c1c26]">{t('pages.createTransactionSelector.question')}</p>
 
             <div className="mt-[20px] grid gap-[16px] xl:grid-cols-2">
               {TYPE_OPTIONS.map(option => {
@@ -120,8 +123,8 @@ export default function CreateTransactionSelector() {
                     </div>
 
                     <div className="mt-[44px]">
-                      <p className="text-[18px] font-semibold text-[#1c1c26]">{option.title}</p>
-                      <p className="mt-[6px] text-[14px] leading-[22px] text-[#8d8d93]">{option.description}</p>
+                      <p className="text-[18px] font-semibold text-[#1c1c26]">{t(option.titleKey)}</p>
+                      <p className="mt-[6px] text-[14px] leading-[22px] text-[#8d8d93]">{t(option.descriptionKey)}</p>
                     </div>
                   </button>
                 )
@@ -131,7 +134,7 @@ export default function CreateTransactionSelector() {
 
           <div className="mt-[32px] flex items-center justify-between border-t border-[rgba(0,0,0,0.08)] pt-[20px]">
             <Button variant="outline" onClick={() => navigate('/orgs/transaction')}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               disabled={!selectedOption}
@@ -140,7 +143,7 @@ export default function CreateTransactionSelector() {
                 navigate(selectedOption.continueTo)
               }}
             >
-              Continue
+              {t('pages.createTransactionSelector.continue')}
             </Button>
           </div>
         </div>
@@ -153,18 +156,18 @@ export default function CreateTransactionSelector() {
                   <selectedOption.icon className="h-[22px] w-[22px] text-[#5e85ee]" />
                 </div>
                 <div>
-                  <p className="text-[18px] font-semibold text-[#1c1c26]">{selectedOption.title}</p>
-                  <p className="text-[13px] leading-[20px] text-[#8d8d93]">{selectedOption.iconLabel}</p>
+                  <p className="text-[18px] font-semibold text-[#1c1c26]">{t(selectedOption.titleKey)}</p>
+                  <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t(selectedOption.iconLabelKey)}</p>
                 </div>
               </div>
 
               <div className="mt-[20px] rounded-[24px] bg-[#f5f5f5] p-[18px]">
-                <p className="text-[13px] font-medium uppercase tracking-[0.08em] text-[#8d8d93]">Fee breakdown</p>
+                <p className="text-[13px] font-medium uppercase tracking-[0.08em] text-[#8d8d93]">{t('pages.createTransactionSelector.feeBreakdown')}</p>
                 <div className="mt-[16px] flex flex-col gap-[14px]">
                   {selectedOption.summaryItems.map(item => (
-                    <div key={item.label} className="flex items-start justify-between gap-[16px]">
-                      <span className="text-[13px] text-[#606067]">{item.label}</span>
-                      <span className="max-w-[220px] text-right text-[13px] text-[#1c1c26]">{item.value}</span>
+                    <div key={item.labelKey} className="flex items-start justify-between gap-[16px]">
+                      <span className="text-[13px] text-[#606067]">{t(item.labelKey)}</span>
+                      <span className="max-w-[220px] text-right text-[13px] text-[#1c1c26]">{t(item.valueKey)}</span>
                     </div>
                   ))}
                 </div>
@@ -176,7 +179,7 @@ export default function CreateTransactionSelector() {
                 <CalendarDays className="h-[28px] w-[28px] text-[#a4a4a8]" />
               </div>
               <p className="mt-[20px] text-[16px] font-medium text-[#a4a4a8]">
-                Select a payment type to see fee breakdown
+                {t('pages.createTransactionSelector.selectTypeHint')}
               </p>
             </div>
           )}

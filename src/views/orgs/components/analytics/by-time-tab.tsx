@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import {
@@ -66,6 +67,7 @@ function parseAssetFilterKey(filterKey: string) {
 
 export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
   const { toast } = useToast()
+  const { language, t } = useTranslation()
   const currentMember = useOrganizationStore(s => s.currentMember)
   const chainAssets = useChainAssetStore(s => s.chainAssets)
   const fetchChainAssets = useChainAssetStore(s => s.fetchChainAssets)
@@ -174,9 +176,9 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
 
         const status = error?.response?.status
         if (status === 403) {
-          setErrorMessage('The By Time analytics endpoint is available only to Owner, Admin, and Operator members.')
+          setErrorMessage(t('pages.analytics.ownerAdminOperatorOnly'))
         } else {
-          setErrorMessage('Unable to load time-based analytics right now.')
+          setErrorMessage(t('pages.analytics.unableToLoadTimeAnalytics'))
         }
 
         setStats(null)
@@ -193,7 +195,7 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [canAccessAnalytics, selectedAssetFilterKey, selectedYear])
+  }, [canAccessAnalytics, selectedAssetFilterKey, selectedYear, t])
 
   const selectedStatistic = useMemo(() => {
     if (!stats?.statistics.length) return null
@@ -207,49 +209,52 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
   )
 
   const chartData = useMemo(
-    () => buildByTimeChartData(selectedStatistic, Number(selectedYear)),
-    [selectedStatistic, selectedYear]
+    () => buildByTimeChartData(selectedStatistic, Number(selectedYear), language, t),
+    [language, selectedStatistic, selectedYear, t]
   )
 
   const totalPayoutTrend = useMemo(
     () =>
       buildAmountTrend(selectedStatistic?.totalPayoutVolume ?? '0', previousStatistic?.totalPayoutVolume, selectedStatistic?.decimals ?? 0, {
-        neutralLabel: 'No change vs last year',
-        compareSuffix: 'vs last year',
-        positiveSuffix: 'New this year',
-        negativeSuffix: 'vs last year',
+        neutralLabel: t('pages.analytics.noChangeVsLastYear'),
+        compareSuffix: t('pages.analytics.vsLastYear'),
+        positiveSuffix: t('pages.analytics.newThisYear'),
+        negativeSuffix: t('pages.analytics.vsLastYear'),
+        translate: t,
       }),
-    [previousStatistic, selectedStatistic]
+    [previousStatistic, selectedStatistic, t]
   )
 
   const avgMonthlyTrend = useMemo(
     () =>
       buildAmountTrend(selectedStatistic?.avgMonthlyPayout ?? '0', previousStatistic?.avgMonthlyPayout, selectedStatistic?.decimals ?? 0, {
-        neutralLabel: 'Stable trend',
-        positiveSuffix: 'New benchmark',
+        neutralLabel: t('pages.analytics.stableTrend'),
+        positiveSuffix: t('pages.analytics.newBenchmark'),
+        translate: t,
       }),
-    [previousStatistic, selectedStatistic]
+    [previousStatistic, selectedStatistic, t]
   )
 
   const avgPerMemberTrend = useMemo(
     () =>
       buildAmountTrend(selectedStatistic?.avgPayoutPerMember ?? '0', previousStatistic?.avgPayoutPerMember, selectedStatistic?.decimals ?? 0, {
-        neutralLabel: 'Stable trend',
-        positiveSuffix: 'New benchmark',
+        neutralLabel: t('pages.analytics.stableTrend'),
+        positiveSuffix: t('pages.analytics.newBenchmark'),
+        translate: t,
       }),
-    [previousStatistic, selectedStatistic]
+    [previousStatistic, selectedStatistic, t]
   )
 
   const handleExport = () => {
     if (!selectedStatistic) {
-      toast({ description: 'No by-time analytics data is available to export.' })
+      toast({ description: t('pages.analytics.noByTimeExportData') })
       return
     }
 
     const rows = [
-      ['Month', 'Total Payout', 'Transaction Count', 'Unique Members', 'Status', 'Year', 'Symbol', 'caipChainId', 'tokenAddress'],
+      [t('pages.analytics.month'), t('pages.analytics.totalPayout'), t('pages.analytics.transactionCount'), t('pages.analytics.uniqueMembers'), t('pages.analytics.status'), 'Year', 'Symbol', 'caipChainId', 'tokenAddress'],
       ...chartData.map(item => [
-        formatMonthYearLabel(item.month, Number(selectedYear)),
+        formatMonthYearLabel(item.month, Number(selectedYear), 'short', language),
         item.amountLabel,
         item.transactionCount,
         item.uniqueMembers,
@@ -275,8 +280,8 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
     if (!canAccessAnalytics) {
       return (
         <MessageState
-          title="Access restricted"
-          description="The By Time analytics endpoint is available only to Owner, Admin, and Operator members."
+          title={t('pages.analytics.accessRestricted')}
+          description={t('pages.analytics.ownerAdminOperatorOnly')}
         />
       )
     }
@@ -286,14 +291,14 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
     }
 
     if (errorMessage) {
-      return <MessageState title="Unable to load analytics" description={errorMessage} />
+      return <MessageState title={t('pages.analytics.unableToLoadAnalytics')} description={errorMessage} />
     }
 
     if (!stats?.statistics.length || !selectedStatistic) {
       return (
         <MessageState
-          title="No by-time analytics data"
-          description={`No completed payout analytics were found for ${selectedYear}.`}
+          title={t('pages.analytics.noByTimeData')}
+          description={t('pages.analytics.noByTimeDataDescription', { year: selectedYear })}
         />
       )
     }
@@ -307,19 +312,19 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
       <>
         <div className="grid gap-[20px] xl:grid-cols-3">
           <MetricCard
-            title="Total Payout Volume"
+            title={t('pages.analytics.totalPayoutVolume')}
             value={v1}
             trend={totalPayoutTrend}
             valueFontClass={sharedFontClass}
           />
           <MetricCard
-            title="Avg. Monthly Payout"
+            title={t('pages.analytics.avgMonthlyPayout')}
             value={v2}
             trend={avgMonthlyTrend}
             valueFontClass={sharedFontClass}
           />
           <MetricCard
-            title="Avg. Payout per Member"
+            title={t('pages.analytics.avgPayoutPerMember')}
             value={v3}
             trend={avgPerMemberTrend}
             titleClassName="text-[12px] leading-[20px] md:text-[14px] md:leading-[22px]"
@@ -329,8 +334,8 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
 
         <div className="flex flex-col gap-[12px]">
           <div className="flex flex-col gap-[4px] md:flex-row md:items-center md:justify-between">
-            <p className="text-[18px] leading-[28px] text-[#1c1c26]">Monthly Payout Distribution Chart</p>
-            <p className="text-[14px] leading-[22px] text-[#606067] md:text-[16px] md:leading-[24px]">Month / Payout Amount</p>
+            <p className="text-[18px] leading-[28px] text-[#1c1c26]">{t('pages.analytics.monthlyPayoutDistributionChart')}</p>
+            <p className="text-[14px] leading-[22px] text-[#606067] md:text-[16px] md:leading-[24px]">{t('pages.analytics.monthPayoutAmount')}</p>
           </div>
 
           <div className="rounded-[32px] bg-white px-[12px] py-[24px] md:px-[24px] md:py-[28px] xl:px-[40px]">
@@ -356,19 +361,19 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
                         <div className="rounded-[12px] bg-[rgba(0,0,0,0.8)] px-[12px] py-[10px] text-[13px] leading-[20px] text-white shadow-[0px_10px_24px_rgba(0,0,0,0.18)]">
                           <div className="grid min-w-[220px] gap-[8px]">
                             <div className="flex items-center justify-between gap-[12px]">
-                              <span className="text-[#bbbbbe]">Month</span>
+                              <span className="text-[#bbbbbe]">{t('pages.analytics.month')}</span>
                               <span>{point.monthLabel}</span>
                             </div>
                             <div className="flex items-center justify-between gap-[12px]">
-                              <span className="text-[#bbbbbe]">Expenditure</span>
+                              <span className="text-[#bbbbbe]">{t('pages.analytics.expenditure')}</span>
                               <span>{point.amountLabel}</span>
                             </div>
                             <div className="flex items-center justify-between gap-[12px]">
-                              <span className="text-[#bbbbbe]">Transaction Count</span>
+                              <span className="text-[#bbbbbe]">{t('pages.analytics.transactionCount')}</span>
                               <span>{point.transactionCount}</span>
                             </div>
                             <div className="flex items-center justify-between gap-[12px]">
-                              <span className="text-[#bbbbbe]">Total Member</span>
+                              <span className="text-[#bbbbbe]">{t('pages.analytics.totalMember')}</span>
                               <span>{point.uniqueMembers}</span>
                             </div>
                           </div>
@@ -384,24 +389,24 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
         </div>
 
         <div className="flex flex-col gap-[12px]">
-          <p className="text-[18px] leading-[28px] text-[#1c1c26]">Monthly Breakdown Table</p>
+          <p className="text-[18px] leading-[28px] text-[#1c1c26]">{t('pages.analytics.monthlyBreakdownTable')}</p>
 
           <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
             <div className="overflow-x-auto">
               <Table className="min-w-[960px]">
                 <TableHeader>
                   <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
-                    <TableHead className="w-[220px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Month</TableHead>
-                    <TableHead className="w-[220px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Total Payout</TableHead>
-                    <TableHead className="w-[200px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Transaction Count</TableHead>
-                    <TableHead className="w-[200px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">Unique Members</TableHead>
+                    <TableHead className="w-[220px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.month')}</TableHead>
+                    <TableHead className="w-[220px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.totalPayout')}</TableHead>
+                    <TableHead className="w-[200px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.transactionCount')}</TableHead>
+                    <TableHead className="w-[200px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.uniqueMembers')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {chartData.map(item => (
                     <TableRow key={item.month} className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
                       <TableCell className="px-0 py-[16px] text-[14px] leading-[22px] text-[#1c1c26]">
-                        {formatMonthYearLabel(item.month, Number(selectedYear))}
+                        {formatMonthYearLabel(item.month, Number(selectedYear), 'short', language)}
                       </TableCell>
                       <TableCell className="px-0 py-[16px] text-[14px] leading-[22px] text-[#1c1c26]">
                         {item.amountLabel}
@@ -447,7 +452,7 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-[16px]">
-                <SelectItem value="all">All Chains / Currencies</SelectItem>
+                <SelectItem value="all">{t('pages.analytics.allChainsCurrencies')}</SelectItem>
                 {assetOptions.map(option => {
                   const filterKey = buildAssetFilterKey(option.caipChainId, option.contractAddress || '')
                   const chainName = getChain(option.caipChainId)?.name || option.chain.name || option.caipChainId

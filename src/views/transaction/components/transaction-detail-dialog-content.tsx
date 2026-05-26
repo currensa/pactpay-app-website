@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
 import { Transaction } from './types'
 
@@ -17,6 +18,7 @@ export function TransactionDetailDialogContent({
   transactionDetailMembers,
 }: TransactionDetailDialogContentProps) {
   const currentMember = useOrganizationStore(s => s.currentMember)
+  const { t } = useTranslation()
   if (!selectedTransaction) return null
 
   return (
@@ -31,7 +33,7 @@ export function TransactionDetailDialogContent({
           <div className="flex items-center gap-4">
             <span className="font-medium">{selectedTransaction.executionDate}</span>
             {selectedTransaction.isDueToday && (
-              <Badge variant="warning" className="text-xs">Due Today</Badge>
+              <Badge variant="warning" className="text-xs">{t('pages.transactions.dueToday')}</Badge>
             )}
             <Badge variant="outline" className="bg-blue-50 text-blue-700">
               {selectedTransaction.currency}
@@ -43,11 +45,11 @@ export function TransactionDetailDialogContent({
         {/* Summary cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="bg-muted rounded-lg p-4">
-            <p className="text-muted-foreground text-sm">Member Count</p>
+            <p className="text-muted-foreground text-sm">{t('pages.transactions.memberCount')}</p>
             <p className="mt-1 text-2xl font-semibold">{selectedTransaction.members}</p>
           </div>
           <div className="bg-muted rounded-lg p-4">
-            <p className="text-muted-foreground text-sm">Total Amount</p>
+            <p className="text-muted-foreground text-sm">{t('pages.transactions.totalAmount')}</p>
             <p className="mt-1 text-2xl font-semibold">
               {selectedTransaction.totalAmount} {selectedTransaction.currency}
             </p>
@@ -56,13 +58,13 @@ export function TransactionDetailDialogContent({
 
         {/* Member details table */}
         <div className="space-y-3">
-          <h3 className="text-muted-foreground text-sm font-medium uppercase">Member Details</h3>
+          <h3 className="text-muted-foreground text-sm font-medium uppercase">{t('pages.transactions.memberDetails')}</h3>
           <div className="rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>MEMBER</TableHead>
-                  <TableHead className="text-right">AMOUNT</TableHead>
+                  <TableHead>{t('pages.createPeopleTransaction.member').toUpperCase()}</TableHead>
+                  <TableHead className="text-right">{t('pages.createPeopleTransaction.amount').toUpperCase()}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -88,7 +90,7 @@ export function TransactionDetailDialogContent({
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4} className="text-muted-foreground h-24 text-center">
-                      Loading members...
+                      {t('pages.transactions.loadingMembers')}
                     </TableCell>
                   </TableRow>
                 )}

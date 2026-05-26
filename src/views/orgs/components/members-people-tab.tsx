@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSke
 import { useToast } from '@/components/ui/use-toast'
 import { getMemberStatusDisplayName, memberStatus, OrganizationMemberRole } from '@/enums/org'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { getHighestRole, Permission, useHasPermission } from '@/utils/permissions'
 import { BatchImportDialog } from '@/views/orgs/components/batch-import-dialog'
 import { InviteSection } from '@/views/orgs/components/invite-section'
@@ -34,6 +35,7 @@ type MembersPeopleTabProps = {
 
 export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
   const { toast } = useToast()
+  const { language, t } = useTranslation()
   const navigate = useNavigate()
   const bindWalletBannerDismissKey = useMemo(
     () => `pactpay_members_bind_wallet_banner_dismissed:${localStorage.getItem('userId') ?? 'anonymous'}`,
@@ -160,7 +162,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
       setMembers(prev => prev.map(member => (
         member.id === memberToApprove.id ? { ...member, status: 'active' as const } : member
       )))
-      toast({ title: 'Success', description: 'Member approved successfully.' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgMembers.memberApproved') })
     } catch {
       // request interceptor handles API errors
     } finally {
@@ -173,7 +175,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
     try {
       await apis.organization.rejectInvite(member.memberId)
       setMembers(prev => prev.filter(item => item.id !== member.id))
-      toast({ title: 'Success', description: 'Member rejected. Notification sent.' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgMembers.memberRejected') })
     } catch {
       // request interceptor handles API errors
     }
@@ -187,7 +189,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
       await apis.organization.deleteMember(member.memberId)
       setMembers(prev => prev.filter(item => item.id !== memberId))
       setDrawerOpen(false)
-      toast({ title: 'Success', description: 'Member removed successfully.' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgMembers.memberRemoved') })
     } catch {
       // request interceptor handles API errors
     }
@@ -249,7 +251,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
       const exportMembers = [firstPage, ...remainingPages].flatMap(response => response.data)
 
       if (exportMembers.length === 0) {
-        toast({ title: 'Info', description: 'No members match the current filters.' })
+        toast({ title: t('pages.orgMembers.info'), description: t('pages.orgMembers.noMembersMatch') })
         return
       }
 
@@ -269,7 +271,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
   const handleEditServiceFee = async (member: OrganizationMember, value: string) => {
     const numValue = parseFloat(value)
     if (isNaN(numValue) || numValue < 0) {
-      toast({ title: 'Error', description: 'Amount must be a positive number', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('pages.orgMembers.amountPositive'), variant: 'destructive' })
       return
     }
 
@@ -286,7 +288,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
           ? { ...item, payoutIntent: { ...item.payoutIntent, amount: numValue.toString() } }
           : item
       )))
-      toast({ title: 'Success', description: `Amount updated to ${numValue}` })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgMembers.amountUpdated', { amount: numValue }) })
     } catch (error: any) {
       if (error?.response?.status === 404 && error?.response?.data?.message?.includes('payroll')) {
         setTimeout(() => navigate('/orgs/settings'), 1500)
@@ -305,7 +307,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
       setMembers(prev => prev.map(member => (
         member.id === remarkMember.id ? { ...member, remark: updated.remark } : member
       )))
-      toast({ title: 'Success', description: 'Remark updated.' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgMembers.remarkUpdated') })
       setRemarkDialogOpen(false)
       setRemarkMember(null)
     } catch {
@@ -358,7 +360,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
               <input
                 value={searchQuery}
                 onChange={event => setSearchQuery(event.target.value)}
-                placeholder="Search by name, email..."
+                placeholder={t('pages.orgMembers.searchPlaceholder')}
                 className="flex-1 bg-transparent text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#8d8d93] outline-none"
               />
               <Search className="h-[16px] w-[16px] shrink-0 text-[#8d8d93]" />
@@ -373,7 +375,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                 className="flex h-[36px] w-[120px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]"
               >
                 <span className={`text-[13px] leading-[20px] ${roleFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
-                  {roleFilter === 'All' ? 'Role' : roleFilter}
+                  {roleFilter === 'All' ? t('pages.orgMembers.role') : roleFilter}
                 </span>
                 <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${roleDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -390,7 +392,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                         roleFilter === role ? 'text-[#5e85ee]' : 'text-[#1c1c26]'
                       }`}
                     >
-                      {role === 'All' ? 'All Roles' : role}
+                      {role === 'All' ? t('pages.orgMembers.allRoles') : role}
                     </button>
                   ))}
                 </div>
@@ -406,7 +408,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                 className="flex h-[36px] w-[160px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]"
               >
                 <span className={`text-[13px] leading-[20px] ${statusFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
-                  {statusFilter === 'All' ? 'Status' : getMemberStatusDisplayName(statusFilter)}
+                  {statusFilter === 'All' ? t('pages.orgMembers.status') : getMemberStatusDisplayName(statusFilter)}
                 </span>
                 <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -423,7 +425,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                         statusFilter === status ? 'text-[#5e85ee]' : 'text-[#1c1c26]'
                       }`}
                     >
-                      {status === 'All' ? 'All Statuses' : getMemberStatusDisplayName(status)}
+                      {status === 'All' ? t('pages.orgMembers.allStatuses') : getMemberStatusDisplayName(status)}
                     </button>
                   ))}
                 </div>
@@ -437,7 +439,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
               className="flex items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white transition-opacity hover:opacity-90"
             >
               {inviteSectionOpen ? <X className="h-[14px] w-[14px]" /> : <Plus className="h-[14px] w-[14px]" />}
-              {inviteSectionOpen ? 'Hide' : 'Invite Members'}
+              {inviteSectionOpen ? t('pages.orgMembers.hide') : t('pages.orgMembers.inviteMembers')}
             </button>
             <button
               onClick={() => void handleExport()}
@@ -445,7 +447,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
               className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
             >
               <Upload className="h-[14px] w-[14px]" />
-              {exporting ? 'Exporting...' : 'Export'}
+              {exporting ? t('pages.orgMembers.exporting') : t('pages.orgMembers.export')}
             </button>
           </div>
         </div>
@@ -456,23 +458,23 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
               <TableRow>
                 <TableHead>
                   <button onClick={() => handleSort('name')} className="flex items-center gap-[4px]">
-                    Member <SortIcon field="name" />
+                    {t('pages.orgMembers.member')} <SortIcon field="name" />
                   </button>
                 </TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
+                <TableHead>{t('pages.orgMembers.email')}</TableHead>
+                <TableHead>{t('pages.orgMembers.role')}</TableHead>
                 <TableHead>
                   <button onClick={() => handleSort('serviceFee')} className="flex items-center gap-[4px]">
-                    Amount <SortIcon field="serviceFee" />
+                    {t('pages.orgMembers.amount')} <SortIcon field="serviceFee" />
                   </button>
                 </TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{t('pages.orgMembers.status')}</TableHead>
                 <TableHead>
                   <button onClick={() => handleSort('lastPayment')} className="flex items-center gap-[4px]">
-                    Last Payment <SortIcon field="lastPayment" />
+                    {t('pages.orgMembers.lastPayment')} <SortIcon field="lastPayment" />
                   </button>
                 </TableHead>
-                <TableHead>Action</TableHead>
+                <TableHead>{t('pages.orgMembers.action')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -482,8 +484,8 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                 <TableRow>
                   <TableCell colSpan={7}>
                     <div className="flex flex-col items-center justify-center gap-[10px] py-[24px]">
-                      <img src="/empty-table.svg" alt="No members" className="h-[120px] w-[120px]" />
-                      <p className="text-[13px] leading-[20px] text-[#8d8d93]">No members found</p>
+                      <img src="/empty-table.svg" alt={t('pages.orgMembers.noMembersAlt')} className="h-[120px] w-[120px]" />
+                      <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.orgMembers.noMembersFound')}</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -511,7 +513,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                           }}
                         >
                           <span className="max-w-[120px] truncate">{member.showName || '-'}</span>
-                          {member.memberId === currentMember?.memberId && <span className="shrink-0">Me</span>}
+                          {member.memberId === currentMember?.memberId && <span className="shrink-0">{t('pages.orgMembers.me')}</span>}
                           {member.remark && (
                             <span className="max-w-[80px] truncate text-[11px] text-[#8d8d93]" title={member.remark}>
                               ({member.remark})
@@ -526,7 +528,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                               setRemarkDialogOpen(true)
                             }}
                             className="shrink-0 text-[#8d8d93] transition-colors hover:text-[#5e85ee]"
-                            title="Edit remark"
+                            title={t('pages.orgMembers.editRemark')}
                           >
                             <Edit2 className="h-[13px] w-[13px]" />
                           </button>
@@ -577,7 +579,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                     </TableCell>
                     <TableCell><StatusBadge status={member.status} /></TableCell>
                     <TableCell>
-                      {member.lastPayment ? new Date(member.lastPayment).toLocaleDateString('zh-CN').replace(/\//g, '/') : '-'}
+                      {member.lastPayment ? new Date(member.lastPayment).toLocaleDateString(language).replace(/\//g, '/') : '-'}
                     </TableCell>
                     <TableCell onClick={event => event.stopPropagation()}>
                       {member.status === 'pending_review' && hasPermission(Permission.APPROVE_MEMBER) ? (
@@ -603,7 +605,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                           }}
                           className="whitespace-nowrap text-[13px] leading-[20px] text-[#5e85ee] transition-opacity hover:opacity-80"
                         >
-                          View Details
+                          {t('pages.orgDashboard.viewDetails')}
                         </button>
                       )}
                     </TableCell>
@@ -621,7 +623,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
             onPageChange={setCurrentPage}
             totalItems={total}
             pageSize={pageSize}
-            itemLabel="members"
+            itemLabel={t('pages.orgMembers.members')}
             className="shrink-0"
           />
         )}
@@ -658,9 +660,9 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
         >
           <DialogContent className="max-w-[360px]">
             <DialogHeader>
-              <DialogTitle>Please carefully verify the identity of the member you are adding.</DialogTitle>
+              <DialogTitle>{t('pages.orgMembers.approveTitle')}</DialogTitle>
               <DialogDescription>
-                Due to the high anonymity of the platform, you will not receive any member information other than the nickname and avatar.
+                {t('pages.orgMembers.approveDescription')}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -672,9 +674,9 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                   setMemberToApprove(null)
                 }}
               >
-                Reject
+                {t('pages.orgMembers.reject')}
               </Button>
-              <Button onClick={() => void handleConfirmApprove()}>Confirm</Button>
+              <Button onClick={() => void handleConfirmApprove()}>{t('pages.orgMembers.confirm')}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -686,15 +688,15 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
         >
           <DialogContent className="max-w-[360px]">
             <DialogHeader>
-              <DialogTitle>Edit Remark</DialogTitle>
+              <DialogTitle>{t('pages.orgMembers.editRemarkTitle')}</DialogTitle>
               <DialogDescription>
-                {remarkMember && `Set a remark for ${remarkMember.showName}.`}
+                {remarkMember && t('pages.orgMembers.remarkDescription', { name: remarkMember.showName })}
               </DialogDescription>
             </DialogHeader>
             <Input
               value={remarkValue}
               onChange={event => setRemarkValue(event.target.value)}
-              placeholder="Enter remark..."
+              placeholder={t('pages.orgMembers.remarkPlaceholder')}
               onKeyDown={event => {
                 if (event.key === 'Enter') void handleSaveRemark()
               }}
@@ -707,9 +709,9 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                   setRemarkMember(null)
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
-              <Button onClick={() => void handleSaveRemark()} disabled={remarkSaving}>Save</Button>
+              <Button onClick={() => void handleSaveRemark()} disabled={remarkSaving}>{t('common.save')}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -721,9 +723,9 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Remove Member</DialogTitle>
+              <DialogTitle>{t('pages.orgMembers.removeMember')}</DialogTitle>
               <DialogDescription>
-                {memberToRemove && `Are you sure you want to remove ${memberToRemove.showName}? They will no longer receive payments from this organization.`}
+                {memberToRemove && t('pages.orgMembers.removeMemberDescription', { name: memberToRemove.showName })}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -734,9 +736,9 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                   setMemberToRemove(null)
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
-              <Button variant="destructive" onClick={() => void handleConfirmRemove()}>Remove Member</Button>
+              <Button variant="destructive" onClick={() => void handleConfirmRemove()}>{t('pages.orgMembers.removeMember')}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

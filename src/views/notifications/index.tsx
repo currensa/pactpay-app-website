@@ -3,6 +3,7 @@ import type { NotificationItem } from '@/apis/notification.api'
 import { Pagination } from '@/components/ui/pagination'
 import useNotificationStore from '@/stores/notification'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -25,9 +26,9 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: string): string {
   const d = new Date(iso)
-  return d.toLocaleString('zh-CN', {
+  return d.toLocaleString(locale, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -66,6 +67,7 @@ function NotificationRow({
   onMarkRead: (id: string) => void
 }) {
   const navigate = useNavigate()
+  const { language } = useTranslation()
   const cta = extractCta(item.body)
   const preview = stripHtml(removeCta(item.body))
   const isUnread = !item.readAt
@@ -106,7 +108,7 @@ function NotificationRow({
             {preview}
           </p>
         </div>
-        <p className="text-[13px] leading-[22px] text-[#8d8d93]">{formatDate(item.createdAt)}</p>
+        <p className="text-[13px] leading-[22px] text-[#8d8d93]">{formatDate(item.createdAt, language)}</p>
       </div>
 
       {/* CTA */}
@@ -125,6 +127,7 @@ function NotificationRow({
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function NotificationsPage() {
+  const { t } = useTranslation()
   const { setUnreadCount } = useNotificationStore()
   const { currentOrgId } = useOrganizationStore()
   const location = useLocation()
@@ -233,12 +236,12 @@ export default function NotificationsPage() {
                 onClick={() => setStatusOpen(v => !v)}
                 className="flex items-center justify-between gap-[8px] border border-[rgba(0,0,0,0.12)] rounded-[12px] px-[16px] py-[10px] min-w-[140px] text-[15px] leading-[24px] text-[#8d8d93] outline-none"
               >
-                <span>{unreadOnly ? 'Unread' : 'Status'}</span>
+                <span>{unreadOnly ? t('pages.notifications.unread') : t('pages.notifications.status')}</span>
                 <ChevronDown className="h-[20px] w-[20px] shrink-0" />
               </button>
               {statusOpen && (
                 <div className="absolute top-full left-0 mt-[4px] bg-white rounded-[12px] border border-[rgba(0,0,0,0.12)] shadow-lg z-10 overflow-hidden min-w-[140px]">
-                  {[{ label: 'All', value: false }, { label: 'Unread', value: true }].map(opt => (
+                  {[{ label: t('pages.notifications.all'), value: false }, { label: t('pages.notifications.unread'), value: true }].map(opt => (
                     <button
                       key={String(opt.value)}
                       onClick={() => { setUnreadOnly(opt.value); setStatusOpen(false); setPage(1) }}
@@ -258,18 +261,18 @@ export default function NotificationsPage() {
             onClick={handleMarkAllRead}
             className="flex items-center gap-[4px] border border-[rgba(0,0,0,0.12)] rounded-[12px] px-[14px] py-[10px] text-[14px] leading-[22px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
           >
-            Mark all as read
+            {t('pages.notifications.markAllRead')}
           </button>
         </div>
 
         {/* List */}
         <div className="flex flex-col gap-[16px]">
           {loading ? (
-            <p className="text-[14px] text-[#8d8d93] py-[24px] text-center">Loading...</p>
+            <p className="text-[14px] text-[#8d8d93] py-[24px] text-center">{t('common.loading')}</p>
           ) : items.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-[12px] py-[24px]">
-              <img src="/empty-data.svg" alt="No notifications" className="h-[120px] w-[120px]" />
-              <p className="text-[14px] leading-[22px] text-[#8d8d93]">No notifications</p>
+              <img src="/empty-data.svg" alt={t('pages.notifications.noNotificationsAlt')} className="h-[120px] w-[120px]" />
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('pages.notifications.noNotifications')}</p>
             </div>
           ) : (
             items.map(item => (
@@ -288,7 +291,11 @@ export default function NotificationsPage() {
         {!loading && items.length > 0 && (
           <div className="flex items-center justify-between shrink-0">
             <p className="text-[14px] leading-[22px] text-[#606067]">
-              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+              {t('pages.notifications.showing', {
+                from: (page - 1) * PAGE_SIZE + 1,
+                to: Math.min(page * PAGE_SIZE, total),
+                total,
+              })}
             </p>
             <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
           </div>

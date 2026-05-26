@@ -85,7 +85,6 @@ export interface Chain {
   chainId: string
   ecosystem: string
   iconUrl: string
-  rpcUrls: string[]
   explorerUrls: string[]
   status: string
   createdAt: string

@@ -1,5 +1,6 @@
 import MemberLayout from '@/layouts/member-layout'
 import OrgLayout from '@/layouts/org-layout'
+import type { I18nKey } from '@/i18n/messages'
 import {
   IconAlignBoxBottomRight,
   IconCashMove,
@@ -12,6 +13,7 @@ import { createBrowserRouter, Navigate, RouteObject } from 'react-router-dom'
 
 export interface OrgNavChild {
   title: string
+  titleKey?: I18nKey
   url: string
   /** 组织 logo，显示在子菜单项左侧 */
   logoUrl?: string
@@ -23,6 +25,7 @@ export interface OrgNavChild {
 
 export interface OrgNavItem {
   title: string
+  titleKey?: I18nKey
   key: string
   url: string
   icon: React.ElementType
@@ -68,6 +71,8 @@ type RouteItem = RouteObject & {
   meta?: {
     title?: string
     subtitle?: string
+    titleKey?: I18nKey
+    subtitleKey?: I18nKey
     /** 在侧边栏菜单中隐藏该项 */
     hideInMenu?: boolean
     [key: string]: string | number | boolean | undefined
@@ -125,22 +130,22 @@ const routes: RouteItem[] = [
     element: <OrgLayout />,
     children: [
       { index: true, element: <Navigate to="/orgs/dashboard" /> },
-      { path: 'dashboard', navIcon: IconLayoutDashboard, element: <Dashboard />, meta: { title: 'Dashboard', subtitle: "Monitor your organization's key metrics and activities" } },
-      { path: 'members', navIcon: IconUsers, element: <Members />, meta: { title: 'Payees', subtitle: 'Manage people and services your organisation pays' } },
-      { path: 'members/usage-plans/:id', element: <TokenUsagePlanDetailPage />, meta: { title: 'Usage Plan', hideInMenu: true } },
+      { path: 'dashboard', navIcon: IconLayoutDashboard, element: <Dashboard />, meta: { title: 'Dashboard', titleKey: 'route.dashboard', subtitle: "Monitor your organization's key metrics and activities", subtitleKey: 'route.dashboardSubtitle' } },
+      { path: 'members', navIcon: IconUsers, element: <Members />, meta: { title: 'Payees', titleKey: 'route.payees', subtitle: 'Manage people and services your organisation pays', subtitleKey: 'route.payeesSubtitle' } },
+      { path: 'members/usage-plans/:id', element: <TokenUsagePlanDetailPage />, meta: { title: 'Usage Plan', titleKey: 'route.usagePlan', hideInMenu: true } },
       // { path: 'roles', navIcon: IconShield, element: <RoleManagement />, meta: { title: 'Role Management' } },
-      { path: 'transaction', navIcon: IconCashMove, element: <Transaction />, meta: { title: 'Transactions', subtitle: 'View and manage payment transactions' } },
-      { path: 'transaction/create', element: <CreateTransactionSelector />, meta: { title: 'Create New Transaction', hideInMenu: true } },
-      { path: 'transaction/create-people', element: <CreateTransaction />, meta: { title: 'Create New Transaction', hideInMenu: true } },
-      { path: 'transaction/create-ai', element: <CreateAiTransaction />, meta: { title: 'New AI API Top Up', hideInMenu: true } },
-      { path: 'transaction/:id', element: <TransactionDetailPage />, meta: { title: 'Transaction Detail', hideInMenu: true } },
-      { path: 'analytics', navIcon: IconAlignBoxBottomRight, element: <Analytics />, meta: { title: 'Analytics', subtitle: 'Track your payment analytics', hideInMenu: false } },
-      { path: 'notifications', element: <NotificationsPage />, meta: { title: 'Notifications', subtitle: 'Showing notifications for Engineering Team', hideInMenu: true } },
+      { path: 'transaction', navIcon: IconCashMove, element: <Transaction />, meta: { title: 'Transactions', titleKey: 'route.transactions', subtitle: 'View and manage payment transactions', subtitleKey: 'route.transactionsSubtitle' } },
+      { path: 'transaction/create', element: <CreateTransactionSelector />, meta: { title: 'Create New Transaction', titleKey: 'route.createTransaction', hideInMenu: true } },
+      { path: 'transaction/create-people', element: <CreateTransaction />, meta: { title: 'Create New Transaction', titleKey: 'route.createTransaction', hideInMenu: true } },
+      { path: 'transaction/create-ai', element: <CreateAiTransaction />, meta: { title: 'New AI API Top Up', titleKey: 'route.createAiTopUp', hideInMenu: true } },
+      { path: 'transaction/:id', element: <TransactionDetailPage />, meta: { title: 'Transaction Detail', titleKey: 'route.transactionDetail', hideInMenu: true } },
+      { path: 'analytics', navIcon: IconAlignBoxBottomRight, element: <Analytics />, meta: { title: 'Analytics', titleKey: 'route.analytics', subtitle: 'Track your payment analytics', subtitleKey: 'route.analyticsSubtitle', hideInMenu: false } },
+      { path: 'notifications', element: <NotificationsPage />, meta: { title: 'Notifications', titleKey: 'route.notifications', subtitle: 'Showing notifications for Engineering Team', subtitleKey: 'route.notificationsSubtitle', hideInMenu: true } },
       {
         path: 'settings',
         navIcon: IconSettings,
         element: <OrganizationSettings />,
-        meta: { title: 'Settings', subtitle: 'Manage your organization settings' }
+        meta: { title: 'Settings', titleKey: 'route.settings', subtitle: 'Manage your organization settings', subtitleKey: 'route.orgSettingsSubtitle' }
       }
     ] as RouteItem[]
   },
@@ -151,11 +156,11 @@ const routes: RouteItem[] = [
         element: <MemberLayout />,
         children: [
           { index: true, element: <Navigate to="member/dashboard" /> },
-          { path: 'dashboard', navIcon: IconLayoutDashboard, element: <MemberDashboard />, meta: { title: 'Dashboard', subtitle: "Monitor your organization's key metrics and activities" } },
-          { path: 'orgdetail', element: <MemberOrgsDetail />, meta: { title: 'TechCorp Inc.' } },
-          { path: 'claim', element: <MemberClaim />, meta: { title: 'Claim', subtitle: 'Merge claim: all pending funds in one transaction. Gas is paid by the platform.' } },
-          { path: 'notifications', element: <NotificationsPage />, meta: { title: 'Notifications', subtitle: 'Showing notifications for Engineering Team', hideInMenu: true } },
-          { path: 'settings', navIcon: IconSettings, element: <MemberSettings />, meta: { title: 'Settings', subtitle: 'Manage your account settings' } }
+          { path: 'dashboard', navIcon: IconLayoutDashboard, element: <MemberDashboard />, meta: { title: 'Dashboard', titleKey: 'route.dashboard', subtitle: "Monitor your organization's key metrics and activities", subtitleKey: 'route.dashboardSubtitle' } },
+          { path: 'orgdetail', element: <MemberOrgsDetail />, meta: { title: 'TechCorp Inc.', titleKey: 'route.memberOrgDetail' } },
+          { path: 'claim', element: <MemberClaim />, meta: { title: 'Claim', titleKey: 'route.claim', subtitle: 'Merge claim: all pending funds in one transaction. Gas is paid by the platform.', subtitleKey: 'route.claimSubtitle' } },
+          { path: 'notifications', element: <NotificationsPage />, meta: { title: 'Notifications', titleKey: 'route.notifications', subtitle: 'Showing notifications for Engineering Team', subtitleKey: 'route.notificationsSubtitle', hideInMenu: true } },
+          { path: 'settings', navIcon: IconSettings, element: <MemberSettings />, meta: { title: 'Settings', titleKey: 'route.settings', subtitle: 'Manage your account settings', subtitleKey: 'route.memberSettingsSubtitle' } }
         ]
       }
     ] as RouteItem[]
@@ -202,6 +207,7 @@ export function getMemberNavItems(): OrgNavItem[] {
     if (!route.path || !route.navIcon || route.meta?.hideInMenu) continue
     result.push({
       title: route.meta?.title ?? route.path,
+      titleKey: route.meta?.titleKey,
       key: route.path,
       url: `/member/${route.path}`,
       icon: route.navIcon,
@@ -221,6 +227,7 @@ export function getOrgNavItems(): OrgNavItem[] {
 
     const item: OrgNavItem = {
       title: route.meta?.title ?? route.path,
+      titleKey: route.meta?.titleKey,
       key: route.path,
       url: `/orgs/${route.path}`,
       icon: route.navIcon,
@@ -233,6 +240,7 @@ export function getOrgNavItems(): OrgNavItem[] {
     if (visibleChildren?.length) {
       item.children = visibleChildren.map(c => ({
         title: c.meta?.title ?? c.path!,
+        titleKey: c.meta?.titleKey,
         url: `/orgs/${route.path}/${c.path}`,
       }))
     }

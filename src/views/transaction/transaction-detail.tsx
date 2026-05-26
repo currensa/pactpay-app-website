@@ -9,6 +9,7 @@ import { PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { formatUnits } from 'ethers'
 import { CreditCard, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -36,6 +37,7 @@ export default function TransactionDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const { getTokenSymbol, getTokenDecimals, fetchChainAssets, fetchChains, getChain } = useChainAssetStore()
   const { setHeader, clearHeader } = useHeaderStore()
   const hasPermission = useHasPermission()
@@ -69,7 +71,7 @@ export default function TransactionDetail() {
           setHeader({
             backUrl: '/orgs/transaction',
             breadcrumb: [
-              { label: 'Transactions', href: '/orgs/transaction' },
+              { label: t('pages.transactionDetail.transactions'), href: '/orgs/transaction' },
               { label: data.transactionName },
             ],
           })
@@ -80,13 +82,13 @@ export default function TransactionDetail() {
         .finally(() => setLoading(false))
     })
     return () => clearHeader()
-  }, [id])
+  }, [clearHeader, fetchChainAssets, fetchChains, id, setHeader, t])
 
   if (loading) {
-    return <div className="flex items-center justify-center h-40 text-[#8d8d93] text-[13px]">Loading...</div>
+    return <div className="flex items-center justify-center h-40 text-[#8d8d93] text-[13px]">{t('common.loading')}</div>
   }
   if (!plan) {
-    return <div className="flex items-center justify-center h-40 text-[#8d8d93] text-[13px]">Transaction not found.</div>
+    return <div className="flex items-center justify-center h-40 text-[#8d8d93] text-[13px]">{t('pages.transactionDetail.notFound')}</div>
   }
 
   const tokenSymbol = getTokenSymbol(plan.caipChainId, plan.tokenAddress ?? '') ?? plan.tokenAddress?.slice(0, 6) ?? ''
@@ -157,7 +159,7 @@ export default function TransactionDetail() {
     setIsDeleting(true)
     try {
       await apis.transaction.deleteTransactionPlan(plan.id)
-      toast({ title: 'Success', description: 'Transaction deleted.' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.transactionDetail.transactionDeleted') })
       navigate('/orgs/transaction')
     } catch {
       // request interceptor handles API errors
@@ -183,17 +185,17 @@ export default function TransactionDetail() {
             {/* Meta row */}
             <div className="flex items-center gap-[14px] text-[13px] leading-[22px]">
               <span>
-                <span className="text-[#8d8d93]">Pay Day (Local): </span>
+                <span className="text-[#8d8d93]">{t('pages.transactionDetail.payDayLocal')}: </span>
                 <span className="text-[#1c1c26] font-medium">{payDay}</span>
               </span>
               <div className="w-px h-[14px] bg-[rgba(0,0,0,0.12)]" />
               <span>
-                <span className="text-[#8d8d93]">Execution Date (Local): </span>
+                <span className="text-[#8d8d93]">{t('pages.transactionDetail.executionDateLocal')}: </span>
                 {executionDateLabel}
               </span>
               <div className="w-px h-[14px] bg-[rgba(0,0,0,0.12)]" />
               <span>
-                <span className="text-[#8d8d93]">Network: </span>
+                <span className="text-[#8d8d93]">{t('pages.transactionDetail.network')}: </span>
                 <span className="text-[#1c1c26]">{networkName}</span>
               </span>
             </div>
@@ -210,7 +212,7 @@ export default function TransactionDetail() {
                       className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
                     >
                       <CreditCard size={14} />
-                      Re-action
+                      {t('pages.transactionDetail.reaction')}
                     </button>
                   )}
                   {hasPermission(Permission.EXECUTE_TRANSACTION) && plan.items.some(item => item.status !== 'claimed') && (
@@ -219,7 +221,7 @@ export default function TransactionDetail() {
                       className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(255,168,0,0.4)] bg-white text-[#c47d00] text-[13px] hover:bg-[rgba(255,168,0,0.06)] transition-colors"
                     >
                       <RotateCcw size={14} />
-                      Refund
+                      {t('pages.transactionDetail.refund')}
                     </button>
                   )}
                 </>
@@ -232,7 +234,7 @@ export default function TransactionDetail() {
                       className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
                     >
                       <CreditCard size={14} />
-                      Re-action
+                      {t('pages.transactionDetail.reaction')}
                     </button>
                   )
                 )
@@ -242,7 +244,7 @@ export default function TransactionDetail() {
                     className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] hover:bg-[#5e85ee]/90 transition-opacity"
                   >
                     <CreditCard size={14} />
-                    Execute Now
+                    {t('pages.transactionDetail.executeNow')}
                   </button>
                 )
             }
@@ -252,7 +254,7 @@ export default function TransactionDetail() {
                 className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
               >
                 <Trash2 size={14} />
-                Delete
+                {t('pages.transactionDetail.delete')}
               </button>
             )}
           </div>
@@ -261,22 +263,22 @@ export default function TransactionDetail() {
         {/* Stats row */}
         <div className="flex gap-[20px]">
           <div className="flex flex-1 items-center justify-between bg-[#f5f5f5] rounded-[18px] px-6 py-5">
-            <span className="text-[#1c1c26] text-[14px] leading-[22px]">Total Members</span>
+            <span className="text-[#1c1c26] text-[14px] leading-[22px]">{t('pages.transactionDetail.totalMembers')}</span>
             <span className="text-[#1c1c26] text-[22px] font-medium leading-[32px]">{plan.items.length.toLocaleString()}</span>
           </div>
           <div className="flex flex-1 items-center justify-between bg-[#f5f5f5] rounded-[18px] px-6 py-5">
-            <span className="text-[#1c1c26] text-[14px] leading-[22px]">Total Amount</span>
+            <span className="text-[#1c1c26] text-[14px] leading-[22px]">{t('pages.transactionDetail.totalAmount')}</span>
             <span className="text-[#1c1c26] text-[22px] font-medium leading-[32px]">{totalAmountFormatted} {tokenSymbol}</span>
           </div>
           {isRefunded && (
             <div className="flex flex-1 items-center justify-between bg-[#f5f5f5] rounded-[18px] px-6 py-5">
-              <span className="text-[#1c1c26] text-[14px] leading-[22px]">Refunded Amount</span>
+              <span className="text-[#1c1c26] text-[14px] leading-[22px]">{t('pages.transactionDetail.refundedAmount')}</span>
               <span className="text-[#1c1c26] text-[22px] font-medium leading-[32px]">{refundedAmountFormatted} {tokenSymbol}</span>
             </div>
           )}
           {isComplete && (
             <div className="flex flex-1 items-center justify-between bg-[#f5f5f5] rounded-[18px] px-6 py-5 min-w-0">
-              <span className="text-[#1c1c26] text-[14px] leading-[22px] shrink-0">TX Hash</span>
+              <span className="text-[#1c1c26] text-[14px] leading-[22px] shrink-0">{t('pages.transactionDetail.txHash')}</span>
               {txExplorerUrl ? (
                 <a
                   href={txExplorerUrl}
@@ -303,12 +305,12 @@ export default function TransactionDetail() {
           <Table>
             <TableHeader>
               <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
-                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">Member</TableHead>
-                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">Email</TableHead>
-                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[180px]">Role</TableHead>
-                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[120px]">Status</TableHead>
-                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3">Amount</TableHead>
-                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[240px]">TX Hash</TableHead>
+                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">{t('pages.transactionDetail.member')}</TableHead>
+                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">{t('pages.transactionDetail.email')}</TableHead>
+                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[180px]">{t('pages.transactionDetail.role')}</TableHead>
+                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[120px]">{t('pages.transactionDetail.status')}</TableHead>
+                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3">{t('pages.transactionDetail.amount')}</TableHead>
+                <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[240px]">{t('pages.transactionDetail.txHash')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -316,8 +318,8 @@ export default function TransactionDetail() {
                 <TableRow>
                   <TableCell colSpan={6} className="py-[24px]">
                     <div className="flex flex-col items-center justify-center gap-[10px]">
-                      <img src="/empty-table.svg" alt="No members" className="h-[120px] w-[120px]" />
-                      <p className="text-[13px] leading-[20px] text-[#8d8d93]">No members found</p>
+                      <img src="/empty-table.svg" alt={t('pages.transactionDetail.noMembersAlt')} className="h-[120px] w-[120px]" />
+                      <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.transactionDetail.noMembersFound')}</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -382,7 +384,11 @@ export default function TransactionDetail() {
         {/* Pagination */}
         <div className="flex items-center justify-between shrink-0">
           <span className="text-[#606067] text-[13px]">
-            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, plan.items.length)} of {plan.items.length} members
+            {t('pages.transactionDetail.showingMembers', {
+              from: (currentPage - 1) * ITEMS_PER_PAGE + 1,
+              to: Math.min(currentPage * ITEMS_PER_PAGE, plan.items.length),
+              total: plan.items.length,
+            })}
           </span>
           {totalPages > 1 && (
             <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
@@ -393,7 +399,7 @@ export default function TransactionDetail() {
       {/* ── Dialogs ─────────────────────────────────────────────────────────── */}
       <Dialog open={executeOpen} onOpenChange={setExecuteOpen}>
         <DialogContent disableOutsideClose>
-          <DialogTitle className="sr-only">Transaction Summary</DialogTitle>
+          <DialogTitle className="sr-only">{t('pages.transactionDetail.transactionSummary')}</DialogTitle>
           <ExecuteConfirmDialogContent
             executingTransaction={transactionStub}
             transactionPlan={plan}
@@ -428,40 +434,40 @@ export default function TransactionDetail() {
       <Dialog open={reactionConfirmOpen} onOpenChange={setReactionConfirmOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Re-action Transaction</DialogTitle>
+            <DialogTitle>{t('pages.transactionDetail.reactionTitle')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to create a new transaction based on this one? The original transaction will remain unchanged.
+              {t('pages.transactionDetail.reactionDescription')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="mt-[16px] bg-[#f5f5f5] rounded-[12px] p-[14px] flex flex-col gap-[10px]">
             <div className="flex items-center justify-between">
-              <span className="text-[13px] text-[#606067]">Transaction Name</span>
+              <span className="text-[13px] text-[#606067]">{t('pages.transactionDetail.transactionName')}</span>
               <span className="text-[13px] font-medium text-[#1c1c26]">{plan.transactionName}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[13px] text-[#606067]">Transaction ID</span>
+              <span className="text-[13px] text-[#606067]">{t('pages.transactionDetail.transactionId')}</span>
               <span className="font-mono text-[13px] font-medium text-[#1c1c26]">{plan.id}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[13px] text-[#606067]">Members</span>
+              <span className="text-[13px] text-[#606067]">{t('pages.transactionDetail.members')}</span>
               <span className="text-[13px] font-medium text-[#1c1c26]">{plan.items.length}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[13px] text-[#606067]">Total Amount</span>
+              <span className="text-[13px] text-[#606067]">{t('pages.transactionDetail.totalAmount')}</span>
               <span className="text-[13px] font-medium text-[#1c1c26]">{totalAmountFormatted} {tokenSymbol}</span>
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setReactionConfirmOpen(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={() => {
               setReactionConfirmOpen(false)
               navigate(`/orgs/transaction/create-people?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)
             }}>
-              Confirm
+              {t('pages.orgMembers.confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -469,7 +475,7 @@ export default function TransactionDetail() {
 
       <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
         <DialogContent disableOutsideClose>
-          <DialogTitle className="sr-only">Refund Unclaimed Funds</DialogTitle>
+          <DialogTitle className="sr-only">{t('pages.transactionDetail.refundUnclaimedFunds')}</DialogTitle>
           <RefundConfirmDialogContent
             transaction={transactionStub}
             transactionPlan={plan}

@@ -5,6 +5,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { recoverStealthPrivateKey } from '@/lib/stealth-key'
 import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
+import { useTranslation } from '@/utils/i18n'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconLoader2 } from '@tabler/icons-react'
@@ -85,6 +86,7 @@ async function deriveMetaPrivKey(walletProvider: Provider, address: string): Pro
 export default function ClaimPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const { open } = useAppKit()
   const { address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
@@ -172,8 +174,8 @@ export default function ClaimPage() {
   useEffect(() => {
     if (!walletToken) {
       toast({
-        title: 'Unauthorized',
-        description: 'Wallet verification required. Please click "Claim all" again.',
+        title: t('pages.memberClaim.unauthorizedTitle'),
+        description: t('pages.memberClaim.unauthorizedDescription'),
         variant: 'destructive',
       })
       navigate('/member/dashboard')
@@ -263,15 +265,15 @@ export default function ClaimPage() {
 
   const handleClaim = async () => {
     if (!selectedChain) {
-      toast({ description: 'Please select a network.', variant: 'destructive' })
+      toast({ description: t('pages.memberClaim.selectNetworkToast'), variant: 'destructive' })
       return
     }
     if (!trimmedRecipient) {
-      toast({ description: 'Please enter a recipient address.', variant: 'destructive' })
+      toast({ description: t('pages.memberClaim.enterRecipientToast'), variant: 'destructive' })
       return
     }
     if (!isRecipientValidForChain) {
-      toast({ description: 'Please enter a valid address for the selected network.', variant: 'destructive' })
+      toast({ description: t('pages.memberClaim.validAddressToast'), variant: 'destructive' })
       return
     }
     if (!address || !walletProvider) {
@@ -302,7 +304,7 @@ export default function ClaimPage() {
       }
 
       if (items.length === 0) {
-        toast({ description: 'No pending items found for this network.' })
+        toast({ description: t('pages.memberClaim.noPendingItemsNetwork') })
         return
       }
 
@@ -386,13 +388,12 @@ export default function ClaimPage() {
 
       if (signedItems.length === 0) {
         toast({
-          title: 'Nothing to claim',
-          description: `All ${skipped.length} item(s) were skipped (key mismatch).`,
+          title: t('pages.memberClaim.nothingToClaimTitle'),
+          description: t('pages.memberClaim.skippedItems', { count: skipped.length }),
           variant: 'destructive',
         })
         return
       }
-
       const confirmMessage = `I confirm that the recipient address for this claim is:\n${trimmedRecipient}`
       const recipientSignature = await walletProvider.request<string>({
         method: 'personal_sign',
@@ -407,8 +408,8 @@ export default function ClaimPage() {
         return
       }
       toast({
-        title: 'Error',
-        description: error?.message || 'Failed to submit claim.',
+        title: t('common.error'),
+        description: error?.message || t('pages.memberClaim.failedSubmit'),
         variant: 'destructive',
       })
     } finally {
@@ -431,7 +432,7 @@ export default function ClaimPage() {
 
         {/* Network selector */}
         <div className="flex flex-col gap-[8px] max-w-[700px]">
-          <p className="text-[14px] leading-[22px] font-semibold text-[#1c1c26]">Network *</p>
+          <p className="text-[14px] leading-[22px] font-semibold text-[#1c1c26]">{t('pages.memberClaim.network')}</p>
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen(v => !v)}
@@ -444,7 +445,7 @@ export default function ClaimPage() {
                   {selectedChainName}
                 </span>
               ) : (
-                <span className="text-[#bbbbbe]">Select</span>
+                <span className="text-[#bbbbbe]">{t('pages.memberClaim.select')}</span>
               )}
               <ChevronDown className="h-[20px] w-[20px] text-[#606067] shrink-0" />
             </button>
@@ -468,16 +469,16 @@ export default function ClaimPage() {
 
         {/* Pending to claim */}
         <div className="flex flex-col gap-[8px] max-w-[700px]">
-          <p className="text-[14px] leading-[22px] font-semibold text-[#1c1c26]">Pending to claim</p>
+          <p className="text-[14px] leading-[22px] font-semibold text-[#1c1c26]">{t('pages.memberClaim.pendingToClaim')}</p>
           <div className="flex flex-col gap-[16px]">
             {summaryLoading ? (
               <div className="flex items-center gap-[8px] py-[8px] text-[14px] text-[#8d8d93]">
                 <IconLoader2 className="h-[16px] w-[16px] animate-spin" />
-                Loading...
+                {t('common.loading')}
               </div>
             ) : pendingForChain.length === 0 ? (
               <p className="text-[14px] leading-[22px] text-[#8d8d93] py-[4px]">
-                {selectedChain ? 'No pending items for this network.' : 'Select a network to view pending items.'}
+                {selectedChain ? t('pages.memberClaim.noPendingForNetwork') : t('pages.memberClaim.selectNetworkToView')}
               </p>
             ) : (
               pendingForChain.map(token => (
@@ -500,7 +501,7 @@ export default function ClaimPage() {
 
         {/* Receive Address */}
         <div className="flex flex-col gap-[8px] max-w-[700px]">
-          <p className="text-[14px] leading-[22px] font-semibold text-[#1c1c26]">Receive Address *</p>
+          <p className="text-[14px] leading-[22px] font-semibold text-[#1c1c26]">{t('pages.memberClaim.receiveAddress')}</p>
           <div className="flex flex-col gap-[8px]">
             <div className="relative" ref={recipientDropdownRef}>
               <input
@@ -520,12 +521,12 @@ export default function ClaimPage() {
                     <div className="border-b border-[rgba(28,28,38,0.08)]">
                       <div className="flex items-center justify-between bg-[#f5f5f5] px-[16px] py-[10px]">
                         <div className="flex items-center gap-[6px]">
-                          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] leading-[18px] text-[#6b6a67]">Recent</p>
+                          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] leading-[18px] text-[#6b6a67]">{t('pages.memberClaim.recent')}</p>
                         </div>
                       </div>
                       {filteredRecentSuggestions.length === 0 ? (
                         <p className="px-[16px] py-[14px] text-[13px] leading-[20px] text-[#8d8d93]">
-                          No records found
+                          {t('pages.memberClaim.noRecordsFound')}
                         </p>
                       ) : (
                         filteredRecentSuggestions.map((item, index) => (
@@ -549,14 +550,14 @@ export default function ClaimPage() {
                                 <div className="min-w-0 flex-1">
                                   <p className="break-all text-[14px] font-medium leading-[22px] text-[#1c1c26]">{item.address}</p>
                                   <p className="text-[12px] leading-[18px] text-[#8d8d93]">
-                                    Used {formatRecentUsedDate(item.usedAt)}
+                                    {t('pages.memberClaim.used', { date: formatRecentUsedDate(item.usedAt) })}
                                   </p>
                                 </div>
                               )}
                             </div>
                             {latestRecentSuggestionKey === `${item.caipChainId}::${item.address.toLowerCase()}` && (
                               <div className="shrink-0 rounded-[999px] bg-[rgba(87,194,113,0.14)] px-[10px] py-[4px] text-[12px] font-medium leading-[16px] text-[#57c271]">
-                                Last used
+                                {t('pages.memberClaim.lastUsed')}
                               </div>
                             )}
                           </button>
@@ -567,20 +568,20 @@ export default function ClaimPage() {
                     <div>
                       <div className="flex items-center justify-between gap-[12px] bg-[#f5f5f5] px-[16px] py-[10px]">
                         <div className="flex items-center gap-[6px]">
-                          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] leading-[18px] text-[#6b6a67]">Address Book</p>
+                          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] leading-[18px] text-[#6b6a67]">{t('pages.memberClaim.addressBook')}</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => navigate('/member/settings')}
                           className="flex items-center gap-[2px] text-[12px] font-medium leading-[18px] text-[#5e85ee] hover:opacity-80"
                         >
-                          Manage
+                          {t('pages.memberClaim.manage')}
                           <ChevronRight className="h-[14px] w-[14px]" />
                         </button>
                       </div>
                       {filteredAddressBookSuggestions.length === 0 ? (
                         <p className="border-t border-[rgba(28,28,38,0.08)] px-[16px] py-[14px] text-[13px] leading-[20px] text-[#8d8d93]">
-                          No records found
+                          {t('pages.memberClaim.noRecordsFound')}
                         </p>
                       ) : (
                         filteredAddressBookSuggestions.map((item, index) => (
@@ -596,12 +597,12 @@ export default function ClaimPage() {
                             <div className="flex min-w-0 flex-1 items-start gap-[12px]">
                               <span className="mt-[8px] h-[10px] w-[10px] shrink-0 rounded-full bg-[#5e85ee]" />
                               <div className="min-w-0 flex-1">
-                                <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">{item.label || 'Untitled'}</p>
+                                <p className="text-[14px] font-semibold leading-[22px] text-[#1c1c26]">{item.label || t('pages.memberClaim.untitled')}</p>
                                 <p className="break-all text-[13px] leading-[20px] text-[#606067]">{item.address}</p>
                               </div>
                             </div>
                             <div className="shrink-0 rounded-[999px] bg-[rgba(94,133,238,0.12)] px-[10px] py-[4px] text-[12px] font-medium leading-[16px] text-[#5e85ee]">
-                              Saved
+                              {t('pages.memberClaim.saved')}
                             </div>
                           </button>
                         ))
@@ -616,7 +617,7 @@ export default function ClaimPage() {
               <div className="flex items-start gap-[8px] rounded-[12px] bg-[rgba(93,221,34,0.10)] px-[12px] py-[10px]">
                 <Check className="mt-[2px] h-[16px] w-[16px] shrink-0 text-[#3e9b1f]" />
                 <p className="text-[13px] leading-[20px] text-[#1c1c26]">
-                  Found in {matchedSuggestion?.source === 'addressBook' ? 'Address Book' : 'Recent'}.
+                  {t('pages.memberClaim.foundIn', { source: matchedSuggestion?.source === 'addressBook' ? t('pages.memberClaim.addressBook') : t('pages.memberClaim.recentSource') })}
                 </p>
               </div>
             )}
@@ -626,18 +627,18 @@ export default function ClaimPage() {
                 <AlertTriangle className="mt-[2px] h-[16px] w-[16px] shrink-0 text-[#c67b00]" />
                 <p className="text-[13px] leading-[20px] text-[#1c1c26]">
                   <span className="font-semibold">⚠️ </span>
-                  Not in Recent or Address Book. Double-check carefully — payments to the wrong address cannot be recovered.
+                  {t('pages.memberClaim.unknownAddressWarning')}
                 </p>
               </div>
             )}
 
             {!trimmedRecipient || isRecipientValidForChain ? (
               <p className="text-[14px] leading-[22px] text-[#8d8d93]">
-                Pending funds will be sent to this address. Make sure it supports the selected network and token(s).
+                {t('pages.memberClaim.recipientHelp')}
               </p>
             ) : (
               <p className="text-[14px] leading-[22px] text-[#d92b2b]">
-                Please enter a valid address for the selected network.
+                {t('pages.memberClaim.validAddressToast')}
               </p>
             )}
           </div>
@@ -651,7 +652,7 @@ export default function ClaimPage() {
             className="flex items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[14px] py-[10px] text-[14px] leading-[22px] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
           >
             {claiming && <IconLoader2 className="h-[14px] w-[14px] animate-spin" />}
-            Claim
+            {t('pages.memberClaim.claim')}
           </button>
         </div>
 
@@ -661,7 +662,7 @@ export default function ClaimPage() {
             {claimResult.succeeded.length > 0 && (
               <div className="rounded-[16px] bg-[rgba(93,221,34,0.12)] p-[16px] flex flex-col gap-[8px]">
                 <p className="text-[14px] font-semibold text-[#1c1c26]">
-                  {claimResult.succeeded.length} item(s) claimed successfully
+                  {t('pages.memberClaim.claimedSuccessfully', { count: claimResult.succeeded.length })}
                 </p>
                 {claimResult.succeeded.map(s => (
                   <div key={s.payrollItemId} className="flex items-center justify-between text-[13px]">
@@ -672,7 +673,7 @@ export default function ClaimPage() {
                       rel="noopener noreferrer"
                       className="text-[#5e85ee] underline hover:opacity-80"
                     >
-                      View ↗
+                      {t('pages.memberClaim.view')} →
                     </a>
                   </div>
                 ))}
@@ -681,7 +682,7 @@ export default function ClaimPage() {
             {claimResult.failed.length > 0 && (
               <div className="rounded-[16px] bg-[rgba(217,43,43,0.08)] p-[16px] flex flex-col gap-[8px]">
                 <p className="text-[14px] font-semibold text-[#d92b2b]">
-                  {claimResult.failed.length} item(s) failed
+                  {t('pages.memberClaim.failedCount', { count: claimResult.failed.length })}
                 </p>
                 {claimResult.failed.map(f => (
                   <p key={f.payrollItemId} className="text-[13px] text-[#606067]">

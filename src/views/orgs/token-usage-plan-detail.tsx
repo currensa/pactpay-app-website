@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSke
 import { useToast } from '@/components/ui/use-toast'
 import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
+import { t as globalT, useTranslation } from '@/utils/i18n'
 import axios from 'axios'
 import { Check, ChevronDown, Copy, Eye, EyeOff, Plus, Search, Terminal } from 'lucide-react'
 import type { KeyboardEvent, WheelEvent as ReactWheelEvent } from 'react'
@@ -62,10 +63,10 @@ const DEFAULT_GROUP = 'default'
 const API_KEYS_PAGE_SIZE = 20
 const USAGE_LOGS_PAGE_SIZE = 20
 const EXPIRATION_OPTIONS: Array<{ label: string; value: 'never' | ExpirationPresetMode }> = [
-  { label: 'Never expires', value: 'never' },
-  { label: '1 month', value: '1month' },
-  { label: '1 week', value: '1week' },
-  { label: '1 day', value: '1day' },
+  { label: 'pages.orgUsagePlanDetail.neverExpires', value: 'never' },
+  { label: 'pages.orgUsagePlanDetail.oneMonth', value: '1month' },
+  { label: 'pages.orgUsagePlanDetail.oneWeek', value: '1week' },
+  { label: 'pages.orgUsagePlanDetail.oneDay', value: '1day' },
 ]
 const integerFormatter = new Intl.NumberFormat('en-US')
 
@@ -182,19 +183,19 @@ function resolveApiKeyUsage(rawValue: unknown) {
 }
 
 function getApiKeyStatusLabel(apiKey: TokenUsagePlanApiKeyItem): TokenUsagePlanApiKeyStatus {
-  if (apiKey.status === 4) return 'Exhausted'
-  if (apiKey.status === 3) return 'Expired'
-  if (apiKey.status === 2) return 'Disabled'
-  return 'Active'
+  if (apiKey.status === 4) return globalT('pages.orgUsagePlanDetail.exhausted') as TokenUsagePlanApiKeyStatus
+  if (apiKey.status === 3) return globalT('pages.orgUsagePlanDetail.expired') as TokenUsagePlanApiKeyStatus
+  if (apiKey.status === 2) return globalT('pages.orgUsagePlanDetail.disabled') as TokenUsagePlanApiKeyStatus
+  return globalT('pages.orgUsagePlanDetail.active') as TokenUsagePlanApiKeyStatus
 }
 
 function formatApiKeyExpiration(expiredTime: number) {
-  if (expiredTime === -1) return 'Never expires'
+  if (expiredTime === -1) return globalT('pages.orgUsagePlanDetail.neverExpires')
   return utc8TimestampToLocalDate(expiredTime)?.toLocaleString() || '-'
 }
 
 function formatApiKeyQuota(apiKey: TokenUsagePlanApiKeyItem) {
-  if (apiKey.unlimited_quota) return 'Unlimited'
+  if (apiKey.unlimited_quota) return globalT('pages.orgUsagePlanDetail.unlimited')
   return formatUsdDisplay(normalizeQuotaToUsdAmount(apiKey.remain_quota))
 }
 
@@ -222,6 +223,7 @@ export default function TokenUsagePlanDetailPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const { setHeader, clearHeader } = useHeaderStore()
   const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
 
@@ -327,8 +329,8 @@ export default function TokenUsagePlanDetailPage() {
     setHeader({
       backUrl: '/orgs/members?tab=ai-api',
       breadcrumb: [
-        { label: 'Payees', href: '/orgs/members?tab=ai-api' },
-        { label: response.plan.planName || 'Usage Plan' },
+        { label: t('pages.orgUsagePlanDetail.payees'), href: '/orgs/members?tab=ai-api' },
+        { label: response.plan.planName || t('pages.orgUsagePlanDetail.usagePlan') },
       ],
     })
   }
@@ -472,7 +474,7 @@ export default function TokenUsagePlanDetailPage() {
     if (fullKeys[apiKey.id]) return fullKeys[apiKey.id]
     const key = await apis.tokenUsagePlan.getApiKeyKey(id, String(apiKey.id))
     const resolvedKey = key || apiKey.key
-    if (!resolvedKey) throw new Error('Failed to load full key.')
+    if (!resolvedKey) throw new Error(t('pages.orgUsagePlanDetail.failedLoadFullKey'))
     setFullKeys(prev => ({ ...prev, [apiKey.id]: resolvedKey }))
     return resolvedKey
   }
@@ -490,8 +492,8 @@ export default function TokenUsagePlanDetailPage() {
     } catch (error: any) {
       if (axios.isAxiosError(error)) return
       toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to load full key.'),
+        title: t('common.error'),
+        description: getErrorMessage(error, t('pages.orgUsagePlanDetail.failedLoadFullKey')),
         variant: 'destructive',
       })
     } finally {
@@ -504,12 +506,12 @@ export default function TokenUsagePlanDetailPage() {
       setCopyingKeyIds(prev => ({ ...prev, [apiKey.id]: true }))
       const key = await ensureFullKey(apiKey)
       await navigator.clipboard.writeText(formatApiKeyDisplayValue(key))
-      toast({ title: 'Success', description: 'Key copied.' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgUsagePlanDetail.keyCopied') })
     } catch (error: any) {
       if (axios.isAxiosError(error)) return
       toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to copy key.'),
+        title: t('common.error'),
+        description: getErrorMessage(error, t('pages.orgUsagePlanDetail.failedCopyKey')),
         variant: 'destructive',
       })
     } finally {
@@ -521,14 +523,14 @@ export default function TokenUsagePlanDetailPage() {
     try {
       setCopyingTestCommandIds(prev => ({ ...prev, [apiKey.id]: true }))
       const response = await apis.tokenUsagePlan.getApiKeyTestCommand(id, String(apiKey.id))
-      if (!response.command) throw new Error('Failed to load test command.')
+      if (!response.command) throw new Error(t('pages.orgUsagePlanDetail.failedLoadTestCommand'))
       await navigator.clipboard.writeText(response.command)
-      toast({ title: 'Success', description: 'Test command copied.' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgUsagePlanDetail.testCommandCopied') })
     } catch (error: any) {
       if (axios.isAxiosError(error)) return
       toast({
-        title: 'Error',
-        description: getErrorMessage(error, 'Failed to copy test command.'),
+        title: t('common.error'),
+        description: getErrorMessage(error, t('pages.orgUsagePlanDetail.failedCopyTestCommand')),
         variant: 'destructive',
       })
     } finally {
@@ -538,12 +540,12 @@ export default function TokenUsagePlanDetailPage() {
 
   const handleToggleKeyStatus = async (apiKey: TokenUsagePlanApiKeyItem) => {
     const nextStatus = apiKey.status === 1 ? 2 : 1
-    const successMessage = nextStatus === 1 ? 'Key enabled.' : 'Key disabled.'
+    const successMessage = nextStatus === 1 ? t('pages.orgUsagePlanDetail.keyEnabled') : t('pages.orgUsagePlanDetail.keyDisabled')
 
     try {
       setUpdatingStatusIds(prev => ({ ...prev, [apiKey.id]: true }))
       await apis.tokenUsagePlan.updateApiKeyStatus(id, String(apiKey.id), nextStatus)
-      toast({ title: 'Success', description: successMessage })
+      toast({ title: t('pages.orgMembers.success'), description: successMessage })
       await fetchKeys()
     } catch {
       // request interceptor handles API errors
@@ -554,11 +556,11 @@ export default function TokenUsagePlanDetailPage() {
 
   const saveKey = async () => {
     if (!editor.name.trim()) {
-      toast({ title: 'Error', description: 'API name is required.', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('pages.orgUsagePlanDetail.apiNameRequired'), variant: 'destructive' })
       return
     }
     if (editor.quotaMode === 'amount' && !editor.quotaAmount.trim()) {
-      toast({ title: 'Error', description: 'Quota amount is required.', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('pages.orgUsagePlanDetail.quotaAmountRequired'), variant: 'destructive' })
       return
     }
 
@@ -577,10 +579,10 @@ export default function TokenUsagePlanDetailPage() {
 
       if (editor.mode === 'create') {
         await apis.tokenUsagePlan.createApiKey(id, payload)
-        toast({ title: 'Success', description: 'Key created' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgUsagePlanDetail.keyCreated') })
       } else if (editor.apiKey) {
         await apis.tokenUsagePlan.updateApiKey(id, String(editor.apiKey.id), payload)
-        toast({ title: 'Success', description: 'Key updated' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgUsagePlanDetail.keyUpdated') })
       }
 
       closeDialog()
@@ -600,8 +602,8 @@ export default function TokenUsagePlanDetailPage() {
       setDeletingKey(true)
       await apis.tokenUsagePlan.deleteApiKey(id, String(apiKeyToDelete.id))
       toast({
-        title: 'Success',
-        description: 'Key deleted.',
+        title: t('pages.orgMembers.success'),
+        description: t('pages.orgUsagePlanDetail.keyDeleted'),
       })
       setApiKeyToDelete(null)
       await fetchKeys()
@@ -654,32 +656,32 @@ export default function TokenUsagePlanDetailPage() {
 
         <div className="mt-[20px] grid gap-[12px] md:grid-cols-4">
           <div className="rounded-[20px] bg-[#f5f5f5] p-[16px]">
-            <p className="text-[13px] text-[#8d8d93]">Total Purchased</p>
+            <p className="text-[13px] text-[#8d8d93]">{t('pages.orgUsagePlanDetail.totalPurchased')}</p>
             <p className="mt-[8px] text-[20px] font-semibold text-[#1c1c26]">
               {formatUsdDisplay(normalizeQuotaToUsdAmount(totalPurchased))}
             </p>
           </div>
           <div className="rounded-[20px] bg-[#f5f5f5] p-[16px]">
-            <p className="text-[13px] text-[#8d8d93]">Remaining</p>
+            <p className="text-[13px] text-[#8d8d93]">{t('pages.orgUsagePlanDetail.remaining')}</p>
             <p className="mt-[8px] text-[20px] font-semibold text-[#1c1c26]">
               {formatUsdDisplay(normalizeQuotaToUsdAmount(remainingQuota))}
             </p>
           </div>
           <div className="rounded-[20px] bg-[#f5f5f5] p-[16px]">
-            <p className="text-[13px] text-[#8d8d93]">Budget</p>
+            <p className="text-[13px] text-[#8d8d93]">{t('pages.orgUsagePlanDetail.budget')}</p>
             <p className="mt-[8px] text-[20px] font-semibold text-[#1c1c26]">
               ${formatDisplayAmount(detail.plan.budget)}
             </p>
           </div>
           <div className="rounded-[20px] bg-[#f5f5f5] p-[16px]">
-            <p className="text-[13px] text-[#8d8d93]">API Keys</p>
+            <p className="text-[13px] text-[#8d8d93]">{t('pages.orgUsagePlanDetail.apiKeys')}</p>
             <p className="mt-[8px] text-[20px] font-semibold text-[#1c1c26]">{apiKeysCount}</p>
           </div>
         </div>
 
         <div className="mt-[18px]">
           <div className="mb-[8px] flex items-center justify-between text-[13px]">
-            <span className="text-[#8d8d93]">Consumption</span>
+              <span className="text-[#8d8d93]">{t('pages.orgUsagePlanDetail.consumption')}</span>
             <span className="text-[#1c1c26]">
               {formatUsdDisplay(normalizeQuotaToUsdAmount(usedQuota))} / {formatUsdDisplay(normalizeQuotaToUsdAmount(totalPurchased))} ({consumedRate}%)
             </span>
@@ -703,7 +705,7 @@ export default function TokenUsagePlanDetailPage() {
                 className={`rounded-[14px] px-[14px] py-[8px] text-[13px] font-medium transition-colors ${activeTab === 'api-keys' ? 'bg-[#5e85ee] text-white' : 'text-[#5e85ee] hover:bg-white/80'
                   }`}
               >
-                API Keys
+                {t('pages.orgUsagePlanDetail.apiKeys')}
               </button>
               <button
                 type="button"
@@ -711,24 +713,24 @@ export default function TokenUsagePlanDetailPage() {
                 className={`rounded-[14px] px-[14px] py-[8px] text-[13px] font-medium transition-colors ${activeTab === 'usage-logs' ? 'bg-[#5e85ee] text-white' : 'text-[#5e85ee] hover:bg-white/80'
                   }`}
               >
-                Usage Logs
+                {t('pages.orgUsagePlanDetail.usageLogs')}
               </button>
             </div>
             <div>
               <p className="text-[20px] font-semibold leading-[30px] text-[#1c1c26]">
-                {activeTab === 'api-keys' ? 'API Keys' : 'Usage Logs'}
+              {activeTab === 'api-keys' ? t('pages.orgUsagePlanDetail.apiKeys') : t('pages.orgUsagePlanDetail.usageLogs')}
               </p>
               <p className="text-[13px] leading-[20px] text-[#8d8d93]">
                 {activeTab === 'api-keys'
-                  ? 'Create and manage API credentials for this usage plan.'
-                  : 'Review token consumption records for this usage plan.'}
+                ? t('pages.orgUsagePlanDetail.apiKeysDescription')
+                : t('pages.orgUsagePlanDetail.usageLogsDescription')}
               </p>
             </div>
           </div>
           {activeTab === 'api-keys' ? (
             <Button onClick={openCreateDialog}>
               <Plus className="h-4 w-4" />
-              Create Key
+              {t('pages.orgUsagePlanDetail.createKey')}
             </Button>
           ) : null}
         </div>
@@ -739,13 +741,13 @@ export default function TokenUsagePlanDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>API name</TableHead>
-                    <TableHead>Key</TableHead>
-                    <TableHead>Quota</TableHead>
-                    <TableHead>Expiration time</TableHead>
-                    <TableHead>Usage</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>{t('pages.orgUsagePlanDetail.apiName')}</TableHead>
+                    <TableHead>{t('pages.orgUsagePlanDetail.key')}</TableHead>
+                    <TableHead>{t('pages.orgUsagePlanDetail.quota')}</TableHead>
+                    <TableHead>{t('pages.orgUsagePlanDetail.expiration')}</TableHead>
+                    <TableHead>{t('pages.orgUsagePlanDetail.used')}</TableHead>
+                    <TableHead>{t('pages.orgUsagePlanDetail.status')}</TableHead>
+                    <TableHead>{t('pages.orgUsagePlanDetail.action')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -755,8 +757,8 @@ export default function TokenUsagePlanDetailPage() {
                     <TableRow>
                       <TableCell colSpan={7}>
                         <div className="flex flex-col items-center justify-center gap-[10px] py-[32px]">
-                          <img src="/empty-table.svg" alt="No API keys" className="h-[120px] w-[120px]" />
-                          <p className="text-[13px] leading-[20px] text-[#8d8d93]">No API keys found</p>
+                          <img src="/empty-table.svg" alt={t('pages.orgUsagePlanDetail.noApiKeysAlt')} className="h-[120px] w-[120px]" />
+                          <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.orgUsagePlanDetail.noApiKeysFound')}</p>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -802,7 +804,7 @@ export default function TokenUsagePlanDetailPage() {
                                 className="text-[#8d8d93] transition-colors hover:text-[#5e85ee] disabled:cursor-not-allowed disabled:opacity-50"
                                 onClick={() => void handleCopyKey(item)}
                                 disabled={isRevealLoading || isCopying}
-                                title="Copy API key"
+                                title={t('pages.orgUsagePlanDetail.copyApiKey')}
                               >
                                 <Copy className="h-[14px] w-[14px]" />
                               </button>
@@ -811,7 +813,7 @@ export default function TokenUsagePlanDetailPage() {
                                 className="text-[#8d8d93] transition-colors hover:text-[#5e85ee] disabled:cursor-not-allowed disabled:opacity-50"
                                 onClick={() => void handleCopyTestCommand(item)}
                                 disabled={isCopyingTestCommand}
-                                title="Copy test command"
+                                title={t('pages.orgUsagePlanDetail.copyTestCommand')}
                               >
                                 <Terminal className="h-[14px] w-[14px]" />
                               </button>
@@ -845,21 +847,21 @@ export default function TokenUsagePlanDetailPage() {
                                 onClick={() => void handleToggleKeyStatus(item)}
                                 disabled={isStatusUpdating}
                               >
-                                {isStatusUpdating ? 'Saving...' : statusLabel === 'Active' ? 'Disable' : 'Enable'}
+                                {isStatusUpdating ? t('pages.orgUsagePlanDetail.saving') : statusLabel === 'Active' ? t('pages.orgUsagePlanDetail.disable') : t('pages.orgUsagePlanDetail.enable')}
                               </button>
                               <button
                                 type="button"
                                 className="text-[13px] text-[#5e85ee] transition-opacity hover:opacity-70"
                                 onClick={() => openEditDialog(item)}
                               >
-                                Edit
+                                {t('pages.orgUsagePlanDetail.edit')}
                               </button>
                               <button
                                 type="button"
                                 className="text-[13px] text-[#d92b2b] transition-opacity hover:opacity-70"
                                 onClick={() => setApiKeyToDelete(item)}
                               >
-                                Delete
+                                {t('pages.orgUsagePlanDetail.delete')}
                               </button>
                             </div>
                           </TableCell>
@@ -878,8 +880,12 @@ export default function TokenUsagePlanDetailPage() {
                 onPageChange={setApiKeysPageParam}
                 totalItems={apiKeysTotal}
                 pageSize={apiKeysPageSize}
-                itemLabel="keys"
-                summaryText={`Total ${formatIntegerDisplay(apiKeysTotal)} keys, ${formatIntegerDisplay(apiKeysPageCountDisplay)} page${apiKeysPageCountDisplay === 1 ? '' : 's'}`}
+                itemLabel={t('pages.orgUsagePlanDetail.keys')}
+                summaryText={t('pages.orgUsagePlanDetail.totalKeysSummary', {
+                  total: formatIntegerDisplay(apiKeysTotal),
+                  pages: formatIntegerDisplay(apiKeysPageCountDisplay),
+                  suffix: apiKeysPageCountDisplay === 1 ? '' : 's',
+                })}
               />
             </div>
           </>
@@ -889,13 +895,13 @@ export default function TokenUsagePlanDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="whitespace-nowrap">Time</TableHead>
-                    <TableHead className="whitespace-nowrap">API key</TableHead>
-                    <TableHead className="whitespace-nowrap">Model</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">Input tokens</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">Cache read</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">Output tokens</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">Cost ($)</TableHead>
+                    <TableHead className="whitespace-nowrap">{t('pages.orgUsagePlanDetail.time')}</TableHead>
+                    <TableHead className="whitespace-nowrap">{t('pages.orgUsagePlanDetail.apiKey')}</TableHead>
+                    <TableHead className="whitespace-nowrap">{t('pages.orgUsagePlanDetail.model')}</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">{t('pages.orgUsagePlanDetail.inputTokens')}</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">{t('pages.orgUsagePlanDetail.cacheRead')}</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">{t('pages.orgUsagePlanDetail.outputTokens')}</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">{t('pages.orgUsagePlanDetail.costUsd')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -905,8 +911,8 @@ export default function TokenUsagePlanDetailPage() {
                     <TableRow>
                       <TableCell colSpan={7}>
                         <div className="flex flex-col items-center justify-center gap-[10px] py-[32px]">
-                          <img src="/empty-table.svg" alt="No usage logs" className="h-[120px] w-[120px]" />
-                          <p className="text-[13px] leading-[20px] text-[#8d8d93]">No usage logs found</p>
+                          <img src="/empty-table.svg" alt={t('pages.orgUsagePlanDetail.noUsageLogsAlt')} className="h-[120px] w-[120px]" />
+                          <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.orgUsagePlanDetail.noUsageLogsFound')}</p>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -946,8 +952,12 @@ export default function TokenUsagePlanDetailPage() {
                 onPageChange={setUsageLogsPageParam}
                 totalItems={usageLogsTotal}
                 pageSize={usageLogsPageSize}
-                itemLabel="logs"
-                summaryText={`Total ${formatIntegerDisplay(usageLogsTotal)} logs, ${formatIntegerDisplay(usageLogsPageCountDisplay)} page${usageLogsPageCountDisplay === 1 ? '' : 's'}`}
+                itemLabel={t('pages.orgUsagePlanDetail.logs')}
+                summaryText={t('pages.orgUsagePlanDetail.totalLogsSummary', {
+                  total: formatIntegerDisplay(usageLogsTotal),
+                  pages: formatIntegerDisplay(usageLogsPageCountDisplay),
+                  suffix: usageLogsPageCountDisplay === 1 ? '' : 's',
+                })}
               />
             </div>
           </>
@@ -957,22 +967,22 @@ export default function TokenUsagePlanDetailPage() {
       <Dialog open={editor.open} onOpenChange={open => setEditor(prev => ({ ...prev, open }))}>
         <DialogContent ref={dialogContentRef} className="max-w-[640px]">
           <DialogHeader>
-            <DialogTitle>{editor.mode === 'create' ? 'Create API Key' : 'Edit API Key'}</DialogTitle>
+            <DialogTitle>{editor.mode === 'create' ? t('pages.orgUsagePlanDetail.createApiKey') : t('pages.orgUsagePlanDetail.editApiKey')}</DialogTitle>
           </DialogHeader>
 
           <div className="mt-[12px] grid gap-[20px]">
             <div className="grid gap-[8px]">
-              <span className="text-[13px] font-medium text-[#1c1c26]">API name *</span>
+              <span className="text-[13px] font-medium text-[#1c1c26]">{t('pages.orgUsagePlanDetail.apiName')}</span>
               <Input
                 className="h-[44px] rounded-[14px] border-[rgba(0,0,0,0.12)] px-[16px] text-[15px] shadow-none"
                 value={editor.name}
                 onChange={event => setEditor(prev => ({ ...prev, name: event.target.value }))}
-                placeholder="Please enter a name, eg, backend-dev."
+                placeholder={t('pages.orgUsagePlanDetail.apiNamePlaceholder')}
               />
             </div>
 
             <div className="grid gap-[10px]">
-              <span className="text-[13px] font-medium text-[#1c1c26]">Expiration time *</span>
+              <span className="text-[13px] font-medium text-[#1c1c26]">{t('pages.orgUsagePlanDetail.expirationTime')}</span>
               <div className="flex flex-col gap-[10px] md:flex-row md:items-start">
                 <DatePickerInput
                   value={editor.expirationDate ?? undefined}
@@ -1007,7 +1017,7 @@ export default function TokenUsagePlanDetailPage() {
                           }
                         })}
                       >
-                        {option.label}
+                        {t(option.label as any)}
                       </button>
                     )
                   })}
@@ -1016,7 +1026,7 @@ export default function TokenUsagePlanDetailPage() {
             </div>
 
             <div className="grid gap-[10px]">
-              <span className="text-[13px] font-medium text-[#1c1c26]">Quota</span>
+              <span className="text-[13px] font-medium text-[#1c1c26]">{t('pages.orgUsagePlanDetail.quota')}</span>
               <div className="grid gap-[12px]">
                 <label className="flex items-center gap-[10px] text-[15px] text-[#1c1c26]">
                   <input
@@ -1024,7 +1034,7 @@ export default function TokenUsagePlanDetailPage() {
                     checked={editor.quotaMode === 'unlimited'}
                     onChange={() => setEditor(prev => ({ ...prev, quotaMode: 'unlimited' }))}
                   />
-                  <span>Unlimited (capped by plan balance)</span>
+                  <span>{t('pages.orgUsagePlanDetail.quotaUnlimited')}</span>
                 </label>
                 <div className="flex flex-col gap-[8px] md:flex-row md:items-center">
                   <label className="flex items-center gap-[10px] text-[15px] text-[#1c1c26]">
@@ -1033,7 +1043,7 @@ export default function TokenUsagePlanDetailPage() {
                       checked={editor.quotaMode === 'amount'}
                       onChange={() => setEditor(prev => ({ ...prev, quotaMode: 'amount' }))}
                     />
-                    <span>Set amount</span>
+                    <span>{t('pages.orgUsagePlanDetail.setAmount')}</span>
                   </label>
                   <div className="relative md:w-[136px]">
                     <span className="pointer-events-none absolute left-[14px] top-1/2 -translate-y-1/2 text-[13px] text-[#8d8d93]">
@@ -1047,7 +1057,7 @@ export default function TokenUsagePlanDetailPage() {
                         quotaMode: 'amount',
                         quotaAmount: event.target.value,
                       }))}
-                      placeholder="amount"
+                      placeholder={t('pages.orgUsagePlanDetail.amountPlaceholder')}
                     />
                   </div>
                 </div>
@@ -1055,7 +1065,7 @@ export default function TokenUsagePlanDetailPage() {
             </div>
 
             <div className="grid gap-[10px]">
-              <span className="text-[13px] font-medium text-[#1c1c26]">Model restrictions</span>
+              <span className="text-[13px] font-medium text-[#1c1c26]">{t('pages.orgUsagePlanDetail.modelRestrictions')}</span>
               <Popover open={modelPopoverOpen} onOpenChange={setModelPopoverOpen}>
                 <PopoverTrigger asChild>
                   <button
@@ -1077,7 +1087,7 @@ export default function TokenUsagePlanDetailPage() {
                         </div>
                       ) : (
                         <span className="pt-[1px] text-[14px] text-[#9ca3af]">
-                          Select models (leave blank to allow all)
+                          {t('pages.orgUsagePlanDetail.modelSelectPlaceholder')}
                         </span>
                       )}
                     </div>
@@ -1094,7 +1104,7 @@ export default function TokenUsagePlanDetailPage() {
                     <input
                       value={modelSearch}
                       onChange={event => setModelSearch(event.target.value)}
-                      placeholder="Search models"
+                      placeholder={t('pages.orgUsagePlanDetail.searchModels')}
                       className="h-[36px] w-full border-0 bg-transparent text-[14px] outline-none placeholder:text-[#9ca3af]"
                     />
                   </div>
@@ -1103,7 +1113,7 @@ export default function TokenUsagePlanDetailPage() {
                     onWheel={handleModelListWheel}
                   >
                     {filteredModels.length === 0 ? (
-                      <div className="px-[10px] py-[12px] text-[13px] text-[#8d8d93]">No models found.</div>
+                      <div className="px-[10px] py-[12px] text-[13px] text-[#8d8d93]">{t('pages.orgUsagePlanDetail.noModelsFound')}</div>
                     ) : (
                       filteredModels.map(model => {
                         const value = getModelValue(model)
@@ -1133,9 +1143,9 @@ export default function TokenUsagePlanDetailPage() {
           </div>
 
           <DialogFooter className="border-t border-[rgba(0,0,0,0.08)] pt-[18px]">
-            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+            <Button variant="outline" onClick={closeDialog}>{t('common.cancel')}</Button>
             <Button onClick={() => void saveKey()} disabled={savingKey}>
-              {editor.mode === 'create' ? 'Create key' : 'Save'}
+              {editor.mode === 'create' ? t('pages.orgUsagePlanDetail.createKey') : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1149,18 +1159,18 @@ export default function TokenUsagePlanDetailPage() {
       >
         <DialogContent className="max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Delete API Key</DialogTitle>
+            <DialogTitle>{t('pages.orgUsagePlanDetail.deleteApiKey')}</DialogTitle>
             <DialogDescription>
-              {apiKeyToDelete ? `Delete "${apiKeyToDelete.name}"? This action cannot be undone.` : ''}
+              {apiKeyToDelete ? t('pages.orgUsagePlanDetail.deleteDescription', { name: apiKeyToDelete.name }) : ''}
             </DialogDescription>
           </DialogHeader>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setApiKeyToDelete(null)} disabled={deletingKey}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button variant="destructive" onClick={() => void confirmDeleteKey()} disabled={deletingKey}>
-              {deletingKey ? 'Deleting...' : 'Delete'}
+              {deletingKey ? t('pages.orgUsagePlanDetail.deleting') : t('pages.orgUsagePlanDetail.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

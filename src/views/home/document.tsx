@@ -13,6 +13,7 @@ const navItems = [
   { label: 'Contract addresses', id: 'contract-addresses', sub: true },
   { label: 'Address protection', id: 'address-protection', sub: true },
   { label: 'API Services', id: 'api-services' },
+  { label: 'MCP server', id: 'mcp-server', sub: true },
   { label: 'Reference', id: 'reference' },
   { label: 'Pricing', id: 'doc-pricing', sub: true },
   { label: 'FAQ', id: 'faq', sub: true },
@@ -399,6 +400,33 @@ Member's receiving wallet`}</pre>
               </tbody>
             </table>
           </div>
+
+          <SectionAnchor id="mcp-server" />
+          <h3 className="text-xl font-bold mb-3 mt-8 text-[#1c1c26]">MCP server</h3>
+          <p className="text-base text-[#606067] mb-4 leading-relaxed">
+            PactPay MCP Server lets AI clients connect to PactPay for browser-based authentication, usage plan queries, balance checks, and API key management.
+          </p>
+          <div className="rounded-[14px] border border-[rgba(0,0,0,0.06)] bg-white/60 px-5 py-4 mb-6">
+            <p className="text-base font-semibold text-[#1c1c26] mb-2">Install</p>
+            <pre className="bg-[#1c1c26] text-[#f5f5f5] text-sm rounded-[10px] px-4 py-3 overflow-x-auto mb-3">npx -y @pactpay/mcp-server</pre>
+            <p className="text-base text-[#606067] leading-relaxed">
+              Package:{' '}
+              <a
+                href="https://www.npmjs.com/package/@pactpay/mcp-server"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#5e85ee] underline underline-offset-2"
+              >
+                @pactpay/mcp-server
+              </a>
+            </p>
+          </div>
+          <p className="text-base font-semibold text-[#1c1c26] mb-2">How to use</p>
+          <ol className="list-decimal list-inside space-y-1 text-base text-[#606067] mb-6 leading-relaxed">
+            <li>Start the MCP server in your AI client with the package above.</li>
+            <li>Complete browser authorization when prompted.</li>
+            <li>Use PactPay tools to check plans, balances, usage, and API keys.</li>
+          </ol>
 
           {/* Reference */}
           <SectionAnchor id="reference" />

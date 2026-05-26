@@ -1,6 +1,9 @@
 import type { ByTimeMonthlyStat, ByTimeStatistic, TransactionAnalyticsNode } from '@/apis/statistics.api'
 import type { TransactionPlan } from '@/apis/transaction.api'
+import type { PreferenceLanguage } from '@/apis/preference.api'
+import type { I18nKey } from '@/i18n/messages'
 import { getStatusDisplayName, PayrollTransactionStatus } from '@/enums/transaction'
+import { memberStatus } from '@/enums/org'
 import { formatUnits } from 'ethers'
 
 export type AnalyticsTab = 'time' | 'transaction' | 'executions' | 'members'
@@ -44,29 +47,77 @@ export const ANALYTICS_TABS: Array<{ id: AnalyticsTab; label: string }> = [
 ]
 
 export const PERIOD_OPTIONS = [
-  { value: '12', label: 'Last 12 Months' },
-  { value: '6', label: 'Last 6 Months' },
-  { value: '3', label: 'Last 3 Months' },
-  { value: '1', label: 'Last 1 Month' },
-]
+  { value: '12', labelKey: 'pages.analytics.last12Months' },
+  { value: '6', labelKey: 'pages.analytics.last6Months' },
+  { value: '3', labelKey: 'pages.analytics.last3Months' },
+  { value: '1', labelKey: 'pages.analytics.last1Month' },
+] satisfies Array<{ value: string; labelKey: I18nKey }>
+
+const MONTH_LABELS: Record<PreferenceLanguage, { short: string[]; long: string[] }> = {
+  'en-US': {
+    short: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    long: [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ],
+  },
+  'zh-CN': {
+    short: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+    long: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+  },
+}
+
+const getMonthLabelSet = (language: PreferenceLanguage) => MONTH_LABELS[language] ?? MONTH_LABELS['en-US']
+
+const formatYearMonthLabel = (monthLabel: string, year: number, language: PreferenceLanguage) => {
+  return language === 'zh-CN' ? `${year}年${monthLabel}` : `${monthLabel} ${year}`
+}
+
+export type AnalyticsTranslate = (key: I18nKey, params?: Record<string, string | number>) => string
+
+export const getAnalyticsStatusLabel = (status: string, translate: AnalyticsTranslate) => {
+  if (status === 'No Activity') return translate('pages.analytics.statusNoActivity')
+  return status
+}
+
+export const getTranslatedRelativeExecutionDateLabel = (
+  relativeDate: { label: string; diffDays: number | null },
+  translate: AnalyticsTranslate
+) => {
+  if (relativeDate.diffDays == null) return relativeDate.label
+  if (relativeDate.diffDays === 0) return translate('pages.analytics.today')
+
+  const count = Math.abs(relativeDate.diffDays)
+  const dayLabel = translate(count === 1 ? 'pages.analytics.daySingular' : 'pages.analytics.dayPlural')
+  return relativeDate.diffDays > 0
+    ? translate('pages.analytics.inDays', { count, dayLabel })
+    : translate('pages.analytics.daysAgo', { count, dayLabel })
+}
+
+export const getMemberStatusLabel = (status: string, translate: AnalyticsTranslate) => {
+  if (status === 'current') return translate('pages.analytics.active')
+  if (status === 'left') return translate('pages.analytics.left')
+  return translate('pages.analytics.delete')
+}
+
+export const getOrgMemberStatusLabel = (status: string, translate: AnalyticsTranslate) => {
+  if (status === memberStatus.REVIEW) return translate('pages.analytics.pendingReview')
+  if (status === memberStatus.ACTIVATION) return translate('pages.analytics.pendingActivation')
+  if (status === memberStatus.ACTIVE) return translate('pages.analytics.active')
+  return status
+}
 
 export const EXECUTIONS_PAGE_SIZE = 10
-
-const SHORT_MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const LONG_MONTH_LABELS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
 
 export function buildYearOptions(length = 6, baseYear = new Date().getFullYear()) {
   return Array.from({ length }, (_, index) => String(baseYear - index))
@@ -162,25 +213,26 @@ export function formatUtcShortDate(dateValue: string) {
   return `${month}/${day}`
 }
 
-export function formatMonthYearLabel(month: number, year: number, variant: 'short' | 'long' = 'short') {
-  const labels = variant === 'long' ? LONG_MONTH_LABELS : SHORT_MONTH_LABELS
+export function formatMonthYearLabel(month: number, year: number, variant: 'short' | 'long' = 'short', language: PreferenceLanguage = 'en-US') {
+  const labelSet = getMonthLabelSet(language)
+  const labels = variant === 'long' ? labelSet.long : labelSet.short
   const safeIndex = Math.max(1, Math.min(12, month)) - 1
-  return `${labels[safeIndex]} ${year}`
+  return formatYearMonthLabel(labels[safeIndex], year, language)
 }
 
-export function getShortMonthLabel(month: number) {
-  return SHORT_MONTH_LABELS[Math.max(1, Math.min(12, month)) - 1]
+export function getShortMonthLabel(month: number, language: PreferenceLanguage = 'en-US') {
+  return getMonthLabelSet(language).short[Math.max(1, Math.min(12, month)) - 1]
 }
 
 export function getTransactionSymbol(node: TransactionAnalyticsNode) {
   return node.amount.symbol || node.amount.tokenAddress.slice(0, 6).toUpperCase()
 }
 
-export function getTransactionPlanName(plan: TransactionPlan) {
-  return plan.transactionName?.trim() || `Transaction ${plan.id.slice(0, 12)}`
+export function getTransactionPlanName(plan: TransactionPlan, translate?: AnalyticsTranslate) {
+  return plan.transactionName?.trim() || (translate ? translate('pages.analytics.transactionFallback', { id: plan.id.slice(0, 12) }) : `Transaction ${plan.id.slice(0, 12)}`)
 }
 
-export function buildNewThisMonthTrend(nodes: TransactionAnalyticsNode[]): TrendMeta {
+export function buildNewThisMonthTrend(nodes: TransactionAnalyticsNode[], translate: AnalyticsTranslate): TrendMeta {
   const now = new Date()
   const count = nodes.filter(node => {
     const date = new Date(node.analyticsDate)
@@ -190,22 +242,22 @@ export function buildNewThisMonthTrend(nodes: TransactionAnalyticsNode[]): Trend
   }).length
 
   if (count <= 0) {
-    return { tone: 'neutral', label: 'No new transactions this month' }
+    return { tone: 'neutral', label: translate('pages.analytics.noNewTransactionsThisMonth') }
   }
 
-  return { tone: 'positive', label: `${count} new this month` }
+  return { tone: 'positive', label: translate('pages.analytics.newThisMonth', { count }) }
 }
 
-export function buildFrequencyTrend(totalTransactions: number, periodMonths: number): TrendMeta {
+export function buildFrequencyTrend(totalTransactions: number, periodMonths: number, translate: AnalyticsTranslate): TrendMeta {
   if (totalTransactions <= 0) {
-    return { tone: 'neutral', label: 'No activity yet' }
+    return { tone: 'neutral', label: translate('pages.analytics.noActivityYet') }
   }
 
   if (totalTransactions >= periodMonths) {
-    return { tone: 'neutral', label: 'Consistent frequency' }
+    return { tone: 'neutral', label: translate('pages.analytics.consistentFrequency') }
   }
 
-  return { tone: 'neutral', label: 'Building momentum' }
+  return { tone: 'neutral', label: translate('pages.analytics.buildingMomentum') }
 }
 
 export function escapeCsvValue(value: string | number) {
@@ -224,7 +276,7 @@ export function findMatchingStatistic(
   return statistics.find(item => getStatisticKey(item) === getStatisticKey(target)) ?? null
 }
 
-export function buildByTimeChartData(statistic: ByTimeStatistic | null, year: number): ByTimeChartPoint[] {
+export function buildByTimeChartData(statistic: ByTimeStatistic | null, year: number, language: PreferenceLanguage = 'en-US', translate?: AnalyticsTranslate): ByTimeChartPoint[] {
   const monthlyStatsMap = new Map<number, ByTimeMonthlyStat>()
 
   for (const monthlyStat of statistic?.monthlyStats ?? []) {
@@ -239,15 +291,15 @@ export function buildByTimeChartData(statistic: ByTimeStatistic | null, year: nu
 
     return {
       month,
-      monthLabel: formatMonthYearLabel(month, year, 'long'),
-      shortMonthLabel: getShortMonthLabel(month),
+      monthLabel: formatMonthYearLabel(month, year, 'long', language),
+      shortMonthLabel: getShortMonthLabel(month, language),
       amount: toChartNumber(monthlyStat?.totalPayoutVolume ?? '0', decimals),
       amountLabel: symbol
         ? `${formatTokenAmount(monthlyStat?.totalPayoutVolume ?? '0', decimals)} ${symbol}`
         : formatTokenAmount(monthlyStat?.totalPayoutVolume ?? '0', decimals),
       transactionCount: monthlyStat?.transactionCount ?? 0,
       uniqueMembers: monthlyStat?.uniqueMembers ?? 0,
-      status: monthlyStat?.status || 'No Activity',
+      status: monthlyStat?.status || (translate ? translate('pages.analytics.statusNoActivity') : 'No Activity'),
     }
   })
 }
@@ -261,6 +313,7 @@ export function buildAmountTrend(
     compareSuffix?: string
     positiveSuffix?: string
     negativeSuffix?: string
+    translate?: AnalyticsTranslate
   }
 ): TrendMeta {
   const current = toChartNumber(currentValue, decimals)
@@ -268,7 +321,7 @@ export function buildAmountTrend(
 
   if (previous <= 0) {
     if (current <= 0) return { tone: 'neutral', label: options.neutralLabel }
-    return { tone: 'positive', label: options.positiveSuffix || 'New activity' }
+    return { tone: 'positive', label: options.positiveSuffix || options.translate?.('pages.analytics.newActivity') || 'New activity' }
   }
 
   const deltaPercent = ((current - previous) / previous) * 100
@@ -282,13 +335,13 @@ export function buildAmountTrend(
   if (deltaPercent > 0) {
     return {
       tone: 'positive',
-      label: options.compareSuffix ? `${value} ${options.compareSuffix}` : `${value} increase`,
+      label: options.compareSuffix ? `${value} ${options.compareSuffix}` : options.translate?.('pages.analytics.increase', { value }) || `${value} increase`,
     }
   }
 
   return {
     tone: 'negative',
-    label: options.negativeSuffix ? `${value} ${options.negativeSuffix}` : `${value} decrease`,
+    label: options.negativeSuffix ? `${value} ${options.negativeSuffix}` : options.translate?.('pages.analytics.decrease', { value }) || `${value} decrease`,
   }
 }
 
@@ -303,5 +356,18 @@ export function formatStatusLabel(status: string) {
         .filter(Boolean)
         .map(token => token.charAt(0).toUpperCase() + token.slice(1).toLowerCase())
         .join(' ')
+  }
+}
+
+export function formatTranslatedStatusLabel(status: string, translate: AnalyticsTranslate) {
+  switch (status) {
+    case PayrollTransactionStatus.READY:
+      return translate('pages.analytics.statusAwaitingPayment')
+    case PayrollTransactionStatus.COMPLETE:
+      return translate('pages.analytics.statusClaimable')
+    case PayrollTransactionStatus.REFUNDED:
+      return translate('pages.analytics.statusRefunded')
+    default:
+      return formatStatusLabel(status)
   }
 }

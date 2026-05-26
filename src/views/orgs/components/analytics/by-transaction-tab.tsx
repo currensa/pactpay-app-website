@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/components/ui/use-toast'
 import useOrganizationStore from '@/stores/organization'
 import { getRelativeExecutionDate, getRelativeExecutionDateTextClassName } from '@/utils/date'
+import { useTranslation } from '@/utils/i18n'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -17,6 +18,7 @@ import {
   formatTokenAmount,
   formatUtcDate,
   formatUtcShortDate,
+  getTranslatedRelativeExecutionDateLabel,
   getTransactionSymbol,
   PERIOD_OPTIONS,
   toChartNumber,
@@ -78,6 +80,7 @@ function TransactionChartDot({
 export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { t } = useTranslation()
   const currentMember = useOrganizationStore(s => s.currentMember)
 
   const [selectedPeriodMonths, setSelectedPeriodMonths] = useState('6')
@@ -116,9 +119,9 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
 
         const status = error?.response?.status
         if (status === 403) {
-          setErrorMessage('The By Transaction analytics endpoint is available only to Owner, Admin, and Operator members.')
+          setErrorMessage(t('pages.analytics.ownerAdminOperatorOnly'))
         } else {
-          setErrorMessage('Unable to load transaction analytics right now.')
+          setErrorMessage(t('pages.analytics.unableToLoadTransactionAnalytics'))
         }
 
         setStats(null)
@@ -134,7 +137,7 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
     return () => {
       cancelled = true
     }
-  }, [canAccessAnalytics, selectedPeriodMonths])
+  }, [canAccessAnalytics, selectedPeriodMonths, t])
 
   const transactionNodes = useMemo(
     () =>
@@ -157,14 +160,15 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
       transactionNodes.map(node => {
         const decimals = node.amount.decimals ?? 0
         const symbol = getTransactionSymbol(node)
-        const name = node.transactionName || 'Untitled Transaction'
+        const name = node.transactionName || t('pages.analytics.untitledTransaction')
+        const relativeExecutionDate = getRelativeExecutionDate(node.analyticsDate)
 
         return {
           batchId: node.batchId,
           xAxisKey: `${node.batchId}-${node.analyticsDate}`,
           transactionName: name,
           shortName: truncateText(name, 18),
-          executionDateLabel: getRelativeExecutionDate(node.analyticsDate).label,
+          executionDateLabel: getTranslatedRelativeExecutionDateLabel(relativeExecutionDate, t),
           xLabel: formatUtcShortDate(node.analyticsDate),
           amount: toChartNumber(node.amount.amount, decimals),
           amountLabel: `${formatTokenAmount(node.amount.amount, decimals)} ${symbol}`,
@@ -172,23 +176,23 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
           memberCount: node.memberCount,
         }
       }),
-    [transactionNodes]
+    [t, transactionNodes]
   )
 
-  const totalTransactionsTrend = useMemo(() => buildNewThisMonthTrend(transactionNodes), [transactionNodes])
+  const totalTransactionsTrend = useMemo(() => buildNewThisMonthTrend(transactionNodes, t), [t, transactionNodes])
   const avgTransactionsTrend = useMemo(
-    () => buildFrequencyTrend(stats?.totalTransactions ?? 0, Number(selectedPeriodMonths)),
-    [selectedPeriodMonths, stats]
+    () => buildFrequencyTrend(stats?.totalTransactions ?? 0, Number(selectedPeriodMonths), t),
+    [selectedPeriodMonths, stats, t]
   )
 
   const handleExport = () => {
     if (!stats) {
-      toast({ description: 'No transaction analytics data is available to export.' })
+      toast({ description: t('pages.analytics.noTransactionExportData') })
       return
     }
 
     const rows = [
-      ['Transaction Name', 'Execution Date', 'Display Amount', 'Raw Amount', 'Symbol', 'Members', 'Batch ID', 'caipChainId', 'tokenAddress'],
+      [t('pages.analytics.transactionName'), t('pages.analytics.executionDate'), t('pages.analytics.amount'), 'Raw Amount', 'Symbol', t('pages.analytics.members'), 'Batch ID', 'caipChainId', 'tokenAddress'],
       ...recentTransactions.map(item => {
         const decimals = item.amount.decimals ?? 0
         const symbol = getTransactionSymbol(item)
@@ -220,8 +224,8 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
     if (!canAccessAnalytics) {
       return (
         <MessageState
-          title="Access restricted"
-          description="The By Transaction analytics endpoint is available only to Owner, Admin, and Operator members."
+          title={t('pages.analytics.accessRestricted')}
+          description={t('pages.analytics.ownerAdminOperatorOnly')}
         />
       )
     }
@@ -231,14 +235,15 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
     }
 
     if (errorMessage) {
-      return <MessageState title="Unable to load analytics" description={errorMessage} />
+      return <MessageState title={t('pages.analytics.unableToLoadAnalytics')} description={errorMessage} />
     }
 
     if (!stats || (chartData.length === 0 && recentTransactions.length === 0)) {
+      const monthLabel = t(selectedPeriodMonths === '1' ? 'pages.analytics.monthSingular' : 'pages.analytics.monthPlural')
       return (
         <MessageState
-          title="No transaction analytics data"
-          description={`No completed transactions were found in the last ${selectedPeriodMonths} month${selectedPeriodMonths === '1' ? '' : 's'}.`}
+          title={t('pages.analytics.noTransactionData')}
+          description={t('pages.analytics.noTransactionDataDescription', { count: selectedPeriodMonths, monthLabel })}
         />
       )
     }
@@ -246,15 +251,15 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
     return (
       <>
         <div className="grid gap-[20px] xl:grid-cols-2">
-          <MetricCard title="Total Transactions" value={stats.totalTransactions.toLocaleString()} trend={totalTransactionsTrend} />
-          <MetricCard title="Avg. Transactions per Month" value={stats.avgTransactionsPerMonth.toLocaleString()} trend={avgTransactionsTrend} />
+          <MetricCard title={t('pages.analytics.totalTransactions')} value={stats.totalTransactions.toLocaleString()} trend={totalTransactionsTrend} />
+          <MetricCard title={t('pages.analytics.avgTransactionsPerMonth')} value={stats.avgTransactionsPerMonth.toLocaleString()} trend={avgTransactionsTrend} />
         </div>
 
         <div className="flex flex-col gap-[12px]">
           <div className="flex flex-col gap-[4px] md:flex-row md:items-center md:justify-between">
-            <p className="text-[18px] leading-[28px] text-[#1c1c26]">Transaction Payout Trend (Per Transaction Node)</p>
+            <p className="text-[18px] leading-[28px] text-[#1c1c26]">{t('pages.analytics.transactionPayoutTrend')}</p>
             <p className="text-[14px] leading-[22px] text-[#606067] md:text-[16px] md:leading-[24px]">
-              Transaction Execution Date / Transaction Amount
+              {t('pages.analytics.transactionExecutionDateAmount')}
             </p>
           </div>
 
@@ -285,19 +290,19 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
                         <div className="rounded-[12px] bg-[rgba(0,0,0,0.8)] px-[12px] py-[10px] text-[13px] leading-[20px] text-white shadow-[0px_10px_24px_rgba(0,0,0,0.18)]">
                           <div className="grid min-w-[240px] gap-[8px]">
                             <div className="flex items-center justify-between gap-[12px]">
-                              <span className="text-[#bbbbbe]">Transaction</span>
+                              <span className="text-[#bbbbbe]">{t('pages.analytics.transaction')}</span>
                               <span>{point.transactionName}</span>
                             </div>
                             <div className="flex items-center justify-between gap-[12px]">
-                              <span className="text-[#bbbbbe]">Execution Date</span>
+                              <span className="text-[#bbbbbe]">{t('pages.analytics.executionDate')}</span>
                               <span>{point.executionDateLabel}</span>
                             </div>
                             <div className="flex items-center justify-between gap-[12px]">
-                              <span className="text-[#bbbbbe]">Amount</span>
+                              <span className="text-[#bbbbbe]">{t('pages.analytics.amount')}</span>
                               <span>{point.amountLabel}</span>
                             </div>
                             <div className="flex items-center justify-between gap-[12px]">
-                              <span className="text-[#bbbbbe]">Total Member</span>
+                              <span className="text-[#bbbbbe]">{t('pages.analytics.totalMember')}</span>
                               <span>{point.memberCount}</span>
                             </div>
                           </div>
@@ -320,18 +325,18 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
         </div>
 
         <div className="flex flex-col gap-[12px]">
-          <p className="text-[18px] leading-[28px] text-[#1c1c26]">Recent Transaction Details Table</p>
+          <p className="text-[18px] leading-[28px] text-[#1c1c26]">{t('pages.analytics.recentTransactionDetailsTable')}</p>
 
           <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
             <div className="overflow-x-auto">
               <Table className="min-w-[960px]">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="pl-0 text-[14px] font-normal text-[#8d8d93]">Transaction Name</TableHead>
-                    <TableHead className="text-[14px] font-normal text-[#8d8d93]">Execution Date</TableHead>
-                    <TableHead className="text-[14px] font-normal text-[#8d8d93]">Amount</TableHead>
-                    <TableHead className="text-[14px] font-normal text-[#8d8d93]">Members</TableHead>
-                    <TableHead className="pr-0 text-[14px] font-normal text-[#8d8d93]">Action</TableHead>
+                    <TableHead className="pl-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.transactionName')}</TableHead>
+                    <TableHead className="text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.executionDate')}</TableHead>
+                    <TableHead className="text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.amount')}</TableHead>
+                    <TableHead className="text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.members')}</TableHead>
+                    <TableHead className="pr-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.action')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -339,12 +344,13 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
                     const decimals = item.amount.decimals ?? 0
                     const symbol = getTransactionSymbol(item)
                     const relativeExecutionDate = getRelativeExecutionDate(item.analyticsDate)
+                    const relativeExecutionDateLabel = getTranslatedRelativeExecutionDateLabel(relativeExecutionDate, t)
 
                     return (
                       <TableRow key={item.batchId}>
-                        <TableCell className="pl-0 text-[14px] text-[#1c1c26]">{item.transactionName || 'Untitled Transaction'}</TableCell>
+                        <TableCell className="pl-0 text-[14px] text-[#1c1c26]">{item.transactionName || t('pages.analytics.untitledTransaction')}</TableCell>
                         <TableCell className={`text-[14px] ${getRelativeExecutionDateTextClassName(relativeExecutionDate.tone)}`}>
-                          {relativeExecutionDate.label}
+                          {relativeExecutionDateLabel}
                         </TableCell>
                         <TableCell className="text-[14px] text-[#1c1c26]">
                           {formatTokenAmount(item.amount.amount, decimals)} {symbol}
@@ -356,7 +362,7 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
                             className="h-auto px-0 py-0 text-[14px] font-normal text-[#5e85ee] hover:bg-transparent hover:text-[#4d69bd]"
                             onClick={() => navigate(`/orgs/transaction/${item.batchId}`)}
                           >
-                            View Details
+                            {t('pages.analytics.viewDetails')}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -384,7 +390,7 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
               <SelectContent className="rounded-[16px]">
                 {PERIOD_OPTIONS.map(option => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -2,6 +2,7 @@ import api from '@/apis'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import useOrganizationStore from '@/stores/organization'
+import { useTranslation } from '@/utils/i18n'
 import { getHighestRole } from '@/utils/permissions'
 import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
 import { IconCheck, IconCircleX, IconLoader2, IconPencil, IconX } from '@tabler/icons-react'
@@ -15,6 +16,7 @@ export default function MemberOrgsDetail() {
   const { orgId: stateOrgId = '', memberId = '' } = location.state || {}
   const orgId = searchParams.get('orgId') || stateOrgId
   const { toast } = useToast()
+  const { t } = useTranslation()
 
   const [showName, setShowName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
@@ -50,11 +52,11 @@ export default function MemberOrgsDetail() {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 2 * 1024 * 1024) {
-      toast({ description: 'Image must be under 2 MB.', variant: 'destructive' })
+      toast({ description: t('pages.memberOrgDetail.imageUnder2Mb'), variant: 'destructive' })
       return
     }
     if (!file.type.startsWith('image/')) {
-      toast({ description: 'Please upload a PNG or JPG file.', variant: 'destructive' })
+      toast({ description: t('pages.memberOrgDetail.uploadPngOrJpg'), variant: 'destructive' })
       return
     }
     const reader = new FileReader()
@@ -66,7 +68,7 @@ export default function MemberOrgsDetail() {
       setAvatarUrl(url)
       await saveProfile(showName, url)
     } catch {
-      toast({ description: 'Failed to upload image.', variant: 'destructive' })
+      toast({ description: t('pages.memberOrgDetail.uploadFailed'), variant: 'destructive' })
       setAvatarPreview(avatarUrl)
     } finally {
       setUploading(false)
@@ -82,7 +84,7 @@ export default function MemberOrgsDetail() {
         showName: name || undefined,
         avatarUrl: avatar || undefined,
       })
-      toast({ description: 'Profile updated.' })
+      toast({ description: t('pages.memberOrgDetail.profileUpdated') })
     } catch {
       throw new Error('save failed')
     } finally {
@@ -92,7 +94,7 @@ export default function MemberOrgsDetail() {
 
   async function handleNameSave() {
     if (!nameInput.trim()) {
-      setNameError('Name cannot be empty')
+      setNameError(t('pages.memberOrgDetail.nameRequired'))
       return
     }
     setNameError('')
@@ -123,7 +125,7 @@ export default function MemberOrgsDetail() {
         localStorage.removeItem('currentMember')
       }
 
-      toast({ description: 'Left organization.' })
+      toast({ description: t('pages.memberOrgDetail.leftOrganization') })
       setLeaveDialogOpen(false)
       navigate('/member/dashboard', { replace: true })
     } catch {
@@ -136,7 +138,7 @@ export default function MemberOrgsDetail() {
   return (
     <div className="flex flex-col gap-[12px]">
       <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">
-        Personal Information
+        {t('pages.memberOrgDetail.personalInformation')}
       </p>
 
       <div className="bg-white rounded-[32px] p-[24px] flex gap-[24px] items-start">
@@ -146,7 +148,7 @@ export default function MemberOrgsDetail() {
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             className="relative h-[108px] w-[108px] rounded-full overflow-hidden bg-[#f5f5f5] group"
-            title="Change avatar"
+            title={t('pages.memberOrgDetail.changeAvatar')}
           >
             {avatarPreview
               ? <img src={avatarPreview} alt={showName} className="h-full w-full object-cover" />
@@ -163,7 +165,7 @@ export default function MemberOrgsDetail() {
             disabled={uploading}
             className="text-[12px] leading-[18px] text-[#1c1c26] hover:text-[#5e85ee] transition-colors"
           >
-            {uploading ? 'Uploading...' : 'Change'}
+            {uploading ? t('pages.memberOrgDetail.uploading') : t('common.change')}
           </button>
           <input
             ref={fileInputRef}
@@ -179,7 +181,7 @@ export default function MemberOrgsDetail() {
           <div className="flex flex-col gap-[16px] pb-[24px] border-b border-[rgba(0,0,0,0.12)]">
             {/* Name */}
             <div className="flex flex-col gap-[8px] w-[240px]">
-              <p className="text-[14px] leading-[22px] text-[#8d8d93]">Name</p>
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('pages.memberOrgDetail.name')}</p>
               <div className="flex flex-col gap-[2px]">
                 <div className="h-[36px] flex items-center">
                   {editingName ? (
@@ -230,7 +232,7 @@ export default function MemberOrgsDetail() {
 
             {/* Role */}
             <div className="flex flex-col gap-[8px] w-[240px]">
-              <p className="text-[14px] leading-[22px] text-[#8d8d93]">Role in organization</p>
+              <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('pages.memberOrgDetail.roleInOrganization')}</p>
               <p className="text-[16px] leading-[24px] text-[#1c1c26]">{role || '—'}</p>
             </div>
           </div>
@@ -241,13 +243,13 @@ export default function MemberOrgsDetail() {
             disabled={!orgId || leaving}
             className="text-[14px] leading-[22px] text-[#d92b2b] hover:opacity-80 transition-opacity text-left disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Leave organization
+            {t('pages.memberOrgDetail.leaveOrganization')}
           </button>
         </div>
       </div>
 
       {/* Data Summary */}
-      <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">Data Summary</p>
+      <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">{t('pages.memberDashboard.dataSummary')}</p>
       <div className="bg-white rounded-[32px] p-[16px]">
         <PayrollHistoryTable orgId={orgId} memberId={memberId} />
       </div>
@@ -256,7 +258,7 @@ export default function MemberOrgsDetail() {
         <DialogContent className="max-w-[416px] gap-0 rounded-[24px] border-none bg-white p-[24px] shadow-[0px_298px_84px_0px_rgba(0,0,0,0),0px_191px_76px_0px_rgba(0,0,0,0.01),0px_107px_64px_0px_rgba(0,0,0,0.02),0px_48px_48px_0px_rgba(0,0,0,0.03),0px_12px_26px_0px_rgba(0,0,0,0.04)] sm:rounded-[24px] [&>button:last-child]:hidden">
           <DialogHeader className="flex-row items-center justify-between space-y-0 text-left">
             <DialogTitle className="font-['Inter',sans-serif] text-[18px] font-bold leading-[28px] text-[#1c1c26]">
-              Leave organization
+              {t('pages.memberOrgDetail.leaveOrganization')}
             </DialogTitle>
             <DialogClose
               disabled={leaving}
@@ -267,7 +269,7 @@ export default function MemberOrgsDetail() {
           </DialogHeader>
 
           <DialogDescription className="mt-[24px] max-w-[368px] font-['Inter',sans-serif] text-[14px] leading-[22px] text-[#606067]">
-            Leave this organization? You will need an invite to rejoin.
+            {t('pages.memberOrgDetail.leaveDescription')}
           </DialogDescription>
 
           <DialogFooter className="mt-[24px] flex-row justify-end gap-[12px] space-x-0">
@@ -277,7 +279,7 @@ export default function MemberOrgsDetail() {
               disabled={leaving}
               className="rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[16px] py-[10px] font-['Inter',sans-serif] text-[14px] leading-[22px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -286,7 +288,7 @@ export default function MemberOrgsDetail() {
               className="flex min-w-[72px] items-center justify-center gap-[6px] rounded-[12px] bg-[#d92b2b] px-[16px] py-[10px] font-['Inter',sans-serif] text-[14px] leading-[22px] text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {leaving && <IconLoader2 className="h-[14px] w-[14px] animate-spin" />}
-              Leave
+              {t('pages.memberOrgDetail.leave')}
             </button>
           </DialogFooter>
         </DialogContent>

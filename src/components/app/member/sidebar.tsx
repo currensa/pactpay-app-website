@@ -6,11 +6,11 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 const TOP_ITEMS: OrgNavItem[] = [
-  { title: 'Dashboard', key: 'dashboard', url: '/member/dashboard', icon: IconLayoutDashboard },
+  { title: 'Dashboard', titleKey: 'route.dashboard', key: 'dashboard', url: '/member/dashboard', icon: IconLayoutDashboard },
 ]
 
 const BOTTOM_ITEMS: OrgNavItem[] = [
-  { title: 'Settings', key: 'settings', url: '/member/settings', icon: IconSettings },
+  { title: 'Settings', titleKey: 'route.settings', key: 'settings', url: '/member/settings', icon: IconSettings },
 ]
 
 export default function MemberSidebar() {
@@ -53,6 +53,7 @@ export default function MemberSidebar() {
       ...TOP_ITEMS,
       {
         title: 'Organizations',
+        titleKey: 'nav.organizations',
         key: 'organizations',
         url: '/member/orgdetail',
         icon: IconBuilding,

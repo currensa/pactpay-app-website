@@ -1,4 +1,5 @@
 import { ChainAssetResponse } from '@/apis/chain-asset.api'
+import { useTranslation } from '@/utils/i18n'
 import { Check, ChevronDown } from 'lucide-react'
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -27,16 +28,17 @@ export function PaymentConfigFields({
   selectedToken,
   onSelectedChainIdChange,
   onSelectedTokenChange,
-  chainLabel = 'Chain *',
-  tokenLabel = 'Pay token type *',
-  chainPlaceholder = 'Select a chain',
-  tokenPlaceholder = 'Select a token',
-  tokenDisabledPlaceholder = 'Select a chain first',
+  chainLabel,
+  tokenLabel,
+  chainPlaceholder,
+  tokenPlaceholder,
+  tokenDisabledPlaceholder,
   dropdownPlacement = 'bottom',
   networkLabelExtra,
   footerHint,
   className = '',
 }: PaymentConfigFieldsProps) {
+  const { t } = useTranslation()
   const [chainDropdownOpen, setChainDropdownOpen] = useState(false)
   const [tokenDropdownOpen, setTokenDropdownOpen] = useState(false)
   const chainDropdownRef = useRef<HTMLDivElement>(null)
@@ -75,7 +77,7 @@ export function PaymentConfigFields({
     <div className={`flex flex-col gap-[16px] ${className}`}>
       <div className="flex flex-col gap-[8px]">
         <div className="flex items-center gap-[8px]">
-          <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{chainLabel}</p>
+          <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{chainLabel ?? t('pages.orgSettings.chain')}</p>
           {networkLabelExtra}
         </div>
         <div className="relative" ref={chainDropdownRef}>
@@ -92,7 +94,7 @@ export function PaymentConfigFields({
                   <span>{selectedChain.name}</span>
                 </div>
               ) : (
-                <span className="text-[#bbbbbe]">{chainPlaceholder}</span>
+                <span className="text-[#bbbbbe]">{chainPlaceholder ?? t('pages.orgSettings.selectChain')}</span>
               )}
               <ChevronDown className={`h-[16px] w-[16px] shrink-0 text-[#606067] transition-transform ${chainDropdownOpen ? 'rotate-180' : ''}`} />
             </div>
@@ -126,7 +128,7 @@ export function PaymentConfigFields({
       </div>
 
       <div className="flex flex-col gap-[8px]">
-        <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{tokenLabel}</p>
+        <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{tokenLabel ?? t('pages.orgSettings.payTokenType')}</p>
         <div className="relative" ref={tokenDropdownRef}>
           <button
             onClick={() => { if (selectedChainId) { setTokenDropdownOpen(v => !v); setChainDropdownOpen(false) } }}
@@ -141,7 +143,7 @@ export function PaymentConfigFields({
                   <span>{selectedAsset.asset.symbol}</span>
                 </div>
               ) : (
-                <span className="text-[#bbbbbe]">{selectedChainId ? tokenPlaceholder : tokenDisabledPlaceholder}</span>
+                <span className="text-[#bbbbbe]">{selectedChainId ? (tokenPlaceholder ?? t('pages.orgSettings.selectToken')) : (tokenDisabledPlaceholder ?? t('pages.orgSettings.selectChainFirst'))}</span>
               )}
               <ChevronDown className={`h-[16px] w-[16px] shrink-0 text-[#606067] transition-transform ${tokenDropdownOpen ? 'rotate-180' : ''}`} />
             </div>
@@ -161,7 +163,7 @@ export function PaymentConfigFields({
                         <img src={item.asset.iconUrl} alt={item.asset.symbol} className="h-[18px] w-[18px] rounded-full shrink-0" />
                       )}
                       <span>{item.asset.symbol}</span>
-                      {item.isNative && <span className="text-[11px] text-[#8d8d93]">(Native)</span>}
+                      {item.isNative && <span className="text-[11px] text-[#8d8d93]">({t('pages.orgSettings.native')})</span>}
                     </div>
                     {selectedToken === tokenValue && (
                       <Check className="h-[14px] w-[14px] shrink-0 text-[#5e85ee]" />
