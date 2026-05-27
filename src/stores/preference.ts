@@ -15,8 +15,10 @@ interface PreferenceState {
   initialized: boolean
   loading: boolean
   setLanguage: (language: PreferenceLanguage) => void
+  setGuestLanguage: (language: PreferenceLanguage) => void
   setFromPreferences: (preferences: UserPreference[]) => void
   fetchPreferences: () => Promise<void>
+  hydrateAfterLogin: () => Promise<void>
   updatePreferences: (payload: UpdateUserPreferencesPayload) => Promise<void>
   updateLanguage: (language: PreferenceLanguage) => Promise<void>
 }
@@ -33,8 +35,11 @@ const NOTIFICATION_PREFERENCE_KEYS = {
   securityLogin: 'notification.security_login',
 } as const
 
+const LANGUAGE_STORAGE_KEY = 'pactpay_language'
+const LANGUAGE_SYNC_STORAGE_KEY = 'pactpay_language_pending_sync'
+
 function getInitialLanguage(): PreferenceLanguage {
-  const saved = localStorage.getItem('pactpay_language')
+  const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY)
   return isSupportedLanguage(saved) ? saved : DEFAULT_LANGUAGE
 }
 
@@ -55,8 +60,20 @@ function mapPreferencesToNotificationState(preferences: UserPreference[]): Notif
   return nextState
 }
 
-function persistLanguage(language: PreferenceLanguage) {
-  localStorage.setItem('pactpay_language', language)
+function getPendingLanguageSync(): PreferenceLanguage | null {
+  const pending = localStorage.getItem(LANGUAGE_SYNC_STORAGE_KEY)
+  return isSupportedLanguage(pending) ? pending : null
+}
+
+function clearPendingLanguageSync() {
+  localStorage.removeItem(LANGUAGE_SYNC_STORAGE_KEY)
+}
+
+function persistLanguage(language: PreferenceLanguage, options?: { markPendingSync?: boolean }) {
+  localStorage.setItem(LANGUAGE_STORAGE_KEY, language)
+  if (options?.markPendingSync) {
+    localStorage.setItem(LANGUAGE_SYNC_STORAGE_KEY, language)
+  }
   document.documentElement.lang = language
 }
 
@@ -67,6 +84,10 @@ const usePreferenceStore = create<PreferenceState>((set, get) => ({
   loading: false,
   setLanguage: language => {
     persistLanguage(language)
+    set({ language })
+  },
+  setGuestLanguage: language => {
+    persistLanguage(language, { markPendingSync: true })
     set({ language })
   },
   setFromPreferences: preferences => {
@@ -91,6 +112,19 @@ const usePreferenceStore = create<PreferenceState>((set, get) => ({
     } finally {
       set({ loading: false, initialized: true })
     }
+  },
+  hydrateAfterLogin: async () => {
+    await get().fetchPreferences()
+
+    const pendingLanguage = getPendingLanguageSync()
+    if (!pendingLanguage || pendingLanguage === get().language) {
+      clearPendingLanguageSync()
+      return
+    }
+
+    const data = await apis.preference.updatePreferences({ language: pendingLanguage })
+    clearPendingLanguageSync()
+    get().setFromPreferences(data.preferences)
   },
   updatePreferences: async payload => {
     const data = await apis.preference.updatePreferences(payload)

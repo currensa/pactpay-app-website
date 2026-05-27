@@ -1,6 +1,7 @@
 import api from '@/apis'
 import { prepareMetaPubSubmission } from '@/lib/meta-pub'
 import useAuthStore from '@/stores/auth'
+import { usePublicCopy } from '@/views/public/copy'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconLoader2, IconWallet } from '@tabler/icons-react'
@@ -12,6 +13,7 @@ interface BindWalletProps {
 }
 
 export default function BindWallet({ onSuccess }: BindWalletProps) {
+  const { copy } = usePublicCopy()
   const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
@@ -67,7 +69,7 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
       onSuccess()
     } catch (err: any) {
       if (axios.isAxiosError(err)) return
-      setError(err?.message || 'Failed to submit. Please try again.')
+      setError(err?.message || copy.bindWallet.submitFailed)
     } finally {
       setLoading(false)
     }
@@ -89,13 +91,13 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
           className="text-[44px] leading-[56px] tracking-[-0.88px] text-[#bbbbbe]"
           style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 400 }}
         >
-          Secure your
+          {copy.bindWallet.titleTop}
         </p>
         <p
           className="text-[72px] font-bold leading-none tracking-[-1.44px] text-[#1c1c26]"
           style={{ fontFamily: 'Poppins, sans-serif' }}
         >
-          PactPay access
+          {copy.bindWallet.titleBottom}
         </p>
       </div>
 
@@ -105,12 +107,12 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
         <div className="flex flex-col gap-[24px] rounded-[24px] bg-[#f5f5f5] p-[20px]">
           {/* Header row */}
           <div className="flex items-center justify-between rounded-full bg-white px-[14px] py-[7px]">
-            <span className="text-[18px] font-bold leading-[28px] text-[#1c1c26]">Bind Wallet</span>
+            <span className="text-[18px] font-bold leading-[28px] text-[#1c1c26]">{copy.bindWallet.cardTitle}</span>
             <IconWallet className="size-[20px] text-[#1c1c26]" />
           </div>
           {/* Bullet list */}
           <ul className="list-disc space-y-[2px] pl-[20px] text-[14px] leading-[22px] text-[#606067]">
-            <span>Your wallet address will be used to generate an encrypted identity, which will be used for fund claiming in PactPay.</span>
+            <span>{copy.bindWallet.description}</span>
           </ul>
         </div>
 
@@ -135,7 +137,7 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
             onClick={handleConnect}
             className="flex h-[50px] w-full items-center justify-center rounded-[14px] bg-[#5e85ee] text-[15px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90"
           >
-            Connect Wallet
+            {copy.bindWallet.connectWallet}
           </button>
         ) : (
           <button
@@ -144,7 +146,7 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
             disabled={loading}
             className="flex h-[50px] w-full items-center justify-center gap-[8px] rounded-[14px] bg-[#5e85ee] text-[15px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? <IconLoader2 className="size-[20px] animate-spin" /> : 'Confirm'}
+            {loading ? <IconLoader2 className="size-[20px] animate-spin" /> : copy.bindWallet.confirm}
           </button>
         )}
       </div>
