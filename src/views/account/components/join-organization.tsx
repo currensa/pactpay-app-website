@@ -1,5 +1,6 @@
 import api from '@/apis'
 import { INVITE_CODE_SESSION_KEY } from '@/views/account/join-invite'
+import { usePublicCopy } from '@/views/public/copy'
 import { IconArrowLeft, IconCamera, IconLoader2 } from '@tabler/icons-react'
 import { useRef, useState } from 'react'
 
@@ -10,6 +11,7 @@ interface JoinOrganizationProps {
 }
 
 export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOrganizationProps) {
+  const { copy } = usePublicCopy()
   const [orgCode, setOrgCode] = useState(initialCode ?? '')
   const [showName, setShowName] = useState('')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
@@ -55,11 +57,11 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
         <div className="flex flex-col gap-[32px] rounded-[24px] bg-[#f5f5f5] p-[24px]">
           <div className="flex items-center justify-center self-start rounded-full bg-white px-[16px] py-[8px]">
             <span className="font-['Inter',sans-serif] text-[20px] font-bold leading-[30px] text-[#1c1c26]">
-              Member
+              {copy.joinOrganization.role}
             </span>
           </div>
           <p className="font-['Inter',sans-serif] text-[16px] font-normal leading-[24px] text-[#606067]">
-            Join an organization to receive payments and view transaction history.
+            {copy.joinOrganization.description}
           </p>
         </div>
 
@@ -79,7 +81,7 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
               <IconCamera className="h-[20px] w-[20px] text-white" />
             </div>
           </button>
-          <p className="text-[12px] leading-[18px] text-[#8d8d93]">Upload avatar (optional)</p>
+          <p className="text-[12px] leading-[18px] text-[#8d8d93]">{copy.joinOrganization.uploadAvatar}</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -95,7 +97,7 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
             type="text"
             value={showName}
             onChange={e => setShowName(e.target.value)}
-            placeholder="Enter your display name"
+            placeholder={copy.joinOrganization.displayNamePlaceholder}
             className="h-[56px] w-full rounded-[12px] bg-[#f5f5f5] px-[16px] font-['Inter',sans-serif] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none"
           />
         </div>
@@ -107,11 +109,11 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
             value={orgCode}
             onChange={e => { if (!initialCode) setOrgCode(e.target.value) }}
             readOnly={!!initialCode}
-            placeholder="Enter Organization Code"
+            placeholder={copy.joinOrganization.organizationCodePlaceholder}
             className={`h-[56px] w-full rounded-[12px] bg-[#f5f5f5] px-[16px] font-['Inter',sans-serif] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none ${initialCode ? 'cursor-default select-none text-[#8d8d93]' : ''}`}
           />
           <p className="font-['Inter',sans-serif] text-[14px] leading-[22px] text-[#8d8d93]">
-            {"Don't have a code? Ask your organization admin for an invite link or code."}
+            {copy.joinOrganization.codeHelp}
           </p>
         </div>
 
@@ -123,7 +125,7 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
             className="flex shrink-0 items-center justify-center gap-[8px] rounded-[16px] border border-[rgba(0,0,0,0.12)] bg-white px-[24px] py-[16px] font-['Inter',sans-serif] text-[16px] font-bold leading-[24px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
           >
             <IconArrowLeft className="h-[24px] w-[24px]" />
-            <span>Back</span>
+            <span>{copy.joinOrganization.back}</span>
           </button>
           <button
             type="button"
@@ -134,7 +136,7 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
             {joinLoading ? (
               <IconLoader2 className="h-[24px] w-[24px] animate-spin" />
             ) : (
-              <span>Join Organization</span>
+              <span>{copy.joinOrganization.join}</span>
             )}
           </button>
         </div>

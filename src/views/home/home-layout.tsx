@@ -1,16 +1,19 @@
 import imgArrowRight from '@/assets/home/arrow-right.svg'
+import PublicLanguageSwitcher from '@/components/app/base/public-language-switcher'
+import { usePublicCopy } from '@/views/public/copy'
 import imgGroupText from '@/assets/home/logo.svg'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 export default function HomeLayout() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { copy } = usePublicCopy()
 
   const toSignIn = () => navigate('/welcome/sign-in')
 
   const navLinks = [
-    { label: 'Pricing', to: '/pricing' },
-    { label: 'Document', to: '/document' },
+    { label: copy.homeLayout.pricing, to: '/pricing' },
+    { label: copy.homeLayout.document, to: '/document' },
   ]
 
   return (
@@ -54,13 +57,14 @@ export default function HomeLayout() {
 
             {/* Auth buttons */}
             <div className="flex items-center gap-2.5">
+              <PublicLanguageSwitcher />
               <button
                 onClick={toSignIn}
                 className="bg-white/40 backdrop-blur-md border border-white/30
           text-[#1c1c26] text-[13px] px-3.5 py-2 rounded-[11px]
           hover:bg-white/60 transition-all"
               >
-                Log in
+                {copy.homeLayout.logIn}
               </button>
 
               <button
@@ -71,7 +75,7 @@ export default function HomeLayout() {
           shadow-md hover:shadow-lg hover:scale-[1.03]
           transition-all"
               >
-                Sign up
+                {copy.homeLayout.signUp}
                 <img src={imgArrowRight} alt="" className="w-3.5 h-3.5" />
               </button>
             </div>

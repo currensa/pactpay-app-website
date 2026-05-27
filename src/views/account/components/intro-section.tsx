@@ -1,3 +1,6 @@
+import { usePublicCopy } from '@/views/public/copy'
+import type { ReactNode } from 'react'
+
 const CARDS = [
   {
     icon: (
@@ -71,10 +74,14 @@ const CARDS = [
   },
 ]
 
-function CardList() {
+function CardList({
+  cards,
+}: {
+  cards: Array<{ icon: ReactNode; title: string; desc: string }>
+}) {
   return (
     <>
-      {CARDS.map((card, i) => (
+      {cards.map((card, i) => (
         <div
           key={i}
           className="flex items-center gap-[20px] rounded-[24px] bg-white px-[24px] py-[32px] shadow-[0px_2px_2px_0px_rgba(0,0,0,0.08)]"
@@ -93,6 +100,16 @@ function CardList() {
 }
 
 export default function IntroSection() {
+  const { copy } = usePublicCopy()
+  const cards = [
+    { ...CARDS[0], title: copy.homeContent.features[0].title, desc: copy.homeContent.features[0].description },
+    { ...CARDS[1], title: copy.homeContent.features[1].title, desc: copy.homeContent.features[1].description },
+    { ...CARDS[2], title: copy.homeContent.features[2].title, desc: copy.homeContent.features[2].description },
+    { ...CARDS[3], title: copy.homeContent.features[3].title, desc: copy.homeContent.features[3].description },
+    { ...CARDS[4], title: copy.homeContent.features[0].title, desc: copy.homeContent.features[0].description },
+    { ...CARDS[5], title: copy.homeContent.features[1].title, desc: copy.homeContent.features[1].description },
+  ]
+
   return (
     <div className="relative hidden h-full w-full overflow-hidden rounded-[32px] border border-black/10 bg-gradient-to-b from-[#fafafa] to-[rgba(250,250,250,0.2)] lg:flex lg:w-[46%] lg:shrink-0">
       <div className="absolute bottom-0 h-min w-full">
@@ -199,8 +216,8 @@ export default function IntroSection() {
         }}
       >
         <div className="animate-scroll-cards flex flex-col gap-[24px] pt-[24px]">
-          <CardList />
-          <CardList />
+          <CardList cards={cards} />
+          <CardList cards={cards} />
         </div>
       </div>
 

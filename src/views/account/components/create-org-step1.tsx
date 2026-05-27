@@ -1,6 +1,7 @@
 import api from '@/apis'
 import useAuthStore from '@/stores/auth'
 import useOrganizationStore from '@/stores/organization'
+import { usePublicCopy } from '@/views/public/copy'
 import { IconArrowLeft, IconCamera } from '@tabler/icons-react'
 import { FormEvent, useEffect, useRef, useState } from 'react'
 
@@ -10,6 +11,7 @@ interface CreateOrgStep1Props {
 }
 
 export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) {
+  const { copy } = usePublicCopy()
   const [orgName, setOrgName] = useState('')
   const [showName, setShowName] = useState('')
   const [referralCode, setReferralCode] = useState('')
@@ -109,11 +111,11 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
         <div className="flex flex-col gap-[20px] rounded-[24px] bg-[rgba(94,133,238,0.08)] p-[20px]">
           <div className="flex items-center justify-center self-start rounded-full bg-white px-[16px] py-[8px]">
             <span className="font-['Inter',sans-serif] text-[20px] font-bold leading-[30px] text-[#1c1c26]">
-              Administrator
+              {copy.createOrganization.role}
             </span>
           </div>
           <p className="font-['Inter',sans-serif] text-[16px] font-normal leading-[24px] text-[#606067]">
-            Create and manage an organization, set up payment plans, and pay contractors.
+            {copy.createOrganization.description}
           </p>
         </div>
 
@@ -133,7 +135,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
               <IconCamera className="h-[20px] w-[20px] text-white" />
             </div>
           </button>
-          <p className="text-[12px] leading-[18px] text-[#8d8d93]">Upload avatar (optional)</p>
+          <p className="text-[12px] leading-[18px] text-[#8d8d93]">{copy.createOrganization.uploadAvatar}</p>
           <input
             ref={fileInputRef}
             type="file"
@@ -148,7 +150,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
           type="text"
           value={showName}
           onChange={e => setShowName(e.target.value)}
-          placeholder="Enter your display name"
+          placeholder={copy.createOrganization.displayNamePlaceholder}
           required
           className="h-[52px] w-full rounded-[12px] bg-[#f5f5f5] px-[16px] font-['Inter',sans-serif] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none"
         />
@@ -158,7 +160,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
           type="text"
           value={orgName}
           onChange={e => setOrgName(e.target.value)}
-          placeholder="Enter Organization Name"
+          placeholder={copy.createOrganization.organizationNamePlaceholder}
           required
           className="h-[52px] w-full rounded-[12px] bg-[#f5f5f5] px-[16px] font-['Inter',sans-serif] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none"
         />
@@ -169,7 +171,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
             type="text"
             value={referralCode}
             onChange={e => setReferralCode(e.target.value)}
-            placeholder="Enter referral code (optional)"
+            placeholder={copy.createOrganization.referralCodePlaceholder}
             className="h-[52px] w-full rounded-[12px] bg-[#f5f5f5] px-[16px] font-['Inter',sans-serif] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none"
           />
         </div>
@@ -177,7 +179,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
         {metaPubSubmitted === false && (
           <div className="flex flex-col gap-[12px] rounded-[20px] border border-[rgba(94,133,238,0.18)] bg-[rgba(94,133,238,0.06)] p-[16px]">
             <p className="font-['Inter',sans-serif] text-[15px] font-bold leading-[22px] text-[#1c1c26]">
-              Will you also receive payments from this organisation?
+              {copy.createOrganization.receivePayrollTitle}
             </p>
             <label className="flex cursor-pointer items-start gap-[10px]">
               <input
@@ -188,10 +190,10 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
               />
               <div className="flex flex-col gap-[2px]">
                 <span className="font-['Inter',sans-serif] text-[14px] font-bold leading-[20px] text-[#1c1c26]">
-                  Yes, bind a receiving wallet
+                  {copy.createOrganization.receivePayrollLabel}
                 </span>
                 <span className="font-['Inter',sans-serif] text-[13px] leading-[20px] text-[#606067]">
-                  I'll also receive payroll from this organisation
+                  {copy.createOrganization.receivePayrollDescription}
                 </span>
               </div>
             </label>
@@ -207,14 +209,14 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
             className="flex shrink-0 items-center justify-center gap-[8px] rounded-[16px] border border-[rgba(0,0,0,0.12)] bg-white px-[24px] py-[14px] font-['Inter',sans-serif] text-[16px] font-bold leading-[24px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5] disabled:opacity-50"
           >
             <IconArrowLeft className="h-[24px] w-[24px]" />
-            <span>Back</span>
+            <span>{copy.createOrganization.back}</span>
           </button>
           <button
             type="submit"
             disabled={!orgName.trim() || !showName.trim() || isLoading || isCheckingMetaPub}
             className="flex flex-1 items-center justify-center rounded-[16px] bg-[#5e85ee] px-[24px] py-[14px] font-['Inter',sans-serif] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {isLoading ? 'Creating...' : 'Create'}
+            {isLoading ? copy.createOrganization.creating : copy.createOrganization.create}
           </button>
         </div>
       </form>

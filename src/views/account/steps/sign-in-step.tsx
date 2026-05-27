@@ -2,6 +2,8 @@ import apis from '@/apis'
 import { useToast } from '@/components/ui/use-toast'
 import useAuthStore from '@/stores/auth'
 import useOrganizationStore from '@/stores/organization'
+import usePreferenceStore from '@/stores/preference'
+import { usePublicCopy } from '@/views/public/copy'
 import { IconLoader2 } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -15,12 +17,20 @@ function hasAdminRole(roles: { role: string }[]) {
 export default function SignInStep() {
   const navigate = useNavigate()
   const [checking, setChecking] = useState(false)
+  const { copy } = usePublicCopy()
   const { toast } = useToast()
   const getOrganizations = useOrganizationStore(s => s.getOrganizations)
   const checkMetaPub = useAuthStore(s => s.checkMetaPub)
+  const hydrateAfterLogin = usePreferenceStore(s => s.hydrateAfterLogin)
 
   const handleLoginSuccess = async () => {
     setChecking(true)
+
+    try {
+      await hydrateAfterLogin()
+    } catch {
+      // Preference hydration should not block auth flow routing.
+    }
 
     const pendingCode = sessionStorage.getItem(INVITE_CODE_SESSION_KEY)
     if (pendingCode) {
@@ -28,7 +38,7 @@ export default function SignInStep() {
         const { isMember } = await apis.organization.checkInviteCodeMembership(pendingCode)
         if (isMember) {
           sessionStorage.removeItem(INVITE_CODE_SESSION_KEY)
-          toast({ title: 'Already a member', description: 'You have already joined this organization.' })
+          toast({ title: copy.login.alreadyMemberTitle, description: copy.login.alreadyMemberDescription })
           // fall through to normal org routing below
         } else {
           navigate('/welcome/join-org', { replace: true })
@@ -71,7 +81,7 @@ export default function SignInStep() {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4">
         <IconLoader2 className="h-8 w-8 animate-spin text-[#77777d]" />
-        <p className="text-sm text-[#77777d]">Loading...</p>
+        <p className="text-sm text-[#77777d]">{copy.common.loading}</p>
       </div>
     )
   }

@@ -1,4 +1,5 @@
 import api from '@/apis'
+import { usePublicCopy } from '@/views/public/copy'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider, useDisconnect } from '@reown/appkit/react'
 import { IconLoader2, IconMail, IconWallet } from '@tabler/icons-react'
@@ -17,6 +18,7 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const { disconnect } = useDisconnect()
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
+  const { copy } = usePublicCopy()
   const userAction = useRef(false)
   const [loading, setLoading] = useState(false)
 
@@ -41,13 +43,13 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
       const { nonce } = await api.auth.getNonce()
       const signature = await provider.request<string>({
         method: 'personal_sign',
-        params: [nonce, addr]
+        params: [nonce, addr],
       })
       const { token, userId } = await api.auth.login({
         type: 'wallet',
         address: addr,
         nonce,
-        signature
+        signature,
       })
       persistAuthSession('wallet', { token, userId, address: addr })
       onLoginSuccess()
@@ -58,41 +60,44 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
     }
   }
 
+  useEffect(() => {
+    if (!userAction.current || !address || !walletProvider) return
+    void walletLogin(walletProvider, address)
+  }, [address, walletProvider])
+
   const handleWalletSign = () => {
     if (!address || !walletProvider) return
-    walletLogin(walletProvider, address)
+    void walletLogin(walletProvider, address)
   }
-
-  useEffect(() => {
-    if (!userAction.current) return
-    if (!address || !walletProvider) return
-    walletLogin(walletProvider, address)
-  }, [address, walletProvider])
 
   return (
     <div className="flex flex-col items-center gap-[10px]">
-        <button
-          type="button"
-          onClick={isConnected ? handleWalletSign : handleWalletConnect}
-          disabled={loading}
-          className="flex min-h-[52px] w-full items-center justify-center gap-[8px] rounded-full bg-[#5E85EE] px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-70"
-        >
+      <button
+        type="button"
+        onClick={isConnected ? handleWalletSign : handleWalletConnect}
+        disabled={loading}
+        className="flex min-h-[52px] w-full items-center justify-center gap-[8px] rounded-full bg-[#5E85EE] px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-70"
+      >
         {loading ? (
           <IconLoader2 className="h-[24px] w-[24px] animate-spin" />
         ) : (
           <>
             <IconWallet className="h-[24px] w-[24px]" />
-            <span>{isConnected ? `Continue with ${shortAddress}` : 'Connect wallet'}</span>
+            <span>
+              {isConnected
+                ? copy.login.continueWithWallet.replace('{address}', shortAddress)
+                : copy.login.connectWallet}
+            </span>
           </>
         )}
       </button>
       {isConnected && (
         <button
           type="button"
-          onClick={handleSwitchWallet}
+          onClick={() => void handleSwitchWallet()}
           className="text-[13px] leading-[20px] text-[#606067] transition-opacity hover:opacity-70"
         >
-          Connect Another Wallet
+          {copy.login.connectAnotherWallet}
         </button>
       )}
     </div>
@@ -102,6 +107,7 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
 export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const navigate = useNavigate()
   const { isConnected } = useAppKitAccount()
+  const { copy } = usePublicCopy()
   const [email, setEmail] = useState('')
   const [emailCode, setEmailCode] = useState('')
   const [codeSent, setCodeSent] = useState(false)
@@ -139,7 +145,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       const { token, userId } = await api.auth.login({
         type: 'email',
         email,
-        code: emailCode.toUpperCase()
+        code: emailCode.toUpperCase(),
       })
       persistAuthSession('email', { token, userId, email })
       onLoginSuccess()
@@ -155,7 +161,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       <div className="flex w-full max-w-[480px] flex-col gap-[80px]">
         <div className="flex flex-col gap-[8px] text-center">
           <h1 className="font-['Poppins',sans-serif] text-[42px] font-medium leading-none tracking-[-0.84px] text-[#1c1c26] lg:text-[56px] lg:tracking-[-1.12px]">
-            {isConnected ? 'Welcome Back' : 'Create PactPay Account'}
+            {isConnected ? copy.login.welcomeBack : copy.login.createAccount}
           </h1>
         </div>
 
@@ -167,7 +173,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
           <div className="flex items-center justify-center gap-[24px]">
             <div className="h-[1px] flex-1 bg-[#d9d9db]" />
-            <span className="text-[16px] leading-[24px] text-[#77777d]">or</span>
+            <span className="text-[16px] leading-[24px] text-[#77777d]">{copy.login.or}</span>
             <div className="h-[1px] flex-1 bg-[#d9d9db]" />
           </div>
 
@@ -177,24 +183,24 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="Your email address"
+                placeholder={copy.login.emailPlaceholder}
                 className="flex-1 bg-transparent text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none"
                 required
               />
               <button
                 type="button"
-                onClick={handleSendCode}
+                onClick={() => void handleSendCode()}
                 disabled={!email || sendCodeLoading || countdown > 0}
                 className="text-[14px] font-semibold leading-[22px] text-[#5e85ee] transition-opacity hover:opacity-80 disabled:opacity-50"
               >
                 {sendCodeLoading ? (
                   <IconLoader2 className="h-[18px] w-[18px] animate-spin" />
                 ) : countdown > 0 ? (
-                  `Resend in ${countdown}s`
+                  copy.login.resendIn.replace('{seconds}', String(countdown))
                 ) : codeSent ? (
-                  'Resend code'
+                  copy.login.resendCode
                 ) : (
-                  'Send a code'
+                  copy.login.sendCode
                 )}
               </button>
             </div>
@@ -205,7 +211,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   type="text"
                   value={emailCode}
                   onChange={e => setEmailCode(e.target.value)}
-                  placeholder="Enter code (case insensitive)"
+                  placeholder={copy.login.codePlaceholder}
                   className="flex-1 text-[14px] leading-[22px] text-[#1c1c26] placeholder:text-[rgba(19,19,26,0.2)] focus:outline-none"
                   required
                 />
@@ -222,28 +228,22 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               ) : (
                 <>
                   <IconMail className="h-[24px] w-[24px]" />
-                  <span>Continue with email</span>
+                  <span>{copy.login.continueWithEmail}</span>
                 </>
               )}
             </button>
           </form>
 
           <p className="text-center text-[12px] leading-[18px] text-[#8d8d93]">
-            By continuing, you agree to our{' '}
-            <button
-              onClick={() => navigate('/legal/terms')}
-              className="underline transition-colors hover:text-[#606067]"
-            >
-              Terms of Use
+            {copy.login.agreePrefix}{' '}
+            <button onClick={() => navigate('/legal/terms')} className="underline transition-colors hover:text-[#606067]">
+              {copy.common.termsOfUse}
             </button>{' '}
-            and acknowledge our{' '}
-            <button
-              onClick={() => navigate('/legal/privacy')}
-              className="underline transition-colors hover:text-[#606067]"
-            >
-              Privacy Policy
+            {copy.login.agreeMiddle}{' '}
+            <button onClick={() => navigate('/legal/privacy')} className="underline transition-colors hover:text-[#606067]">
+              {copy.common.privacyPolicy}
             </button>
-            .
+            {copy.login.agreeSuffix}
           </p>
         </div>
       </div>

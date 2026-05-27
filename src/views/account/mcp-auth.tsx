@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { usePublicCopy } from '@/views/public/copy'
 import { useSearchParams } from 'react-router-dom'
 import LoginForm from './components/login-form'
 
@@ -28,6 +29,7 @@ async function sendToken(callbackUrl: string, token: string, orgId?: string) {
 }
 
 export default function McpAuthPage() {
+  const { copy } = usePublicCopy()
   const [searchParams] = useSearchParams()
   const callback = searchParams.get('callback') || ''
   const [status, setStatus] = useState<'checking' | 'login' | 'submitting' | 'done' | 'error'>('checking')
@@ -46,7 +48,7 @@ export default function McpAuthPage() {
   useEffect(() => {
     if (!hasCallback) {
       setStatus('error')
-      setError('Missing or invalid callback URL.')
+      setError(copy.mcpAuth.invalidCallback)
       return
     }
 
@@ -61,21 +63,21 @@ export default function McpAuthPage() {
       .then(() => setStatus('done'))
       .catch(err => {
         setStatus('error')
-        setError(err instanceof Error ? err.message : 'Failed to send token.')
+        setError(err instanceof Error ? err.message : copy.mcpAuth.sendFailed)
       })
-  }, [callback, hasCallback])
+  }, [callback, copy.mcpAuth.invalidCallback, copy.mcpAuth.sendFailed, hasCallback])
 
   const handleLoginSuccess = async () => {
     if (!hasCallback) {
       setStatus('error')
-      setError('Missing or invalid callback URL.')
+      setError(copy.mcpAuth.invalidCallback)
       return
     }
 
     const current = readCurrentAuth()
     if (!current.token) {
       setStatus('error')
-      setError('Login succeeded but token is missing in local storage.')
+      setError(copy.mcpAuth.tokenMissing)
       return
     }
 
@@ -85,7 +87,7 @@ export default function McpAuthPage() {
       setStatus('done')
     } catch (err) {
       setStatus('error')
-      setError(err instanceof Error ? err.message : 'Failed to send token.')
+      setError(err instanceof Error ? err.message : copy.mcpAuth.sendFailed)
     }
   }
 
@@ -93,9 +95,9 @@ export default function McpAuthPage() {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <div className="w-full max-w-[520px] rounded-[24px] border border-[rgba(0,0,0,0.08)] bg-white p-[32px] text-center">
-          <h1 className="text-[28px] font-semibold text-[#1c1c26]">Authentication complete</h1>
+          <h1 className="text-[28px] font-semibold text-[#1c1c26]">{copy.mcpAuth.doneTitle}</h1>
           <p className="mt-[12px] text-[15px] leading-[24px] text-[#606067]">
-            The token has been sent to the local MCP server. You can return to your MCP client and close this page.
+            {copy.mcpAuth.doneDescription}
           </p>
         </div>
       </div>
@@ -106,8 +108,8 @@ export default function McpAuthPage() {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <div className="w-full max-w-[520px] rounded-[24px] border border-[rgba(217,43,43,0.2)] bg-white p-[32px] text-center">
-          <h1 className="text-[28px] font-semibold text-[#1c1c26]">Authentication failed</h1>
-          <p className="mt-[12px] text-[15px] leading-[24px] text-[#d92b2b]">{error || 'Unknown error.'}</p>
+          <h1 className="text-[28px] font-semibold text-[#1c1c26]">{copy.mcpAuth.errorTitle}</h1>
+          <p className="mt-[12px] text-[15px] leading-[24px] text-[#d92b2b]">{error || copy.mcpAuth.unknownError}</p>
         </div>
       </div>
     )
@@ -117,9 +119,9 @@ export default function McpAuthPage() {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <div className="w-full max-w-[520px] rounded-[24px] border border-[rgba(0,0,0,0.08)] bg-white p-[32px] text-center">
-          <h1 className="text-[28px] font-semibold text-[#1c1c26]">Connecting to MCP server</h1>
+          <h1 className="text-[28px] font-semibold text-[#1c1c26]">{copy.mcpAuth.connectingTitle}</h1>
           <p className="mt-[12px] text-[15px] leading-[24px] text-[#606067]">
-            {status === 'checking' ? 'Checking saved session...' : 'Sending token to local MCP server...'}
+            {status === 'checking' ? copy.mcpAuth.checking : copy.mcpAuth.submitting}
           </p>
         </div>
       </div>

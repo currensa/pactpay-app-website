@@ -1,4 +1,5 @@
 import api from '@/apis'
+import { usePublicCopy } from '@/views/public/copy'
 import { IconBrandGoogle, IconLoader2 } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
 
@@ -39,6 +40,7 @@ const GOOGLE_SCRIPT_ID = 'google-identity-services'
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
 export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButtonProps) {
+  const { copy } = usePublicCopy()
   const wrapperRef = useRef<HTMLDivElement | null>(null)
   const buttonContainerRef = useRef<HTMLDivElement | null>(null)
   const [loading, setLoading] = useState(false)
@@ -66,7 +68,7 @@ export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButto
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID || buttonWidth <= 0) {
       if (!GOOGLE_CLIENT_ID) {
-        setError('Google Sign-In is unavailable right now.')
+        setError(copy.login.googleUnavailable)
       }
       return
     }
@@ -81,7 +83,7 @@ export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButto
         client_id: GOOGLE_CLIENT_ID,
         callback: async ({ credential }) => {
           if (!credential) {
-            setError('Google Sign-In did not return a credential.')
+            setError(copy.login.googleMissingCredential)
             return
           }
 
@@ -92,7 +94,7 @@ export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButto
             onLoginSuccess()
           } catch (loginError) {
             console.error('Failed to sign in with Google:', loginError)
-            setError('Google Sign-In failed. Please try again.')
+            setError(copy.login.googleFailed)
           } finally {
             setLoading(false)
           }
@@ -131,7 +133,7 @@ export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButto
     const handleLoad = () => initializeGoogle()
     const handleError = () => {
       if (!cancelled) {
-        setError('Google Sign-In failed to load. Please refresh and try again.')
+        setError(copy.login.googleLoadFailed)
       }
     }
 
@@ -147,7 +149,7 @@ export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButto
       script.removeEventListener('load', handleLoad)
       script.removeEventListener('error', handleError)
     }
-  }, [baseButtonWidth, buttonWidth, onLoginSuccess])
+  }, [baseButtonWidth, buttonWidth, copy.login.googleFailed, copy.login.googleLoadFailed, copy.login.googleMissingCredential, copy.login.googleUnavailable, onLoginSuccess])
 
   if (!GOOGLE_CLIENT_ID) {
     return (
@@ -158,7 +160,7 @@ export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButto
           className="flex w-full items-center justify-center gap-[8px] rounded-full border border-[#d9d9db] bg-white px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-[#1c1c26] opacity-50"
         >
           <IconBrandGoogle className="h-[24px] w-[24px]" />
-          <span>Continue with Google</span>
+          <span>{copy.login.continueWithGoogle}</span>
         </button>
         <p className="text-[14px] text-red-500">{error}</p>
       </div>
@@ -178,7 +180,7 @@ export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButto
       {loading && (
         <div className="flex items-center justify-center gap-[8px] text-[14px] text-[#606067]">
           <IconLoader2 className="h-[18px] w-[18px] animate-spin" />
-          <span>Signing in with Google...</span>
+          <span>{copy.login.signInWithGoogle}</span>
         </div>
       )}
       {error && <p className="text-[14px] text-red-500">{error}</p>}

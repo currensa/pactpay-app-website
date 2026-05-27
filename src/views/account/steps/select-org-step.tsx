@@ -1,6 +1,7 @@
 import type { OrganizationMember } from '@/apis/orgnization.api'
 import useAuthStore from '@/stores/auth'
 import useOrganizationStore from '@/stores/organization'
+import { usePublicCopy } from '@/views/public/copy'
 import { IconLoader2 } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -10,6 +11,7 @@ export default function SelectOrgStep() {
   const navigate = useNavigate()
   const setCurrentOrg = useOrganizationStore(s => s.setCurrentOrg)
   const checkMetaPub = useAuthStore(s => s.checkMetaPub)
+  const { copy } = usePublicCopy()
   const [checking, setChecking] = useState(false)
 
   const enterMemberSide = async () => {
@@ -32,7 +34,7 @@ export default function SelectOrgStep() {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center gap-4">
         <IconLoader2 className="h-8 w-8 animate-spin text-[#77777d]" />
-        <p className="text-sm text-[#77777d]">Loading...</p>
+        <p className="text-sm text-[#77777d]">{copy.common.loading}</p>
       </div>
     )
   }
