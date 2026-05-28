@@ -2,6 +2,7 @@ import apis from '@/apis'
 import type { FavoriteAddressItem } from '@/apis/favorite-address.api'
 import type { BatchClaimResponse } from '@/apis/transaction.api'
 import { useToast } from '@/components/ui/use-toast'
+import { vaultAbi } from '@/lib/vault-abi'
 import { recoverStealthPrivateKey } from '@/lib/stealth-key'
 import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
@@ -14,6 +15,7 @@ import { ethers } from 'ethers'
 import { AlertTriangle, Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { createPublicClient, custom, type Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 
 // ─── Asset icon ───────────────────────────────────────────────────────────────
@@ -326,11 +328,43 @@ export default function ClaimPage() {
         payrollItemId: string
         recipient: string
         deadline: number
+        nonce: string
         signature: string
       }[] = []
       const skipped: string[] = []
 
       try {
+        const selectedChainInfo = caipToChain[selectedChain]
+        if (!selectedChainInfo) {
+          throw new Error(`Vault contract is not configured for chain ${selectedChain}.`)
+        }
+
+        const currentChainIdHex = await walletProvider.request<string>({ method: 'eth_chainId' })
+        if (parseInt(currentChainIdHex, 16) !== selectedChainInfo.chainIdNum) {
+          await walletProvider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: `0x${selectedChainInfo.chainIdNum.toString(16)}` }],
+          })
+        }
+
+        const publicClient = createPublicClient({
+          chain: {
+            id: selectedChainInfo.chainIdNum,
+            name: chains.find(chain => chain.caipChainId === selectedChain)?.name ?? selectedChain,
+            nativeCurrency: {
+              name: 'Native Token',
+              symbol: 'NATIVE',
+              decimals: 18,
+            },
+            rpcUrls: {
+              default: { http: [] },
+              public: { http: [] },
+            },
+          } as any,
+          transport: custom(walletProvider),
+        })
+        const nextNonceByStealth = new Map<string, bigint>()
+
         for (const item of items) {
           let stealthPrivHex: string | null = null
           let stealthAccount: ReturnType<typeof privateKeyToAccount> | null = null
@@ -345,6 +379,18 @@ export default function ClaimPage() {
 
             const chainInfo = caipToChain[item.batch.caipChainId]
             if (!chainInfo) { skipped.push(item.id); continue }
+
+            const stealthKey = stealthAccount.address.toLowerCase()
+            let nonce = nextNonceByStealth.get(stealthKey)
+            if (nonce === undefined) {
+              const claimedData = await publicClient.readContract({
+                address: chainInfo.vaultAddress as Hex,
+                abi: vaultAbi,
+                functionName: 'claimed',
+                args: [stealthAccount.address as Hex],
+              })
+              nonce = claimedData[1]
+            }
 
             const domain = {
               name: 'StealthPay',
@@ -361,6 +407,7 @@ export default function ClaimPage() {
                 { name: 'recipient', type: 'address' },
                 { name: 'deadline', type: 'uint256' },
                 { name: 'expectedAmount', type: 'uint256' },
+                { name: 'nonce', type: 'uint256' },
               ],
             } as const
 
@@ -371,10 +418,18 @@ export default function ClaimPage() {
               recipient: trimmedRecipient as `0x${string}`,
               deadline: BigInt(deadline),
               expectedAmount: BigInt(item.amount),
+              nonce,
             } as const
 
             const signature = await stealthAccount.signTypedData({ domain, types, primaryType: 'ClaimRequest', message })
-            signedItems.push({ payrollItemId: item.id, recipient: trimmedRecipient, deadline, signature })
+            signedItems.push({
+              payrollItemId: item.id,
+              recipient: trimmedRecipient,
+              deadline,
+              nonce: nonce.toString(),
+              signature,
+            })
+            nextNonceByStealth.set(stealthKey, nonce + 1n)
           } catch {
             skipped.push(item.id)
           } finally {
