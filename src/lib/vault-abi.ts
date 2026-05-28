@@ -1,6 +1,16 @@
 export const vaultAbi = [
   {
     type: 'function',
+    name: 'claimed',
+    inputs: [{ name: '', type: 'address', internalType: 'address' }],
+    outputs: [
+      { name: 'claimed', type: 'uint256', internalType: 'uint256' },
+      { name: 'nextNonce', type: 'uint256', internalType: 'uint256' },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     name: 'depositForPayroll',
     inputs: [
       { name: 'merkleRoot', type: 'bytes32', internalType: 'bytes32' },

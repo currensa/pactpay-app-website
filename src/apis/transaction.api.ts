@@ -45,6 +45,7 @@ export interface BatchClaimItem {
   payrollItemId: string
   recipient: string
   deadline: number
+  nonce: string
   signature: string
 }
 
