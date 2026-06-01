@@ -30,30 +30,30 @@ export default function PricingPage() {
 
   return (
     <div className="flex-1 text-[#1c1c26]">
-      <section className="px-6 pb-14 pt-12 text-center">
+      <section className="px-4 pb-12 pt-10 text-center md:px-6 md:pb-14 md:pt-12">
         <span className="mb-5 inline-block rounded-full bg-[rgba(94,133,238,0.08)] px-3 py-1 text-xs font-semibold uppercase tracking-widest text-[#5e85ee]">
           {isZh ? '定价' : 'PRICING'}
         </span>
-        <h1 className="mb-5 text-4xl font-extrabold leading-tight md:text-5xl">
+        <h1 className="mb-5 text-3xl font-extrabold leading-tight sm:text-4xl md:text-5xl">
           {isZh ? '简单、透明的定价。' : 'Simple, transparent pricing.'}
           <br className="hidden md:block" /> {isZh ? '只有在你付款时才收费。' : 'Pay only when you pay.'}
         </h1>
-        <p className="mx-auto max-w-xl text-lg leading-relaxed text-[#606067]">
+        <p className="mx-auto max-w-xl text-base leading-relaxed text-[#606067] md:text-lg">
           {isZh ? '无订阅费，无平台费。' : 'No subscriptions. No platform fees.'}
           <br />
           {isZh ? '按次执行收取固定费用，仅此而已。' : "You pay a flat fee per execution, that's it."}
         </p>
       </section>
 
-      <section className="mx-auto max-w-4xl px-6 pb-16">
+      <section className="mx-auto max-w-4xl px-4 pb-14 md:px-6 md:pb-16">
         <div className="grid items-stretch gap-6 md:grid-cols-2">
           {networkPricing.map(network => (
             <div
               key={network.name}
               className={
                 network.accent
-                  ? 'flex flex-col justify-between rounded-[24px] border-2 border-[#5e85ee] bg-white p-8 shadow-xl shadow-[rgba(94,133,238,0.12)]'
-                  : 'flex flex-col justify-between rounded-[24px] border border-[rgba(0,0,0,0.08)] bg-white/70 p-8 backdrop-blur-sm transition-shadow hover:shadow-md'
+                  ? 'flex flex-col justify-between rounded-[24px] border-2 border-[#5e85ee] bg-white p-5 shadow-xl shadow-[rgba(94,133,238,0.12)] md:p-8'
+                  : 'flex flex-col justify-between rounded-[24px] border border-[rgba(0,0,0,0.08)] bg-white/70 p-5 backdrop-blur-sm transition-shadow hover:shadow-md md:p-8'
               }
             >
               <div>
@@ -111,8 +111,8 @@ export default function PricingPage() {
         </p>
       </section>
 
-      <section className="mx-auto max-w-4xl px-6 pb-16">
-        <div className="rounded-[24px] border border-[rgba(94,133,238,0.15)] bg-[rgba(94,133,238,0.06)] p-8">
+      <section className="mx-auto max-w-4xl px-4 pb-14 md:px-6 md:pb-16">
+        <div className="rounded-[24px] border border-[rgba(94,133,238,0.15)] bg-[rgba(94,133,238,0.06)] p-5 md:p-8">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-bold text-[#5e85ee]">
             <svg className="h-4 w-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
@@ -130,11 +130,11 @@ export default function PricingPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-3xl px-6 pb-24">
+      <section className="mx-auto max-w-3xl px-4 pb-20 md:px-6 md:pb-24">
         <h2 className="mb-10 text-center text-2xl font-bold text-[#1c1c26]">{isZh ? '常见问题' : 'Common Questions'}</h2>
         <div className="space-y-6">
           {faqs.map(({ q, a }, i) => (
-            <div key={i} className="rounded-[16px] border border-[rgba(0,0,0,0.06)] bg-white/60 p-6 backdrop-blur-sm">
+            <div key={i} className="rounded-[16px] border border-[rgba(0,0,0,0.06)] bg-white/60 p-5 backdrop-blur-sm md:p-6">
               <h4 className="mb-2 text-sm font-semibold text-[#1c1c26]">{isZh ? `问：${q}` : `Q: ${q}`}</h4>
               <p className="text-sm leading-relaxed text-[#606067]">{isZh ? <>{a}</> : <>A: {a}</>}</p>
             </div>

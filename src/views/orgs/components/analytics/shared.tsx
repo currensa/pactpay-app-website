@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/utils/i18n'
-import { ArrowUpRight, ChartColumn, Download } from 'lucide-react'
+import { ArrowUpRight, ChartColumn, Upload } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { type AnalyticsTab, type TrendMeta, formatTranslatedStatusLabel } from './analytics-utils'
 
@@ -193,7 +193,7 @@ export function AnalyticsExportButton({
       onClick={onClick}
       disabled={disabled}
     >
-      <Download className="h-[16px] w-[16px]" />
+      <Upload className="h-[16px] w-[16px]" />
       {t('pages.analytics.export')}
     </Button>
   )

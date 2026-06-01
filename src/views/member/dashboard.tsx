@@ -185,7 +185,7 @@ function IncomeDistributionCard({ data, loading, getTokenSymbol }: { data: Distr
       </div>
 
       {/* Chart + legend */}
-      <div className="flex items-center gap-[24px]">
+      <div className="flex flex-col gap-[16px] md:flex-row md:items-center md:gap-[24px]">
         {loading
           ? <p className="text-[14px] text-[#8d8d93]">{t('common.loading')}</p>
           : data.length === 0
@@ -286,12 +286,12 @@ export default function MemberDashboard() {
   }
 
   return (
-    <div className="flex flex-col gap-[24px]">
+    <div className="flex flex-col gap-[20px] md:gap-[24px]">
       {/* Onboarding Guide */}
       <MemberOnboardingGuide />
 
       {/* Summary Cards */}
-      <div className="flex gap-[24px]">
+      <div className="grid grid-cols-1 gap-[16px] xl:grid-cols-3 xl:gap-[24px]">
         <SummaryCard
           title={t('pages.memberDashboard.totalClaimed')}
           icon={<IconMoneybag className="h-[32px] w-[32px] text-[#1c1c26]" />}
@@ -320,7 +320,7 @@ export default function MemberDashboard() {
       {/* Data Summary */}
       <div>
         <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26] pb-[16px]">{t('pages.memberDashboard.dataSummary')}</p>
-        <div className="bg-white rounded-[32px] p-[16px]">
+        <div className="rounded-[24px] bg-white p-[16px] md:rounded-[32px]">
           <PayrollHistoryTable onOrgClick={handleOrganizationClick} />
         </div>
       </div>

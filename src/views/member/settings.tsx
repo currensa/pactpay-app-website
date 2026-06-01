@@ -251,13 +251,13 @@ export default function MemberSettings() {
   const currentLanguageOption = LANGUAGE_OPTIONS.find(option => option.value === language)
 
   return (
-    <div className="flex flex-col gap-[32px]">
+    <div className="flex flex-col gap-[24px] md:gap-[32px]">
       {/* Account */}
       <section className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">{t('common.account')}</p>
-        <div className="flex gap-[20px] items-start bg-white rounded-[32px] pr-[24px]">
+        <div className="flex flex-col gap-[16px] rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:gap-[20px] md:pr-[24px] xl:flex-row xl:items-start xl:p-0 xl:pl-0">
           {/* Account info card */}
-          <div className="flex-1  p-[24px] flex flex-col gap-[24px]">
+          <div className="flex flex-1 flex-col gap-[24px] md:p-[24px]">
             {/* Login Email */}
             <div className="flex flex-col gap-[8px]">
               <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('settings.loginEmail')}</p>
@@ -318,7 +318,7 @@ export default function MemberSettings() {
           </div>
 
           {/* Personal Token card */}
-          <div className="w-[420px] shrink-0 bg-[rgba(94,133,238,0.08)] rounded-[20px] p-[20px] flex flex-col gap-[16px] my-[auto]">
+          <div className="my-[auto] flex w-full shrink-0 flex-col gap-[16px] rounded-[20px] bg-[rgba(94,133,238,0.08)] p-[20px] xl:w-[420px]">
             {/* Header */}
             <div className="flex flex-col gap-[8px]">
               <div className="flex items-center justify-between">
@@ -351,8 +351,8 @@ export default function MemberSettings() {
       {/* Address Book */}
       <section className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">{t('settings.addressBook')}</p>
-        <div className="bg-white rounded-[32px] p-[24px] flex flex-col gap-[20px]">
-          <div className="flex items-start justify-between gap-[16px]">
+        <div className="flex flex-col gap-[20px] rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[24px]">
+          <div className="flex flex-col gap-[12px] md:flex-row md:items-start md:justify-between md:gap-[16px]">
             <div className="flex flex-col gap-[4px]">
               <p className="text-[16px] leading-[24px] text-[#1c1c26]">{t('settings.savedAddresses')}</p>
               <p className="text-[14px] leading-[22px] text-[#606067]">
@@ -386,7 +386,7 @@ export default function MemberSettings() {
               {favoriteAddresses.map((item, index) => (
                 <div
                   key={item.id}
-                  className={`flex items-start justify-between gap-[16px] py-[16px] ${index < favoriteAddresses.length - 1 ? 'border-b border-[rgba(0,0,0,0.12)]' : ''}`}
+                  className={`flex flex-col gap-[12px] py-[16px] md:flex-row md:items-start md:justify-between md:gap-[16px] ${index < favoriteAddresses.length - 1 ? 'border-b border-[rgba(0,0,0,0.12)]' : ''}`}
                 >
                   <div className="min-w-0 flex-1 flex flex-col gap-[6px]">
                     <div className="flex flex-wrap items-center gap-[8px]">
@@ -398,7 +398,7 @@ export default function MemberSettings() {
                     <p className="break-all text-[14px] leading-[22px] text-[#606067]">{item.address}</p>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-[8px]">
+                  <div className="flex shrink-0 flex-wrap items-center gap-[8px]">
                     <button
                       type="button"
                       onClick={() => openEditAddressDialog(item)}
@@ -426,7 +426,7 @@ export default function MemberSettings() {
       {/* Notifications */}
       <section className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">{t('settings.notifications')}</p>
-        <div className="bg-white rounded-[32px] p-[24px] flex flex-col gap-[16px] min-h-[152px]">
+        <div className="flex min-h-[152px] flex-col gap-[16px] rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[24px]">
           {preferencesLoading ? (
             <div className="flex flex-1 items-center justify-center">
               <div className="text-[13px] text-[#8d8d93]">{t('common.loading')}</div>
@@ -461,8 +461,8 @@ export default function MemberSettings() {
       {/* Language */}
       <section className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">{t('settings.language')}</p>
-        <div className="bg-white rounded-[32px] p-[24px]">
-          <div className="flex items-center justify-between">
+        <div className="rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[24px]">
+          <div className="flex flex-col gap-[12px] md:flex-row md:items-center md:justify-between">
             <p className="text-[16px] leading-[24px] text-[#1c1c26]">{t('settings.preferredLanguage')}</p>
             <div className="relative">
               <button

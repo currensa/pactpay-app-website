@@ -64,10 +64,10 @@ export function TokenAmountStatCard({
   const isOpen = openDropdown === dropdownKey
 
   return (
-    <div className="flex flex-1 items-start justify-between bg-white rounded-[24px] p-[24px] relative">
+    <div className="relative flex min-w-0 flex-1 items-start justify-between rounded-[24px] bg-white p-[18px] md:p-[24px]">
       <div className="flex flex-col gap-[6px]">
         <span className="text-[14px] leading-[22px] text-[#1c1c26]">{title}</span>
-        <div className="flex items-end gap-[6px]">
+        <div className="flex flex-wrap items-end gap-[6px]">
           {iconUrl && (
             <img src={iconUrl} alt="" className="w-[22px] h-[22px] rounded-full self-end mb-[6px] shrink-0" />
           )}
@@ -94,11 +94,11 @@ export function TokenAmountStatCard({
           )}
         </div>
       </div>
-      <div className="flex items-center justify-center w-[52px] h-[52px] bg-[#f5f5f5] rounded-[14px] shrink-0">
+      <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[14px] bg-[#f5f5f5] md:h-[52px] md:w-[52px]">
         <Icon size={26} className="text-[#1c1c26]" />
       </div>
       {isOpen && items.length >= 1 && (
-        <div className="absolute left-[24px] top-[88px] z-50 bg-white rounded-[20px] shadow-[0px_12px_26px_0px_rgba(0,0,0,0.08)] py-[8px] min-w-[184px]">
+        <div className="absolute left-[18px] top-[82px] z-50 min-w-[184px] rounded-[20px] bg-white py-[8px] shadow-[0px_12px_26px_0px_rgba(0,0,0,0.08)] md:left-[24px] md:top-[88px]">
           {items.map((item, i) => {
             const sym = getSymbol(item)
             const chainName = getChainName(item)

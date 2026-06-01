@@ -194,7 +194,24 @@ export default function DocumentPage() {
           </ul>
         </aside>
 
-        <div className="max-w-3xl flex-1 px-8 py-12 md:px-14">
+        <div className="max-w-3xl flex-1 px-4 py-8 sm:px-6 md:px-14 md:py-12">
+          <div className="mb-6 overflow-x-auto rounded-[14px] border border-[rgba(0,0,0,0.06)] bg-white/70 p-3 md:hidden">
+            <div className="flex gap-2">
+              {navItems.map(({ label, id, sub }) => (
+                <button
+                  key={id}
+                  onClick={() => scrollTo(id)}
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs transition-colors ${
+                    activeId === id
+                      ? 'bg-[rgba(94,133,238,0.1)] text-[#5e85ee]'
+                      : 'bg-white text-[#606067]'
+                  } ${sub ? 'opacity-85' : 'font-semibold'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
           <SectionAnchor id="overview" />
           <h2 className="mb-6 mt-2 border-b border-[rgba(0,0,0,0.08)] pb-2 text-3xl font-bold">{isZh ? '概览' : 'Overview'}</h2>
 

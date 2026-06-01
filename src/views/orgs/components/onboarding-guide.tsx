@@ -223,18 +223,18 @@ export function OnboardingGuide() {
         document.body
       )}
       <div
-        className="flex gap-[20px] items-start bg-white border border-[rgba(94,133,238,0.10)] rounded-[28px] pl-[28px] pr-[20px] py-[20px] overflow-hidden transition-all duration-500"
+        className="flex flex-col gap-[16px] overflow-hidden rounded-[28px] border border-[rgba(94,133,238,0.10)] bg-white px-[16px] py-[16px] transition-all duration-500 md:flex-row md:items-start md:gap-[20px] md:pl-[28px] md:pr-[20px] md:py-[20px]"
         style={{
           opacity: visible ? 1 : 0,
           transform: visible ? 'translateY(0)' : 'translateY(-12px)',
         }}
       >
         {/* Left: title + dismiss */}
-        <div className="flex flex-col items-start justify-between py-[8px] self-stretch shrink-0 w-[160px]">
+        <div className="flex flex-col items-start justify-between gap-[16px] py-[4px] md:w-[160px] md:self-stretch md:shrink-0 md:py-[8px]">
           <div className="flex flex-col gap-[8px]">
             <div>
               <p className="font-['Poppins',sans-serif] text-[18px] leading-[26px] text-[#bbbbbe] tracking-[-0.36px]">{t('pages.orgOnboardingGuide.getStartedWith')}</p>
-              <p className="font-['Poppins',sans-serif] font-semibold text-[32px] leading-none text-[#1c1c26] tracking-[-0.64px]">{t('pages.orgOnboardingGuide.brand')}</p>
+              <p className="font-['Poppins',sans-serif] text-[28px] font-semibold leading-none tracking-[-0.64px] text-[#1c1c26] md:text-[32px]">{t('pages.orgOnboardingGuide.brand')}</p>
             </div>
             <p className="text-[12px] leading-[18px] text-[#8d8d93]">
               {t('pages.orgOnboardingGuide.description')}
@@ -249,9 +249,9 @@ export function OnboardingGuide() {
         </div>
 
         {/* Right: steps + detail */}
-        <div className="flex-1 min-w-0 flex flex-col gap-[12px] bg-[rgba(94,133,238,0.04)] rounded-[18px] px-[20px] py-[16px]">
+        <div className="flex min-w-0 flex-1 flex-col gap-[12px] rounded-[18px] bg-[rgba(94,133,238,0.04)] px-[14px] py-[14px] md:px-[20px] md:py-[16px]">
           {/* Step tabs */}
-          <div className="flex gap-[10px] items-start">
+          <div className="grid grid-cols-1 gap-[10px] sm:grid-cols-2 xl:grid-cols-5">
             {STEPS.map((step, idx) => {
               const isCompleted = completedSteps[idx]
               const isActive = idx === activeStep
@@ -301,13 +301,13 @@ export function OnboardingGuide() {
           </div>
 
           {/* Active step detail */}
-          <div className="bg-white rounded-[10px] px-[14px] py-[12px] flex items-center justify-between gap-[16px]">
+          <div className="flex flex-col gap-[12px] rounded-[10px] bg-white px-[14px] py-[12px] md:flex-row md:items-center md:justify-between md:gap-[16px]">
             <p className="text-[13px] leading-[20px] text-[#1c1c26]">
               {t(activeStepDef.descriptionKey)}
             </p>
             <button
               onClick={handleAction}
-              className="bg-[#5e85ee] hover:opacity-90 transition-opacity rounded-[10px] px-[12px] py-[8px] text-[13px] leading-[20px] text-white whitespace-nowrap shrink-0"
+              className="shrink-0 whitespace-nowrap rounded-[10px] bg-[#5e85ee] px-[12px] py-[8px] text-[13px] leading-[20px] text-white transition-opacity hover:opacity-90"
             >
               {t(activeStepDef.buttonKey)}
             </button>

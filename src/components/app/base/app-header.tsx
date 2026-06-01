@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { LANGUAGE_OPTIONS } from '@/i18n/messages'
 import { getRouteMeta } from '@/router'
 import useHeaderStore from '@/stores/header'
@@ -21,7 +22,7 @@ import useOrganizationStore from '@/stores/organization'
 import usePreferenceStore from '@/stores/preference'
 import { useTranslation } from '@/utils/i18n'
 import { useDisconnect } from '@reown/appkit/react'
-import { IconBell, IconBuildingPlus, IconLanguage, IconLogout, IconSwitchHorizontal, IconUser, IconUserPlus } from '@tabler/icons-react'
+import { IconBell, IconBuildingPlus, IconLanguage, IconLogout, IconMenu2, IconSwitchHorizontal, IconUser, IconUserPlus } from '@tabler/icons-react'
 import { ChevronLeft, ListChecks } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -78,7 +79,11 @@ function HeaderSubtitle({ text }: { text: string }) {
   )
 }
 
-export default function AppHeader() {
+interface AppHeaderProps {
+  onMenuClick?: () => void
+}
+
+export default function AppHeader({ onMenuClick }: AppHeaderProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { disconnect } = useDisconnect()
@@ -88,6 +93,7 @@ export default function AppHeader() {
   const { unreadCount, fetchUnreadCount } = useNotificationStore()
   const language = usePreferenceStore(s => s.language)
   const updateLanguagePreference = usePreferenceStore(s => s.updateLanguage)
+  const isMobile = useIsMobile()
   const [onboardingDismissed, setOnboardingDismissed] = useState(
     () => localStorage.getItem('pactpay_onboarding_dismissed') === '1'
   )
@@ -198,10 +204,21 @@ export default function AppHeader() {
   }
 
   return (
-    <div className="flex h-[64px] shrink-0 items-center justify-between">
+    <div className="flex min-h-[64px] shrink-0 flex-col items-stretch gap-[12px] md:flex-row md:items-center md:justify-between">
       {/* Page title + subtitle / steps */}
-      <div className="flex min-w-0 flex-col pr-[16px]">
-        <div className="flex items-center gap-[8px]">
+      <div className="flex min-w-0 flex-1 items-start gap-[8px] pr-0 md:pr-[16px]">
+        {isMobile && (
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="mt-[2px] flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[12px] bg-white transition-colors hover:bg-[#f5f5f5]"
+            aria-label="Open navigation menu"
+          >
+            <IconMenu2 className="h-[20px] w-[20px] text-[#1c1c26]" />
+          </button>
+        )}
+        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 items-center gap-[8px]">
           {backUrl && (
             <button
               onClick={handleBack}
@@ -210,12 +227,12 @@ export default function AppHeader() {
               <ChevronLeft size={16} className="text-[#1c1c26]" />
             </button>
           )}
-          <p className="flex h-[42px] items-center overflow-visible font-['Poppins',sans-serif] text-[28px] leading-normal text-[#1c1c26]">
+          <p className="flex min-w-0 items-center overflow-hidden text-ellipsis font-['Poppins',sans-serif] text-[20px] leading-[28px] text-[#1c1c26] md:h-[42px] md:text-[28px] md:leading-normal">
             {meta.title}
           </p>
         </div>
         {steps ? (
-          <div className="flex items-center gap-[10px] mt-[2px]">
+          <div className="mt-[2px] flex flex-wrap items-center gap-[10px]">
             {steps.map((step, i) => (
               <div key={i} className="flex items-center gap-[10px]">
                 {i > 0 && <div className="w-[20px] h-px bg-[rgba(0,0,0,0.2)]" />}
@@ -226,19 +243,19 @@ export default function AppHeader() {
             ))}
           </div>
         ) : breadcrumb ? (
-          <div className="flex items-center gap-[4px] mt-[1px]">
+          <div className="mt-[1px] flex flex-wrap items-center gap-[4px]">
             {breadcrumb.map((item, i) => (
-              <div key={i} className="flex items-center gap-[4px]">
+              <div key={i} className="flex min-w-0 items-center gap-[4px]">
                 {i > 0 && <span className="text-[13px] text-[rgba(0,0,0,0.2)]">/</span>}
                 {item.href ? (
                   <button
                     onClick={() => navigate(item.href!)}
-                    className="text-[13px] leading-[22px] text-[#a4a4a8] hover:text-[#606067] transition-colors"
+                    className="max-w-full truncate text-[13px] leading-[22px] text-[#a4a4a8] transition-colors hover:text-[#606067]"
                   >
                     {item.label}
                   </button>
                 ) : (
-                  <span className="text-[13px] leading-[22px] text-[#1c1c26]">{item.label}</span>
+                  <span className="max-w-full truncate text-[13px] leading-[22px] text-[#1c1c26]">{item.label}</span>
                 )}
               </div>
             ))}
@@ -246,17 +263,18 @@ export default function AppHeader() {
         ) : meta.subtitle ? (
           <HeaderSubtitle text={meta.subtitle} />
         ) : null}
+        </div>
       </div>
 
       {/* Right: bell + user avatar */}
-      <div className="flex items-center gap-[8px]">
+      <div className="flex shrink-0 items-center gap-[8px] self-end md:self-auto">
         {location.pathname === '/orgs/dashboard' && onboardingDismissed && (
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('pactpay:show-onboarding'))}
             title={t('common.gettingStartedGuide')}
-            className="relative flex h-[48px] w-[48px] items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f5f5f5]"
+            className="relative flex h-[40px] w-[40px] items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f5f5f5] md:h-[48px] md:w-[48px]"
           >
-            <ListChecks className="h-[22px] w-[22px] text-[#1c1c26]" />
+            <ListChecks className="h-[18px] w-[18px] text-[#1c1c26] md:h-[22px] md:w-[22px]" />
           </button>
         )}
         <DropdownMenu>
@@ -266,10 +284,10 @@ export default function AppHeader() {
                 <button
                   type="button"
                   aria-label={t('settings.language')}
-                  className="relative flex h-[48px] w-[48px] items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="relative flex h-[40px] w-[40px] items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f5f5f5] disabled:cursor-not-allowed disabled:opacity-60 md:h-[48px] md:w-[48px]"
                   disabled={languageUpdating}
                 >
-                  <IconLanguage className="h-[22px] w-[22px] text-[#1c1c26]" />
+                  <IconLanguage className="h-[18px] w-[18px] text-[#1c1c26] md:h-[22px] md:w-[22px]" />
                 </button>
               </DropdownMenuTrigger>
             </TooltipTrigger>
@@ -295,9 +313,9 @@ export default function AppHeader() {
         </DropdownMenu>
         <button
           onClick={() => navigate(isMember ? '/member/notifications' : '/orgs/notifications')}
-          className="relative flex h-[48px] w-[48px] items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f5f5f5]"
+          className="relative flex h-[40px] w-[40px] items-center justify-center rounded-full bg-white transition-colors hover:bg-[#f5f5f5] md:h-[48px] md:w-[48px]"
         >
-          <IconBell className="h-[22px] w-[22px] text-[#1c1c26]" />
+          <IconBell className="h-[18px] w-[18px] text-[#1c1c26] md:h-[22px] md:w-[22px]" />
           {unreadCount > 0 && (
             <span className="absolute right-[10px] top-[10px] h-[8px] w-[8px] rounded-full bg-[#d92b2b]" />
           )}
@@ -306,12 +324,12 @@ export default function AppHeader() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             {isMember ? (
-              <button className="flex h-[48px] w-[48px] items-center justify-center rounded-full bg-white outline-none hover:bg-[#f5f5f5] transition-colors">
-                <IconUser className="h-[22px] w-[22px] text-[#1c1c26]" />
+              <button className="flex h-[40px] w-[40px] items-center justify-center rounded-full bg-white outline-none transition-colors hover:bg-[#f5f5f5] md:h-[48px] md:w-[48px]">
+                <IconUser className="h-[18px] w-[18px] text-[#1c1c26] md:h-[22px] md:w-[22px]" />
               </button>
             ) : (
               <button className="rounded-full outline-none ring-2 ring-white">
-                <Avatar className="h-[48px] w-[48px] cursor-pointer rounded-full">
+                <Avatar className="h-[40px] w-[40px] cursor-pointer rounded-full md:h-[48px] md:w-[48px]">
                   <AvatarImage src={currentMember?.avatarUrl ?? ''} alt="Member" />
                   <AvatarFallback className="rounded-full bg-[#5e85ee] text-white">
                     {currentMember?.showName?.[0]?.toUpperCase() ?? 'U'}

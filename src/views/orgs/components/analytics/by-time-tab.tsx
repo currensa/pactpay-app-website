@@ -1,7 +1,7 @@
 import apis from '@/apis'
 import type { ByTimeStatistic, ByTimeStatisticsResponse } from '@/apis/statistics.api'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
@@ -392,7 +392,7 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
           <p className="text-[18px] leading-[28px] text-[#1c1c26]">{t('pages.analytics.monthlyBreakdownTable')}</p>
 
           <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
-            <div className="overflow-x-auto">
+            <TableScrollArea>
               <Table className="min-w-[960px]">
                 <TableHeader>
                   <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
@@ -421,7 +421,7 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+            </TableScrollArea>
           </div>
         </div>
       </>

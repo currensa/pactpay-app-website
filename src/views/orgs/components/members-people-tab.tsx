@@ -13,7 +13,7 @@ import {
 import { Drawer, DrawerContent } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { getMemberStatusDisplayName, memberStatus, OrganizationMemberRole } from '@/enums/org'
 import useOrganizationStore from '@/stores/organization'
@@ -354,9 +354,9 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
           <InviteSection onBatchImportClick={() => setBatchImportOpen(true)} onInvited={() => void fetchMembers(1)} />
         )}
 
-        <div className="flex shrink-0 items-center justify-between">
-          <div className="flex items-center gap-[10px]">
-            <div className="flex h-[36px] w-[260px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]">
+        <div className="flex shrink-0 flex-col gap-[10px] md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 flex-col gap-[10px] sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex h-[36px] w-full items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px] sm:w-[260px]">
               <input
                 value={searchQuery}
                 onChange={event => setSearchQuery(event.target.value)}
@@ -366,21 +366,22 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
               <Search className="h-[16px] w-[16px] shrink-0 text-[#8d8d93]" />
             </div>
 
-            <div className="relative">
+            <div className="grid grid-cols-2 gap-[10px] sm:flex sm:gap-[10px]">
+            <div className="relative min-w-0">
               <button
                 onClick={() => {
                   setRoleDropdownOpen(open => !open)
                   setStatusDropdownOpen(false)
                 }}
-                className="flex h-[36px] w-[120px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]"
+                className="flex h-[36px] w-full items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px] sm:w-[120px]"
               >
-                <span className={`text-[13px] leading-[20px] ${roleFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
+                <span className={`truncate text-[13px] leading-[20px] ${roleFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
                   {roleFilter === 'All' ? t('pages.orgMembers.role') : roleFilter}
                 </span>
                 <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${roleDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {roleDropdownOpen && (
-                <div className="absolute left-0 top-full z-20 mt-[4px] w-[120px] overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg">
+                <div className="absolute left-0 top-full z-20 mt-[4px] w-full overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg sm:w-[120px]">
                   {roles.map(role => (
                     <button
                       key={role}
@@ -399,21 +400,21 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
               )}
             </div>
 
-            <div className="relative">
+            <div className="relative min-w-0">
               <button
                 onClick={() => {
                   setStatusDropdownOpen(open => !open)
                   setRoleDropdownOpen(false)
                 }}
-                className="flex h-[36px] w-[160px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]"
+                className="flex h-[36px] w-full items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px] sm:w-[160px]"
               >
-                <span className={`text-[13px] leading-[20px] ${statusFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
+                <span className={`truncate text-[13px] leading-[20px] ${statusFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
                   {statusFilter === 'All' ? t('pages.orgMembers.status') : getMemberStatusDisplayName(statusFilter)}
                 </span>
                 <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {statusDropdownOpen && (
-                <div className="absolute left-0 top-full z-20 mt-[4px] w-[160px] overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg">
+                <div className="absolute left-0 top-full z-20 mt-[4px] w-full overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg sm:w-[160px]">
                   {statuses.map(status => (
                     <button
                       key={status}
@@ -431,9 +432,10 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                 </div>
               )}
             </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-[10px]">
+          <div className="flex flex-wrap items-center gap-[10px] md:justify-end">
             <button
               onClick={() => setInviteSectionOpen(open => !open)}
               className="flex items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white transition-opacity hover:opacity-90"
@@ -452,8 +454,8 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
           </div>
         </div>
 
-        <div className={`min-h-0 flex-1 overflow-x-auto ${refreshing ? 'pointer-events-none opacity-50' : ''}`}>
-          <Table>
+        <TableScrollArea className={`min-h-0 flex-1 ${refreshing ? 'pointer-events-none opacity-50' : ''}`}>
+          <Table className="min-w-[1100px]">
             <TableHeader>
               <TableRow>
                 <TableHead>
@@ -614,7 +616,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
               )}
             </TableBody>
           </Table>
-        </div>
+        </TableScrollArea>
 
         {!loading && total > 0 && (
           <Pagination

@@ -185,3 +185,21 @@
     @apply bg-background text-foreground;
   }
 }
+
+.table-scroll-area {
+  scrollbar-gutter: stable;
+}
+
+.table-scroll-area::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-scroll-area::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+}
+
+.table-scroll-area::-webkit-scrollbar-thumb {
+  background: rgba(94, 133, 238, 0.45);
+  border-radius: 999px;
+}

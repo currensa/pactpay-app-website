@@ -303,8 +303,8 @@ export default function CreateAiTransaction() {
   const hasPlans = plans.length > 0
 
   return (
-    <div className="flex h-full min-h-0 gap-[26px]">
-      <div className="flex min-h-0 flex-1 flex-col gap-[18px] rounded-[32px] bg-white p-[20px]">
+    <div className="flex h-full min-h-0 flex-col gap-[16px] xl:flex-row xl:gap-[26px]">
+      <div className="flex min-h-0 flex-1 flex-col gap-[18px] rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[20px]">
         <div className="shrink-0">
           <p className="text-[13px] font-semibold leading-[22px] text-[#1c1c26]">
             {t('pages.createAiTransaction.usagePlan')} <span className="text-[#d92b2b]">*</span>
@@ -371,7 +371,7 @@ export default function CreateAiTransaction() {
         </div>
       </div>
 
-      <div className="flex w-[320px] shrink-0 flex-col justify-between rounded-[32px] bg-white p-[20px]">
+      <div className="flex w-full shrink-0 flex-col justify-between rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[20px] xl:w-[320px]">
         <div className="flex flex-col gap-[14px]">
           <p className="text-[16px] text-[#1c1c26]" style={{ fontFamily: 'Poppins, sans-serif' }}>
             {t('pages.createAiTransaction.paymentSummary')}
@@ -430,16 +430,16 @@ export default function CreateAiTransaction() {
           </div>
         </div>
 
-        <div className="flex items-center gap-[10px] pt-[20px]">
+        <div className="flex flex-col-reverse gap-[10px] pt-[20px] sm:flex-row sm:items-center">
           <Button
             variant="outline"
-            className="shrink-0"
+            className="w-full shrink-0 sm:w-auto"
             onClick={navigateBack}
           >
             {t('common.cancel')}
           </Button>
           <Button
-            className="flex-1"
+            className="w-full sm:flex-1"
             disabled={!selectedPlan || !amount.trim() || Number(amount) <= 0 || submitting}
             onClick={() => void handleConfirm()}
           >

@@ -2,7 +2,7 @@ import apis from '@/apis'
 import type { ByTransactionStatisticsResponse } from '@/apis/statistics.api'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import useOrganizationStore from '@/stores/organization'
 import { getRelativeExecutionDate, getRelativeExecutionDateTextClassName } from '@/utils/date'
@@ -328,7 +328,7 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
           <p className="text-[18px] leading-[28px] text-[#1c1c26]">{t('pages.analytics.recentTransactionDetailsTable')}</p>
 
           <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
-            <div className="overflow-x-auto">
+            <TableScrollArea>
               <Table className="min-w-[960px]">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -370,7 +370,7 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
                   })}
                 </TableBody>
               </Table>
-            </div>
+            </TableScrollArea>
           </div>
         </div>
       </>

@@ -176,21 +176,21 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col gap-[20px]">
+    <div className="flex flex-col gap-[16px] md:gap-[20px]">
       {/* 使用引导 */}
       <OnboardingGuide />
 
       {/* 顶部概览卡片 */}
-      <div ref={dropdownRef} className="flex gap-[20px]">
+      <div ref={dropdownRef} className="grid grid-cols-1 gap-[12px] md:gap-[20px] xl:grid-cols-4">
         {/* Total Members */}
-        <div className="flex flex-1 items-start justify-between bg-white rounded-[24px] p-[24px]">
+        <div className="flex items-start justify-between rounded-[24px] bg-white p-[18px] md:p-[24px]">
           <div className="flex flex-col gap-[6px]">
             <span className="text-[14px] leading-[22px] text-[#1c1c26]">{t('pages.orgDashboard.totalMembers')}</span>
-            <span className="text-[28px] font-medium leading-[40px] text-[#1c1c26]">
+            <span className="text-[24px] font-medium leading-[32px] text-[#1c1c26] md:text-[28px] md:leading-[40px]">
               {stats.totalMembers.toLocaleString()}
             </span>
           </div>
-          <div className="flex items-center justify-center w-[52px] h-[52px] bg-[#f5f5f5] rounded-[14px] shrink-0">
+          <div className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[14px] bg-[#f5f5f5] md:h-[52px] md:w-[52px]">
             <Users size={26} className="text-[#1c1c26]" />
           </div>
         </div>
@@ -254,7 +254,7 @@ export default function Dashboard() {
           {t('pages.orgDashboard.todaysExecutions')}
         </p>
         {todayTransactions.length === 0 ? (
-          <div className="bg-white rounded-[32px] p-[20px] flex flex-col items-center justify-center gap-[12px]">
+          <div className="flex flex-col items-center justify-center gap-[12px] rounded-[24px] bg-white p-[20px] md:rounded-[32px]">
             <img src="/empty-data.svg" alt={t('pages.orgDashboard.noExecutionsAlt')} className="h-[120px] w-[120px]" />
             <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.orgDashboard.noTransactionsToday')}</p>
           </div>
@@ -288,15 +288,15 @@ export default function Dashboard() {
                   ? 'rgba(94,133,238,0.04)' : isRefunded
                     ? 'rgba(217,43,43,0.04)' : 'rgba(0,0,0,0.03)'
               return (
-                <div key={transaction.id} className="relative bg-white rounded-[28px] p-[20px] flex gap-[24px] items-start overflow-hidden">
+                <div key={transaction.id} className="relative flex flex-col gap-[16px] overflow-hidden rounded-[24px] bg-white p-[16px] md:rounded-[28px] md:p-[20px] xl:flex-row xl:items-start xl:gap-[24px]">
                   {/* Left accent bar */}
                   <div
-                    className="absolute left-0 top-[22px] w-[4px] h-[20px] rounded-r-[100px]"
+                    className="absolute left-0 top-[18px] h-[20px] w-[4px] rounded-r-[100px] md:top-[22px]"
                     style={{ backgroundColor: accentColor }}
                   />
 
                   {/* Left panel */}
-                  <div className="flex flex-col gap-[14px] items-start shrink-0 w-[280px] self-stretch pt-[2px]">
+                  <div className="flex w-full flex-col items-start gap-[14px] pt-[2px] xl:w-[280px] xl:shrink-0 xl:self-stretch">
                     <div className="flex flex-col gap-[6px]">
                       {/* Status badge */}
                       <TransactionStatusBadge status={transaction.transactionStatus} />
@@ -307,7 +307,7 @@ export default function Dashboard() {
                     </div>
 
                     {/* Action buttons */}
-                    <div className="flex items-center gap-[10px]">
+                    <div className="flex flex-wrap items-center gap-[10px]">
                       {!isComplete && hasPermission(Permission.EXECUTE_TRANSACTION) && (
                         <button
                           onClick={() => handleExecuteNow(transaction)}
@@ -337,19 +337,19 @@ export default function Dashboard() {
 
                   {/* Right info panel */}
                   <div
-                    className="flex-1 min-w-0 rounded-[20px] p-[20px] flex flex-col gap-[10px]"
+                    className="flex min-w-0 flex-1 flex-col gap-[10px] rounded-[20px] p-[16px] md:p-[20px]"
                     style={{ backgroundColor: infoBg }}
                   >
                     {/* Date + Network row */}
-                    <div className="flex items-center gap-[8px]">
+                    <div className="flex flex-col gap-[8px] sm:flex-row sm:items-center">
                       <div className="flex items-center gap-[4px]">
                         <CalendarDays className="h-[15px] w-[15px] text-[#606067] shrink-0" />
-                        <span className="text-[13px] leading-[20px] text-[#1c1c26]">{payDate}</span>
+                        <span className="break-words text-[13px] leading-[20px] text-[#1c1c26]">{payDate}</span>
                       </div>
-                      <div className="w-px h-[14px] bg-[rgba(0,0,0,0.12)]" />
+                      <div className="hidden h-[14px] w-px bg-[rgba(0,0,0,0.12)] sm:block" />
                       <div className="flex items-center gap-[4px]">
                         <Globe2 className="h-[15px] w-[15px] text-[#606067] shrink-0" />
-                        <span className="text-[13px] leading-[20px] text-[#1c1c26]">{networkName}</span>
+                        <span className="break-words text-[13px] leading-[20px] text-[#1c1c26]">{networkName}</span>
                       </div>
                     </div>
 

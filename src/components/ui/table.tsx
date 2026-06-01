@@ -4,10 +4,14 @@ import { cn } from '@/lib/utils'
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <table ref={ref} className={cn('w-full caption-bottom', className)} {...props} />
+    <table ref={ref} className={cn('caption-bottom w-max min-w-full', className)} {...props} />
   )
 )
 Table.displayName = 'Table'
+
+function TableScrollArea({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div className={cn('table-scroll-area w-full overflow-x-auto pb-2', className)} {...props} />
+}
 
 const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
   ({ className, ...props }, ref) => <thead ref={ref} className={cn('[&_tr]:border-b [&_tr]:border-[rgba(0,0,0,0.12)]', className)} {...props} />
@@ -83,4 +87,4 @@ function TableSkeletonRows({ rows, cols }: { rows: number; cols: number }) {
   )
 }
 
-export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow, TableSkeletonRows }
+export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow, TableScrollArea, TableSkeletonRows }

@@ -8,6 +8,7 @@ import { memberStatus } from '@/enums/org'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { formatActivityDescription, formatActivityTime } from '@/utils/activity'
+import { useTranslation } from '@/utils/i18n'
 import { canManageMember, getAssignableRoles, getMemberRoles, MemberRole, Permission, useHasPermission } from '@/utils/permissions'
 import { StatusBadge } from '@/views/orgs/components/status-badge'
 import * as SelectPrimitive from '@radix-ui/react-select'
@@ -33,12 +34,6 @@ interface MemberDetailContentProps {
  * Valid combinations exposed to UI: Member | Admin+Member | Operator+Member
  */
 type RoleOption = 'Member' | 'Admin' | 'Operator'
-
-const ROLE_OPTIONS: { value: RoleOption; label: string; description: string }[] = [
-  { value: 'Member', label: 'Member', description: 'View payroll details and submit claims' },
-  { value: 'Operator', label: 'Operator', description: 'Create transactions and manage members' },
-  { value: 'Admin', label: 'Admin', description: 'Full management except Owner operations' },
-]
 
 function getEffectiveRoleOption(roles: string[]): RoleOption {
   if (roles.includes('Admin')) return 'Admin'
@@ -69,6 +64,7 @@ export function MemberDetailContent({
   onSaveSuccess,
 }: MemberDetailContentProps) {
   const { toast } = useToast()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const hasPermission = useHasPermission()
   const [drawerChanges, setDrawerChanges] = useState<DrawerChanges>({})
@@ -120,12 +116,17 @@ export function MemberDetailContent({
   }, [editingFee])
 
   const currentMember = useOrganizationStore(s => s.currentMember)
+  const roleOptions: { value: RoleOption; label: string; description: string }[] = [
+    { value: 'Member', label: t('pages.orgMembers.member'), description: t('pages.orgMembers.memberDetail.roleMemberDescription') },
+    { value: 'Operator', label: 'Operator', description: t('pages.orgMembers.memberDetail.roleOperatorDescription') },
+    { value: 'Admin', label: 'Admin', description: t('pages.orgMembers.memberDetail.roleAdminDescription') },
+  ]
   const currentUserRole = getMemberRoles(currentMember)
   const memberRoles = selectedMember.roles?.map(r => r.role) ?? []
   const targetIsOwner = memberRoles.includes('Owner' as MemberRole)
   const canEditRoles = hasPermission(Permission.SET_OPERATOR) && canManageMember(currentUserRole, memberRoles)
   const canRemove = (selectedMember.status === memberStatus.ACTIVE || selectedMember.status === memberStatus.ACTIVATION) && hasPermission(Permission.REMOVE_MEMBER) && canManageMember(currentUserRole, memberRoles)
-  const visibleRoleOptions = ROLE_OPTIONS.filter(opt =>
+  const visibleRoleOptions = roleOptions.filter(opt =>
     getAssignableRoles(currentUserRole).includes(opt.value as MemberRole)
   )
 
@@ -176,7 +177,7 @@ export function MemberDetailContent({
           : selectedMember.roles,
       }
 
-      toast({ title: 'Success', description: 'Member information updated successfully!' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgMembers.memberDetail.updatedSuccessfully') })
       setDrawerChanges({})
       onSaveSuccess?.(updatedMember)
       onDrawerClose()
@@ -206,16 +207,16 @@ export function MemberDetailContent({
       <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-8">
         {/* Basic Information */}
         <div className="flex flex-col gap-4">
-          <p className="font-bold text-[#1c1c26] text-[14px] leading-6">Basic Information</p>
+          <p className="font-bold text-[#1c1c26] text-[14px] leading-6">{t('pages.orgMembers.memberDetail.basicInformation')}</p>
 
           <div className="flex flex-col gap-[14px]">
             {/* Email — read-only */}
-            <InfoRow label="Email" value={selectedMember.email || '-'} />
+            <InfoRow label={t('pages.orgMembers.email')} value={selectedMember.email || '-'} />
 
             {/* Amount — editable */}
             <div className="flex items-center justify-between">
               <span className="text-[#8d8d93] text-[13px] leading-[22px]">
-                Amount{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
+                {t('pages.orgMembers.amount')}{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
               </span>
               {editingFee ? (
                 <Input
@@ -246,7 +247,7 @@ export function MemberDetailContent({
 
             {/* Role — editable dropdown (只展示当前用户权限范围内可分配的角色) */}
             <div className="flex items-center justify-between">
-              <span className="text-[#8d8d93] text-[13px] leading-[22px]">Role</span>
+              <span className="text-[#8d8d93] text-[13px] leading-[22px]">{t('pages.orgMembers.role')}</span>
               {targetIsOwner ? (
                 <span className="text-[#1c1c26] text-[14px] leading-[24px]">Owner</span>
               ) : canEditRoles ? (
@@ -279,11 +280,11 @@ export function MemberDetailContent({
             </div>
 
             {/* Join Date — read-only */}
-            <InfoRow label="Join Date" value={joinDate} />
+            <InfoRow label={t('pages.orgMembers.memberDetail.joinDate')} value={joinDate} />
 
             {/* Remark — read-only display */}
             {selectedMember.remark && (
-              <InfoRow label="Remark" value={selectedMember.remark} />
+              <InfoRow label={t('pages.analytics.remark')} value={selectedMember.remark} />
             )}
           </div>
         </div>
@@ -310,7 +311,7 @@ export function MemberDetailContent({
           const multiToken = aggregated.length > 1
           return (
             <div className="flex flex-col gap-4">
-              <p className="font-bold text-[#1c1c26] text-[14px] leading-6">Payment Statistics</p>
+              <p className="font-bold text-[#1c1c26] text-[14px] leading-6">{t('pages.orgMembers.memberDetail.paymentStatistics')}</p>
               <div className="flex flex-col gap-[14px]">
                 {aggregated.map((stat, i) => {
                   const symbol = getTokenSymbol(stat.caipChainId, stat.tokenAddress) ?? stat.tokenAddress.slice(0, 6) + '…'
@@ -322,9 +323,9 @@ export function MemberDetailContent({
                       {multiToken && (
                         <span className="text-[#606067] text-[12px] font-medium">{symbol}</span>
                       )}
-                      <InfoRow label="Total Received" value={`${total} ${symbol}`} />
-                      <InfoRow label="Payment Count" value={`${stat.paymentCount}`} />
-                      <InfoRow label="Last Payment" value={lastDate} />
+                      <InfoRow label={t('pages.orgMembers.memberDetail.totalReceived')} value={`${total} ${symbol}`} />
+                      <InfoRow label={t('pages.orgMembers.memberDetail.paymentCount')} value={`${stat.paymentCount}`} />
+                      <InfoRow label={t('pages.orgMembers.memberDetail.lastPayment')} value={lastDate} />
                     </div>
                   )
                 })}
@@ -335,7 +336,7 @@ export function MemberDetailContent({
         {/* Activity Log */}
         {activityLogs.length > 0 && (
           <div className="flex flex-col gap-4">
-            <p className="font-bold text-[#1c1c26] text-[14px] leading-6">Activity Log</p>
+            <p className="font-bold text-[#1c1c26] text-[14px] leading-6">{t('pages.orgMembers.memberDetail.activityLog')}</p>
             <div className="flex flex-col gap-4">
               {activityLogs.map(log => (
                 <div key={log.id} className="flex flex-col gap-[2px]">
@@ -353,7 +354,7 @@ export function MemberDetailContent({
                 className="text-[#5e85ee] text-[13px] leading-[22px] hover:opacity-70 transition-opacity text-left"
                 onClick={handleLoadMoreActivity}
               >
-                Load more
+                {t('pages.orgMembers.memberDetail.loadMore')}
               </button>
             )}
           </div>
@@ -368,14 +369,14 @@ export function MemberDetailContent({
           disabled={!canRemove}
           onClick={() => onRemoveMember(selectedMember)}
         >
-          Remove Member
+          {t('pages.orgMembers.removeMember')}
         </Button>
         <Button
           className="flex-1 bg-[#5e85ee] rounded-[12px] py-[9px] h-auto text-[13px] leading-[22px] font-normal text-white hover:bg-[#5e85ee] disabled:opacity-25 disabled:cursor-not-allowed transition-opacity"
           disabled={!hasUnsavedChanges}
           onClick={handleSaveChanges}
         >
-          Confirm Changes
+          {t('pages.orgMembers.memberDetail.confirmChanges')}
         </Button>
       </div>
     </div>

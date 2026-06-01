@@ -1,6 +1,6 @@
 import apis from '@/apis'
 import type { TransactionPlansResponse } from '@/apis/transaction.api'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { getStatusDisplayName, PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
@@ -272,7 +272,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
 
     return (
       <div className="rounded-[32px] bg-white p-[24px]">
-        <div className="overflow-x-auto">
+        <TableScrollArea>
           <Table className="min-w-[960px]">
             <TableHeader>
               <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
@@ -324,7 +324,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </TableScrollArea>
 
         <div className="mt-[24px] flex flex-col gap-[16px] md:flex-row md:items-center md:justify-between">
           <p className="text-[14px] leading-[22px] text-[#606067]">
