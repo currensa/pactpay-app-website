@@ -1,9 +1,10 @@
 import api from '@/apis'
+import { ImageCropUpload } from '@/components/app/image-crop-upload'
 import useAuthStore from '@/stores/auth'
 import useOrganizationStore from '@/stores/organization'
 import { usePublicCopy } from '@/views/public/copy'
-import { IconArrowLeft, IconCamera } from '@tabler/icons-react'
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { IconArrowLeft } from '@tabler/icons-react'
+import { FormEvent, useEffect, useState } from 'react'
 
 interface CreateOrgStep1Props {
   onBack: () => void
@@ -21,7 +22,6 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
   const [isCheckingMetaPub, setIsCheckingMetaPub] = useState(true)
   const [metaPubSubmitted, setMetaPubSubmittedState] = useState<boolean | null>(null)
   const [shouldReceivePayroll, setShouldReceivePayroll] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const setCurrentOrg = useOrganizationStore(s => s.setCurrentOrg)
   const cachedMetaPubSubmitted = useAuthStore(s => s.metaPubSubmitted)
   const setMetaPubSubmitted = useAuthStore(s => s.setMetaPubSubmitted)
@@ -50,13 +50,6 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
       active = false
     }
   }, [cachedMetaPubSubmitted, setMetaPubSubmitted])
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setAvatarFile(file)
-    setAvatarPreview(URL.createObjectURL(file))
-  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -120,30 +113,19 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
         </div>
 
         {/* Avatar upload */}
-        <div className="flex flex-col items-center gap-[6px]">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="relative flex h-[72px] w-[72px] items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-[rgba(0,0,0,0.12)] bg-[#f5f5f5] transition-colors group hover:border-[#5e85ee]"
-          >
-            {avatarPreview ? (
-              <img src={avatarPreview} alt="avatar" className="h-full w-full object-cover" />
-            ) : (
-              <IconCamera className="h-[24px] w-[24px] text-[#8d8d93] group-hover:text-[#5e85ee] transition-colors" />
-            )}
-            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <IconCamera className="h-[20px] w-[20px] text-white" />
-            </div>
-          </button>
-          <p className="text-[12px] leading-[18px] text-[#8d8d93]">{copy.createOrganization.uploadAvatar}</p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleAvatarChange}
-          />
-        </div>
+        <ImageCropUpload
+          imageUrl={avatarPreview}
+          alt="avatar"
+          fallback={showName?.[0]?.toUpperCase() || '?'}
+          variant="avatar"
+          helperText={copy.createOrganization.uploadAvatar}
+          acceptedMimeTypes={['image/png', 'image/jpeg']}
+          previewWrapperClassName="h-[72px] w-[72px]"
+          onCropped={({ file, previewUrl }) => {
+            setAvatarFile(file)
+            setAvatarPreview(previewUrl)
+          }}
+        />
 
         {/* Display Name 输入框 */}
         <input

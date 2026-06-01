@@ -1,13 +1,14 @@
 import api from '@/apis'
 import { Organization } from '@/apis/orgnization.api'
+import { ImageCropUpload } from '@/components/app/image-crop-upload'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { useTranslation } from '@/utils/i18n'
 import { PaymentConfigFields } from '@/views/orgs/components/payment-config-fields'
-import { BookOpen, Check, Copy, Loader2, Upload, XCircle } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { BookOpen, Check, Copy, XCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 export default function OrganizationSettings() {
@@ -36,7 +37,6 @@ export default function OrganizationSettings() {
   const [selectedChainId, setSelectedChainId] = useState('')
   const [selectedToken, setSelectedToken] = useState('')
 
-  const logoInputRef = useRef<HTMLInputElement>(null)
   const organizationId = localStorage.getItem('organizationId')
   const mcpInstallCommand = 'npm i -g @pactpay/mcp-server'
 
@@ -73,32 +73,18 @@ export default function OrganizationSettings() {
     }
   }
 
-  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ variant: 'destructive', title: t('common.error'), description: t('pages.orgSettings.imageUnder2Mb') })
-      return
-    }
-    if (!file.type.startsWith('image/')) {
-      toast({ variant: 'destructive', title: t('common.error'), description: t('pages.orgSettings.uploadPngOrJpg') })
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onloadend = () => setLogoPreview(reader.result as string)
-    reader.readAsDataURL(file)
-
+  const handleLogoCropped = async (file: File, previewUrl: string) => {
+    const previousPreview = logoPreview
     setLogoUploading(true)
     try {
+      setLogoPreview(previewUrl)
       const url = await api.storage.uploadFile(file)
       setLogoUrl(url)
     } catch {
       toast({ variant: 'destructive', title: t('common.error'), description: t('pages.orgSettings.uploadLogoFailed') })
-      setLogoPreview(null)
+      setLogoPreview(previousPreview)
     } finally {
       setLogoUploading(false)
-      e.target.value = ''
     }
   }
 
@@ -179,43 +165,22 @@ export default function OrganizationSettings() {
         <div className="bg-white rounded-[32px] p-[20px] flex flex-col gap-[20px]">
           <div className="flex flex-col gap-[8px] max-w-[620px]">
             <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgSettings.organizationLogo')}</p>
-            <div className="flex items-start gap-[14px]">
-              <div
-                className="w-[100px] h-[100px] rounded-[14px] overflow-hidden bg-[#1c1c26] shrink-0 flex items-center justify-center cursor-pointer"
-                onClick={() => logoInputRef.current?.click()}
-              >
-                {logoPreview ? (
-                  <img src={logoPreview} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-white text-[28px] font-semibold select-none">
-                    {orgName?.[0]?.toUpperCase() || '?'}
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-col gap-[8px]">
-                <button
-                  onClick={() => logoInputRef.current?.click()}
-                  disabled={logoUploading}
-                  className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors w-fit disabled:opacity-60"
-                >
-                  {logoUploading
-                    ? <Loader2 className="h-[14px] w-[14px] animate-spin" />
-                    : <Upload className="h-[14px] w-[14px]" />
-                  }
-                  {logoUploading ? t('pages.orgSettings.uploading') : t('pages.orgSettings.uploadNewLogo')}
-                </button>
-                <p className="text-[12px] leading-[18px] text-[#bbbbbe]">
-                  {t('pages.orgSettings.logoHint')}
-                </p>
-              </div>
-              <input
-                ref={logoInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/jpg"
-                className="hidden"
-                onChange={handleLogoChange}
-              />
-            </div>
+            <ImageCropUpload
+              imageUrl={logoPreview}
+              alt={orgName || 'Organization logo'}
+              fallback={orgName?.[0]?.toUpperCase() || '?'}
+              variant="logo"
+              actionLabel={logoUploading ? t('pages.orgSettings.uploading') : t('pages.orgSettings.uploadNewLogo')}
+              helperText={t('pages.orgSettings.logoHint')}
+              uploading={logoUploading}
+              acceptedMimeTypes={['image/png', 'image/jpeg']}
+              previewWrapperClassName="h-[100px] w-[100px]"
+              onValidationError={kind => {
+                const description = kind === 'size' ? t('pages.orgSettings.imageUnder2Mb') : t('pages.orgSettings.uploadPngOrJpg')
+                toast({ variant: 'destructive', title: t('common.error'), description })
+              }}
+              onCropped={({ file, previewUrl }) => void handleLogoCropped(file, previewUrl)}
+            />
           </div>
 
           <div className="flex flex-col gap-[8px] max-w-[620px]">

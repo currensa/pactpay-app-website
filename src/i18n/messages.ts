@@ -1,4 +1,4 @@
-import type { PreferenceLanguage } from '@/apis/preference.api'
+﻿import type { PreferenceLanguage } from '@/apis/preference.api'
 
 export const DEFAULT_LANGUAGE: PreferenceLanguage = 'en-US'
 
@@ -64,6 +64,14 @@ export const messages = {
       noRecordsAlt: 'No records',
       save: 'Save',
       saving: 'Saving...',
+      imageCrop: {
+        title: 'Adjust image',
+        description: 'Drag the image, then zoom and rotate it to fit inside the square selection area.',
+        zoom: 'Zoom',
+        rotate: 'Rotate',
+        reset: 'Reset',
+        hint: 'Only the area inside the square mask will be saved.',
+      },
     },
     settings: {
       loginEmail: 'Login Email',
@@ -899,6 +907,14 @@ export const messages = {
       noRecordsAlt: '无记录',
       save: '保存',
       saving: '保存中...',
+      imageCrop: {
+        title: '调整图片',
+        description: '拖动图片，并通过缩放和旋转让内容落在正方形选区内。',
+        zoom: '缩放',
+        rotate: '旋转',
+        reset: '重置',
+        hint: '只有蒙版方框内的区域会被保存。',
+      },
     },
     settings: {
       loginEmail: '登录邮箱',
