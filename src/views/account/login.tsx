@@ -7,12 +7,12 @@ export default function LoginLayout() {
   const isWelcome = location.pathname === '/welcome' || location.pathname === '/welcome/'
 
   return (
-    <div className="flex h-dvh w-full flex-col items-center gap-4 overflow-hidden bg-white px-4 py-[40px] lg:flex-row lg:gap-[60px] lg:px-[80px] lg:py-[80px]">
+    <div className="relative flex min-h-dvh w-full flex-col items-center gap-4 overflow-x-hidden overflow-y-auto bg-white px-4 pb-8 pt-16 lg:h-dvh lg:flex-row lg:gap-[60px] lg:overflow-hidden lg:px-[80px] lg:py-[80px]">
       <div className="absolute right-4 top-4 z-20 lg:right-8 lg:top-8">
         <PublicLanguageSwitcher />
       </div>
       {isWelcome && <IntroSection />}
-      <div className="flex h-full w-full flex-1">
+      <div className="flex w-full flex-1 lg:h-full">
         <Outlet />
       </div>
     </div>
