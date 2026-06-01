@@ -76,7 +76,7 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
         type="button"
         onClick={isConnected ? handleWalletSign : handleWalletConnect}
         disabled={loading}
-        className="flex min-h-[52px] w-full items-center justify-center gap-[8px] rounded-full bg-[#5E85EE] px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-70"
+        className="flex min-h-[46px] w-full items-center justify-center gap-[8px] rounded-full bg-[#5E85EE] px-4 py-3 text-[14px] font-bold leading-[20px] text-white transition-opacity hover:opacity-90 disabled:opacity-70 sm:min-h-[52px] sm:px-[24px] sm:py-[14px] sm:text-[16px] sm:leading-[24px]"
       >
         {loading ? (
           <IconLoader2 className="h-[24px] w-[24px] animate-spin" />
@@ -157,41 +157,41 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   }
 
   return (
-    <div className="flex h-full w-full items-center justify-center">
-      <div className="flex w-full max-w-[480px] flex-col gap-[80px]">
+    <div className="flex w-full items-center justify-center py-1 sm:py-4 lg:h-full">
+      <div className="flex w-full max-w-[480px] flex-col gap-8 sm:gap-10 lg:gap-[80px]">
         <div className="flex flex-col gap-[8px] text-center">
-          <h1 className="font-['Poppins',sans-serif] text-[42px] font-medium leading-none tracking-[-0.84px] text-[#1c1c26] lg:text-[56px] lg:tracking-[-1.12px]">
+          <h1 className="font-['Poppins',sans-serif] text-[34px] font-medium leading-none tracking-[-0.68px] text-[#1c1c26] sm:text-[42px] sm:tracking-[-0.84px] lg:text-[56px] lg:tracking-[-1.12px]">
             {isConnected ? copy.login.welcomeBack : copy.login.createAccount}
           </h1>
         </div>
 
-        <div className="flex flex-col gap-[32px]">
-          <div className="flex w-full max-w-[480px] self-center flex-col gap-[24px]">
+        <div className="flex flex-col gap-6 sm:gap-[32px]">
+          <div className="flex w-full max-w-[480px] self-center flex-col gap-3 sm:gap-[24px]">
             <WalletButton onLoginSuccess={onLoginSuccess} />
             <GoogleSignInButton onLoginSuccess={onLoginSuccess} />
           </div>
 
-          <div className="flex items-center justify-center gap-[24px]">
+          <div className="flex items-center justify-center gap-3 sm:gap-[24px]">
             <div className="h-[1px] flex-1 bg-[#d9d9db]" />
             <span className="text-[16px] leading-[24px] text-[#77777d]">{copy.login.or}</span>
             <div className="h-[1px] flex-1 bg-[#d9d9db]" />
           </div>
 
-          <form onSubmit={emailLogin} noValidate className="flex w-full max-w-[480px] self-center flex-col gap-[24px]">
-            <div className="flex h-[56px] items-center justify-between overflow-hidden rounded-[16px] bg-[#f5f5f5] px-[16px]">
+          <form onSubmit={emailLogin} noValidate className="flex w-full max-w-[480px] self-center flex-col gap-4 sm:gap-[24px]">
+            <div className="flex min-h-[48px] items-center gap-2 overflow-hidden rounded-[14px] bg-[#f5f5f5] px-3 py-2 sm:min-h-[56px] sm:gap-3 sm:rounded-[16px] sm:px-[16px] sm:py-[8px]">
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder={copy.login.emailPlaceholder}
-                className="flex-1 bg-transparent text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none"
+                className="flex-1 bg-transparent text-[14px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] focus:outline-none sm:text-[16px] sm:leading-[24px]"
                 required
               />
               <button
                 type="button"
                 onClick={() => void handleSendCode()}
                 disabled={!email || sendCodeLoading || countdown > 0}
-                className="text-[14px] font-semibold leading-[22px] text-[#5e85ee] transition-opacity hover:opacity-80 disabled:opacity-50"
+                className="shrink-0 rounded-full bg-white px-2.5 py-1.5 whitespace-nowrap text-[11px] font-semibold leading-[16px] text-[#5e85ee] transition-opacity hover:opacity-80 disabled:opacity-50 sm:bg-transparent sm:px-0 sm:py-0 sm:text-[14px] sm:leading-[22px]"
               >
                 {sendCodeLoading ? (
                   <IconLoader2 className="h-[18px] w-[18px] animate-spin" />
@@ -206,13 +206,13 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             </div>
 
             {codeSent && (
-              <div className="flex h-[38px] items-center overflow-hidden rounded-[6px] border border-[#d9d9db] bg-white px-[12px] py-[4px]">
+              <div className="flex min-h-[42px] items-center overflow-hidden rounded-[10px] border border-[#d9d9db] bg-white px-3 py-2 sm:min-h-[44px] sm:rounded-[10px] sm:px-[12px] sm:py-[6px]">
                 <input
                   type="text"
                   value={emailCode}
                   onChange={e => setEmailCode(e.target.value)}
                   placeholder={copy.login.codePlaceholder}
-                  className="flex-1 text-[14px] leading-[22px] text-[#1c1c26] placeholder:text-[rgba(19,19,26,0.2)] focus:outline-none"
+                  className="flex-1 text-[13px] leading-[18px] text-[#1c1c26] placeholder:text-[rgba(19,19,26,0.2)] focus:outline-none sm:text-[14px] sm:leading-[22px]"
                   required
                 />
               </div>
@@ -221,7 +221,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             <button
               type="submit"
               disabled={!codeSent || !emailCode || emailLoginLoading}
-              className="flex min-h-[52px] w-full items-center justify-center gap-[8px] rounded-full border border-[#d9d9db] bg-white px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-[#1c1c26] transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex min-h-[46px] w-full items-center justify-center gap-[8px] rounded-full border border-[#d9d9db] bg-white px-4 py-3 text-[14px] font-bold leading-[20px] text-[#1c1c26] transition-opacity hover:opacity-90 disabled:opacity-50 sm:min-h-[52px] sm:px-[24px] sm:py-[14px] sm:text-[16px] sm:leading-[24px]"
             >
               {emailLoginLoading ? (
                 <IconLoader2 className="h-[24px] w-[24px] animate-spin" />
@@ -234,7 +234,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
             </button>
           </form>
 
-          <p className="text-center text-[12px] leading-[18px] text-[#8d8d93]">
+          <p className="px-1 text-center text-[12px] leading-[18px] text-[#8d8d93]">
             {copy.login.agreePrefix}{' '}
             <button onClick={() => navigate('/legal/terms')} className="underline transition-colors hover:text-[#606067]">
               {copy.common.termsOfUse}

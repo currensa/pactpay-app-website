@@ -157,7 +157,7 @@ export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButto
         <button
           type="button"
           disabled
-          className="flex w-full items-center justify-center gap-[8px] rounded-full border border-[#d9d9db] bg-white px-[24px] py-[14px] text-[16px] font-bold leading-[24px] text-[#1c1c26] opacity-50"
+          className="flex min-h-[46px] w-full items-center justify-center gap-[8px] rounded-full border border-[#d9d9db] bg-white px-4 py-3 text-[14px] font-bold leading-[20px] text-[#1c1c26] opacity-50 sm:min-h-[52px] sm:px-[24px] sm:text-[16px] sm:leading-[24px]"
         >
           <IconBrandGoogle className="h-[24px] w-[24px]" />
           <span>{copy.login.continueWithGoogle}</span>
@@ -172,7 +172,7 @@ export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButto
       <div className={`${loading ? 'pointer-events-none opacity-60' : ''}`}>
         <div
           className="origin-center"
-          style={{ height: 40, transform: `scale(${scaleX}, 1.25)` }}
+          style={{ height: 40, transform: `scale(${scaleX}, 1.2)` }}
         >
           <div ref={buttonContainerRef} className="flex justify-center" />
         </div>

@@ -38,7 +38,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-[400px] translate-x-[-50%] translate-y-[-50%] gap-0 border-none bg-white p-[24px] rounded-[24px] shadow-[0px_12px_40px_0px_rgba(0,0,0,0.12)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+        "fixed left-[50%] top-[50%] z-50 grid w-[calc(100vw-24px)] max-w-[400px] max-h-[calc(100dvh-24px)] translate-x-[-50%] translate-y-[-50%] gap-0 overflow-y-auto border-none bg-white p-[20px] rounded-[20px] shadow-[0px_12px_40px_0px_rgba(0,0,0,0.12)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:w-full sm:max-h-[calc(100dvh-32px)] sm:rounded-[24px] sm:p-[24px]",
         className
       )}
       {...(disableOutsideClose ? {
@@ -49,7 +49,7 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-[20px] top-[20px] flex h-[28px] w-[28px] items-center justify-center rounded-[8px] text-[#606067] transition-opacity hover:opacity-70 focus:outline-none disabled:pointer-events-none">
+      <DialogPrimitive.Close className="absolute right-[16px] top-[16px] flex h-[32px] w-[32px] items-center justify-center rounded-[10px] bg-white/90 text-[#606067] transition-opacity hover:opacity-70 focus:outline-none disabled:pointer-events-none sm:right-[20px] sm:top-[20px] sm:h-[28px] sm:w-[28px] sm:rounded-[8px] sm:bg-transparent">
         <X className="h-[16px] w-[16px]" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>

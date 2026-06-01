@@ -57,16 +57,16 @@ export default function SelectOrganization({
   }
 
   return (
-    <div className="flex h-full w-full flex-col px-[32px] py-[32px] lg:px-[60px] lg:py-[40px]">
-      <div className="mb-8 flex items-center justify-between gap-4">
-        <div>
+    <div className="flex h-full w-full flex-col px-4 py-5 sm:px-[32px] sm:py-[32px] lg:px-[60px] lg:py-[40px]">
+      <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="min-w-0">
           <h1 className="text-[22px] font-bold leading-[32px] text-[#1c1c26]">{copy.selectOrganization.title}</h1>
           <p className="mt-[2px] text-[13px] text-[#8d8d93]">{copy.selectOrganization.description}</p>
         </div>
         <button
           type="button"
           onClick={onEnterAsMember}
-          className="flex shrink-0 items-center gap-[6px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] py-[8px] text-[13px] font-semibold text-[#606067] transition-all hover:border-[#5e85ee] hover:text-[#5e85ee]"
+          className="flex w-full shrink-0 items-center justify-center gap-[6px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] py-[10px] text-[13px] font-semibold text-[#606067] transition-all hover:border-[#5e85ee] hover:text-[#5e85ee] sm:w-auto"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="8" r="4" />
