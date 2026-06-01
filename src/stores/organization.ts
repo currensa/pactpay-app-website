@@ -19,6 +19,7 @@ interface OrganizationState {
   payrollTokenSymbol: string | null
   getOrganizations: () => Promise<UserOrgItem[]>
   setCurrentOrg: (orgId: string, member: OrganizationMember) => void
+  updateCurrentMember: (member: OrganizationMember) => void
   fetchPayrollTokenSymbol: () => Promise<string | null>
   reset: () => void
 }
@@ -52,6 +53,17 @@ const useOrganizationStore = create<OrganizationState>((set) => ({
       payrollConfig: null,
       payrollTokenSymbol: null,
     })
+  },
+  updateCurrentMember: (member: OrganizationMember) => {
+    localStorage.setItem('currentMember', JSON.stringify(member))
+    set(state => ({
+      currentMember: member,
+      organizations: state.organizations.map(item => (
+        item.organization.orgId === member.orgId
+          ? { ...item, member }
+          : item
+      )),
+    }))
   },
   fetchPayrollTokenSymbol: async () => {
     const chainAssetStore = useChainAssetStore.getState()

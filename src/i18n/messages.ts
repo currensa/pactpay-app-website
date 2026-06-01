@@ -193,6 +193,7 @@ export const messages = {
       },
       memberOrgDetail: {
         personalInformation: 'Personal Information',
+        profileDescription: 'Update the profile shown to people in this organization.',
         changeAvatar: 'Change avatar',
         uploading: 'Uploading...',
         imageUnder2Mb: 'Image must be under 2 MB.',
@@ -1119,6 +1120,7 @@ export const messages = {
       },
       memberOrgDetail: {
         personalInformation: '个人信息',
+        profileDescription: '更新你在当前组织内对外展示的资料。',
         changeAvatar: '更换头像',
         uploading: '上传中...',
         imageUnder2Mb: '图片大小必须小于 2 MB。',

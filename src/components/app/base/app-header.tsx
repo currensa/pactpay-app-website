@@ -1,3 +1,6 @@
+import api from '@/apis'
+import { ImageCropUpload } from '@/components/app/image-crop-upload'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -13,6 +16,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useToast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { LANGUAGE_OPTIONS } from '@/i18n/messages'
 import { getRouteMeta } from '@/router'
@@ -21,8 +25,9 @@ import useNotificationStore from '@/stores/notification'
 import useOrganizationStore from '@/stores/organization'
 import usePreferenceStore from '@/stores/preference'
 import { useTranslation } from '@/utils/i18n'
+import { getHighestRole } from '@/utils/permissions'
 import { useDisconnect } from '@reown/appkit/react'
-import { IconBell, IconBuildingPlus, IconLanguage, IconLogout, IconMenu2, IconSwitchHorizontal, IconUser, IconUserPlus } from '@tabler/icons-react'
+import { IconBell, IconBuildingPlus, IconCheck, IconCircleX, IconLanguage, IconLogout, IconMenu2, IconPencil, IconSwitchHorizontal, IconUser, IconUserPlus, IconX } from '@tabler/icons-react'
 import { ChevronLeft, ListChecks } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -89,7 +94,8 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
   const { disconnect } = useDisconnect()
   const { steps, breadcrumb, backUrl } = useHeaderStore()
   const { t } = useTranslation()
-  const { organizations, getOrganizations, setCurrentOrg, currentMember, currentOrgId } = useOrganizationStore()
+  const { toast } = useToast()
+  const { organizations, getOrganizations, setCurrentOrg, updateCurrentMember, currentMember, currentOrgId } = useOrganizationStore()
   const { unreadCount, fetchUnreadCount } = useNotificationStore()
   const language = usePreferenceStore(s => s.language)
   const updateLanguagePreference = usePreferenceStore(s => s.updateLanguage)
@@ -98,9 +104,19 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
     () => localStorage.getItem('pactpay_onboarding_dismissed') === '1'
   )
   const [languageUpdating, setLanguageUpdating] = useState(false)
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false)
+  const [showName, setShowName] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [avatarPreview, setAvatarPreview] = useState('')
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+  const [nameError, setNameError] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const isMember = location.pathname.startsWith('/member')
   const orgId = isMember ? undefined : (currentOrgId ?? undefined)
+  const currentRole = useMemo(() => (currentMember ? getHighestRole(currentMember.roles) : ''), [currentMember])
 
   const hasMemberRole = useMemo(() => {
     return organizations.some(o =>
@@ -128,6 +144,13 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
       window.removeEventListener('pactpay:show-onboarding', onShown)
     }
   }, [])
+
+  useEffect(() => {
+    if (!currentMember) return
+    setShowName(currentMember.showName || '')
+    setAvatarUrl(currentMember.avatarUrl || '')
+    setAvatarPreview(currentMember.avatarUrl || '')
+  }, [currentMember])
 
   // Poll unread count every 30s
   useEffect(() => {
@@ -203,7 +226,66 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
     }
   }
 
+  async function saveProfile(name: string, avatar: string) {
+    if (!currentMember?.memberId || !currentMember?.orgId) return
+
+    try {
+      setSaving(true)
+      const updatedMember = await api.organization.updateMemberProfile(currentMember.orgId, currentMember.memberId, {
+        showName: name || undefined,
+        avatarUrl: avatar || undefined,
+      })
+      updateCurrentMember(updatedMember)
+      setShowName(updatedMember.showName || '')
+      setAvatarUrl(updatedMember.avatarUrl || '')
+      setAvatarPreview(updatedMember.avatarUrl || '')
+      toast({ description: t('pages.memberOrgDetail.profileUpdated') })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleAvatarCropped(file: File, previewUrl: string) {
+    const previousPreview = avatarPreview
+
+    try {
+      setAvatarPreview(previewUrl)
+      setUploading(true)
+      const url = await api.storage.uploadFile(file)
+      setAvatarUrl(url)
+      await saveProfile(showName, url)
+    } catch {
+      toast({ description: t('pages.memberOrgDetail.uploadFailed'), variant: 'destructive' })
+      setAvatarPreview(previousPreview)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handleNameSave() {
+    if (!nameInput.trim()) {
+      setNameError(t('pages.memberOrgDetail.nameRequired'))
+      return
+    }
+
+    setNameError('')
+
+    try {
+      await saveProfile(nameInput.trim(), avatarUrl)
+      setEditingName(false)
+    } catch {
+      // The request interceptor handles visible API errors.
+    }
+  }
+
+  function startEditName() {
+    setNameInput(showName)
+    setNameError('')
+    setEditingName(true)
+  }
+
   return (
+    <>
     <div className="flex min-h-[64px] shrink-0 flex-col items-stretch gap-[12px] md:flex-row md:items-center md:justify-between">
       {/* Page title + subtitle / steps */}
       <div className="flex min-w-0 flex-1 items-start gap-[8px] pr-0 md:pr-[16px]">
@@ -339,15 +421,25 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
             )}
           </DropdownMenuTrigger>
           <DropdownMenuContent className="min-w-48 rounded-[16px]" align="end" sideOffset={8}>
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-3 py-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f5f5f5] shrink-0">
-                  <IconUser className="h-4 w-4 text-[#606067]" />
-                </div>
-                <span className="text-sm font-medium text-[#1c1c26]">{t('common.account')}</span>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            {!isMember && (
+              <>
+                <DropdownMenuItem onClick={() => setProfileDialogOpen(true)} className="cursor-pointer px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8 rounded-full">
+                      <AvatarImage src={currentMember?.avatarUrl ?? ''} alt={currentMember?.showName ?? 'Member'} />
+                      <AvatarFallback className="rounded-full bg-[#5e85ee] text-white">
+                        {currentMember?.showName?.[0]?.toUpperCase() ?? 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="text-sm font-medium text-[#1c1c26]">{showName || t('common.account')}</span>
+                      <span className="text-xs text-[#8d8d93]">{t('pages.memberOrgDetail.personalInformation')}</span>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             {showCreateOrg ? (
               <DropdownMenuGroup>
                 <DropdownMenuItem
@@ -414,5 +506,119 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
         </DropdownMenu>
       </div>
     </div>
+    <Dialog
+      open={profileDialogOpen}
+      onOpenChange={open => {
+        if (saving || uploading) return
+        setProfileDialogOpen(open)
+        if (!open) {
+          setEditingName(false)
+          setNameError('')
+        }
+      }}
+    >
+      <DialogContent className="max-w-[760px] rounded-[28px] border border-[rgba(0,0,0,0.06)] bg-[linear-gradient(180deg,#ffffff_0%,#fbfcff_100%)] p-[24px] md:p-[28px]">
+        <DialogHeader className="border-b border-[rgba(0,0,0,0.08)] pb-[18px]">
+          <DialogTitle>{t('pages.memberOrgDetail.personalInformation')}</DialogTitle>
+          <DialogDescription>{t('pages.memberOrgDetail.profileDescription')}</DialogDescription>
+        </DialogHeader>
+
+        <div className="mt-[24px] rounded-[24px] border border-[rgba(0,0,0,0.08)] bg-white p-[20px] md:p-[24px]">
+          <div className="flex flex-col gap-[20px] md:flex-row md:items-start md:gap-[24px]">
+            <div className="flex shrink-0 flex-col items-center gap-[12px] md:w-[140px]">
+              <ImageCropUpload
+                imageUrl={avatarPreview}
+                alt={showName}
+                fallback={showName?.[0]?.toUpperCase() || '?'}
+                variant="avatar"
+                actionLabel={uploading ? t('pages.memberOrgDetail.uploading') : t('common.change')}
+                uploading={uploading}
+                acceptedMimeTypes={['image/png', 'image/jpeg']}
+                previewWrapperClassName="h-[108px] w-[108px] border-none"
+                onValidationError={kind => {
+                  if (kind === 'size') {
+                    toast({ description: t('pages.memberOrgDetail.imageUnder2Mb'), variant: 'destructive' })
+                    return
+                  }
+                  toast({ description: t('pages.memberOrgDetail.uploadPngOrJpg'), variant: 'destructive' })
+                }}
+                onCropped={({ file, previewUrl }) => void handleAvatarCropped(file, previewUrl)}
+              />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-col gap-[16px]">
+                <div className="flex flex-col gap-[8px]">
+                  <div className="flex items-start justify-between gap-[12px]">
+                    <div className="min-w-0">
+                      <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('pages.memberOrgDetail.name')}</p>
+                    </div>
+                    {!editingName && (
+                      <button
+                        onClick={startEditName}
+                        className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-[10px] bg-[#f5f5f5] text-[#8d8d93] transition-colors hover:bg-[#eef2ff] hover:text-[#5e85ee]"
+                      >
+                        <IconPencil className="h-[16px] w-[16px]" />
+                      </button>
+                    )}
+                  </div>
+
+                  {editingName ? (
+                    <div className="flex min-h-[44px] items-center gap-[8px] rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-[#f5f5f5] px-[12px] py-[6px]">
+                      <input
+                        autoFocus
+                        value={nameInput}
+                        onChange={e => {
+                          setNameInput(e.target.value)
+                          if (nameError) setNameError('')
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') void handleNameSave()
+                          if (e.key === 'Escape') setEditingName(false)
+                        }}
+                        className="min-w-0 flex-1 bg-transparent text-[16px] leading-[24px] text-[#1c1c26] outline-none"
+                      />
+                      <div className="flex shrink-0 items-center gap-[4px]">
+                        <button
+                          onClick={() => void handleNameSave()}
+                          disabled={saving}
+                          className="flex h-[24px] w-[24px] items-center justify-center rounded-[6px] bg-[#5e85ee] transition-opacity hover:opacity-90 disabled:opacity-60"
+                        >
+                          <IconCheck className="h-[14px] w-[14px] text-white" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingName(false)
+                            setNameError('')
+                          }}
+                          className="flex h-[24px] w-[24px] items-center justify-center rounded-[6px] border border-[rgba(0,0,0,0.12)] bg-white transition-colors hover:bg-[#f5f5f5]"
+                        >
+                          <IconX className="h-[14px] w-[14px] text-[#1c1c26]" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-[20px] font-semibold leading-[28px] text-[#1c1c26]">{showName || '-'}</p>
+                  )}
+
+                  {nameError && (
+                    <div className="flex items-center gap-[4px]">
+                      <IconCircleX className="h-[16px] w-[16px] shrink-0 text-[#d92b2b]" />
+                      <p className="text-[14px] leading-[22px] text-[#d92b2b]">{nameError}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t border-[rgba(0,0,0,0.08)] pt-[16px]">
+                  <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('pages.memberOrgDetail.roleInOrganization')}</p>
+                  <p className="mt-[4px] text-[16px] leading-[24px] text-[#1c1c26]">{currentRole || '-'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
