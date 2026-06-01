@@ -171,8 +171,8 @@ export default function DocumentPage() {
       ]
 
   return (
-    <div className="flex flex-1 text-[#1c1c26]" style={{ minHeight: 'calc(100vh - 90px)' }}>
-      <div className="mx-auto flex w-full max-w-6xl">
+    <div className="flex min-w-0 flex-1 text-[#1c1c26]" style={{ minHeight: 'calc(100vh - 90px)' }}>
+      <div className="mx-auto flex min-w-0 w-full max-w-6xl">
         <aside className="sticky top-[90px] hidden h-[calc(100vh-90px)] w-[280px] flex-shrink-0 self-start overflow-y-auto border-r border-[rgba(0,0,0,0.06)] bg-white/60 px-4 py-8 backdrop-blur-sm md:block">
           <ul className="space-y-0.5">
             {navItems.map(({ label, id, sub }) => (
@@ -194,7 +194,7 @@ export default function DocumentPage() {
           </ul>
         </aside>
 
-        <div className="max-w-3xl flex-1 px-4 py-8 sm:px-6 md:px-14 md:py-12">
+        <div className="min-w-0 max-w-3xl flex-1 overflow-x-hidden px-4 py-8 sm:px-6 md:px-14 md:py-12 [&_a]:break-all [&_h2]:break-words [&_h3]:break-words [&_li]:break-words [&_p]:break-words">
           <div className="mb-6 overflow-x-auto rounded-[14px] border border-[rgba(0,0,0,0.06)] bg-white/70 p-3 md:hidden">
             <div className="flex gap-2">
               {navItems.map(({ label, id, sub }) => (
@@ -283,7 +283,7 @@ export default function DocumentPage() {
           </ol>
 
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-xs">
+            <table className="min-w-[640px] w-full border-collapse text-xs">
               <thead>
                 <tr className="bg-[#f5f5f5]">
                   {permissionHeaders.map(header => (
@@ -329,7 +329,7 @@ export default function DocumentPage() {
           <p className="mb-3 text-base leading-relaxed text-[#606067]">
             {isZh ? '许多平台声称安全，但资金实际上经过平台控制账户。PactPay 不同：' : 'Many platforms claim to be secure, but funds actually pass through platform-controlled accounts. PactPay works differently:'}
           </p>
-          <pre className="mb-4 overflow-x-auto rounded-[12px] bg-[#1c1c26] px-5 py-4 text-sm leading-relaxed text-[#f5f5f5]">{isZh ? `你的 EOA 钱包
+          <pre className="mb-4 overflow-x-auto whitespace-pre-wrap break-words rounded-[12px] bg-[#1c1c26] px-5 py-4 text-sm leading-relaxed text-[#f5f5f5]">{isZh ? `你的 EOA 钱包
     -> 发起签名并执行交易
 支付智能合约（链上，可公开验证）
     -> 在领取时间到达后自动释放
@@ -399,7 +399,7 @@ Member's receiving wallet`}</pre>
           </p>
           <div className="mb-6 rounded-[14px] border border-[rgba(0,0,0,0.06)] bg-white/60 px-5 py-4">
             <p className="mb-2 text-base font-semibold text-[#1c1c26]">{isZh ? '安装' : 'Install'}</p>
-            <pre className="mb-3 overflow-x-auto rounded-[10px] bg-[#1c1c26] px-4 py-3 text-sm text-[#f5f5f5]">npx -y @pactpay/mcp-server</pre>
+            <pre className="mb-3 overflow-x-auto whitespace-pre-wrap break-all rounded-[10px] bg-[#1c1c26] px-4 py-3 text-sm text-[#f5f5f5]">npx -y @pactpay/mcp-server</pre>
             <p className="text-base leading-relaxed text-[#606067]">
               {isZh ? '包名：' : 'Package: '}
               <a href="https://www.npmjs.com/package/@pactpay/mcp-server" target="_blank" rel="noreferrer" className="text-[#5e85ee] underline underline-offset-2">
@@ -415,7 +415,7 @@ Member's receiving wallet`}</pre>
           <h3 className="mb-3 mt-8 text-xl font-bold text-[#1c1c26]">{isZh ? '定价' : 'Pricing'}</h3>
           <p className="mb-4 text-base leading-relaxed text-[#606067]">{isZh ? '没有月费。服务费按“每次执行 / 每位成员”计算：' : 'No monthly subscription. You pay per execution per member:'}</p>
           <div className="mb-4 overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+            <table className="min-w-[420px] w-full border-collapse text-sm">
               <thead>
                 <tr className="bg-[#f5f5f5]">
                   {(isZh ? ['网络', '标准价', '当前早期体验价'] : ['Network', 'Standard', 'Early Access (Now)']).map(header => (

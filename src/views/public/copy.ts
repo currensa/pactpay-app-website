@@ -13,6 +13,7 @@ const PUBLIC_COPY = {
     homeLayout: {
       pricing: 'Pricing',
       document: 'Document',
+      testing: 'Testing',
       logIn: 'Log in',
       signUp: 'Sign up',
     },
@@ -156,6 +157,7 @@ const PUBLIC_COPY = {
     homeLayout: {
       pricing: '定价',
       document: '文档',
+      testing: '测试',
       logIn: '登录',
       signUp: '注册',
     },
