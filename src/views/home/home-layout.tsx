@@ -21,7 +21,6 @@ export default function HomeLayout() {
   const navLinks = [
     { label: copy.homeLayout.pricing, to: '/pricing' },
     { label: copy.homeLayout.document, to: '/document' },
-    { label: copy.homeLayout.testing, to: '/testing' },
   ]
 
   return (

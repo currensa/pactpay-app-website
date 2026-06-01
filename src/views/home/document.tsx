@@ -424,7 +424,7 @@ Member's receiving wallet`}</pre>
                 </tr>
               </thead>
               <tbody>
-                {(isZh ? [['Ethereum', '20U', '10U'], ['BSC 或 L2', '5U', '2U']] : [['Ethereum', '20U', '10U'], ['BSC or L2s', '5U', '2U']]).map(([network, standard, early]) => (
+                {(isZh ? [['Ethereum', '20 USD', '10 USD'], ['BSC 或 L2', '5 USD', '2 USD']] : [['Ethereum', '20 USD', '10 USD'], ['BSC or L2s', '5 USD', '2 USD']]).map(([network, standard, early]) => (
                   <tr key={network} className="hover:bg-[rgba(0,0,0,0.01)]">
                     <td className="border border-[rgba(0,0,0,0.08)] px-4 py-3 font-medium text-[#1c1c26]">{network}</td>
                     <td className="border border-[rgba(0,0,0,0.08)] px-4 py-3 text-[#606067]">{standard}</td>

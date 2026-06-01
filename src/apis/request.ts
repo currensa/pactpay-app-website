@@ -3,22 +3,38 @@ import axios, { AxiosError } from 'axios'
 
 let lastErrorToast: { message: string; timestamp: number } | null = null
 
+function normalizeErrorMessage(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim()
+  }
+
+  if (Array.isArray(value)) {
+    const messages = value
+      .map(item => normalizeErrorMessage(item))
+      .filter((item): item is string => Boolean(item))
+    return messages.length ? messages.join('\n') : null
+  }
+
+  if (value && typeof value === 'object') {
+    const message = (value as { message?: unknown }).message
+    const normalized = normalizeErrorMessage(message)
+    if (normalized) return normalized
+  }
+
+  return null
+}
+
 function getErrorMessage(error: AxiosError<any>) {
   const data = error.response?.data
 
-  if (typeof data === 'string' && data.trim()) {
-    return data
+  const normalizedResponseMessage = normalizeErrorMessage(data)
+  if (normalizedResponseMessage) {
+    return normalizedResponseMessage
   }
 
-  if (data && typeof data === 'object') {
-    const message = (data as { message?: unknown }).message
-    if (typeof message === 'string' && message.trim()) {
-      return message
-    }
-  }
-
-  if (typeof error.message === 'string' && error.message.trim()) {
-    return error.message
+  const normalizedErrorMessage = normalizeErrorMessage(error.message)
+  if (normalizedErrorMessage) {
+    return normalizedErrorMessage
   }
 
   if (typeof error.response?.statusText === 'string' && error.response.statusText.trim()) {

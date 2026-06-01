@@ -92,8 +92,11 @@ const routes: RouteItem[] = [
       { index: true, element: <HomeContent /> },
       { path: 'pricing', element: <PricingPage /> },
       { path: 'document', element: <DocumentPage /> },
-      { path: 'testing', element: <TestingPage /> },
     ]
+  },
+  {
+    path: 'testing',
+    element: <TestingPage />,
   },
   {
     path: 'legal/terms',

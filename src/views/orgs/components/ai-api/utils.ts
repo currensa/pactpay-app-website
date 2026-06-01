@@ -1,5 +1,28 @@
+function normalizeErrorMessage(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim()) return value.trim()
+
+  if (Array.isArray(value)) {
+    const messages = value
+      .map(item => normalizeErrorMessage(item))
+      .filter((item): item is string => Boolean(item))
+    return messages.length ? messages.join('\n') : null
+  }
+
+  if (value && typeof value === 'object') {
+    const message = (value as { message?: unknown }).message
+    const normalized = normalizeErrorMessage(message)
+    if (normalized) return normalized
+  }
+
+  return null
+}
+
 export function getErrorMessage(error: any, fallback: string) {
-  return error?.response?.data?.message || error?.message || error?.data?.message || fallback
+  return normalizeErrorMessage(error?.response?.data)
+    || normalizeErrorMessage(error?.response?.data?.message)
+    || normalizeErrorMessage(error?.message)
+    || normalizeErrorMessage(error?.data?.message)
+    || fallback
 }
 
 export function getModelValue(model: string | Record<string, any>) {
