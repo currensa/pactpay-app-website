@@ -1,8 +1,9 @@
 import api from '@/apis'
+import { ImageCropUpload } from '@/components/app/image-crop-upload'
 import { INVITE_CODE_SESSION_KEY } from '@/views/account/join-invite'
 import { usePublicCopy } from '@/views/public/copy'
-import { IconArrowLeft, IconCamera, IconLoader2 } from '@tabler/icons-react'
-import { useRef, useState } from 'react'
+import { IconArrowLeft, IconLoader2 } from '@tabler/icons-react'
+import { useState } from 'react'
 
 interface JoinOrganizationProps {
   onBack: () => void
@@ -17,14 +18,6 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [joinLoading, setJoinLoading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setAvatarFile(file)
-    setAvatarPreview(URL.createObjectURL(file))
-  }
 
   const handleJoin = async () => {
     if (!orgCode.trim() || !showName.trim()) return
@@ -66,30 +59,19 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
         </div>
 
         {/* Avatar upload */}
-        <div className="flex flex-col items-center gap-[8px]">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="relative h-[80px] w-[80px] rounded-full bg-[#f5f5f5] overflow-hidden flex items-center justify-center border-2 border-dashed border-[rgba(0,0,0,0.12)] hover:border-[#5e85ee] transition-colors group"
-          >
-            {avatarPreview ? (
-              <img src={avatarPreview} alt="avatar" className="h-full w-full object-cover" />
-            ) : (
-              <IconCamera className="h-[24px] w-[24px] text-[#8d8d93] group-hover:text-[#5e85ee] transition-colors" />
-            )}
-            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <IconCamera className="h-[20px] w-[20px] text-white" />
-            </div>
-          </button>
-          <p className="text-[12px] leading-[18px] text-[#8d8d93]">{copy.joinOrganization.uploadAvatar}</p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleAvatarChange}
-          />
-        </div>
+        <ImageCropUpload
+          imageUrl={avatarPreview}
+          alt="avatar"
+          fallback={showName?.[0]?.toUpperCase() || '?'}
+          variant="avatar"
+          helperText={copy.joinOrganization.uploadAvatar}
+          acceptedMimeTypes={['image/png', 'image/jpeg']}
+          previewWrapperClassName="h-[80px] w-[80px]"
+          onCropped={({ file, previewUrl }) => {
+            setAvatarFile(file)
+            setAvatarPreview(previewUrl)
+          }}
+        />
 
         {/* Display Name 输入框 */}
         <div className="flex flex-col gap-[8px]">

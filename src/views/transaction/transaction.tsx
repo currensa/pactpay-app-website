@@ -16,7 +16,6 @@ import useOrganizationStore from '@/stores/organization'
 import { formatLocalDateTime } from '@/utils/date'
 import { useTranslation } from '@/utils/i18n'
 import { Permission, useHasPermission } from '@/utils/permissions'
-import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { getErrorMessage } from '@/views/orgs/components/ai-api/utils'
 import { TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
 import { formatUnits } from 'ethers'
@@ -93,8 +92,6 @@ export default function TransactionPage() {
   const [refundDialogOpen, setRefundDialogOpen] = useState(false)
   const [refundingTransaction, setRefundingTransaction] = useState<Transaction | null>(null)
   const [refundingTransactionPlan, setRefundingTransactionPlan] = useState<TransactionPlan | null>(null)
-  const [refundSuccessDialogOpen, setRefundSuccessDialogOpen] = useState(false)
-  const [lastRefundTxHash, setLastRefundTxHash] = useState('')
 
   const [payrollSetupDialogOpen, setPayrollSetupDialogOpen] = useState(false)
   const [selectedChainId, setSelectedChainId] = useState('')
@@ -473,10 +470,9 @@ export default function TransactionPage() {
 
   const handleRefundSuccess = async (txHash: string) => {
     setRefundDialogOpen(false)
-    setLastRefundTxHash(txHash)
-    setRefundSuccessDialogOpen(true)
-    await new Promise(r => setTimeout(r, 2000))
     await fetchTransactions(currentPage, statusFilter, debouncedSearch, transactionType)
+    setRefundingTransaction(null)
+    setRefundingTransactionPlan(null)
   }
 
   const startIndex = visiblePeopleTransactions.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1
@@ -861,48 +857,6 @@ export default function TransactionPage() {
               }}
               onSuccess={handleRefundSuccess}
             />
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={refundSuccessDialogOpen} onOpenChange={setRefundSuccessDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('pages.transactions.refundSubmitted')}</DialogTitle>
-              <DialogDescription>
-                {t('pages.transactions.refundSubmittedDescription')}
-              </DialogDescription>
-            </DialogHeader>
-            {lastRefundTxHash && (() => {
-              const explorerUrl = getChain(refundingTransactionPlan?.caipChainId ?? '')?.explorerUrls?.[0]
-              const txUrl = buildExplorerTransactionUrl(explorerUrl, lastRefundTxHash)
-              return (
-                <p className="mt-[16px] break-all text-[13px] text-[#606067]">
-                  {t('pages.transactions.tx')}:{' '}
-                  {txUrl ? (
-                    <a
-                      href={txUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-[#5e85ee] hover:underline"
-                    >
-                      {formatTransactionHash(lastRefundTxHash, true)}
-                    </a>
-                  ) : (
-                    <span className="font-mono text-[#1c1c26]">{lastRefundTxHash}</span>
-                  )}
-                </p>
-              )
-            })()}
-            <DialogFooter>
-              <Button onClick={() => {
-                setRefundSuccessDialogOpen(false)
-                setRefundingTransaction(null)
-                setLastRefundTxHash('')
-              }}
-              >
-                {t('pages.transactions.close')}
-              </Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
 

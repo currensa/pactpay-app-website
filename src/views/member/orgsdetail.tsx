@@ -1,4 +1,5 @@
 import api from '@/apis'
+import { ImageCropUpload } from '@/components/app/image-crop-upload'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import useOrganizationStore from '@/stores/organization'
@@ -6,7 +7,7 @@ import { useTranslation } from '@/utils/i18n'
 import { getHighestRole } from '@/utils/permissions'
 import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
 import { IconCheck, IconCircleX, IconLoader2, IconPencil, IconX } from '@tabler/icons-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function MemberOrgsDetail() {
@@ -32,9 +33,6 @@ export default function MemberOrgsDetail() {
 
   const { getOrganizations } = useOrganizationStore()
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-
   useEffect(() => {
     if (!orgId) return
     getOrganizations().then(list => {
@@ -48,31 +46,19 @@ export default function MemberOrgsDetail() {
     }).catch(console.error)
   }, [orgId])
 
-  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 2 * 1024 * 1024) {
-      toast({ description: t('pages.memberOrgDetail.imageUnder2Mb'), variant: 'destructive' })
-      return
-    }
-    if (!file.type.startsWith('image/')) {
-      toast({ description: t('pages.memberOrgDetail.uploadPngOrJpg'), variant: 'destructive' })
-      return
-    }
-    const reader = new FileReader()
-    reader.onloadend = () => setAvatarPreview(reader.result as string)
-    reader.readAsDataURL(file)
+  async function handleAvatarCropped(file: File, previewUrl: string) {
+    const previousPreview = avatarPreview
     try {
+      setAvatarPreview(previewUrl)
       setUploading(true)
       const url = await api.storage.uploadFile(file)
       setAvatarUrl(url)
       await saveProfile(showName, url)
     } catch {
       toast({ description: t('pages.memberOrgDetail.uploadFailed'), variant: 'destructive' })
-      setAvatarPreview(avatarUrl)
+      setAvatarPreview(previousPreview)
     } finally {
       setUploading(false)
-      e.target.value = ''
     }
   }
 
@@ -144,35 +130,23 @@ export default function MemberOrgsDetail() {
       <div className="bg-white rounded-[32px] p-[24px] flex gap-[24px] items-start">
         {/* Avatar column */}
         <div className="flex flex-col items-center gap-[12px] shrink-0">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="relative h-[108px] w-[108px] rounded-full overflow-hidden bg-[#f5f5f5] group"
-            title={t('pages.memberOrgDetail.changeAvatar')}
-          >
-            {avatarPreview
-              ? <img src={avatarPreview} alt={showName} className="h-full w-full object-cover" />
-              : <span className="flex h-full w-full items-center justify-center text-[36px] font-bold text-[#8d8d93]">
-                {showName?.[0]?.toUpperCase() || '?'}
-              </span>
-            }
-            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <IconPencil className="h-[24px] w-[24px] text-white" />
-            </div>
-          </button>
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="text-[12px] leading-[18px] text-[#1c1c26] hover:text-[#5e85ee] transition-colors"
-          >
-            {uploading ? t('pages.memberOrgDetail.uploading') : t('common.change')}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleAvatarChange}
+          <ImageCropUpload
+            imageUrl={avatarPreview}
+            alt={showName}
+            fallback={showName?.[0]?.toUpperCase() || '?'}
+            variant="avatar"
+            actionLabel={uploading ? t('pages.memberOrgDetail.uploading') : t('common.change')}
+            uploading={uploading}
+            acceptedMimeTypes={['image/png', 'image/jpeg']}
+            previewWrapperClassName="h-[108px] w-[108px] border-none"
+            onValidationError={kind => {
+              if (kind === 'size') {
+                toast({ description: t('pages.memberOrgDetail.imageUnder2Mb'), variant: 'destructive' })
+                return
+              }
+              toast({ description: t('pages.memberOrgDetail.uploadPngOrJpg'), variant: 'destructive' })
+            }}
+            onCropped={({ file, previewUrl }) => void handleAvatarCropped(file, previewUrl)}
           />
         </div>
 
