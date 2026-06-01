@@ -1,3 +1,4 @@
+import PublicLanguageSwitcher from '@/components/app/base/public-language-switcher'
 import { usePublicCopy } from '@/views/public/copy'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -152,6 +153,10 @@ export default function TestingPage() {
         </aside>
 
         <div className="min-w-0 max-w-3xl flex-1 overflow-x-hidden px-4 py-8 sm:px-6 md:px-14 md:py-12 [&_a]:break-all [&_h1]:break-words [&_h2]:break-words [&_h3]:break-words [&_li]:break-words [&_p]:break-words">
+          <div className="mb-5 flex justify-end">
+            <PublicLanguageSwitcher />
+          </div>
+
           <div className="mb-6 overflow-x-auto rounded-[14px] border border-[rgba(0,0,0,0.06)] bg-white/70 p-3 md:hidden">
             <div className="flex gap-2">
               {navItems.map(({ label, id, sub }) => (
