@@ -6,6 +6,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
+import { useTranslation } from '@/utils/i18n'
 import { AlertCircle, CheckCircle, Download, Upload, XCircle } from 'lucide-react'
 import { useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
@@ -26,6 +27,7 @@ interface BatchResult {
 
 export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
   const { toast } = useToast()
+  const { t } = useTranslation()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep] = useState<Step>('upload')
@@ -80,7 +82,7 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
     const isXlsx = file.name.endsWith('.xlsx')
     const isCsv = file.name.endsWith('.csv')
     if (!isXlsx && !isCsv) {
-      toast({ title: 'Error', description: 'Please upload a CSV or XLSX file', variant: 'destructive' }); return
+      toast({ title: t('common.error'), description: t('pages.orgMembers.batchImportDialog.invalidFile'), variant: 'destructive' }); return
     }
     const reader = new FileReader()
     if (isXlsx) {
@@ -131,7 +133,7 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
         await apis.organization.sendEmailInvitation(payload, { skipErrorToast: true })
         results.push({ row: rowNum, email, success: true, message: '' })
       } catch (error: any) {
-        results.push({ row: rowNum, email, success: false, message: error?.response?.data?.message || 'Failed' })
+        results.push({ row: rowNum, email, success: false, message: error?.response?.data?.message || t('pages.orgMembers.batchImportDialog.failed') })
       }
       setProgress({ current: i + 1, total: validRows.length })
     }
@@ -148,7 +150,7 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
     if (!result) return
     const activeHeaders = headers.map((h, idx) => ({ h, idx })).filter(({ h }) => h.trim() !== '')
     const failedResults = result.results.filter(r => !r.success)
-    const hdrs = [...activeHeaders.map(({ h }) => h), 'Error']
+    const hdrs = [...activeHeaders.map(({ h }) => h), t('pages.orgMembers.batchImportDialog.errorColumn')]
     const dataRows = failedResults.map(r => {
       const rowData = previewRows[r.row - 2]
       const activeCells = activeHeaders.map(({ idx }) => rowData ? (rowData.cells[idx] ?? '') : '')
@@ -157,22 +159,22 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
     const ws = XLSX.utils.aoa_to_sheet([hdrs, ...dataRows])
     ws['!cols'] = hdrs.map(h => ({ wch: Math.max(20, h.length + 4) }))
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Errors')
-    XLSX.writeFile(wb, 'import-error-report.xlsx')
+    XLSX.utils.book_append_sheet(wb, ws, t('pages.orgMembers.batchImportDialog.errorsSheet'))
+    XLSX.writeFile(wb, t('pages.orgMembers.batchImportDialog.fileName'))
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-[580px] p-[24px] gap-0 flex flex-col gap-[20px]">
         <DialogHeader className="p-0">
-          <DialogTitle className="text-[16px] font-semibold leading-[24px] text-[#1c1c26]">Batch Import Members</DialogTitle>
+          <DialogTitle className="text-[16px] font-semibold leading-[24px] text-[#1c1c26]">{t('pages.orgMembers.batchImportDialog.title')}</DialogTitle>
         </DialogHeader>
 
         {step === 'upload' && (
           <>
             <button onClick={handleDownloadTemplate} className="flex items-center gap-[4px] text-[13px] font-semibold text-[#5e85ee] hover:opacity-80 transition-opacity w-fit">
               <Download className="h-[14px] w-[14px]" />
-              Download Template
+              {t('pages.orgMembers.batchImportDialog.downloadTemplate')}
             </button>
             <div
               onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
@@ -185,8 +187,8 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
                 <Upload className="h-[24px] w-[24px] text-white" />
               </div>
               <div className="flex flex-col items-center gap-[2px]">
-                <p className="text-[13px] leading-[20px] text-[#1c1c26]">Click or drag to upload file</p>
-                <p className="text-[12px] leading-[18px] text-[#8d8d93]">Supports CSV / XLSX, Max 5MB</p>
+                <p className="text-[13px] leading-[20px] text-[#1c1c26]">{t('pages.orgMembers.batchImportDialog.uploadPrompt')}</p>
+                <p className="text-[12px] leading-[18px] text-[#8d8d93]">{t('pages.orgMembers.batchImportDialog.uploadHint')}</p>
               </div>
             </div>
             <input type="file" ref={fileInputRef} accept=".csv,.xlsx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }} />
@@ -196,18 +198,18 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
         {step === 'preview' && (
           <>
             <div className="flex items-center gap-[12px]">
-              <p className="text-[14px] leading-[22px] text-[#1c1c26]">Total: {total} rows</p>
+              <p className="text-[14px] leading-[22px] text-[#1c1c26]">{t('pages.orgMembers.batchImportDialog.totalRows', { total })}</p>
               <div className="flex items-center gap-[2px]">
                 <CheckCircle className="h-[18px] w-[18px] text-[#5ddd22]" />
-                <p className="text-[14px] leading-[22px] text-[#1c1c26]">Valid: {previewRows.filter(r => r.valid).length}</p>
+                <p className="text-[14px] leading-[22px] text-[#1c1c26]">{t('pages.orgMembers.batchImportDialog.validRows', { count: previewRows.filter(r => r.valid).length })}</p>
               </div>
               <div className="flex items-center gap-[2px]">
                 <XCircle className="h-[18px] w-[18px] text-[#d92b2b]" />
-                <p className="text-[14px] leading-[22px] text-[#1c1c26]">Invalid: {previewRows.filter(r => !r.valid).length}</p>
+                <p className="text-[14px] leading-[22px] text-[#1c1c26]">{t('pages.orgMembers.batchImportDialog.invalidRows', { count: previewRows.filter(r => !r.valid).length })}</p>
               </div>
             </div>
             <div className="flex flex-col gap-[6px]">
-              <p className="text-[11px] leading-[16px] text-[#8d8d93]">Preview of the first 10 items</p>
+              <p className="text-[11px] leading-[16px] text-[#8d8d93]">{t('pages.orgMembers.batchImportDialog.previewFirstTen')}</p>
               <div className="border border-[rgba(0,0,0,0.12)] rounded-[12px] overflow-hidden">
                 <div className="overflow-y-auto max-h-[260px]">
                   <table className="w-full border-collapse">
@@ -246,8 +248,8 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
               </div>
             </div>
             <div className="flex items-center justify-end gap-[10px]">
-              <button onClick={() => setStep('upload')} className="rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors">Back</button>
-              <button onClick={handleConfirmImport} disabled={importing} className="rounded-[12px] bg-[#5e85ee] px-[14px] py-[8px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60">Import</button>
+              <button onClick={() => setStep('upload')} className="rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors">{t('pages.orgMembers.batchImportDialog.back')}</button>
+              <button onClick={handleConfirmImport} disabled={importing} className="rounded-[12px] bg-[#5e85ee] px-[14px] py-[8px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60">{t('pages.orgMembers.batchImportDialog.import')}</button>
             </div>
           </>
         )}
@@ -255,7 +257,7 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
         {step === 'importing' && (
           <div className="flex flex-col items-center justify-center gap-[8px] h-[200px] w-full rounded-[12px] bg-[#f5f5f5]">
             <div className="h-[36px] w-[36px] animate-spin rounded-full border-[3px] border-[#5e85ee] border-t-transparent border-r-transparent" />
-            <p className="text-[14px] leading-[22px] text-[#1c1c26]">Importing... {progress.current}/{progress.total}</p>
+            <p className="text-[14px] leading-[22px] text-[#1c1c26]">{t('pages.orgMembers.batchImportDialog.importing', { current: progress.current, total: progress.total })}</p>
           </div>
         )}
 
@@ -264,17 +266,17 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
             {result?.failCount === 0 ? (
               <>
                 <CheckCircle className="h-[52px] w-[52px] text-[#5ddd22]" strokeWidth={1.5} />
-                <p className="text-[14px] leading-[22px] text-[#1c1c26]">{result.successCount} members imported successfully.</p>
+                <p className="text-[14px] leading-[22px] text-[#1c1c26]">{t('pages.orgMembers.batchImportDialog.importSuccess', { count: result.successCount })}</p>
               </>
             ) : (
               <>
                 <AlertCircle className="h-[52px] w-[52px] text-[#ffa800]" strokeWidth={1.5} />
                 <p className="text-[14px] leading-[22px] text-[#1c1c26]">
-                  {result?.successCount} successed, <span className="text-[#d92b2b]">{result?.failCount}</span> failed.
+                  {t('pages.orgMembers.batchImportDialog.importPartial', { successCount: result?.successCount ?? 0, failCount: result?.failCount ?? 0 })}
                 </p>
                 <button onClick={handleDownloadErrorReport} className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[8px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f0f0f0] transition-colors">
                   <Download className="h-[14px] w-[14px]" />
-                  Download error report
+                  {t('pages.orgMembers.batchImportDialog.downloadErrorReport')}
                 </button>
               </>
             )}

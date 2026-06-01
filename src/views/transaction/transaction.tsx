@@ -7,7 +7,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Pagination } from '@/components/ui/pagination'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import { cn } from '@/lib/utils'
@@ -229,9 +229,9 @@ export default function TransactionPage() {
 
     return {
       id: plan.id,
-      transactionName: plan.transactionName || `AI API Top up ${plan.id.slice(0, 8)}`,
+      transactionName: plan.transactionName || `${t('pages.createAiTransaction.aiTopUpName')} ${plan.id.slice(0, 8)}`,
       network: getChain(plan.caipChainId)?.name || plan.caipChainId || '-',
-      payees: 'API Service',
+      payees: t('pages.transactions.apiService'),
       amount: formattedAmount,
       status: plan.transactionStatus || 'pending',
       payDay: plan.payPeriod || plan.createdAt,
@@ -339,7 +339,7 @@ export default function TransactionPage() {
 
   const aiTransactions = useMemo(
     () => rawTransactions.filter(item => item.transactionType === 'token_usage_plan').map(transformAiTransaction),
-    [rawTransactions, usagePlanIdByKey],
+    [rawTransactions, t, usagePlanIdByKey],
   )
 
   const visiblePeopleTransactions = useMemo(() => (
@@ -489,12 +489,12 @@ export default function TransactionPage() {
     return <ChevronsUpDown className="h-[14px] w-[14px] text-[#8d8d93]" />
   }
 
-  const STATUS_OPTIONS = [
-    { value: 'all', label: t('pages.transactions.allStatuses') },
-    { value: PayrollTransactionStatus.READY, label: 'Ready' },
-    { value: PayrollTransactionStatus.COMPLETE, label: 'Complete' },
-    { value: PayrollTransactionStatus.REFUNDED, label: 'Refunded' },
-  ]
+    const STATUS_OPTIONS = [
+      { value: 'all', label: t('pages.transactions.allStatuses') },
+      { value: PayrollTransactionStatus.READY, label: t('pages.transactions.ready') },
+      { value: PayrollTransactionStatus.COMPLETE, label: t('pages.transactions.complete') },
+      { value: PayrollTransactionStatus.REFUNDED, label: t('pages.transactions.refunded') },
+    ]
 
   const actionGroupClassName = 'flex flex-wrap items-center gap-3'
   const actionPrimaryButtonClassName = 'whitespace-nowrap rounded-[12px] bg-[#5e85ee] px-[10px] py-[5px] text-[13px] text-white transition-opacity hover:bg-[#5e85ee]/90 disabled:cursor-not-allowed disabled:bg-[#d8def8] disabled:text-white disabled:hover:bg-[#d8def8]'
@@ -602,11 +602,11 @@ export default function TransactionPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-[16px]">
-      <div className="flex h-full min-h-0 flex-col gap-[16px] rounded-[32px] bg-white p-[20px]">
+      <div className="flex h-full min-h-0 flex-col gap-[16px] rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[20px]">
         <TransactionTabsNav activeTab={activeTab} onTabChange={handleTabChange} />
-        <div className="flex shrink-0 items-center justify-between">
-          <div className="flex items-center gap-[10px]">
-            <div className="flex h-[36px] w-[260px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]">
+        <div className="flex shrink-0 flex-col gap-[10px] lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-[10px] sm:flex-row sm:items-center">
+            <div className="flex h-[36px] w-full items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px] sm:w-[260px]">
               <input
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
@@ -620,7 +620,7 @@ export default function TransactionPage() {
               <div className="relative">
                 <button
                   onClick={() => setStatusDropdownOpen(v => !v)}
-                  className="flex h-[36px] w-[130px] items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px]"
+                  className="flex h-[36px] w-full items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px] sm:w-[130px]"
                 >
                   <span className={`text-[13px] leading-[20px] ${statusFilter === 'all' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
                     {STATUS_OPTIONS.find(option => option.value === statusFilter)?.label ?? t('pages.transactions.statusFallback')}
@@ -628,7 +628,7 @@ export default function TransactionPage() {
                   <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {statusDropdownOpen && (
-                  <div className="absolute left-0 top-full z-20 mt-[4px] w-[160px] overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg">
+                  <div className="absolute left-0 top-full z-20 mt-[4px] w-full overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg sm:w-[160px]">
                     {STATUS_OPTIONS.map(option => (
                       <button
                         key={option.value}
@@ -651,6 +651,7 @@ export default function TransactionPage() {
           <div className="flex items-center gap-[10px]">
             {hasPermission(Permission.CREATE_TRANSACTION) && (
               <Button
+                className="w-full sm:w-auto"
                 onClick={() => {
                   const defaultType = activeTab === 'people' ? '?type=people' : activeTab === 'ai' ? '?type=ai' : ''
                   navigate(`/orgs/transaction/create${defaultType}`)
@@ -663,8 +664,8 @@ export default function TransactionPage() {
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-x-auto">
-          <Table>
+        <TableScrollArea className="flex-1 min-h-0">
+          <Table className="min-w-[920px]">
             <TableHeader>
               <TableRow>
                 {activeTab === 'all' && <TableHead>{t('pages.transactions.type')}</TableHead>}
@@ -755,7 +756,7 @@ export default function TransactionPage() {
               ) : (
                 allTransactions.map(row => (
                   <TableRow key={`${row.type}-${row.id}`}>
-                    <TableCell>{row.type}</TableCell>
+                    <TableCell>{row.type === 'People' ? t('pages.transactions.typePeople') : t('pages.transactions.typeAi')}</TableCell>
                     <TableCell>{row.transaction}</TableCell>
                     <TableCell>{row.network}</TableCell>
                     <TableCell>{row.payees}</TableCell>
@@ -776,7 +777,7 @@ export default function TransactionPage() {
               )}
             </TableBody>
           </Table>
-        </div>
+        </TableScrollArea>
 
         <Pagination
           currentPage={currentPage}

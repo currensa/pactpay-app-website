@@ -371,3 +371,4 @@ export function formatTranslatedStatusLabel(status: string, translate: Analytics
       return formatStatusLabel(status)
   }
 }
+

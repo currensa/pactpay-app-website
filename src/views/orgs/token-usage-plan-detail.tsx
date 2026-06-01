@@ -19,7 +19,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
@@ -650,7 +650,7 @@ export default function TokenUsagePlanDetailPage() {
           <Button
             onClick={() => navigate(`/orgs/transaction/create-ai?planId=${encodeURIComponent(detail.plan.id)}`)}
           >
-            Top up
+            {t('pages.orgAiApiPayees.topUp')}
           </Button>
         </div>
 
@@ -737,8 +737,8 @@ export default function TokenUsagePlanDetailPage() {
 
         {activeTab === 'api-keys' ? (
           <>
-            <div className="overflow-x-auto">
-              <Table>
+            <TableScrollArea>
+              <Table className="min-w-[1180px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t('pages.orgUsagePlanDetail.apiName')}</TableHead>
@@ -871,7 +871,7 @@ export default function TokenUsagePlanDetailPage() {
                   )}
                 </TableBody>
               </Table>
-            </div>
+            </TableScrollArea>
 
             <div className="mt-[20px]">
               <Pagination
@@ -891,8 +891,8 @@ export default function TokenUsagePlanDetailPage() {
           </>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <Table>
+            <TableScrollArea>
+              <Table className="min-w-[980px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap">{t('pages.orgUsagePlanDetail.time')}</TableHead>
@@ -943,7 +943,7 @@ export default function TokenUsagePlanDetailPage() {
                   )}
                 </TableBody>
               </Table>
-            </div>
+            </TableScrollArea>
 
             <div className="mt-[20px]">
               <Pagination

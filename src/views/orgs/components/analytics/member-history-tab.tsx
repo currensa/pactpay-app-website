@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
 import useChainAssetStore from '@/stores/chain-asset'
@@ -50,6 +50,7 @@ function getInitials(value: string) {
 }
 
 function MemberHistoryStatusBadge({ status }: { status: MemberHistoryStatus }) {
+  const { t } = useTranslation()
   const colorClasses = status === 'active'
     ? 'bg-[rgba(93,221,34,0.12)] text-[#5ddd22]'
     : status === 'left'
@@ -58,7 +59,7 @@ function MemberHistoryStatusBadge({ status }: { status: MemberHistoryStatus }) {
 
   return (
     <span className={cn('inline-flex items-center rounded-[8px] px-[8px] py-[2px] text-[14px] leading-[22px] whitespace-nowrap', colorClasses)}>
-      {status}
+      {status === 'active' ? t('pages.analytics.active') : status === 'left' ? t('pages.analytics.left') : t('pages.analytics.delete')}
     </span>
   )
 }
@@ -371,7 +372,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
     return (
       <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
         <div className={cn('transition-opacity', listLoading && 'opacity-60')}>
-          <div className="overflow-x-auto">
+          <TableScrollArea>
             <Table className="min-w-[900px]">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
@@ -458,7 +459,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                 )}
               </TableBody>
             </Table>
-          </div>
+          </TableScrollArea>
 
           <div className="mt-[24px] flex flex-col gap-[16px] md:flex-row md:items-center md:justify-between">
             <p className="text-[14px] leading-[22px] text-[#606067]">
@@ -535,7 +536,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
             <p className="text-[18px] leading-[28px] text-[#1c1c26]">{t('pages.analytics.payoutSummaryThisOrg')}</p>
 
             <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
-              <div className="overflow-x-auto">
+              <TableScrollArea>
                 <Table className="min-w-[720px]">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -585,7 +586,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                     )}
                   </TableBody>
                 </Table>
-              </div>
+              </TableScrollArea>
             </div>
           </div>
 

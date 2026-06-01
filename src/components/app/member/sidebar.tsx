@@ -13,7 +13,12 @@ const BOTTOM_ITEMS: OrgNavItem[] = [
   { title: 'Settings', titleKey: 'route.settings', key: 'settings', url: '/member/settings', icon: IconSettings },
 ]
 
-export default function MemberSidebar() {
+interface MemberSidebarProps {
+  mobileOpen?: boolean
+  onMobileOpenChange?: (open: boolean) => void
+}
+
+export default function MemberSidebar({ mobileOpen, onMobileOpenChange }: MemberSidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const [navItems, setNavItems] = useState<OrgNavItem[]>([...TOP_ITEMS, ...BOTTOM_ITEMS])
@@ -63,5 +68,12 @@ export default function MemberSidebar() {
     ])
   }, [location.key, navigate, organizations])
 
-  return <AppSidebar navItems={navItems} hideSwitchButton />
+  return (
+    <AppSidebar
+      navItems={navItems}
+      hideSwitchButton
+      mobileOpen={mobileOpen}
+      onMobileOpenChange={onMobileOpenChange}
+    />
+  )
 }

@@ -1,0 +1,3 @@
+export const MOBILE_LAYOUT_BREAKPOINT = 768
+
+export const MOBILE_LAYOUT_MEDIA_QUERY = `(max-width: ${MOBILE_LAYOUT_BREAKPOINT - 1}px)`

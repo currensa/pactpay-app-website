@@ -1,6 +1,6 @@
 import apis from '@/apis'
 import { Pagination } from '@/components/ui/pagination'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea, TableSkeletonRows } from '@/components/ui/table'
 import { PayrollItemStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
@@ -113,7 +113,8 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
 
   return (
     <div className="flex flex-col gap-[12px]">
-      <Table>
+      <TableScrollArea>
+        <Table className="min-w-[980px]">
         <TableHeader>
           <TableRow>
             <TableHead>{t('components.payrollHistoryTable.scheduledFor')}</TableHead>
@@ -190,7 +191,8 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
             })
           )}
         </TableBody>
-      </Table>
+        </Table>
+      </TableScrollArea>
 
       <Pagination
         currentPage={currentPage}

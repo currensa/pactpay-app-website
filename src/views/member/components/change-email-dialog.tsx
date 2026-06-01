@@ -1,6 +1,7 @@
 import api from '@/apis'
 import ModalContainer from '@/components/ui/modal-container'
 import { useToast } from '@/components/ui/use-toast'
+import { useTranslation } from '@/utils/i18n'
 import { IconCheck } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 
@@ -18,6 +19,7 @@ type Step = 'verify' | 'newEmail'
 
 export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, currentEmail = '', mode = 'change' }: ChangeEmailDialogProps) {
   const { toast } = useToast()
+  const { t } = useTranslation()
   const [step, setStep] = useState<Step>('verify')
   const [oldCode, setOldCode] = useState('')
   const [newEmail, setNewEmail] = useState('')
@@ -79,7 +81,7 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
     try {
       setLoading(true)
       await api.auth.bindEmail(newEmail, newEmailCode, mode === 'change' ? oldCode : undefined)
-      toast({ description: mode === 'change' ? 'Email changed successfully.' : 'Email bound successfully.' })
+      toast({ description: mode === 'change' ? t('settings.changeEmail.emailChangedSuccessfully') : t('settings.changeEmail.emailBoundSuccessfully') })
       onSuccess?.(newEmail)
       onClose()
     } catch {
@@ -104,7 +106,7 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
     <ModalContainer open={open} onClose={onClose} className="max-w-[560px]">
       <div className="flex flex-col gap-[24px] pr-[32px]">
         {/* Title */}
-        <p className="font-bold text-[18px] leading-[28px] text-[#1c1c26]">{mode === 'bind' ? 'Bind Email' : 'Change Email'}</p>
+        <p className="font-bold text-[18px] leading-[28px] text-[#1c1c26]">{mode === 'bind' ? t('settings.changeEmail.bindTitle') : t('settings.changeEmail.changeTitle')}</p>
 
         {/* Stepper — bind 模式只有一步，不显示 */}
         {mode === 'change' && (
@@ -112,14 +114,14 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
             <div className="flex items-center gap-[8px]">
               <StepIndicator active={step === 'verify'} completed={step === 'newEmail'} number={1} />
               <span className={`text-[16px] leading-[24px] whitespace-nowrap ${step === 'verify' || step === 'newEmail' ? 'text-[#5e85ee]' : 'text-[#1c1c26]'}`}>
-                Verify current email
+                {t('settings.changeEmail.verifyCurrentEmail')}
               </span>
             </div>
             <div className="flex-1 h-px bg-[rgba(0,0,0,0.12)]" />
             <div className="flex items-center gap-[8px]">
               <StepIndicator active={step === 'newEmail'} number={2} />
               <span className={`text-[16px] leading-[24px] whitespace-nowrap ${step === 'newEmail' ? 'text-[#5e85ee]' : 'text-[#1c1c26]'}`}>
-                Enter new email
+                {t('settings.changeEmail.enterNewEmail')}
               </span>
             </div>
           </div>
@@ -128,11 +130,11 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
         {step === 'verify' ? (
           <>
             <p className="text-[16px] leading-[24px] text-[#1c1c26]">
-              Verify your current email. We'll send a 6-digit code to
+              {t('settings.changeEmail.verifyCurrentDescription')}
             </p>
             <div className="flex flex-col gap-[24px]">
               <div className="flex flex-col gap-[8px]">
-                <p className="text-[16px] leading-[24px] text-[#1c1c26]">Current Email</p>
+                <p className="text-[16px] leading-[24px] text-[#1c1c26]">{t('settings.changeEmail.currentEmail')}</p>
                 <div className="flex items-center justify-between bg-[#f5f5f5] rounded-[12px] px-[16px] py-[12px]">
                   <p className="text-[16px] leading-[24px] text-[#1c1c26] truncate flex-1">{currentEmail}</p>
                   <button
@@ -140,16 +142,16 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
                     disabled={oldCodeCountdown > 0}
                     className={`shrink-0 text-[14px] font-semibold leading-[22px] ${oldCodeCountdown > 0 ? 'text-[#8d8d93]' : 'text-[#5e85ee]'}`}
                   >
-                    {oldCodeCountdown > 0 ? `${oldCodeCountdown}s` : 'Send Code'}
+                    {oldCodeCountdown > 0 ? `${oldCodeCountdown}s` : t('settings.changeEmail.sendCode')}
                   </button>
                 </div>
               </div>
               <div className="flex flex-col gap-[8px]">
-                <p className="text-[16px] leading-[24px] text-[#1c1c26]">Verification Code</p>
+                <p className="text-[16px] leading-[24px] text-[#1c1c26]">{t('settings.changeEmail.verificationCode')}</p>
                 <input
                   value={oldCode}
                   onChange={e => setOldCode(e.target.value)}
-                  placeholder="Enter code (case insensitive)"
+                  placeholder={t('settings.changeEmail.enterCodePlaceholder')}
                   className="bg-[#f5f5f5] rounded-[12px] px-[16px] py-[12px] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#8d8d93] outline-none w-full"
                 />
               </div>
@@ -159,30 +161,30 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
                 onClick={onClose}
                 className="px-[16px] py-[10px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[14px] leading-[22px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleVerify}
                 disabled={!oldCode}
                 className={`px-[16px] py-[10px] rounded-[12px] bg-[#5e85ee] text-[14px] leading-[22px] text-white transition-opacity ${!oldCode ? 'opacity-25' : 'hover:opacity-90'}`}
               >
-                Verify
+                {t('settings.changeEmail.verify')}
               </button>
             </div>
           </>
         ) : (
           <>
             <p className="text-[16px] leading-[24px] text-[#1c1c26]">
-              Enter your new email. We'll send a code there to confirm.
+              {t('settings.changeEmail.newEmailDescription')}
             </p>
             <div className="flex flex-col gap-[24px]">
               <div className="flex flex-col gap-[8px]">
-                <p className="text-[16px] leading-[24px] text-[#1c1c26]">New Email</p>
+                <p className="text-[16px] leading-[24px] text-[#1c1c26]">{t('settings.changeEmail.newEmail')}</p>
                 <div className="flex items-center justify-between bg-[#f5f5f5] rounded-[12px] px-[16px] py-[12px]">
                   <input
                     value={newEmail}
                     onChange={e => setNewEmail(e.target.value)}
-                    placeholder="New email"
+                    placeholder={t('settings.changeEmail.newEmailPlaceholder')}
                     className="flex-1 bg-transparent text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#8d8d93] outline-none"
                   />
                   <button
@@ -190,16 +192,16 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
                     disabled={newEmailCountdown > 0 || !newEmail}
                     className={`shrink-0 text-[14px] font-semibold leading-[22px] ${newEmailCountdown > 0 || !newEmail ? 'text-[#8d8d93]' : 'text-[#5e85ee]'}`}
                   >
-                    {newEmailCountdown > 0 ? `${newEmailCountdown}s` : 'Send Code'}
+                    {newEmailCountdown > 0 ? `${newEmailCountdown}s` : t('settings.changeEmail.sendCode')}
                   </button>
                 </div>
               </div>
               <div className="flex flex-col gap-[8px]">
-                <p className="text-[16px] leading-[24px] text-[#1c1c26]">Verification Code</p>
+                <p className="text-[16px] leading-[24px] text-[#1c1c26]">{t('settings.changeEmail.verificationCode')}</p>
                 <input
                   value={newEmailCode}
                   onChange={e => setNewEmailCode(e.target.value)}
-                  placeholder="Enter code (case insensitive)"
+                  placeholder={t('settings.changeEmail.enterCodePlaceholder')}
                   className="bg-[#f5f5f5] rounded-[12px] px-[16px] py-[12px] text-[16px] leading-[24px] text-[#1c1c26] placeholder:text-[#8d8d93] outline-none w-full"
                 />
               </div>
@@ -209,14 +211,14 @@ export default function ChangeEmailDialog({ open, onClose, onSuccess, userId, cu
                 onClick={onClose}
                 className="px-[16px] py-[10px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[14px] leading-[22px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleConfirm}
                 disabled={!newEmail || !newEmailCode || loading}
                 className={`px-[16px] py-[10px] rounded-[12px] bg-[#5e85ee] text-[14px] leading-[22px] text-white transition-opacity ${!newEmail || !newEmailCode || loading ? 'opacity-25' : 'hover:opacity-90'}`}
               >
-                {loading ? 'Verifying...' : 'Verify'}
+                {loading ? t('settings.changeEmail.verifying') : t('settings.changeEmail.verify')}
               </button>
             </div>
           </>

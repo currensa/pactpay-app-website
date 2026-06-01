@@ -36,6 +36,7 @@ const HomeLayout = lazy(() => import('@/views/home/home-layout'))
 const HomeContent = lazy(() => import('@/views/home/home-content'))
 const PricingPage = lazy(() => import('@/views/home/pricing'))
 const DocumentPage = lazy(() => import('@/views/home/document'))
+const TestingPage = lazy(() => import('@/views/home/testing'))
 const TermsPage = lazy(() => import('@/views/home/terms'))
 const PrivacyPage = lazy(() => import('@/views/home/privacy'))
 
@@ -92,6 +93,10 @@ const routes: RouteItem[] = [
       { path: 'pricing', element: <PricingPage /> },
       { path: 'document', element: <DocumentPage /> },
     ]
+  },
+  {
+    path: 'testing',
+    element: <TestingPage />,
   },
   {
     path: 'legal/terms',

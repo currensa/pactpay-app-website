@@ -275,7 +275,7 @@ export default function OrganizationSettings() {
             onSelectedChainIdChange={setSelectedChainId}
             onSelectedTokenChange={setSelectedToken}
             networkLabelExtra={
-              <a href="/testing.html" target="_blank" rel="noopener noreferrer" className="text-[12px] text-[#5e85ee] hover:underline">
+              <a href="/testing" target="_blank" rel="noopener noreferrer" className="text-[12px] text-[#5e85ee] hover:underline">
                 {t('pages.orgSettings.testOnSepolia')}
               </a>
             }

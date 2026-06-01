@@ -3,7 +3,7 @@ import AuthChecker from '@/components/app/base/auth-checker'
 import OrgSidebar from '@/components/app/orgs/sidebar'
 import useOrganizationStore from '@/stores/organization'
 import { Permission, useHasPermission } from '@/utils/permissions'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 
 function OrgGuard({ children }: { children: React.ReactNode }) {
@@ -23,6 +23,7 @@ function OrgGuard({ children }: { children: React.ReactNode }) {
 export default function OrgLayout() {
   const currentOrgId = useOrganizationStore(s => s.currentOrgId)
   const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   useEffect(() => {
     if (!currentOrgId) return
@@ -34,10 +35,10 @@ export default function OrgLayout() {
   return (
     <AuthChecker>
       <OrgGuard>
-        <div className="flex h-screen overflow-hidden bg-[#f5f5f5] gap-[24px] p-[24px]">
-          <OrgSidebar />
-          <div className="flex flex-1 flex-col min-w-0 gap-[24px] overflow-hidden">
-            <AppHeader />
+        <div className="flex min-h-dvh bg-[#f5f5f5] p-[12px] md:h-screen md:overflow-hidden md:gap-[24px] md:p-[24px]">
+          <OrgSidebar mobileOpen={mobileSidebarOpen} onMobileOpenChange={setMobileSidebarOpen} />
+          <div className="flex min-w-0 flex-1 flex-col gap-[12px] md:gap-[24px] md:overflow-hidden">
+            <AppHeader onMenuClick={() => setMobileSidebarOpen(true)} />
             <main className="flex-1 overflow-y-auto">
               <Outlet />
             </main>

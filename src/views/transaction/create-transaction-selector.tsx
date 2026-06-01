@@ -74,27 +74,27 @@ export default function CreateTransactionSelector() {
   )
 
   return (
-    <div className="rounded-[32px] bg-white">
+    <div className="rounded-[24px] bg-white md:rounded-[32px]">
       <div className="grid min-h-[620px] lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.9fr)]">
-        <div className="p-[24px] md:p-[32px]">
-          <div className="flex items-center gap-[16px] border-b border-[rgba(0,0,0,0.08)] pb-[20px]">
-            <div className="flex items-center gap-[10px]">
+        <div className="p-[16px] md:p-[32px]">
+          <div className="flex flex-wrap items-center gap-[12px] border-b border-[rgba(0,0,0,0.08)] pb-[16px] md:gap-[16px] md:pb-[20px]">
+            <div className="flex items-center gap-[8px] md:gap-[10px]">
               <span className="flex h-[30px] min-w-[30px] items-center justify-center rounded-full bg-[#5e85ee] px-[8px] text-[13px] font-semibold text-white">
                 1
               </span>
               <span className="text-[14px] font-medium text-[#5e85ee]">{t('pages.createTransactionSelector.paymentType')}</span>
             </div>
             <span className="text-[14px] text-[#c0c0c5]">/</span>
-            <div className="flex items-center gap-[10px]">
+            <div className="flex items-center gap-[8px] md:gap-[10px]">
               <span className="text-[14px] font-medium text-[#a4a4a8]">2</span>
               <span className="text-[14px] font-medium text-[#a4a4a8]">{t('pages.createTransactionSelector.details')}</span>
             </div>
           </div>
 
-          <div className="pt-[28px]">
+          <div className="pt-[20px] md:pt-[28px]">
             <p className="text-[18px] font-semibold text-[#1c1c26]">{t('pages.createTransactionSelector.question')}</p>
 
-            <div className="mt-[20px] grid gap-[16px] xl:grid-cols-2">
+            <div className="mt-[16px] grid gap-[12px] md:mt-[20px] md:gap-[16px] xl:grid-cols-2">
               {TYPE_OPTIONS.map(option => {
                 const Icon = option.icon
                 const selected = selectedType === option.id
@@ -104,14 +104,14 @@ export default function CreateTransactionSelector() {
                     key={option.id}
                     type="button"
                     onClick={() => setSelectedType(option.id)}
-                    className={`rounded-[24px] border p-[20px] text-left transition-colors ${
+                    className={`rounded-[24px] border p-[16px] text-left transition-colors md:p-[20px] ${
                       selected
                         ? 'border-[#5e85ee] bg-[rgba(94,133,238,0.06)]'
                         : 'border-[rgba(0,0,0,0.08)] bg-white hover:bg-[#f8f8fb]'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-[16px]">
-                      <div className="flex h-[56px] w-[56px] items-center justify-center rounded-[18px] bg-[rgba(94,133,238,0.08)]">
+                    <div className="flex items-start justify-between gap-[12px] md:gap-[16px]">
+                      <div className="flex h-[48px] w-[48px] items-center justify-center rounded-[16px] bg-[rgba(94,133,238,0.08)] md:h-[56px] md:w-[56px] md:rounded-[18px]">
                         <Icon className="h-[24px] w-[24px] text-[#5e85ee]" />
                       </div>
                       <span
@@ -122,8 +122,8 @@ export default function CreateTransactionSelector() {
                       />
                     </div>
 
-                    <div className="mt-[44px]">
-                      <p className="text-[18px] font-semibold text-[#1c1c26]">{t(option.titleKey)}</p>
+                    <div className="mt-[28px] md:mt-[44px]">
+                      <p className="text-[16px] font-semibold text-[#1c1c26] md:text-[18px]">{t(option.titleKey)}</p>
                       <p className="mt-[6px] text-[14px] leading-[22px] text-[#8d8d93]">{t(option.descriptionKey)}</p>
                     </div>
                   </button>
@@ -132,11 +132,12 @@ export default function CreateTransactionSelector() {
             </div>
           </div>
 
-          <div className="mt-[32px] flex items-center justify-between border-t border-[rgba(0,0,0,0.08)] pt-[20px]">
-            <Button variant="outline" onClick={() => navigate('/orgs/transaction')}>
+          <div className="mt-[24px] flex flex-col-reverse gap-[10px] border-t border-[rgba(0,0,0,0.08)] pt-[16px] md:mt-[32px] md:flex-row md:items-center md:justify-between md:pt-[20px]">
+            <Button variant="outline" className="w-full md:w-auto" onClick={() => navigate('/orgs/transaction')}>
               {t('common.cancel')}
             </Button>
             <Button
+              className="w-full md:w-auto"
               disabled={!selectedOption}
               onClick={() => {
                 if (!selectedOption) return
@@ -148,7 +149,7 @@ export default function CreateTransactionSelector() {
           </div>
         </div>
 
-        <div className="border-t border-[rgba(0,0,0,0.08)] p-[24px] md:p-[32px] lg:border-l lg:border-t-0">
+        <div className="border-t border-[rgba(0,0,0,0.08)] p-[16px] md:p-[32px] lg:border-l lg:border-t-0">
           {selectedOption ? (
             <div className="flex h-full flex-col">
               <div className="flex items-center gap-[12px]">

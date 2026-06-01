@@ -78,7 +78,7 @@ function NotificationRow({
   }
 
   return (
-    <div className="flex gap-[24px] items-start pb-[16px] border-b border-[rgba(0,0,0,0.12)]">
+    <div className="flex items-start gap-[12px] border-b border-[rgba(0,0,0,0.12)] pb-[16px] md:gap-[24px]">
       {/* Checkbox */}
       <div className="flex items-center justify-center p-[10px] shrink-0 h-[24px] w-[24px] mt-[2px]">
         <div
@@ -95,13 +95,13 @@ function NotificationRow({
       </div>
 
       {/* Content */}
-      <div className="flex flex-1 flex-col gap-[4px] min-w-0">
-        <div className="flex items-start gap-[8px] w-full min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col gap-[4px]">
+        <div className="flex w-full min-w-0 flex-col gap-[4px] md:flex-row md:items-start md:gap-[8px]">
           {/* Unread dot */}
           {isUnread && (
             <div className="h-[6px] w-[6px] shrink-0 rounded-full bg-[#5e85ee]" />
           )}
-          <p className="text-[15px] leading-[24px] font-bold text-[#1c1c26] shrink-0 max-w-[40%] truncate">
+          <p className="max-w-full text-[15px] font-bold leading-[24px] text-[#1c1c26] md:max-w-[40%] md:shrink-0 md:truncate">
             {item.title}
           </p>
           <p className="flex-1 min-w-0 whitespace-normal break-words text-[15px] leading-[24px] text-[#8d8d93]">
@@ -207,12 +207,12 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-[24px]">
-      <div className="bg-white rounded-[32px] p-[24px] flex flex-col gap-[24px]">
+    <div className="flex flex-col gap-[20px] md:gap-[24px]">
+      <div className="flex flex-col gap-[20px] rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[24px] md:gap-[24px]">
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between h-[44px] shrink-0">
-          <div className="flex items-center gap-[12px]">
+        <div className="flex shrink-0 flex-col gap-[12px] md:h-[44px] md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-[12px]">
             {/* Select all checkbox */}
             <div className="flex items-center justify-center p-[10px] h-[24px] w-[24px]">
               <div
@@ -234,7 +234,7 @@ export default function NotificationsPage() {
             <div className="relative">
               <button
                 onClick={() => setStatusOpen(v => !v)}
-                className="flex items-center justify-between gap-[8px] border border-[rgba(0,0,0,0.12)] rounded-[12px] px-[16px] py-[10px] min-w-[140px] text-[15px] leading-[24px] text-[#8d8d93] outline-none"
+                className="flex min-w-[140px] items-center justify-between gap-[8px] rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[16px] py-[10px] text-[15px] leading-[24px] text-[#8d8d93] outline-none"
               >
                 <span>{unreadOnly ? t('pages.notifications.unread') : t('pages.notifications.status')}</span>
                 <ChevronDown className="h-[20px] w-[20px] shrink-0" />
@@ -259,7 +259,7 @@ export default function NotificationsPage() {
           {/* Mark all as read */}
           <button
             onClick={handleMarkAllRead}
-            className="flex items-center gap-[4px] border border-[rgba(0,0,0,0.12)] rounded-[12px] px-[14px] py-[10px] text-[14px] leading-[22px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
+            className="flex items-center gap-[4px] self-start rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[14px] py-[10px] text-[14px] leading-[22px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5] md:self-auto"
           >
             {t('pages.notifications.markAllRead')}
           </button>
@@ -289,7 +289,7 @@ export default function NotificationsPage() {
 
         {/* Footer: count + pagination */}
         {!loading && items.length > 0 && (
-          <div className="flex items-center justify-between shrink-0">
+          <div className="flex shrink-0 flex-col gap-[12px] md:flex-row md:items-center md:justify-between">
             <p className="text-[14px] leading-[22px] text-[#606067]">
               {t('pages.notifications.showing', {
                 from: (page - 1) * PAGE_SIZE + 1,

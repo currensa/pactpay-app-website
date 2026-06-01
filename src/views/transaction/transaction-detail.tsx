@@ -3,7 +3,7 @@ import type { TransactionPlan } from '@/apis/transaction.api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Pagination } from '@/components/ui/pagination'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
@@ -100,13 +100,26 @@ export default function TransactionDetail() {
 
   const payDay = formatLocalDateTime(plan.payPeriod)
   const relativeExecutionDate = getRelativeExecutionDate(plan.payPeriod)
+  const relativeExecutionDateLabel = relativeExecutionDate.diffDays == null
+    ? relativeExecutionDate.label
+    : relativeExecutionDate.diffDays === 0
+      ? t('pages.analytics.today')
+      : relativeExecutionDate.diffDays > 0
+        ? t('pages.analytics.inDays', {
+          count: relativeExecutionDate.diffDays,
+          dayLabel: t(relativeExecutionDate.diffDays === 1 ? 'pages.analytics.daySingular' : 'pages.analytics.dayPlural')
+        })
+        : t('pages.analytics.daysAgo', {
+          count: Math.abs(relativeExecutionDate.diffDays),
+          dayLabel: t(Math.abs(relativeExecutionDate.diffDays) === 1 ? 'pages.analytics.daySingular' : 'pages.analytics.dayPlural')
+        })
   const diffDays = relativeExecutionDate.diffDays ?? 0
   const isDueToday = diffDays === 0 && plan.transactionStatus !== PayrollTransactionStatus.COMPLETE
   const isComplete = plan.transactionStatus === PayrollTransactionStatus.COMPLETE
   const isRefunded = plan.transactionStatus === PayrollTransactionStatus.REFUNDED
   const executionDateLabel = (
     <span className={getRelativeExecutionDateTextClassName(relativeExecutionDate.tone)}>
-      {relativeExecutionDate.label}
+      {relativeExecutionDateLabel}
     </span>
   )
 
@@ -172,28 +185,28 @@ export default function TransactionDetail() {
   return (
     <div className="flex flex-col gap-[20px]">
       {/* ── Info card ──────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-[32px] p-6 flex flex-col gap-[16px]">
+      <div className="bg-white rounded-[32px] p-4 md:p-6 flex flex-col gap-[16px]">
         {/* Top row: status + name + actions */}
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-[10px]">
+        <div className="flex flex-col gap-[16px] md:flex-row md:items-start md:justify-between">
+          <div className="flex min-w-0 flex-col gap-[10px]">
             {/* Status badge + transaction name */}
-            <div className="relative flex items-center gap-[10px] pl-[12px]">
+            <div className="relative flex min-w-0 flex-wrap items-center gap-[10px] pl-[12px]">
               <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-[4px] h-[22px] rounded-full ${isComplete ? 'bg-[#5ddd22]' : isRefunded ? 'bg-[#606067]' : 'bg-[#5e85ee]'}`} />
               <TransactionStatusBadge status={plan.transactionStatus} />
-              <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">{plan.transactionName}</span>
+              <span className="min-w-0 break-words text-[#1c1c26] text-[16px] font-bold leading-[26px]">{plan.transactionName}</span>
             </div>
             {/* Meta row */}
-            <div className="flex items-center gap-[14px] text-[13px] leading-[22px]">
+            <div className="flex flex-wrap items-center gap-x-[14px] gap-y-[6px] text-[13px] leading-[22px]">
               <span>
                 <span className="text-[#8d8d93]">{t('pages.transactionDetail.payDayLocal')}: </span>
                 <span className="text-[#1c1c26] font-medium">{payDay}</span>
               </span>
-              <div className="w-px h-[14px] bg-[rgba(0,0,0,0.12)]" />
+              <div className="hidden h-[14px] w-px bg-[rgba(0,0,0,0.12)] sm:block" />
               <span>
                 <span className="text-[#8d8d93]">{t('pages.transactionDetail.executionDateLocal')}: </span>
                 {executionDateLabel}
               </span>
-              <div className="w-px h-[14px] bg-[rgba(0,0,0,0.12)]" />
+              <div className="hidden h-[14px] w-px bg-[rgba(0,0,0,0.12)] sm:block" />
               <span>
                 <span className="text-[#8d8d93]">{t('pages.transactionDetail.network')}: </span>
                 <span className="text-[#1c1c26]">{networkName}</span>
@@ -202,14 +215,14 @@ export default function TransactionDetail() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-[10px]">
+          <div className="flex w-full flex-wrap items-center gap-[10px] md:w-auto md:justify-end">
             {isComplete
               ? (
                 <>
                   {hasPermission(Permission.REACTION_TRANSACTION) && (
                     <button
                       onClick={() => setReactionConfirmOpen(true)}
-                      className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
+                      className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] text-[13px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
                     >
                       <CreditCard size={14} />
                       {t('pages.transactionDetail.reaction')}
@@ -218,7 +231,7 @@ export default function TransactionDetail() {
                   {hasPermission(Permission.EXECUTE_TRANSACTION) && plan.items.some(item => item.status !== 'claimed') && (
                     <button
                       onClick={() => setRefundOpen(true)}
-                      className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(255,168,0,0.4)] bg-white text-[#c47d00] text-[13px] hover:bg-[rgba(255,168,0,0.06)] transition-colors"
+                      className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(255,168,0,0.4)] bg-white px-[14px] text-[13px] text-[#c47d00] transition-colors hover:bg-[rgba(255,168,0,0.06)]"
                     >
                       <RotateCcw size={14} />
                       {t('pages.transactionDetail.refund')}
@@ -231,7 +244,7 @@ export default function TransactionDetail() {
                   hasPermission(Permission.REACTION_TRANSACTION) && (
                     <button
                       onClick={() => setReactionConfirmOpen(true)}
-                      className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
+                      className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] text-[13px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
                     >
                       <CreditCard size={14} />
                       {t('pages.transactionDetail.reaction')}
@@ -241,17 +254,17 @@ export default function TransactionDetail() {
                 : hasPermission(Permission.EXECUTE_TRANSACTION) && (
                   <button
                     onClick={() => setExecuteOpen(true)}
-                    className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] hover:bg-[#5e85ee]/90 transition-opacity"
-                  >
-                    <CreditCard size={14} />
-                    {t('pages.transactionDetail.executeNow')}
+                  className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[14px] text-[13px] text-white transition-opacity hover:bg-[#5e85ee]/90"
+                >
+                  <CreditCard size={14} />
+                  {t('pages.transactionDetail.executeNow')}
                   </button>
                 )
             }
             {!isComplete && hasPermission(Permission.MODIFY_TRANSACTION) && (
               <button
                 onClick={() => setDeleteOpen(true)}
-                className="flex items-center gap-[4px] h-[38px] px-[14px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[#1c1c26] text-[13px] hover:bg-[#f5f5f5] transition-colors"
+                className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] text-[13px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
               >
                 <Trash2 size={14} />
                 {t('pages.transactionDetail.delete')}
@@ -261,36 +274,36 @@ export default function TransactionDetail() {
         </div>
 
         {/* Stats row */}
-        <div className="flex gap-[20px]">
-          <div className="flex flex-1 items-center justify-between bg-[#f5f5f5] rounded-[18px] px-6 py-5">
+        <div className="flex flex-col gap-[12px] md:flex-row md:gap-[20px]">
+          <div className="flex flex-1 items-center justify-between rounded-[18px] bg-[#f5f5f5] px-4 py-4 md:px-6 md:py-5">
             <span className="text-[#1c1c26] text-[14px] leading-[22px]">{t('pages.transactionDetail.totalMembers')}</span>
-            <span className="text-[#1c1c26] text-[22px] font-medium leading-[32px]">{plan.items.length.toLocaleString()}</span>
+            <span className="text-[#1c1c26] text-[20px] font-medium leading-[28px] md:text-[22px] md:leading-[32px]">{plan.items.length.toLocaleString()}</span>
           </div>
-          <div className="flex flex-1 items-center justify-between bg-[#f5f5f5] rounded-[18px] px-6 py-5">
+          <div className="flex flex-1 items-center justify-between rounded-[18px] bg-[#f5f5f5] px-4 py-4 md:px-6 md:py-5">
             <span className="text-[#1c1c26] text-[14px] leading-[22px]">{t('pages.transactionDetail.totalAmount')}</span>
-            <span className="text-[#1c1c26] text-[22px] font-medium leading-[32px]">{totalAmountFormatted} {tokenSymbol}</span>
+            <span className="pl-4 text-right text-[#1c1c26] text-[20px] font-medium leading-[28px] md:text-[22px] md:leading-[32px]">{totalAmountFormatted} {tokenSymbol}</span>
           </div>
           {isRefunded && (
-            <div className="flex flex-1 items-center justify-between bg-[#f5f5f5] rounded-[18px] px-6 py-5">
+            <div className="flex flex-1 items-center justify-between rounded-[18px] bg-[#f5f5f5] px-4 py-4 md:px-6 md:py-5">
               <span className="text-[#1c1c26] text-[14px] leading-[22px]">{t('pages.transactionDetail.refundedAmount')}</span>
-              <span className="text-[#1c1c26] text-[22px] font-medium leading-[32px]">{refundedAmountFormatted} {tokenSymbol}</span>
+              <span className="pl-4 text-right text-[#1c1c26] text-[20px] font-medium leading-[28px] md:text-[22px] md:leading-[32px]">{refundedAmountFormatted} {tokenSymbol}</span>
             </div>
           )}
           {isComplete && (
-            <div className="flex flex-1 items-center justify-between bg-[#f5f5f5] rounded-[18px] px-6 py-5 min-w-0">
+            <div className="flex flex-1 items-center justify-between rounded-[18px] bg-[#f5f5f5] px-4 py-4 min-w-0 md:px-6 md:py-5">
               <span className="text-[#1c1c26] text-[14px] leading-[22px] shrink-0">{t('pages.transactionDetail.txHash')}</span>
               {txExplorerUrl ? (
                 <a
                   href={txExplorerUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-[#5e85ee] text-[14px] font-medium leading-[22px] font-mono truncate ml-4 hover:underline"
+                  className="ml-4 truncate text-right font-mono text-[14px] font-medium leading-[22px] text-[#5e85ee] hover:underline"
                   title={plan.depositTxHash ?? undefined}
                 >
                   {formatTransactionHash(plan.depositTxHash)}
                 </a>
               ) : (
-                <span className="text-[#1c1c26] text-[14px] font-medium leading-[22px] font-mono truncate ml-4" title={plan.depositTxHash ?? undefined}>
+                <span className="ml-4 truncate text-right font-mono text-[14px] font-medium leading-[22px] text-[#1c1c26]" title={plan.depositTxHash ?? undefined}>
                   {formatTransactionHash(plan.depositTxHash)}
                 </span>
               )}
@@ -301,8 +314,8 @@ export default function TransactionDetail() {
 
       {/* ── Members table ───────────────────────────────────────────────────── */}
       <div className="bg-white rounded-[32px] p-6 flex flex-col gap-[20px] flex-1">
-        <div className="overflow-x-auto">
-          <Table>
+        <TableScrollArea>
+          <Table className="min-w-[1100px]">
             <TableHeader>
               <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
                 <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">{t('pages.transactionDetail.member')}</TableHead>
@@ -334,18 +347,30 @@ export default function TransactionDetail() {
                     <TableRow key={item.id ?? idx} className="border-b border-[rgba(0,0,0,0.06)] hover:bg-[#f5f5f5]/60">
                       <TableCell className="py-[14px]">
                         <div className="flex items-center gap-[6px]">
-                          <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee] overflow-hidden">
-                            {item.member?.avatarUrl
-                              ? <img src={item.member.avatarUrl} alt="" className="w-full h-full object-cover" />
-                              : (item.member?.showName || '?')[0].toUpperCase()}
-                          </div>
-                          <span className="text-[13px] text-[#1c1c26] leading-[22px]">{item.member?.showName ?? '-'}</span>
-                          {item.member?.memberId === currentMember?.memberId && <span className="shrink-0">🌟</span>}
-                          {item.member?.remark && (
-                            <span className="max-w-[80px] truncate text-[11px] text-[#8d8d93]" title={item.member.remark}>
-                              ({item.member.remark})
-                            </span>
+                          {item.member?.avatarUrl ? (
+                            <img
+                              src={item.member.avatarUrl}
+                              alt={item.member.showName ?? ''}
+                              className="h-[28px] w-[28px] shrink-0 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full bg-[#e8eefe]">
+                              <span className="text-[12px] font-medium text-[#5e85ee]">
+                                {item.member?.showName?.[0]?.toUpperCase() || '?'}
+                              </span>
+                            </div>
                           )}
+                          <div className="flex min-w-0 items-center gap-[4px]">
+                            <span className="max-w-[120px] truncate text-[13px] text-[#1c1c26] leading-[22px]">
+                              {item.member?.showName ?? '-'}
+                            </span>
+                            {item.member?.memberId === currentMember?.memberId && <span className="shrink-0">{t('pages.orgMembers.me')}</span>}
+                            {item.member?.remark && (
+                              <span className="max-w-[80px] truncate text-[11px] text-[#8d8d93]" title={item.member.remark}>
+                                ({item.member.remark})
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{item.member?.email ?? '-'}</TableCell>
@@ -379,7 +404,7 @@ export default function TransactionDetail() {
               )}
             </TableBody>
           </Table>
-        </div>
+        </TableScrollArea>
 
         {/* Pagination */}
         <div className="flex items-center justify-between shrink-0">

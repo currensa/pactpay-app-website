@@ -127,7 +127,7 @@ export default function MemberOrgsDetail() {
         {t('pages.memberOrgDetail.personalInformation')}
       </p>
 
-      <div className="bg-white rounded-[32px] p-[24px] flex gap-[24px] items-start">
+      <div className="flex flex-col items-start gap-[20px] rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[24px] xl:flex-row xl:gap-[24px]">
         {/* Avatar column */}
         <div className="flex flex-col items-center gap-[12px] shrink-0">
           <ImageCropUpload
@@ -151,10 +151,10 @@ export default function MemberOrgsDetail() {
         </div>
 
         {/* Info column */}
-        <div className="flex flex-col gap-[16px]">
-          <div className="flex flex-col gap-[16px] pb-[24px] border-b border-[rgba(0,0,0,0.12)]">
+        <div className="flex w-full min-w-0 flex-col gap-[16px]">
+          <div className="flex flex-col gap-[16px] border-b border-[rgba(0,0,0,0.12)] pb-[20px] md:pb-[24px]">
             {/* Name */}
-            <div className="flex flex-col gap-[8px] w-[240px]">
+            <div className="flex w-full max-w-[240px] flex-col gap-[8px]">
               <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('pages.memberOrgDetail.name')}</p>
               <div className="flex flex-col gap-[2px]">
                 <div className="h-[36px] flex items-center">
@@ -205,7 +205,7 @@ export default function MemberOrgsDetail() {
             </div>
 
             {/* Role */}
-            <div className="flex flex-col gap-[8px] w-[240px]">
+            <div className="flex w-full max-w-[240px] flex-col gap-[8px]">
               <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('pages.memberOrgDetail.roleInOrganization')}</p>
               <p className="text-[16px] leading-[24px] text-[#1c1c26]">{role || '—'}</p>
             </div>
@@ -224,7 +224,7 @@ export default function MemberOrgsDetail() {
 
       {/* Data Summary */}
       <p className="font-['Poppins',sans-serif] text-[18px] leading-[28px] text-[#1c1c26]">{t('pages.memberDashboard.dataSummary')}</p>
-      <div className="bg-white rounded-[32px] p-[16px]">
+      <div className="rounded-[24px] bg-white p-[16px] md:rounded-[32px]">
         <PayrollHistoryTable orgId={orgId} memberId={memberId} />
       </div>
 

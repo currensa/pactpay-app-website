@@ -9,6 +9,7 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
+import { useTranslation } from '@/utils/i18n'
 import { Copy, Download, RefreshCw, Send } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
@@ -19,6 +20,7 @@ interface Props {
 
 export function InviteSection({ onBatchImportClick, onInvited }: Props) {
   const { toast } = useToast()
+  const { t } = useTranslation()
 
   const [inviteCode, setInviteCode] = useState('')
   const [inviteLink, setInviteLink] = useState('')
@@ -53,7 +55,7 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
       setInviteCode(newCode.code)
       setInviteLink(`${window.location.origin}/join/${newCode.code}`)
       setRegenerateDialogOpen(false)
-      toast({ title: 'Success', description: 'Organization invitation regenerated successfully' })
+      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgMembers.inviteSection.regenerateSuccess') })
     } catch {
       // request interceptor handles API errors
     }
@@ -61,13 +63,13 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
 
   const handleSendEmailInvites = () => {
     if (!emailInvites.trim()) {
-      toast({ title: 'Error', description: 'Please enter valid email addresses', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('pages.orgMembers.inviteSection.invalidEmails'), variant: 'destructive' })
       return
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     const emails = emailInvites.split(',').map(e => e.trim()).filter(Boolean)
     if (emails.length === 0 || emails.some(e => !emailRegex.test(e))) {
-      toast({ title: 'Error', description: 'Please enter valid email addresses', variant: 'destructive' })
+      toast({ title: t('common.error'), description: t('pages.orgMembers.inviteSection.invalidEmails'), variant: 'destructive' })
       return
     }
     setPendingInvites(emails.map(email => ({ email })))
@@ -85,13 +87,19 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
       results.forEach((result, i) => {
         if (result.status === 'rejected') {
           const email = pendingInvites[i].email
-          errors[email] = result.reason?.response?.data?.message || result.reason?.message || 'Failed to send'
+          errors[email] = result.reason?.response?.data?.message || result.reason?.message || t('pages.orgMembers.inviteSection.sendFailed')
         }
       })
       const successCount = results.filter(r => r.status === 'fulfilled').length
       const failCount = Object.keys(errors).length
       if (successCount > 0) {
-        toast({ title: 'Success', description: `Sent to ${successCount} recipient(s)${failCount > 0 ? `, ${failCount} failed` : ''}` })
+        const failedSuffix = failCount > 0
+          ? t('pages.orgMembers.inviteSection.failedSuffix', { failCount })
+          : ''
+        toast({
+          title: t('pages.orgMembers.success'),
+          description: t('pages.orgMembers.inviteSection.sentSummary', { successCount, failedSuffix })
+        })
         if (failCount === 0) {
           setEmailInvites('')
           setEmailInviteDialogOpen(false)
@@ -115,13 +123,13 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
       <div className="bg-[#f5f5f5] rounded-[20px] px-[20px] pt-[16px] pb-[20px] flex flex-col gap-[16px] shrink-0">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[24px] text-[#1c1c26]">Invite Members</p>
+          <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[24px] text-[#1c1c26]">{t('pages.orgMembers.inviteSection.title')}</p>
           <button
             onClick={onBatchImportClick}
             className="flex items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#ebebeb] transition-colors"
           >
             <Download className="h-[14px] w-[14px]" />
-            Batch Import
+            {t('pages.orgMembers.inviteSection.batchImport')}
           </button>
         </div>
 
@@ -130,22 +138,22 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
           {/* Organization Invitation */}
           <div className="flex flex-1 flex-col gap-[12px] rounded-[16px] border-[0.5px] border-[rgba(0,0,0,0.1)] bg-white p-[16px]">
             <div className="flex flex-col gap-[6px]">
-              <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Organization Invitation</p>
-              <p className="text-[10px] leading-[18px] text-[#8d8d93]">Members can join the organisation automatically by signing up via an invite link, or by entering an invite code during registration.</p>
+              <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgMembers.inviteSection.organizationInvitation')}</p>
+              <p className="text-[10px] leading-[18px] text-[#8d8d93]">{t('pages.orgMembers.inviteSection.organizationInvitationDescription')}</p>
               <div className="flex flex-col gap-[6px] rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px]">
                 {inviteCodeLoading ? (
-                  <p className="text-[13px] leading-[20px] text-[#8d8d93]">Loading...</p>
+                  <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('common.loading')}</p>
                 ) : (
                   <>
                     <div className="flex items-center justify-between">
                       <p className="flex-1 truncate text-[13px] leading-[20px] text-[#1c1c26]">{inviteCode}</p>
-                      <button onClick={() => { navigator.clipboard.writeText(inviteCode); toast({ description: 'Invite code copied.' }) }} className="ml-[8px] text-[#8d8d93] hover:text-[#1c1c26] transition-colors shrink-0">
+                      <button onClick={() => { navigator.clipboard.writeText(inviteCode); toast({ description: t('pages.orgMembers.inviteSection.inviteCodeCopied') }) }} className="ml-[8px] text-[#8d8d93] hover:text-[#1c1c26] transition-colors shrink-0">
                         <Copy className="h-[16px] w-[16px]" />
                       </button>
                     </div>
                     <div className="flex items-center justify-between">
                       <p className="flex-1 truncate text-[13px] leading-[20px] text-[#1c1c26]">{inviteLink}</p>
-                      <button onClick={() => { navigator.clipboard.writeText(inviteLink); toast({ description: 'Invite link copied.' }) }} className="ml-[8px] text-[#8d8d93] hover:text-[#1c1c26] transition-colors shrink-0">
+                      <button onClick={() => { navigator.clipboard.writeText(inviteLink); toast({ description: t('pages.orgMembers.inviteSection.inviteLinkCopied') }) }} className="ml-[8px] text-[#8d8d93] hover:text-[#1c1c26] transition-colors shrink-0">
                         <Copy className="h-[16px] w-[16px]" />
                       </button>
                     </div>
@@ -158,18 +166,18 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
               className="flex w-fit items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#ebebeb] transition-colors"
             >
               <RefreshCw className="h-[14px] w-[14px]" />
-              Deactivate and Regenerate
+              {t('pages.orgMembers.inviteSection.deactivateRegenerate')}
             </button>
           </div>
 
           {/* Email Invitation */}
           <div className="flex flex-1 flex-col gap-[12px] rounded-[16px] border-[0.5px] border-[rgba(0,0,0,0.1)] bg-white p-[16px]">
             <div className="flex flex-1 flex-col gap-[6px]">
-              <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">Email Invitation</p>
+              <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgMembers.inviteSection.emailInvitation')}</p>
               <textarea
                 value={emailInvites}
                 onChange={e => setEmailInvites(e.target.value)}
-                placeholder="Enter emails (comma-separated)"
+                placeholder={t('pages.orgMembers.inviteSection.emailPlaceholder')}
                 rows={2}
                 className="w-full flex-1 resize-none rounded-[10px] bg-[#f5f5f5] px-[12px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
               />
@@ -179,7 +187,7 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
               className="flex w-fit items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity"
             >
               <Send className="h-[14px] w-[14px]" />
-              Send Email
+              {t('pages.orgMembers.inviteSection.sendEmail')}
             </button>
           </div>
         </div>
@@ -189,14 +197,14 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
       <Dialog open={regenerateDialogOpen} onOpenChange={setRegenerateDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Deactivate and Regenerate Invitation</DialogTitle>
+            <DialogTitle>{t('pages.orgMembers.inviteSection.regenerateDialogTitle')}</DialogTitle>
             <DialogDescription>
-              Are you sure? The current invite code and link will be deactivated immediately and a new one will be generated.
+              {t('pages.orgMembers.inviteSection.regenerateDialogDescription')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleConfirmRegenerate}>Deactivate and Regenerate</Button>
+            <Button variant="outline" onClick={() => setRegenerateDialogOpen(false)}>{t('common.cancel')}</Button>
+            <Button variant="destructive" onClick={handleConfirmRegenerate}>{t('pages.orgMembers.inviteSection.deactivateRegenerate')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -205,18 +213,18 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
       <Dialog open={emailInviteDialogOpen} onOpenChange={open => { if (!sendingInvites) { setEmailInviteDialogOpen(open); if (!open) { setPendingInvites([]); setInviteErrors({}) } } }}>
         <DialogContent className="max-w-[440px] p-[20px] gap-0 flex flex-col gap-[16px]">
           <DialogHeader className="p-0">
-            <DialogTitle className="text-[15px] font-semibold leading-[22px] text-[#1c1c26]">Send Email Invitations</DialogTitle>
+            <DialogTitle className="text-[15px] font-semibold leading-[22px] text-[#1c1c26]">{t('pages.orgMembers.inviteSection.sendInvitationsTitle')}</DialogTitle>
           </DialogHeader>
 
           {sendingInvites ? (
             <div className="flex items-center justify-center gap-[10px] h-[80px] rounded-[10px] bg-[#f5f5f5]">
               <div className="h-[20px] w-[20px] animate-spin rounded-full border-2 border-[#5e85ee] border-t-transparent" />
-              <p className="text-[13px] leading-[20px] text-[#8d8d93]">Sending invitations...</p>
+              <p className="text-[13px] leading-[20px] text-[#8d8d93]">{t('pages.orgMembers.inviteSection.sendingInvitations')}</p>
             </div>
           ) : (
             <div className="rounded-[10px] border border-[rgba(0,0,0,0.10)] overflow-hidden">
               <div className="bg-[#f5f5f5] border-b border-[rgba(0,0,0,0.08)]">
-                <div className="px-[12px] py-[5px] text-[11px] leading-[16px] text-[#8d8d93]">Email</div>
+                <div className="px-[12px] py-[5px] text-[11px] leading-[16px] text-[#8d8d93]">{t('pages.orgMembers.inviteSection.emailColumn')}</div>
               </div>
               <div className="max-h-[220px] overflow-y-auto">
                 {pendingInvites.map(({ email }, i) => (
@@ -239,14 +247,14 @@ export function InviteSection({ onBatchImportClick, onInvited }: Props) {
               disabled={sendingInvites}
               className="rounded-[10px] border border-[rgba(0,0,0,0.12)] bg-white px-[12px] py-[7px] text-[13px] leading-[20px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50"
             >
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleConfirmSendInvites}
               disabled={sendingInvites}
               className="rounded-[10px] bg-[#5e85ee] px-[12px] py-[7px] text-[13px] leading-[20px] text-white hover:opacity-90 transition-opacity disabled:opacity-60"
             >
-              Send Invitations
+              {t('pages.orgMembers.inviteSection.sendInvitations')}
             </button>
           </div>
         </DialogContent>

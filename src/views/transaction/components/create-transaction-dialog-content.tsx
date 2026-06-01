@@ -2,7 +2,7 @@ import apis from '@/apis'
 import { OrganizationMember } from '@/apis/orgnization.api'
 import { DatePickerInput } from '@/components/ui/datePickerInput'
 import { DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea } from '@/components/ui/table'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { timezoneOptions } from '@/lib/timezone-options'
 import { cn } from '@/lib/utils'
@@ -428,12 +428,25 @@ export function CreateTransactionDialogContent({
   const someSelected = selectedMembers.size > 0 && !allSelected
 
   const relativeExecutionDate = getRelativeExecutionDate(executionDate || null)
+  const relativeExecutionDateLabel = relativeExecutionDate.diffDays == null
+    ? relativeExecutionDate.label
+    : relativeExecutionDate.diffDays === 0
+      ? t('pages.analytics.today')
+      : relativeExecutionDate.diffDays > 0
+        ? t('pages.analytics.inDays', {
+          count: relativeExecutionDate.diffDays,
+          dayLabel: t(relativeExecutionDate.diffDays === 1 ? 'pages.analytics.daySingular' : 'pages.analytics.dayPlural')
+        })
+        : t('pages.analytics.daysAgo', {
+          count: Math.abs(relativeExecutionDate.diffDays),
+          dayLabel: t(Math.abs(relativeExecutionDate.diffDays) === 1 ? 'pages.analytics.daySingular' : 'pages.analytics.dayPlural')
+        })
   const claimTimePassed = relativeExecutionDate.tone === 'past'
 
   // ── Dialog variant table (original columns) ──────────────────────────────
   const dialogMemberTable = (
-    <div className="flex-1 min-h-0 max-h-[52vh] overflow-x-auto overflow-y-auto">
-      <Table>
+    <TableScrollArea className="flex-1 min-h-0 max-h-[52vh] overflow-y-auto">
+      <Table className="min-w-[980px]">
         <TableHeader>
           <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
             <TableHead className="w-10 pb-3">
@@ -549,13 +562,13 @@ export function CreateTransactionDialogContent({
           )}
         </TableBody>
       </Table>
-    </div>
+    </TableScrollArea>
   )
 
   // ── Page variant table (Figma columns: Member, Wallet, Amount, Status) ────
   const pageMemberTable = (
-    <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto">
-      <Table>
+    <TableScrollArea className="flex-1 min-h-0 overflow-y-auto">
+      <Table className="min-w-[900px]">
         <TableHeader>
           <TableRow className="bg-[#f5f5f5] border-b border-[rgba(0,0,0,0.12)] hover:bg-[#f5f5f5]">
             <TableHead className="w-10 py-2">
@@ -671,7 +684,7 @@ export function CreateTransactionDialogContent({
           )}
         </TableBody>
       </Table>
-    </div>
+    </TableScrollArea>
   )
 
   return (
@@ -703,9 +716,9 @@ export function CreateTransactionDialogContent({
       {currentStep === 1 && (
         <>
           {variant === 'page' ? (
-            <div className="flex gap-[26px] flex-1 min-h-0">
+            <div className="flex flex-1 min-h-0 flex-col gap-[16px] xl:flex-row xl:gap-[26px]">
               {/* Left: main content */}
-              <div className="bg-white rounded-[32px] p-[20px] flex-1 flex flex-col gap-[18px] overflow-hidden min-w-0">
+              <div className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-hidden rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[20px]">
                 {/* Transaction Name */}
                 <div className="flex flex-col gap-[6px] shrink-0">
                   <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.transactionName')} <span className="text-[#d92b2b]">*</span></span>
@@ -720,11 +733,11 @@ export function CreateTransactionDialogContent({
 
                 {/* Member & USDC section */}
                 <div className="flex flex-col flex-1 gap-[6px] overflow-hidden min-h-0">
-                  <div className="flex items-center gap-[6px] shrink-0">
-                    <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px] whitespace-nowrap">
-                  {t('pages.createPeopleTransaction.memberCurrency', { currency: displayCurrency || payrollTokenSymbol || 'USDC' })}
+                  <div className="flex shrink-0 flex-col gap-[4px] lg:flex-row lg:items-center lg:gap-[6px]">
+                    <span className="text-[13px] font-semibold leading-[22px] text-[#1c1c26] lg:whitespace-nowrap">
+                      {t('pages.createPeopleTransaction.memberCurrency', { currency: displayCurrency || payrollTokenSymbol || 'USDC' })}
                     </span>
-                    <span className="text-[12px] text-[#8d8d93] leading-[22px]">
+                    <span className="text-[12px] leading-[20px] text-[#8d8d93]">
                       Members without a connected wallet cannot receive payments. Ask them to bind their wallet in Account settings first.
                     </span>
                   </div>
@@ -737,7 +750,7 @@ export function CreateTransactionDialogContent({
                     {pageMemberTable}
                   </div>
                   {/* Select controls */}
-                  <div className="flex items-center gap-[8px] shrink-0 pt-1">
+                  <div className="flex flex-wrap items-center gap-[8px] shrink-0 pt-1">
                     <button
                       onClick={handleSelectAll}
                       className="h-[34px] px-3 rounded-[10px] border border-[rgba(0,0,0,0.12)] bg-white text-[12px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors"
@@ -759,9 +772,9 @@ export function CreateTransactionDialogContent({
                 </div>
 
                 {/* Claim time */}
-                <div className="flex flex-col gap-[6px] shrink-0">
-                <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.claimTime')} <span className="text-[#d92b2b]">*</span></span>
-                  <div className="flex items-center gap-[8px]">
+                <div className="flex shrink-0 flex-col gap-[6px]">
+                  <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.claimTime')} <span className="text-[#d92b2b]">*</span></span>
+                  <div className="flex flex-col gap-[8px] lg:flex-row lg:items-center">
                     {/* Date picker */}
                     <div className="flex-1">
                       <DatePickerInput
@@ -795,7 +808,7 @@ export function CreateTransactionDialogContent({
               </div>
 
               {/* Right: fee panel */}
-              <div className="bg-white rounded-[32px] p-[20px] w-[360px] shrink-0 flex flex-col gap-[18px] justify-between">
+              <div className="flex w-full shrink-0 flex-col justify-between gap-[18px] rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[20px] xl:w-[360px]">
                 <div className="flex flex-col gap-[18px]">
                   {/* Fee breakdown */}
                   <div className="flex flex-col gap-[10px]">
@@ -989,9 +1002,9 @@ export function CreateTransactionDialogContent({
       {currentStep === 2 && (
         <>
           {variant === 'page' ? (
-            <div className="flex gap-[26px] flex-1 min-h-0">
+            <div className="flex flex-1 min-h-0 flex-col gap-[16px] xl:flex-row xl:gap-[26px]">
               {/* Left: preview content */}
-              <div className="bg-white rounded-[32px] p-[20px] flex-1 flex flex-col gap-[16px] overflow-y-auto min-w-0">
+              <div className="flex min-w-0 flex-1 flex-col gap-[16px] overflow-y-auto rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[20px]">
                 {/* Transaction Preview */}
                 <div className="border border-[rgba(0,0,0,0.12)] rounded-[12px] overflow-hidden shrink-0">
                   <div className="bg-[#f5f5f5] px-4 py-[7px]">
@@ -1047,11 +1060,11 @@ export function CreateTransactionDialogContent({
                     <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.claimTimeTitle')}</span>
                   </div>
                   <div className="p-4">
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col gap-[10px] sm:flex-row sm:items-start sm:justify-between">
                       <span className="text-[13px] text-[#1c1c26]">{t('pages.createPeopleTransaction.membersCanClaimFrom')}</span>
-                      <div className="flex flex-col items-end gap-[2px]">
+                      <div className="flex flex-col gap-[2px] sm:items-end">
                         <span className={`text-[14px] font-bold ${getRelativeExecutionDateTextClassName(relativeExecutionDate.tone)}`}>
-                          {executionDate ? relativeExecutionDate.label : '-'}
+                          {executionDate ? relativeExecutionDateLabel : '-'}
                         </span>
                         {executionDate && (
                           <span className="text-[12px] text-[#8d8d93]">
@@ -1081,8 +1094,8 @@ export function CreateTransactionDialogContent({
                         originalAmount !== undefined &&
                         !areTokenAmountsEqual(originalAmount, newAmount, amountDecimals)
                       return (
-                        <div key={item.id ?? item.member.memberId} className="flex items-center justify-between">
-                          <div className="flex items-center gap-[8px]">
+                        <div key={item.id ?? item.member.memberId} className="flex flex-col gap-[8px] sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex min-w-0 items-center gap-[8px]">
                             <div className="w-[28px] h-[28px] rounded-full bg-[#e8edf9] flex items-center justify-center shrink-0 text-[11px] font-medium text-[#5e85ee] overflow-hidden">
                               {item.member?.avatarUrl
                                 ? <img src={item.member.avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -1095,11 +1108,11 @@ export function CreateTransactionDialogContent({
                                 ({item.member.remark})
                               </span>
                             )}
-                            <span className="text-[13px] text-[#1c1c26] w-[200px] truncate">
+                            <span className="w-full max-w-[200px] truncate text-[13px] text-[#1c1c26]">
                               {item.member?.metaPub ? truncateAddress(item.member.metaPub) : '—'}
                             </span>
                           </div>
-                          <div className="flex items-center gap-[4px]">
+                          <div className="flex items-center gap-[4px] sm:justify-end">
                             {hasChanged && (
                               <span className="text-[13px] text-[#bbbbbe] line-through">
                                 {formatPreviewAmount(originalAmount)}
@@ -1117,7 +1130,7 @@ export function CreateTransactionDialogContent({
               </div>
 
               {/* Right: what happens panel */}
-              <div className="bg-white rounded-[32px] p-[20px] w-[320px] shrink-0 flex flex-col justify-between">
+              <div className="flex w-full shrink-0 flex-col justify-between rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[20px] xl:w-[320px]">
                 <div className="flex flex-col gap-[10px]">
                   <p className="text-[16px] text-[#1c1c26]" style={{ fontFamily: 'Poppins, sans-serif' }}>
                     {t('pages.createPeopleTransaction.whatHappensAfterSign')}
@@ -1149,17 +1162,17 @@ export function CreateTransactionDialogContent({
                 </div>
 
                 {/* Back + Sign & confirm */}
-                <div className="flex items-center gap-[10px]">
+                <div className="flex flex-col-reverse gap-[10px] sm:flex-row sm:items-center">
                   <button
                     onClick={handlePrevious}
-                    className="h-[38px] px-4 rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white text-[13px] text-[#1c1c26] hover:bg-[#f5f5f5] transition-colors shrink-0"
+                    className="h-[38px] w-full rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-4 text-[13px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5] sm:w-auto sm:shrink-0"
                   >
                     {t('pages.createPeopleTransaction.back')}
                   </button>
                   <button
                     onClick={handleCreateTransaction}
                     disabled={!canProceedToStep2}
-                    className="h-[38px] flex-1 rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-25 disabled:cursor-not-allowed"
+                    className="h-[38px] w-full rounded-[12px] bg-[#5e85ee] text-[13px] text-white transition-opacity hover:bg-[#5e85ee]/90 disabled:cursor-not-allowed disabled:opacity-25 sm:flex-1"
                   >
                     {t('pages.orgMembers.confirm')}
                   </button>
@@ -1230,7 +1243,7 @@ export function CreateTransactionDialogContent({
                       <div className="flex items-center justify-between">
                         <span className="text-[13px] text-[#8d8d93] leading-[22px]">{t('pages.createPeopleTransaction.executionDate')}</span>
                         <span className={`text-[13px] leading-[22px] ${getRelativeExecutionDateTextClassName(relativeExecutionDate.tone)}`}>
-                          {executionDate ? relativeExecutionDate.label : '-'}
+                          {executionDate ? relativeExecutionDateLabel : '-'}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
