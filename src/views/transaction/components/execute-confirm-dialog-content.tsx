@@ -2,11 +2,14 @@ import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
 import { erc20Abi, vaultAbi } from '@/lib/vault-abi'
 import useChainAssetStore from '@/stores/chain-asset'
+import { normalizeTransactionHash } from '@/utils/evm-transaction'
 import { useTranslation } from '@/utils/i18n'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { useEffect, useState } from 'react'
-import { createPublicClient, createWalletClient, custom, type Hex } from 'viem'
+import { createWalletClient, custom, type Hex } from 'viem'
+import { getPublicClient } from '@wagmi/core'
+import { useConfig } from 'wagmi'
 import { TransactionStatusBadge } from './transaction-status-badge'
 import type { Transaction } from './types'
 const ETH_SENTINEL = '0x0000000000000000000000000000000000000000' as Hex
@@ -54,6 +57,7 @@ export function ExecuteConfirmDialogContent({
   const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
+  const wagmiConfig = useConfig()
 
   const isBusy = ['connecting', 'authorizing', 'checking', 'approving', 'depositing'].includes(status)
 
@@ -106,29 +110,14 @@ export function ExecuteConfirmDialogContent({
         throw new Error('Total payroll amount is zero.')
       }
       const totalAmount = BigInt(transactionPlan.totalAmount)
-      const viemChain = {
-        id: numericChainId,
-        name: chainEntry.name,
-        nativeCurrency: {
-          name: chainEntry.name,
-          symbol: chainEntry.name,
-          decimals: 18,
-        },
-        rpcUrls: {
-          default: { http: [] },
-          public: { http: [] },
-        },
-      } as const
-
       const walletClient = createWalletClient({
         account,
-        chain: viemChain as any,
         transport: custom(provider),
       })
-      const publicClient = createPublicClient({
-        chain: viemChain as any,
-        transport: custom(provider),
-      })
+      const publicClient = getPublicClient(wagmiConfig, { chainId: numericChainId })
+      if (!publicClient) throw new Error(`Public client for chain ${numericChainId} is not configured.`)
+      const configuredChain = publicClient.chain
+      if (!configuredChain) throw new Error(`Chain metadata for chain ${numericChainId} is not configured.`)
 
       if (!isNative) {
         setStatus('checking')
@@ -141,14 +130,15 @@ export function ExecuteConfirmDialogContent({
 
         if (allowance < totalAmount) {
           setStatus('approving')
-          const approveTx = await walletClient.writeContract({
+          const approveTx = normalizeTransactionHash(await walletClient.writeContract({
             address: tokenAddress,
             abi: erc20Abi,
             functionName: 'approve',
             args: [vaultAddress, totalAmount],
-            chain: viemChain as any,
-          })
-          await publicClient.waitForTransactionReceipt({ hash: approveTx })
+            chain: configuredChain,
+          }))
+          const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx })
+          if (approveReceipt.status !== 'success') throw new Error('approve transaction reverted.')
         }
       }
 
@@ -156,14 +146,14 @@ export function ExecuteConfirmDialogContent({
       const { authSignature, claimTime } = await apis.transaction.getDepositAuth(transactionPlan.id)
 
       setStatus('depositing')
-      const depositTx = await walletClient.writeContract({
+      const depositTx = normalizeTransactionHash(await walletClient.writeContract({
         address: vaultAddress,
         abi: vaultAbi,
         functionName: 'depositForPayroll',
         args: [merkleRoot, tokenAddress, totalAmount, BigInt(claimTime), authSignature as Hex],
         ...(isNative ? { value: totalAmount } : {}),
-        chain: viemChain as any,
-      })
+        chain: configuredChain,
+      }))
       const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
       if (receipt.status !== 'success') throw new Error('depositForPayroll transaction reverted.')
       await apis.transaction.confirmDeposit(transactionPlan.id, depositTx)
