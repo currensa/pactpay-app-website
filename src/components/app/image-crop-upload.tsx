@@ -1,10 +1,11 @@
 import { Button } from '@/components/ui/button'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/utils/i18n'
 import { IconCamera } from '@tabler/icons-react'
 import { Loader2, RotateCcw, Upload } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 
 type ValidationErrorKind = 'size' | 'type' | 'crop'
 type Variant = 'avatar' | 'logo'
@@ -147,7 +148,10 @@ export function ImageCropUpload({
   onValidationError,
 }: ImageCropUploadProps) {
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
+  const cropMaskId = useId()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cropStageRef = useRef<HTMLDivElement>(null)
   const dragStateRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null)
 
   const [cropOpen, setCropOpen] = useState(false)
@@ -172,6 +176,15 @@ export function ImageCropUpload({
   }, [naturalSize.height, naturalSize.width, rotation])
 
   const scale = baseScale * zoom
+  const imageTransform = `translate3d(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px), 0) rotate(${rotation}deg) scale(${scale})`
+  const cropViewportSize = isMobile ? 280 : CROP_SIZE
+  const cropViewportRadius = 28
+  const previewScale = cropViewportSize / CROP_SIZE
+  const previewTransform = `translate3d(calc(-50% + ${offset.x * previewScale}px), calc(-50% + ${offset.y * previewScale}px), 0) rotate(${rotation}deg) scale(${scale * previewScale})`
+  const stageHeight = isMobile ? 316 : 360
+  const stageMaxWidth = isMobile ? 520 : 560
+  const overlayInsetY = (stageHeight - cropViewportSize) / 2
+  const overlayInsetX = cropViewportSize / 2
 
   const updateZoom = (nextZoom: number, nextRotation = rotation) => {
     const clampedZoom = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM)
@@ -208,10 +221,12 @@ export function ImageCropUpload({
 
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
 
     return () => {
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
     }
   }, [isDragging, naturalSize.height, naturalSize.width, rotation, scale])
 
@@ -386,21 +401,28 @@ export function ImageCropUpload({
       />
 
       <Dialog open={cropOpen} onOpenChange={open => !savingCrop && setCropOpen(open)}>
-        <DialogContent className="max-w-[640px] rounded-[28px] p-[28px]">
-          <DialogHeader className="gap-[8px]">
+        <DialogContent className="max-w-[620px] rounded-[24px] p-[14px] sm:p-[20px]">
+          <DialogHeader className="gap-[4px]">
             <DialogTitle>{t('common.imageCrop.title')}</DialogTitle>
             <DialogDescription>{t('common.imageCrop.description')}</DialogDescription>
           </DialogHeader>
 
-          <div className="mt-[20px] flex flex-col gap-[20px]">
-            <div className="rounded-[24px] bg-[linear-gradient(180deg,#f7f8fb_0%,#eef2ff_100%)] p-[20px]">
+          <div className="mt-[12px] flex flex-col gap-[12px]">
+            <div className="rounded-[20px] bg-[linear-gradient(180deg,#f7f8fb_0%,#eef2ff_100%)] p-[8px] sm:p-[12px]">
               <div
+                ref={cropStageRef}
                 className={cn(
-                  'relative mx-auto h-[360px] w-full max-w-[520px] overflow-hidden rounded-[20px] bg-[#dde4ff] touch-none',
+                  'relative mx-auto w-full overflow-hidden rounded-[20px] bg-[#dde4ff] touch-none',
                   isDragging ? 'cursor-grabbing' : 'cursor-grab',
                 )}
+                style={{
+                  height: `${stageHeight}px`,
+                  maxWidth: `${stageMaxWidth}px`,
+                }}
                 onPointerDown={event => {
                   if (!naturalSize.width || !naturalSize.height) return
+                  event.preventDefault()
+                  cropStageRef.current?.setPointerCapture?.(event.pointerId)
                   dragStateRef.current = {
                     startX: event.clientX,
                     startY: event.clientY,
@@ -432,32 +454,93 @@ export function ImageCropUpload({
                     style={{
                       width: `${naturalSize.width}px`,
                       height: `${naturalSize.height}px`,
-                      transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px)) rotate(${rotation}deg) scale(${scale})`,
+                      transform: previewTransform,
                       transformOrigin: 'center center',
+                      willChange: 'transform',
                     }}
                   />
                 ) : null}
 
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="pointer-events-none absolute inset-0">
+                  <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${stageMaxWidth} ${stageHeight}`} preserveAspectRatio="none" aria-hidden="true">
+                    <defs>
+                      <mask id={cropMaskId}>
+                        <rect width={stageMaxWidth} height={stageHeight} fill="white" />
+                        <rect
+                          x={(stageMaxWidth - cropViewportSize) / 2}
+                          y={overlayInsetY}
+                          width={cropViewportSize}
+                          height={cropViewportSize}
+                          rx={cropViewportRadius}
+                          fill="black"
+                        />
+                      </mask>
+                    </defs>
+                    <rect width={stageMaxWidth} height={stageHeight} fill="rgba(15,23,42,0.55)" mask={`url(#${cropMaskId})`} />
+                  </svg>
+
                   <div
-                    className="relative h-[320px] w-[320px] rounded-[28px] border border-white/80 shadow-[0_0_0_9999px_rgba(15,23,42,0.55)]"
-                    style={{ backdropFilter: 'blur(1px)' }}
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+                    style={{
+                      width: `${cropViewportSize}px`,
+                      height: `${cropViewportSize}px`,
+                    }}
                   >
-                    <div className="absolute left-1/3 top-0 h-full w-px bg-white/35" />
-                    <div className="absolute left-2/3 top-0 h-full w-px bg-white/35" />
-                    <div className="absolute left-0 top-1/3 h-px w-full bg-white/35" />
-                    <div className="absolute left-0 top-2/3 h-px w-full bg-white/35" />
-                    <div className="absolute left-0 top-0 h-[24px] w-[24px] rounded-tl-[24px] border-l-[3px] border-t-[3px] border-white" />
-                    <div className="absolute right-0 top-0 h-[24px] w-[24px] rounded-tr-[24px] border-r-[3px] border-t-[3px] border-white" />
-                    <div className="absolute bottom-0 left-0 h-[24px] w-[24px] rounded-bl-[24px] border-b-[3px] border-l-[3px] border-white" />
-                    <div className="absolute bottom-0 right-0 h-[24px] w-[24px] rounded-br-[24px] border-b-[3px] border-r-[3px] border-white" />
+                    <div className="absolute inset-0 overflow-hidden rounded-[28px] bg-transparent">
+                      {sourceUrl ? (
+                        <img
+                          src={sourceUrl}
+                          alt=""
+                          aria-hidden="true"
+                          draggable={false}
+                          className="absolute left-1/2 top-1/2 max-w-none select-none"
+                          style={{
+                            width: `${naturalSize.width}px`,
+                            height: `${naturalSize.height}px`,
+                            transform: previewTransform,
+                            transformOrigin: 'center center',
+                            willChange: 'transform',
+                          }}
+                        />
+                      ) : null}
+
+                      <div className="absolute left-1/3 top-0 h-full w-px bg-white/35" />
+                      <div className="absolute left-2/3 top-0 h-full w-px bg-white/35" />
+                      <div className="absolute left-0 top-1/3 h-px w-full bg-white/35" />
+                      <div className="absolute left-0 top-2/3 h-px w-full bg-white/35" />
+                    </div>
+
+                    <svg
+                      className="absolute inset-0 h-full w-full"
+                      viewBox={`0 0 ${cropViewportSize} ${cropViewportSize}`}
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <rect
+                        x="0.5"
+                        y="0.5"
+                        width={cropViewportSize - 1}
+                        height={cropViewportSize - 1}
+                        rx={cropViewportRadius}
+                        stroke="rgba(255,255,255,0.8)"
+                      />
+                      <path d={`M ${cropViewportSize / 3} 0 L ${cropViewportSize / 3} ${cropViewportSize}`} stroke="rgba(255,255,255,0.35)" />
+                      <path d={`M ${(cropViewportSize * 2) / 3} 0 L ${(cropViewportSize * 2) / 3} ${cropViewportSize}`} stroke="rgba(255,255,255,0.35)" />
+                      <path d={`M 0 ${cropViewportSize / 3} L ${cropViewportSize} ${cropViewportSize / 3}`} stroke="rgba(255,255,255,0.35)" />
+                      <path d={`M 0 ${(cropViewportSize * 2) / 3} L ${cropViewportSize} ${(cropViewportSize * 2) / 3}`} stroke="rgba(255,255,255,0.35)" />
+
+                      <path d={`M 0 ${24} L 0 ${cropViewportRadius} Q 0 0 ${cropViewportRadius} 0 L 24 0`} stroke="white" strokeWidth="3" strokeLinecap="round" />
+                      <path d={`M ${cropViewportSize - 24} 0 L ${cropViewportSize - cropViewportRadius} 0 Q ${cropViewportSize} 0 ${cropViewportSize} ${cropViewportRadius} L ${cropViewportSize} 24`} stroke="white" strokeWidth="3" strokeLinecap="round" />
+                      <path d={`M 0 ${cropViewportSize - 24} L 0 ${cropViewportSize - cropViewportRadius} Q 0 ${cropViewportSize} ${cropViewportRadius} ${cropViewportSize} L 24 ${cropViewportSize}`} stroke="white" strokeWidth="3" strokeLinecap="round" />
+                      <path d={`M ${cropViewportSize - 24} ${cropViewportSize} L ${cropViewportSize - cropViewportRadius} ${cropViewportSize} Q ${cropViewportSize} ${cropViewportSize} ${cropViewportSize} ${cropViewportSize - cropViewportRadius} L ${cropViewportSize} ${cropViewportSize - 24}`} stroke="white" strokeWidth="3" strokeLinecap="round" />
+                    </svg>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-[20px] border border-[rgba(0,0,0,0.08)] bg-white p-[16px]">
-              <div className="flex items-center justify-between gap-[12px]">
+            <div className="rounded-[18px] border border-[rgba(0,0,0,0.08)] bg-white p-[12px] sm:p-[14px]">
+              <div className="flex items-center justify-between gap-[8px]">
                 <p className="text-[13px] leading-[20px] text-[#606067]">{t('common.imageCrop.hint')}</p>
                 <Button type="button" variant="outline" size="sm" onClick={resetTransform} disabled={savingCrop}>
                   <RotateCcw className="h-[14px] w-[14px]" />
@@ -465,8 +548,8 @@ export function ImageCropUpload({
                 </Button>
               </div>
 
-              <div className="mt-[16px] flex flex-col gap-[14px]">
-                <label className="flex items-center gap-[12px]">
+              <div className="mt-[12px] flex flex-col gap-[10px]">
+                <label className="flex items-center gap-[10px]">
                   <span className="w-[56px] shrink-0 text-[13px] font-medium leading-[20px] text-[#1c1c26]">
                     {t('common.imageCrop.zoom')}
                   </span>
@@ -482,7 +565,7 @@ export function ImageCropUpload({
                   <span className="w-[44px] text-right text-[12px] leading-[18px] text-[#8d8d93]">{zoom.toFixed(2)}x</span>
                 </label>
 
-                <label className="flex items-center gap-[12px]">
+                <label className="flex items-center gap-[10px]">
                   <span className="w-[56px] shrink-0 text-[13px] font-medium leading-[20px] text-[#1c1c26]">
                     {t('common.imageCrop.rotate')}
                   </span>
@@ -507,7 +590,7 @@ export function ImageCropUpload({
             </div>
           </div>
 
-          <DialogFooter className="mt-[24px]">
+          <DialogFooter className="mt-[14px]">
             <Button type="button" variant="outline" onClick={() => setCropOpen(false)} disabled={savingCrop}>
               {t('common.cancel')}
             </Button>
