@@ -1534,7 +1534,7 @@ export const messages = {
         details: '详情',
         question: '你要支付什么？',
         peoplePayroll: '成员薪资',
-        peopleDescription: '向团队成员付款。需要设置领取时间，平台服务费适用。',
+        peopleDescription: '向团队成员付款。需要设置可领取时间，按资费标准收取平台服务费。',
         paymentTypeLabel: '支付类型',
         payeesLabel: '收款方',
         platformFeeLabel: '平台费用',
