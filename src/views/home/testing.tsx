@@ -3,7 +3,7 @@ import { usePublicCopy } from '@/views/public/copy'
 import { useEffect, useMemo, useState } from 'react'
 
 type NavItem = { id: string; label: string; sub?: boolean }
-type TableRow = { field: string; value: string; href?: string }
+type TableRow = { field: string; value: string; href?: string; note?: string; noteHref?: string }
 type FaqItem = { question: string; answer: string }
 
 function SectionAnchor({ id }: { id: string }) {
@@ -76,15 +76,27 @@ export default function TestingPage() {
 
   const networkRows: TableRow[] = isZh
     ? [
-        { field: '网络名称', value: 'Sepolia Testnet' },
-        { field: 'RPC URL', value: 'https://ethereum-sepolia.publicnode.com', href: 'https://ethereum-sepolia.publicnode.com/' },
+        { field: '网络名称', value: 'Sepolia' },
+        {
+          field: 'RPC URL',
+          value: 'https://ethereum-sepolia.publicnode.com',
+          href: 'https://ethereum-sepolia.publicnode.com/',
+          note: '(MetaMask: built-in Infura https://sepolia.infura.io)',
+          noteHref: 'https://sepolia.infura.io/',
+        },
         { field: 'Chain ID', value: '11155111' },
         { field: '货币符号', value: 'ETH' },
         { field: '区块浏览器', value: 'https://sepolia.etherscan.io', href: 'https://sepolia.etherscan.io/' },
       ]
     : [
-        { field: 'Network name', value: 'Sepolia Testnet' },
-        { field: 'RPC URL', value: 'https://ethereum-sepolia.publicnode.com', href: 'https://ethereum-sepolia.publicnode.com/' },
+        { field: 'Network name', value: 'Sepolia' },
+        {
+          field: 'RPC URL',
+          value: 'https://ethereum-sepolia.publicnode.com',
+          href: 'https://ethereum-sepolia.publicnode.com/',
+          note: '(MetaMask: built-in Infura https://sepolia.infura.io)',
+          noteHref: 'https://sepolia.infura.io/',
+        },
         { field: 'Chain ID', value: '11155111' },
         { field: 'Currency symbol', value: 'ETH' },
         { field: 'Block explorer', value: 'https://sepolia.etherscan.io', href: 'https://sepolia.etherscan.io/' },
@@ -234,17 +246,21 @@ export default function TestingPage() {
           <SectionAnchor id="step3" />
           <h2 className="mb-4 mt-10 text-2xl font-bold">{isZh ? '步骤 3: 将 Sepolia 网络添加到钱包' : 'Step 3 - Add Sepolia network to your wallet'}</h2>
           <p className="mb-3 text-base leading-relaxed text-[#606067]">
-            {isZh ? '如果你的钱包还没有 Sepolia 网络，可以这样添加：' : 'If Sepolia is not already available in your wallet:'}
+            {isZh ? '如果你的钱包还没有 Sepolia 网络，可以这样添加：' : 'If Sepolia is not already available in your wallet, add it as follows:'}
           </p>
           <p className="mb-2 text-base font-semibold text-[#1c1c26]">MetaMask</p>
           <ol className="mb-6 list-inside list-decimal space-y-2 text-base leading-relaxed text-[#606067]">
-            <li>{isZh ? '打开 MetaMask，点击顶部网络选择器' : 'Open MetaMask and click the network selector at the top'}</li>
-            <li>{isZh ? '点击 Add network' : 'Click Add network'}</li>
-            <li>{isZh ? '从常用测试网列表中选择 Sepolia' : 'Select Sepolia from the list of popular test networks'}</li>
-            <li>{isZh ? '点击 Add 确认' : 'Click Add to confirm'}</li>
+            <li>{isZh ? '打开钱包右上角的菜单' : 'Open the menu at the top right of your wallet.'}</li>
+            <li>{isZh ? '选择 Networks' : 'Select Networks.'}</li>
+            <li>{isZh ? '滑动到底部并点击 Add a custom network' : 'Scroll to the bottom and tap Add a custom network.'}</li>
           </ol>
+          <p className="mb-3 text-base leading-relaxed text-[#606067]">
+            {isZh
+              ? '其他钱包（Rabby、Trust Wallet、OKX Wallet 等）：进入钱包的网络设置，通常在 Settings → Networks，或通过网络选择器，然后打开 Add network / Add custom network。'
+              : "Other wallets (Rabby, Trust Wallet, OKX Wallet, etc.): Go to your wallet's network settings - usually under Settings -> Networks, or via the network selector - and open Add network / Add custom network."}
+          </p>
           <p className="mb-4 text-base leading-relaxed text-[#606067]">
-            {isZh ? '如果钱包没有自动显示，也可以手动填入以下参数：' : "If it doesn't appear automatically, add it manually with these settings:"}
+            {isZh ? '4. 输入下面相同的参数，然后点击“保存”。' : '4. Enter the same values below then click "Save".'}
           </p>
           <div className="mb-10 overflow-x-auto">
             <table className="min-w-[520px] w-full border-collapse text-sm">
@@ -263,9 +279,20 @@ export default function TestingPage() {
                     <td className="border border-[rgba(0,0,0,0.08)] px-4 py-3 font-medium text-[#1c1c26]">{row.field}</td>
                     <td className="border border-[rgba(0,0,0,0.08)] px-4 py-3 text-[#606067]">
                       {row.href ? (
-                        <a href={row.href} target="_blank" rel="noreferrer" className="text-[#5e85ee] underline underline-offset-2">
-                          {row.value}
-                        </a>
+                        <div className="space-y-1">
+                          <a href={row.href} target="_blank" rel="noreferrer" className="text-[#5e85ee] underline underline-offset-2">
+                            {row.value}
+                          </a>
+                          {row.note ? (
+                            <div>
+                              (MetaMask: built-in Infura{' '}
+                              <a href={row.noteHref} target="_blank" rel="noreferrer" className="text-[#5e85ee] underline underline-offset-2">
+                                https://sepolia.infura.io
+                              </a>
+                              )
+                            </div>
+                          ) : null}
+                        </div>
                       ) : (
                         row.value
                       )}
