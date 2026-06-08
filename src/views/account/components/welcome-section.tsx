@@ -28,9 +28,9 @@ export default function WelcomeSection({ onGetStarted }: WelcomeSectionProps) {
 
   return (
     <div className="flex w-full flex-col items-start justify-between gap-8 px-1 py-2 lg:h-full lg:gap-0 lg:px-0 lg:py-0">
-      <div className="flex flex-col gap-3 sm:gap-[16px]">
+      <div className="flex flex-col gap-[16px]">
         <h1
-          className="text-[clamp(36px,12vw,100px)] font-medium leading-[0.96] tracking-[-0.03em] text-[#1c1c26]"
+          className="text-[clamp(48px,5.5vw,100px)] font-medium leading-[1] tracking-[-0.02em] text-[#1c1c26]"
           style={{ fontFamily: "'Poppins', sans-serif" }}
         >
           {copy.welcomeSection.heroTitle[0]}
@@ -41,7 +41,7 @@ export default function WelcomeSection({ onGetStarted }: WelcomeSectionProps) {
 
       <button
         onClick={onGetStarted}
-        className="flex min-h-[132px] w-full cursor-pointer items-end justify-between rounded-[20px] bg-[#5e85ee] px-5 pb-5 pt-5 transition-opacity hover:opacity-90 sm:min-h-[152px] sm:rounded-[24px] sm:px-[28px] sm:pb-[28px] sm:pt-[24px]"
+        className="flex min-h-[132px] w-full cursor-pointer items-center justify-between rounded-[20px] bg-[#5e85ee] px-5 pb-5 pt-5 transition-opacity hover:opacity-90 sm:min-h-[152px] sm:rounded-[24px] sm:px-[28px] sm:pb-[28px] sm:pt-[24px]"
       >
         <div className="flex flex-col items-start text-left text-white">
           <span className="text-[24px] font-bold leading-[32px] sm:text-[32px] sm:leading-[48px]">{copy.welcomeSection.ctaTitle}</span>
