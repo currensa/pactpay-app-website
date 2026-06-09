@@ -665,7 +665,7 @@ export default function TransactionPage() {
         </div>
 
         <TableScrollArea className="flex-1 min-h-0">
-          <Table className="min-w-[920px]">
+          <Table className="w-full min-w-[920px]">
             <TableHeader>
               <TableRow>
                 {activeTab === 'all' && <TableHead>{t('pages.transactions.type')}</TableHead>}
