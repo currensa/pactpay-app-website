@@ -367,71 +367,69 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
             </div>
 
             <div className="grid grid-cols-2 gap-[10px] sm:flex sm:gap-[10px]">
-            <div className="relative min-w-0">
-              <button
-                onClick={() => {
-                  setRoleDropdownOpen(open => !open)
-                  setStatusDropdownOpen(false)
-                }}
-                className="flex h-[36px] w-full items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px] sm:w-[120px]"
-              >
-                <span className={`truncate text-[13px] leading-[20px] ${roleFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
-                  {roleFilter === 'All' ? t('pages.orgMembers.role') : roleFilter}
-                </span>
-                <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${roleDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {roleDropdownOpen && (
-                <div className="absolute left-0 top-full z-20 mt-[4px] w-full overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg sm:w-[120px]">
-                  {roles.map(role => (
-                    <button
-                      key={role}
-                      onClick={() => {
-                        setRoleFilter(role)
-                        setRoleDropdownOpen(false)
-                      }}
-                      className={`w-full px-[12px] py-[8px] text-left text-[13px] leading-[20px] transition-colors hover:bg-[#f5f5f5] ${
-                        roleFilter === role ? 'text-[#5e85ee]' : 'text-[#1c1c26]'
-                      }`}
-                    >
-                      {role === 'All' ? t('pages.orgMembers.allRoles') : role}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+              <div className="relative min-w-0">
+                <button
+                  onClick={() => {
+                    setRoleDropdownOpen(open => !open)
+                    setStatusDropdownOpen(false)
+                  }}
+                  className="flex h-[36px] w-full items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px] sm:w-[120px]"
+                >
+                  <span className={`truncate text-[13px] leading-[20px] ${roleFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
+                    {roleFilter === 'All' ? t('pages.orgMembers.role') : roleFilter}
+                  </span>
+                  <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${roleDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {roleDropdownOpen && (
+                  <div className="absolute left-0 top-full z-20 mt-[4px] w-full overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg sm:w-[120px]">
+                    {roles.map(role => (
+                      <button
+                        key={role}
+                        onClick={() => {
+                          setRoleFilter(role)
+                          setRoleDropdownOpen(false)
+                        }}
+                        className={`w-full px-[12px] py-[8px] text-left text-[13px] leading-[20px] transition-colors hover:bg-[#f5f5f5] ${roleFilter === role ? 'text-[#5e85ee]' : 'text-[#1c1c26]'
+                          }`}
+                      >
+                        {role === 'All' ? t('pages.orgMembers.allRoles') : role}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-            <div className="relative min-w-0">
-              <button
-                onClick={() => {
-                  setStatusDropdownOpen(open => !open)
-                  setRoleDropdownOpen(false)
-                }}
-                className="flex h-[36px] w-full items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px] sm:w-[160px]"
-              >
-                <span className={`truncate text-[13px] leading-[20px] ${statusFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
-                  {statusFilter === 'All' ? t('pages.orgMembers.status') : getMemberStatusDisplayName(statusFilter)}
-                </span>
-                <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {statusDropdownOpen && (
-                <div className="absolute left-0 top-full z-20 mt-[4px] w-full overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg sm:w-[160px]">
-                  {statuses.map(status => (
-                    <button
-                      key={status}
-                      onClick={() => {
-                        setStatusFilter(status)
-                        setStatusDropdownOpen(false)
-                      }}
-                      className={`w-full px-[12px] py-[8px] text-left text-[13px] leading-[20px] transition-colors hover:bg-[#f5f5f5] ${
-                        statusFilter === status ? 'text-[#5e85ee]' : 'text-[#1c1c26]'
-                      }`}
-                    >
-                      {status === 'All' ? t('pages.orgMembers.allStatuses') : getMemberStatusDisplayName(status)}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+              <div className="relative min-w-0">
+                <button
+                  onClick={() => {
+                    setStatusDropdownOpen(open => !open)
+                    setRoleDropdownOpen(false)
+                  }}
+                  className="flex h-[36px] w-full items-center justify-between rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[12px] py-[8px] sm:w-[160px]"
+                >
+                  <span className={`truncate text-[13px] leading-[20px] ${statusFilter === 'All' ? 'text-[#8d8d93]' : 'text-[#1c1c26]'}`}>
+                    {statusFilter === 'All' ? t('pages.orgMembers.status') : getMemberStatusDisplayName(statusFilter)}
+                  </span>
+                  <ChevronDown className={`h-[16px] w-[16px] text-[#1c1c26] transition-transform ${statusDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {statusDropdownOpen && (
+                  <div className="absolute left-0 top-full z-20 mt-[4px] w-full overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg sm:w-[160px]">
+                    {statuses.map(status => (
+                      <button
+                        key={status}
+                        onClick={() => {
+                          setStatusFilter(status)
+                          setStatusDropdownOpen(false)
+                        }}
+                        className={`w-full px-[12px] py-[8px] text-left text-[13px] leading-[20px] transition-colors hover:bg-[#f5f5f5] ${statusFilter === status ? 'text-[#5e85ee]' : 'text-[#1c1c26]'
+                          }`}
+                      >
+                        {status === 'All' ? t('pages.orgMembers.allStatuses') : getMemberStatusDisplayName(status)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -455,7 +453,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
         </div>
 
         <TableScrollArea className={`min-h-0 flex-1 ${refreshing ? 'pointer-events-none opacity-50' : ''}`}>
-          <Table className="min-w-[1100px]">
+          <Table className="w-full min-w-[920px]">
             <TableHeader>
               <TableRow>
                 <TableHead>
