@@ -1,20 +1,36 @@
 import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
+import { generateDepositProof } from '@/lib/gravarc/depositProofBrowser'
+import { GRAVARC_ABI, ERC20_ABI as GRAVARC_ERC20_ABI } from '@/lib/gravarc/gravarcAbi'
+import { naclEncrypt } from '@/lib/gravarc/naclCrypto'
 import { erc20Abi, vaultAbi } from '@/lib/vault-abi'
 import useChainAssetStore from '@/stores/chain-asset'
 import { normalizeTransactionHash } from '@/utils/evm-transaction'
 import { useTranslation } from '@/utils/i18n'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import { getPublicClient } from '@wagmi/core'
 import { useEffect, useState } from 'react'
 import { createWalletClient, custom, type Hex } from 'viem'
-import { getPublicClient } from '@wagmi/core'
 import { useConfig } from 'wagmi'
 import { TransactionStatusBadge } from './transaction-status-badge'
 import type { Transaction } from './types'
+
 const ETH_SENTINEL = '0x0000000000000000000000000000000000000000' as Hex
 
-type DepositStatus = 'idle' | 'connecting' | 'authorizing' | 'checking' | 'approving' | 'depositing' | 'done' | 'error'
+type DepositStatus =
+  | 'idle'
+  | 'connecting'
+  | 'authorizing'
+  | 'checking'
+  | 'approving'
+  | 'fetching-data'
+  | 'fetching-circuit'
+  | 'fetching-path'
+  | 'proving'
+  | 'depositing'
+  | 'done'
+  | 'error'
 
 interface ExecuteConfirmDialogContentProps {
   executingTransaction: Transaction | null
@@ -22,7 +38,6 @@ interface ExecuteConfirmDialogContentProps {
   onCancel: () => void
   onSuccess: (txHash: string) => void
 }
-
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -42,13 +57,19 @@ export function ExecuteConfirmDialogContent({
   const [status, setStatus] = useState<DepositStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const isAiTransaction = executingTransaction?.type === 'token_usage_plan'
+  const isPrivacyDeposit = transactionPlan?.transactionType === 'privacy_deposit'
   const { t } = useTranslation()
+
   const stepLabels: Record<DepositStatus, string> = {
     idle: t('pages.transactions.connectWallet'),
     connecting: t('pages.transactions.connecting'),
     authorizing: t('pages.transactions.authorizing'),
     checking: t('pages.transactions.checkingAllowance'),
     approving: t('pages.transactions.approving'),
+    'fetching-data': 'Fetching deposit data…',
+    'fetching-circuit': 'Downloading ZK circuit…',
+    'fetching-path': 'Fetching Merkle path…',
+    proving: 'Generating ZK proof…',
     depositing: t('pages.transactions.depositing'),
     done: t('pages.transactions.done'),
     error: t('pages.transactions.retry'),
@@ -59,13 +80,16 @@ export function ExecuteConfirmDialogContent({
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const wagmiConfig = useConfig()
 
-  const isBusy = ['connecting', 'authorizing', 'checking', 'approving', 'depositing'].includes(status)
+  const isBusy = status !== 'idle' && status !== 'done' && status !== 'error'
 
-  // When status is 'connecting', watch for wallet connection and auto-proceed
   useEffect(() => {
     if (status !== 'connecting') return
     if (!isConnected || !address || !walletProvider) return
-    executeDeposit(address as Hex, walletProvider)
+    if (isPrivacyDeposit) {
+      executePrivacyDeposit(address as Hex, walletProvider)
+    } else {
+      executeDeposit(address as Hex, walletProvider)
+    }
   }, [status, isConnected, address, walletProvider])
 
   async function handleDeposit() {
@@ -78,8 +102,14 @@ export function ExecuteConfirmDialogContent({
       return
     }
 
-    await executeDeposit(address as Hex, walletProvider!)
+    if (isPrivacyDeposit) {
+      await executePrivacyDeposit(address as Hex, walletProvider!)
+    } else {
+      await executeDeposit(address as Hex, walletProvider!)
+    }
   }
+
+  // ── Stealth deposit (existing flow) ────────────────────────────────────────
 
   async function executeDeposit(account: Hex, provider: Provider) {
     if (!transactionPlan) return
@@ -167,6 +197,185 @@ export function ExecuteConfirmDialogContent({
     }
   }
 
+  // ── Privacy deposit (new flow) ─────────────────────────────────────────────
+
+  async function executePrivacyDeposit(account: Hex, provider: Provider) {
+    if (!transactionPlan) return
+
+    try {
+      const chainEntry = getChain(transactionPlan.caipChainId)
+      if (!chainEntry) throw new Error(`Chain ${transactionPlan.caipChainId} is not found in chain list.`)
+
+      const numericChainId = parseInt(chainEntry.chainId, 10)
+      if (!chainEntry.vaultAddress) {
+        throw new Error(`GravArc contract is not configured for chain ${transactionPlan.caipChainId}.`)
+      }
+      const gravarcAddress = chainEntry.vaultAddress as Hex
+      const tokenAddress = (transactionPlan.tokenAddress || ETH_SENTINEL) as Hex
+
+      const currentChainIdHex = await provider.request<string>({ method: 'eth_chainId' })
+      if (parseInt(currentChainIdHex, 16) !== numericChainId) {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: `0x${numericChainId.toString(16)}` }],
+        })
+      }
+
+      const chainAssetEntry = getChainAssetByToken(transactionPlan.caipChainId, tokenAddress)
+      const isNative = chainAssetEntry?.isNative ?? false
+
+      if (!transactionPlan.totalAmount || BigInt(transactionPlan.totalAmount) <= 0n) {
+        throw new Error('Total payroll amount is zero.')
+      }
+
+      const walletClient = createWalletClient({ account, transport: custom(provider) })
+      const publicClient = getPublicClient(wagmiConfig, { chainId: numericChainId })
+      if (!publicClient) throw new Error(`Public client for chain ${numericChainId} is not configured.`)
+      const configuredChain = publicClient.chain
+      if (!configuredChain) throw new Error(`Chain metadata for chain ${numericChainId} is not configured.`)
+
+      // Fetch privacy deposit data (tier + per-member secretHash/encPubkey/amount)
+      setStatus('fetching-data')
+      const privacyData = await apis.transaction.getPrivacyDepositData(transactionPlan.id)
+
+      // Fetch ZK circuit file CDN links
+      setStatus('fetching-circuit')
+      const circuitFiles = await apis.transaction.getCircuitFiles(
+        transactionPlan.caipChainId,
+        privacyData.tier,
+      )
+
+      // Fetch Merkle deposit path and validate it matches the on-chain state
+      setStatus('fetching-path')
+      const [depositPath, onChainNextIndex] = await Promise.all([
+        apis.transaction.getDepositPath(transactionPlan.caipChainId),
+        publicClient.readContract({
+          address: gravarcAddress,
+          abi: GRAVARC_ABI,
+          functionName: 'nextIndex',
+        }),
+      ])
+      if (Number(onChainNextIndex) !== depositPath.nextIndex) {
+        throw new Error(
+          `Deposit tree out of sync: backend nextIndex=${depositPath.nextIndex}, on-chain nextIndex=${Number(onChainNextIndex)}. Please retry in a moment.`
+        )
+      }
+
+      // Generate ZK proof entirely in browser
+      setStatus('proving')
+      const receivers = privacyData.members.map(m => ({
+        address: m.address,
+        secretHash: m.secretHash,
+        encPubkey: m.encPubkey,
+        amount: BigInt(m.amount),
+      }))
+      const proofResult = await generateDepositProof(
+        receivers,
+        BigInt(tokenAddress),
+        circuitFiles.wasmUrl,
+        circuitFiles.zkeyUrl,
+        { nextIndex: depositPath.nextIndex, siblings: depositPath.siblings },
+      )
+
+      // ERC20 allowance check & approve (use proofResult.totalAmount — the amount the contract will transfer)
+      if (!isNative) {
+        setStatus('checking')
+        const allowance = await publicClient.readContract({
+          address: tokenAddress,
+          abi: GRAVARC_ERC20_ABI,
+          functionName: 'allowance',
+          args: [account, gravarcAddress],
+        })
+        if (allowance < proofResult.totalAmount) {
+          setStatus('approving')
+          const approveTx = normalizeTransactionHash(await walletClient.writeContract({
+            address: tokenAddress,
+            abi: GRAVARC_ERC20_ABI,
+            functionName: 'approve',
+            args: [gravarcAddress, proofResult.totalAmount],
+            chain: configuredChain,
+          }))
+          const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx })
+          if (approveReceipt.status !== 'success') throw new Error('approve transaction reverted.')
+        }
+      }
+
+      // Call privacyDeposit on-chain
+      setStatus('depositing')
+      const depositTx = normalizeTransactionHash(await walletClient.writeContract({
+        address: gravarcAddress,
+        abi: GRAVARC_ABI,
+        functionName: 'deposit',
+        args: [{
+          pA: proofResult.proof.pA.map(BigInt) as [bigint, bigint],
+          pB: proofResult.proof.pB.map(row => row.map(BigInt)) as [[bigint, bigint], [bigint, bigint]],
+          pC: proofResult.proof.pC.map(BigInt) as [bigint, bigint],
+          newRoot: BigInt(proofResult.newDepositRoot),
+          authRoot: BigInt(proofResult.authRoot),
+          totalAmount: proofResult.totalAmount,
+          token: tokenAddress,
+          tier: proofResult.tier,
+        }],
+        ...(isNative ? { value: proofResult.totalAmount } : {}),
+        chain: configuredChain,
+      }))
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
+      if (receipt.status !== 'success') throw new Error('privacyDeposit transaction reverted.')
+
+      // Encrypt per-receiver withdraw messages and confirm deposit
+      const withdrawMessages = proofResult.receivers.map((r, i) => {
+        const msgContent = JSON.stringify({
+          nullifier: r.nullifier,
+          amount: r.amount,
+          depositRoot: proofResult.newDepositRoot,
+          leafIndex: proofResult.leafIndex,
+          depositPathElements: proofResult.depositPathElements,
+          depositPathIndices: proofResult.depositPathIndices,
+          authPathElements: r.authPathElements,
+          authPathIndices: r.authPathIndices,
+        })
+        const pubKeyHex = r.encPubkey.startsWith('0x') ? r.encPubkey.slice(2) : r.encPubkey
+        return {
+          address: r.address,
+          content: naclEncrypt(msgContent, pubKeyHex),
+          secretHash: privacyData.members[i].secretHash,
+          encPubkey: r.encPubkey,
+        }
+      })
+
+      await apis.transaction.confirmPrivacyDeposit(transactionPlan.id, {
+        depositTxHash: depositTx,
+        withdrawMessages,
+      })
+
+      setStatus('done')
+      onSuccess(depositTx)
+    } catch (err: any) {
+      console.error(err)
+      setErrorMsg(err?.shortMessage || err?.message || String(err))
+      setStatus('error')
+    }
+  }
+
+  // ── Progress step lists per flow ───────────────────────────────────────────
+
+  const stealthSteps: DepositStatus[] = ['authorizing', 'checking', 'approving', 'depositing']
+  const stealthLabels = ['Auth', 'Allowance', 'Approve', 'Deposit']
+
+  const privacySteps: DepositStatus[] = [
+    'fetching-data',
+    'fetching-circuit',
+    'fetching-path',
+    'proving',
+    'checking',
+    'approving',
+    'depositing',
+  ]
+  const privacyLabels = ['Data', 'Circuit', 'Path', 'Proof', 'Allowance', 'Approve', 'Deposit']
+
+  const activeSteps = isPrivacyDeposit ? privacySteps : stealthSteps
+  const activeLabels = isPrivacyDeposit ? privacyLabels : stealthLabels
+
   return (
     <div className="flex flex-col gap-[20px]">
       {/* Header */}
@@ -195,16 +404,16 @@ export function ExecuteConfirmDialogContent({
 
       {/* Progress steps */}
       {isBusy && (
-        <div className="flex items-center gap-[8px] text-[12px] text-[#606067]">
-          {(['authorizing', 'checking', 'approving', 'depositing'] as DepositStatus[]).map((s, i) => {
-            const stepIdx = ['authorizing', 'checking', 'approving', 'depositing'].indexOf(status)
+        <div className="flex flex-wrap items-center gap-[8px] text-[12px] text-[#606067]">
+          {activeSteps.map((s, i) => {
+            const stepIdx = activeSteps.indexOf(status as DepositStatus)
             const done = stepIdx > i
             const active = status === s
             return (
               <div key={s} className="flex items-center gap-[4px]">
                 {i > 0 && <span className="text-[rgba(0,0,0,0.2)]">→</span>}
                 <span className={active ? 'text-[#5e85ee] font-medium' : done ? 'text-[#5ddd22]' : 'text-[#8d8d93]'}>
-                  {['Auth', 'Allowance', 'Approve', 'Deposit'][i]}{done ? ' ✓' : ''}
+                  {activeLabels[i]}{done ? ' ✓' : ''}
                 </span>
               </div>
             )

@@ -137,6 +137,36 @@ export interface CreateTransactionPlanResponse {
   batchId: string
 }
 
+export type PrivacyDepositTier = 8 | 16 | 32 | 64 | 128
+
+export interface CreatePrivacyDepositPlanMember {
+  memberId: string
+  amount: string
+}
+
+export interface CreatePrivacyDepositPlanPayload {
+  caipChainId: string
+  tokenAddress: string
+  transactionName?: string
+  payPeriod?: string
+  members: CreatePrivacyDepositPlanMember[]
+}
+
+export interface CreatePrivacyDepositPlanResponseMember {
+  address: string
+  amount: string
+  secretHash: string
+  encPubkey: string
+}
+
+export interface CreatePrivacyDepositPlanResponseDto {
+  batchId: string
+  tier: PrivacyDepositTier
+  caipChainId: string
+  tokenAddress: string
+  members: CreatePrivacyDepositPlanResponseMember[]
+}
+
 export interface PayrollBatch {
   id: string
   orgId: string
@@ -183,6 +213,45 @@ export interface TransactionListResponse {
 }
 
 
+export interface CircuitFilesResponse {
+  wasmUrl: string
+  zkeyUrl: string
+  wasmSha256?: string
+  zkeySha256?: string
+}
+
+export interface DepositPathResponse {
+  nextIndex: number
+  siblings: string[]
+  pathIndices: number[]
+}
+
+export interface PrivacyDepositMemberData {
+  address: string
+  secretHash: string
+  encPubkey: string
+  amount: string
+}
+
+export interface PrivacyDepositDataResponse {
+  tier: number
+  privacyAuthRoot: string
+  totalAmount: string
+  members: PrivacyDepositMemberData[]
+}
+
+export interface WithdrawMessage {
+  address: string
+  content: string
+  secretHash: string
+  encPubkey: string
+}
+
+export interface ConfirmPrivacyDepositPayload {
+  depositTxHash: string
+  withdrawMessages: WithdrawMessage[]
+}
+
 export class TransactionApi {
   constructor(private readonly request: AxiosInstance) {}
 
@@ -219,6 +288,15 @@ export class TransactionApi {
   // 创建交易计划（StealthPay）
   async createTransactionPlan(plan: CreateTransactionPlanPayload) {
     const res = await this.request.post<CreateTransactionPlanResponse>(`/transaction/${this.orgId}/plan`, plan)
+    return res.data
+  }
+
+  // 创建隐私存款计划草稿
+  async createPrivacyDepositPlan(payload: CreatePrivacyDepositPlanPayload) {
+    const res = await this.request.post<CreatePrivacyDepositPlanResponseDto>(
+      `/transaction/${this.orgId}/privacy-deposit-plan`,
+      payload,
+    )
     return res.data
   }
 
@@ -376,6 +454,39 @@ export class TransactionApi {
         total: { gasUnits: string; costWei: string; costNative: string } | null
       }
     }>(`/transaction/${this.orgId}/plan/fee-preview`, members)
+    return res.data
+  }
+
+  // 获取 ZK 电路文件 CDN 链接
+  async getCircuitFiles(caipChainId: string, tier: number) {
+    const res = await this.request.get<CircuitFilesResponse>('/gravarc/circuit-files', {
+      params: { caipChainId, tier },
+    })
+    return res.data
+  }
+
+  // 获取 Merkle 沉积路径
+  async getDepositPath(caipChainId: string) {
+    const res = await this.request.get<DepositPathResponse>('/gravarc/deposit-path', {
+      params: { caipChainId },
+    })
+    return res.data
+  }
+
+  // 获取批次隐私存款数据（authRoot + 成员公钥）
+  async getPrivacyDepositData(batchId: string) {
+    const res = await this.request.get<PrivacyDepositDataResponse>(
+      `/transaction/${this.orgId}/batches/${batchId}/privacy-deposit-data`,
+    )
+    return res.data
+  }
+
+  // 确认隐私存款（含 withdrawMessages）
+  async confirmPrivacyDeposit(batchId: string, payload: ConfirmPrivacyDepositPayload) {
+    const res = await this.request.post<{ success: boolean }>(
+      `/transaction/${this.orgId}/batches/${batchId}/confirm-deposit`,
+      payload,
+    )
     return res.data
   }
 

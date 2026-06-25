@@ -13,10 +13,26 @@ interface EmailLoginRequest {
   code: string
 }
 
+export interface GravArcUserInfoDto {
+  userId: string
+  address: string
+  encryptedSecret: string
+  secretHash: string
+  encPubkey?: string | null
+}
+
+export interface SaveGravArcUserInfoDto {
+  address: string
+  encryptedSecret: string
+  secretHash: string
+  encPubkey?: string
+}
+
 interface GoogleLoginResponse {
   token: string
   userId: string
   isNew: boolean
+  gravArcUserInfo?: GravArcUserInfoDto | null
 }
 
 export interface SubmitMetaPubRequest {
@@ -74,6 +90,11 @@ export class AccountApi {
 
   async submitMetaPub(payload: SubmitMetaPubRequest) {
     const res = await this.request.post<{ success: boolean }>('/auth/meta-pub', payload)
+    return res.data
+  }
+
+  async saveGravArcUserInfo(payload: SaveGravArcUserInfoDto) {
+    const res = await this.request.post<{ success: boolean }>('/auth/gravarc-user-info', payload)
     return res.data
   }
 

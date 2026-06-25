@@ -56,6 +56,7 @@ export interface OrganizationMember {
   /** 成员可有多个支付意向（按 caipChainId+token 唯一），取当前组织发薪配置对应的那条 */
   payoutIntent: PayoutIntent
   metaPub: string | null
+  gravArcAddress: string | null
   inviteStatus: InviteLogStatus | null
   remark: string | null
 }

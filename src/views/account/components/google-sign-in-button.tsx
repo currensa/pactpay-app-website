@@ -1,4 +1,5 @@
 import api from '@/apis'
+import useAuthStore from '@/stores/auth'
 import { usePublicCopy } from '@/views/public/copy'
 import { IconBrandGoogle, IconLoader2 } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
@@ -48,6 +49,7 @@ export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButto
   const [buttonWidth, setButtonWidth] = useState(0)
   const baseButtonWidth = buttonWidth > 0 ? Math.min(buttonWidth, 400) : 400
   const scaleX = buttonWidth > 0 ? buttonWidth / baseButtonWidth : 1
+  const setGravArcUserInfo = useAuthStore(s => s.setGravArcUserInfo)
 
   useEffect(() => {
     if (!wrapperRef.current) return
@@ -89,8 +91,9 @@ export default function GoogleSignInButton({ onLoginSuccess }: GoogleSignInButto
 
           setLoading(true)
           try {
-            const { token, userId } = await api.auth.googleLogin(credential)
-            persistAuthSession('google', { token, userId })
+            const { token, userId, gravArcUserInfo } = await api.auth.googleLogin(credential)
+            persistAuthSession('google', { token, userId, gravArcUserInfo })
+            setGravArcUserInfo(gravArcUserInfo ?? null)
             onLoginSuccess()
           } catch (loginError) {
             console.error('Failed to sign in with Google:', loginError)

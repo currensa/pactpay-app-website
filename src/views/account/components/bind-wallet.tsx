@@ -1,50 +1,45 @@
 import api from '@/apis'
-import { prepareMetaPubSubmission } from '@/lib/meta-pub'
+import { deriveNaclKeyPair, secretboxEncryptWithKey } from '@/lib/gravarc/naclCrypto'
+import { poseidonHash, secretStringToField } from '@/lib/gravarc/poseidon'
 import useAuthStore from '@/stores/auth'
 import { usePublicCopy } from '@/views/public/copy'
-import type { Provider } from '@reown/appkit/react'
-import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import { useAppKit, useAppKitAccount } from '@reown/appkit/react'
 import { IconLoader2, IconWallet } from '@tabler/icons-react'
 import axios from 'axios'
 import { useEffect, useState } from 'react'
+import { useWalletClient } from 'wagmi'
 
 interface BindWalletProps {
   onSuccess: () => void
+}
+
+function bytesToHex(b: Uint8Array): string {
+  return Array.from(b)
+    .map(v => v.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 export default function BindWallet({ onSuccess }: BindWalletProps) {
   const { copy } = usePublicCopy()
   const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
-  const { walletProvider } = useAppKitProvider<Provider>('eip155')
+  const { data: walletClient } = useWalletClient()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState('')
-  const [checking, setChecking] = useState(true)
-  const metaPubSubmitted = useAuthStore(s => s.metaPubSubmitted)
-  const checkMetaPub = useAuthStore(s => s.checkMetaPub)
+  const [secretInput, setSecretInput] = useState('')
+  const [confirmInput, setConfirmInput] = useState('')
+  const [passwordInput, setPasswordInput] = useState('')
+  const [rememberLocally, setRememberLocally] = useState(false)
   const setMetaPubSubmitted = useAuthStore(s => s.setMetaPubSubmitted)
-  const setMetaPub = useAuthStore(s => s.setMetaPub)
+  const setGravArcUserInfo = useAuthStore(s => s.setGravArcUserInfo)
+  const gravArcUserInfo = useAuthStore(s => s.gravArcUserInfo)
 
   // Guard: if wallet already bound, skip this step
   useEffect(() => {
-    const guard = async () => {
-      // If already known to be submitted, redirect immediately
-      if (metaPubSubmitted === true) {
-        onSuccess()
-        return
-      }
-      // If unknown (null), fetch from server
-      if (metaPubSubmitted === null) {
-        const submitted = await checkMetaPub()
-        if (submitted) {
-          onSuccess()
-          return
-        }
-      }
-      setChecking(false)
+    if (gravArcUserInfo !== null) {
+      onSuccess()
     }
-    guard()
   }, [])
 
   const shortAddress = address ? address.slice(0, 6) + '...' + address.slice(-4) : ''
@@ -54,17 +49,47 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
   }
 
   const handleSubmit = async () => {
-    if (!address || !walletProvider) return
+    if (!address || !walletClient) return
+    if (!secretInput) { setError('Secret cannot be empty'); return }
+    if (secretInput !== confirmInput) { setError('Secrets do not match'); return }
+    if (!passwordInput) { setError('Password cannot be empty'); return }
+    if (secretInput.length > 31) { setError('Secret must be 31 characters or fewer'); return }
+
     setError('')
     setLoading(true)
     try {
-      const { metaPub, signMessage, metaPubSignature } = await prepareMetaPubSubmission(
-        walletProvider,
+      setStep('Signing with wallet…')
+      // One EIP-712 sign → seed used for both secretbox key and box key pair
+      const keyPair = await deriveNaclKeyPair(passwordInput, walletClient as Parameters<typeof deriveNaclKeyPair>[1])
+
+      // Pad to 31 chars with random printable ASCII so the secret has full entropy
+      const charset = Array.from({ length: 95 }, (_, i) => String.fromCharCode(i + 32)).join('')
+      const suffixBytes = crypto.getRandomValues(new Uint8Array(31 - secretInput.length))
+      const randomSuffix = Array.from(suffixBytes).map(b => charset[b % charset.length]).join('')
+      const actualSecret = secretInput + randomSuffix
+
+      setStep('Computing secret hash…')
+      const field = await secretStringToField(actualSecret)
+      const hashBigint = await poseidonHash([field])
+      const secretHash = '0x' + hashBigint.toString(16).padStart(64, '0')
+
+      const encryptedSecret = secretboxEncryptWithKey(actualSecret, keyPair.secretKey)
+      const encPubkey = bytesToHex(keyPair.publicKey)
+
+      setStep('Saving…')
+      await api.auth.saveGravArcUserInfo({ address, encryptedSecret, secretHash, encPubkey })
+
+      const info = {
+        userId: localStorage.getItem('userId') ?? '',
         address,
-        setStep,
-      )
-      await api.auth.submitMetaPub({ address, metaPub, signMessage, metaPubSignature })
-      setMetaPub(metaPub)
+        encryptedSecret,
+        secretHash,
+        encPubkey,
+      }
+      if (rememberLocally) {
+        localStorage.setItem('gravArcUserInfo', JSON.stringify(info))
+      }
+      setGravArcUserInfo(info)
       setMetaPubSubmitted(true)
       onSuccess()
     } catch (err: any) {
@@ -72,15 +97,8 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
       setError(err?.message || copy.bindWallet.submitFailed)
     } finally {
       setLoading(false)
+      setStep('')
     }
-  }
-
-  if (checking) {
-    return (
-      <div className="flex h-full w-full items-center justify-center">
-        <IconLoader2 className="size-7 animate-spin text-[#77777d]" />
-      </div>
-    )
   }
 
   return (
@@ -124,6 +142,47 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
           </div>
         )}
 
+        {/* Form inputs — only shown when wallet is connected */}
+        {isConnected && (
+          <div className="flex flex-col gap-[12px]">
+            <input
+              type="password"
+              placeholder="Secret (max 31 chars)"
+              value={secretInput}
+              onChange={e => setSecretInput(e.target.value)}
+              autoComplete="new-password"
+              className="h-[46px] rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[14px] text-[14px] leading-[22px] text-[#1c1c26] outline-none placeholder:text-[#8d8d93] focus:border-[#5e85ee]"
+            />
+            <input
+              type="password"
+              placeholder="Confirm secret"
+              value={confirmInput}
+              onChange={e => setConfirmInput(e.target.value)}
+              autoComplete="new-password"
+              className="h-[46px] rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[14px] text-[14px] leading-[22px] text-[#1c1c26] outline-none placeholder:text-[#8d8d93] focus:border-[#5e85ee]"
+            />
+            <input
+              type="password"
+              placeholder="Password (for key derivation)"
+              value={passwordInput}
+              onChange={e => setPasswordInput(e.target.value)}
+              autoComplete="new-password"
+              className="h-[46px] rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[14px] text-[14px] leading-[22px] text-[#1c1c26] outline-none placeholder:text-[#8d8d93] focus:border-[#5e85ee]"
+            />
+            <label className="flex cursor-pointer select-none items-center gap-[8px]">
+              <input
+                type="checkbox"
+                checked={rememberLocally}
+                onChange={e => setRememberLocally(e.target.checked)}
+                className="size-[16px] cursor-pointer accent-[#5e85ee]"
+              />
+              <span className="text-[13px] leading-[20px] text-[#606067]">
+                {copy.bindWallet.rememberLocally}
+              </span>
+            </label>
+          </div>
+        )}
+
         {/* Step hint */}
         {step && !error && <p className="text-[13px] leading-[20px] text-[#606067]">{step}</p>}
 
@@ -143,7 +202,7 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || !walletClient}
             className="flex h-[50px] w-full items-center justify-center gap-[8px] rounded-[14px] bg-[#5e85ee] text-[15px] font-bold leading-[24px] text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {loading ? <IconLoader2 className="size-[20px] animate-spin" /> : copy.bindWallet.confirm}

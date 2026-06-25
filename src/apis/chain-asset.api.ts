@@ -40,6 +40,7 @@ interface Chain {
   createdAt: string
   updatedAt: string
   vaultAddress: string | null
+  gravarcAddress: string | null
 }
 
 /** 组织支付账户支持的 Asset/Chain 单项（用于 GET :orgId/assets-chains） */

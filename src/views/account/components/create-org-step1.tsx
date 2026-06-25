@@ -4,7 +4,7 @@ import useAuthStore from '@/stores/auth'
 import useOrganizationStore from '@/stores/organization'
 import { usePublicCopy } from '@/views/public/copy'
 import { IconArrowLeft } from '@tabler/icons-react'
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useState } from 'react'
 
 interface CreateOrgStep1Props {
   onBack: () => void
@@ -19,41 +19,14 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isCheckingMetaPub, setIsCheckingMetaPub] = useState(true)
-  const [metaPubSubmitted, setMetaPubSubmittedState] = useState<boolean | null>(null)
   const [shouldReceivePayroll, setShouldReceivePayroll] = useState(false)
   const setCurrentOrg = useOrganizationStore(s => s.setCurrentOrg)
-  const cachedMetaPubSubmitted = useAuthStore(s => s.metaPubSubmitted)
-  const setMetaPubSubmitted = useAuthStore(s => s.setMetaPubSubmitted)
+  const gravArcUserInfo = useAuthStore(s => s.gravArcUserInfo)
   const { getOrganizations } = useOrganizationStore()
-  useEffect(() => {
-    let active = true
-
-    const loadMetaPubStatus = async () => {
-      try {
-        const { submitted } = await api.auth.getMetaPubStatus()
-        if (!active) return
-        setMetaPubSubmittedState(submitted)
-        setMetaPubSubmitted(submitted)
-      } catch (error) {
-        if (!active) return
-        setMetaPubSubmittedState(cachedMetaPubSubmitted)
-        console.error('Failed to get metaPub status:', error)
-      } finally {
-        if (active) setIsCheckingMetaPub(false)
-      }
-    }
-
-    loadMetaPubStatus()
-
-    return () => {
-      active = false
-    }
-  }, [cachedMetaPubSubmitted, setMetaPubSubmitted])
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!orgName.trim() || !showName.trim() || isLoading || isCheckingMetaPub) return
+    if (!orgName.trim() || !showName.trim() || isLoading) return
 
     setIsLoading(true)
     try {
@@ -84,7 +57,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
       }
 
       onNext(orgName, {
-        redirectToBindWallet: metaPubSubmitted === false && shouldReceivePayroll,
+        redirectToBindWallet: gravArcUserInfo === null && shouldReceivePayroll,
       })
     } catch (error) {
       console.error('Failed to create organization:', error)
@@ -158,7 +131,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
           />
         </div>
 
-        {metaPubSubmitted === false && (
+        {gravArcUserInfo === null && (
           <div className="flex flex-col gap-[12px] rounded-[20px] border border-[rgba(94,133,238,0.18)] bg-[rgba(94,133,238,0.06)] p-[16px]">
             <p className="font-['Inter',sans-serif] text-[15px] font-bold leading-[22px] text-[#1c1c26]">
               {copy.createOrganization.receivePayrollTitle}
@@ -195,7 +168,7 @@ export default function CreateOrgStep1({ onBack, onNext }: CreateOrgStep1Props) 
           </button>
           <button
             type="submit"
-            disabled={!orgName.trim() || !showName.trim() || isLoading || isCheckingMetaPub}
+            disabled={!orgName.trim() || !showName.trim() || isLoading}
             className="flex min-h-[44px] w-full flex-1 items-center justify-center rounded-[14px] bg-[#5e85ee] px-4 py-2.5 font-['Inter',sans-serif] text-[14px] font-bold leading-[20px] text-white transition-opacity hover:opacity-90 disabled:opacity-50 sm:min-h-0 sm:rounded-[16px] sm:px-[24px] sm:py-[14px] sm:text-[16px] sm:leading-[24px]"
           >
             {isLoading ? copy.createOrganization.creating : copy.createOrganization.create}

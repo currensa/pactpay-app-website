@@ -1,6 +1,6 @@
 import apis from '@/apis'
 import { MembersResponse } from '@/apis/orgnization.api'
-import type { TransactionItem } from '@/apis/transaction.api'
+import type { CreatePrivacyDepositPlanResponseDto, TransactionItem } from '@/apis/transaction.api'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
@@ -27,6 +27,7 @@ export default function CreateTransaction() {
   const [reactionSourceCaipChainId, setReactionSourceCaipChainId] = useState<string>('')
   const [reactionSourceTokenAddress, setReactionSourceTokenAddress] = useState<string>('')
   const [accessChecked, setAccessChecked] = useState(false)
+  const [, setCreatedPlan] = useState<CreatePrivacyDepositPlanResponseDto | null>(null)
 
   const { getTokenDecimals, fetchChainAssets } = useChainAssetStore()
 
@@ -121,22 +122,30 @@ export default function CreateTransaction() {
     transactionName: string
     executionDate: string
   }) => {
+
     try {
+      const payrollConfig = useOrganizationStore.getState().payrollConfig
+      if (!payrollConfig) throw new Error('Payroll config not found')
+
+      console.log(params, organizationMembers);
       const members = Array.from(params.selectedMembers).map(memberId => {
         const member = organizationMembers.find(m => m.id === memberId)
         if (!member) throw new Error(`Member ${memberId} not found`)
+        if (!member.gravArcAddress) throw new Error(`Member ${member.showName} has no wallet address`)
         return {
           memberId: member.memberId,
           amount: params.memberAmounts[memberId] || '0',
         }
       })
 
-      await apis.transaction.createTransactionPlan({
-        payPeriod: params.executionDate ? new Date(params.executionDate).toISOString() : new Date().toISOString(),
+      const plan = await apis.transaction.createPrivacyDepositPlan({
+        caipChainId: payrollConfig.caipChainId,
+        tokenAddress: payrollConfig.token,
         transactionName: params.transactionName || t('pages.transactions.newTransaction'),
+        payPeriod: params.executionDate ? new Date(params.executionDate).toISOString() : undefined,
         members,
-        ...(isCreatingFromReaction && reactionSourceTransactionId ? { reactionFromId: reactionSourceTransactionId } : {}),
       })
+      setCreatedPlan(plan)
 
       toast({
         title: t('pages.orgMembers.success'),

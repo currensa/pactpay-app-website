@@ -1,4 +1,5 @@
 import api from '@/apis'
+import useAuthStore from '@/stores/auth'
 import { usePublicCopy } from '@/views/public/copy'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider, useDisconnect } from '@reown/appkit/react'
@@ -21,6 +22,7 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const { copy } = usePublicCopy()
   const userAction = useRef(false)
   const [loading, setLoading] = useState(false)
+  const setGravArcUserInfo = useAuthStore(s => s.setGravArcUserInfo)
 
   const shortAddress = useMemo(() => {
     return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''
@@ -45,13 +47,14 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
         method: 'personal_sign',
         params: [nonce, addr],
       })
-      const { token, userId } = await api.auth.login({
+      const { token, userId, gravArcUserInfo } = await api.auth.login({
         type: 'wallet',
         address: addr,
         nonce,
         signature,
       })
-      persistAuthSession('wallet', { token, userId, address: addr })
+      persistAuthSession('wallet', { token, userId, address: addr, gravArcUserInfo })
+      setGravArcUserInfo(gravArcUserInfo ?? null)
       onLoginSuccess()
     } catch (error) {
       console.error('Failed to sign in:', error)
@@ -114,6 +117,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const [sendCodeLoading, setSendCodeLoading] = useState(false)
   const [emailLoginLoading, setEmailLoginLoading] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const setGravArcUserInfo = useAuthStore(s => s.setGravArcUserInfo)
 
   useEffect(() => {
     if (countdown <= 0) return
@@ -142,12 +146,13 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     if (!email || !emailCode) return
     setEmailLoginLoading(true)
     try {
-      const { token, userId } = await api.auth.login({
+      const { token, userId, gravArcUserInfo } = await api.auth.login({
         type: 'email',
         email,
         code: emailCode.toUpperCase(),
       })
-      persistAuthSession('email', { token, userId, email })
+      persistAuthSession('email', { token, userId, email, gravArcUserInfo })
+      setGravArcUserInfo(gravArcUserInfo ?? null)
       onLoginSuccess()
     } catch (error) {
       console.error('Failed to sign in with email:', error)
