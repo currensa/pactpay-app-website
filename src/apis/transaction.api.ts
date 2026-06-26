@@ -2,7 +2,7 @@ import { PayrollItemStatus, PayrollTransactionStatus } from '@/enums/transaction
 import { AxiosInstance } from 'axios'
 import { MemberRole } from './orgnization.api'
 
-export const TRANSACTION_LIST_TRANSACTION_TYPES = ['stealth_deposit', 'token_usage_plan', 'all'] as const
+export const TRANSACTION_LIST_TRANSACTION_TYPES = ['privacy_deposit', 'token_usage_plan', 'all'] as const
 export type TransactionListTransactionType = typeof TRANSACTION_LIST_TRANSACTION_TYPES[number]
 
 // ── StealthPay 相关接口 ─────────────────────────────────────────────────────
@@ -35,6 +35,8 @@ export interface StealthPayrollItem {
   memberId: string
   stealthAddress: string
   amount: string
+  /** 平台服务费（token 最小单位字符串），由后端计算后附在 item 上 */
+  platformFee?: string | null
   tokenAddress: string
   proof: string[]
   leaf: string
@@ -149,6 +151,8 @@ export interface TransactionItemMember {
 
 export interface TransactionItem {
   amount: string
+  /** 平台服务费（token 最小单位字符串），由后端计算后附在 item 上 */
+  platformFee?: string | null
   id:string
   recipient: string | null
   createdAt: string
@@ -283,7 +287,14 @@ export interface PrivacyDepositMemberData {
   address: string
   secretHash: string
   encPubkey: string
+  /** 本成员应到账金额（net，token 最小单位字符串），不含服务费 */
   amount: string
+  /**
+   * 本成员服务费（token 最小单位字符串）。前端存款时把它加到 amount 上，按 gross
+   * (amount + platformFee) 承诺进 deposit 树；提款时合约再扣掉同样的 platformFee 给
+   * relayer，成员最终到账正好为 amount。必须与 item.platformFee 一致。
+   */
+  platformFee?: string | null
 }
 
 export interface PrivacyDepositDataResponse {
@@ -318,7 +329,7 @@ export class TransactionApi {
     pageSize: number = 20,
     transactionStatus?: string,
     transactionName?: string,
-    transactionType: TransactionListTransactionType = 'stealth_deposit',
+    transactionType: TransactionListTransactionType = 'privacy_deposit',
   ) {
     const res = await this.request.get<TransactionPlansResponse>(`/transaction/${this.orgId}`, {
       params: {

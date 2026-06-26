@@ -2,6 +2,7 @@
 
 import apis from '@/apis'
 import type { StealthPayrollItem } from '@/apis/transaction.api'
+import { confirmSync } from '@/lib/confirm-sync'
 import { GRAVARC_ABI } from '@/lib/gravarc/gravarcAbi'
 import { naclDecryptWithKeyPair, secretboxDecryptWithKey } from '@/lib/gravarc/naclCrypto'
 import {
@@ -146,11 +147,10 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
     throw err
   }
 
-  // 4. Full withdrawal: expectedAmount = remaining, fee = ceil(0.1%).
-  // When delegating, the platform relayer collects the fee (covers gas); otherwise self-relay so the
-  // fee routes back to the recipient.
+  // 4. Full withdrawal: use platformFee from the item when available (goes to the relayer);
+  // fall back to ceil(0.1%) for items that pre-date the platformFee field.
   const expectedAmount = remaining
-  const fee = (expectedAmount + 999n) / 1000n
+  const fee = item.platformFee ? BigInt(item.platformFee) : (expectedAmount + 999n) / 1000n
   const relayer = delegate
     ? (relayerAddress as Hex)
     : PRIVACY_WITHDRAW_RELAYER === ZERO_ADDRESS
@@ -244,9 +244,16 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
   if (receipt.status !== 'success') throw new Error('withdraw transaction reverted')
 
-  // 7. Notify the backend so the payroll item is marked claimed.
+  // 7. Notify the backend so the payroll item is marked claimed. The on-chain withdraw already
+  // succeeded, so this confirm is queued for durable retry (persisted across reloads) instead of
+  // being awaited once — a failed confirm must not mark an already-withdrawn item as failed.
   onStatus?.('Confirming…')
-  await apis.transaction.confirmPrivacyWithdraw(item.id, txHash)
+  await confirmSync.enqueue({
+    type: 'confirm-withdraw',
+    itemId: item.id,
+    txHash,
+    label: item.transactionName ?? item.id,
+  })
 
   return { itemId: item.id, txHash }
 }

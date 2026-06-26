@@ -1,5 +1,6 @@
 import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
+import { confirmSync } from '@/lib/confirm-sync'
 import { generateDepositProof } from '@/lib/gravarc/depositProofBrowser'
 import { GRAVARC_ABI, ERC20_ABI as GRAVARC_ERC20_ABI } from '@/lib/gravarc/gravarcAbi'
 import { naclEncrypt } from '@/lib/gravarc/naclCrypto'
@@ -186,7 +187,15 @@ export function ExecuteConfirmDialogContent({
       }))
       const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
       if (receipt.status !== 'success') throw new Error('depositForPayroll transaction reverted.')
-      await apis.transaction.confirmDeposit(transactionPlan.id, depositTx)
+      // On-chain deposit succeeded (source of truth). Hand the backend confirm to the durable
+      // retry queue so a flaky/timed-out confirm never fails the deposit; it persists + resumes.
+      await confirmSync.enqueue({
+        type: 'confirm-deposit',
+        orgId: localStorage.getItem('organizationId') || '',
+        batchId: transactionPlan.id,
+        depositTxHash: depositTx,
+        label: executingTransaction?.name || transactionPlan.id,
+      })
 
       setStatus('done')
       onSuccess(depositTx)
@@ -261,13 +270,18 @@ export function ExecuteConfirmDialogContent({
         )
       }
 
-      // Generate ZK proof entirely in browser
+      // Generate ZK proof entirely in browser.
+      // Each receiver's committed amount is GROSS = item amount + platformFee. The fee is added here,
+      // per member, so the deposit tree commits the gross amount. At withdraw the contract pays the
+      // recipient (gross − platformFee) and routes platformFee to the relayer (see privacyWithdraw.ts),
+      // so the member nets exactly their item amount. m.platformFee MUST be the same value later used as
+      // the withdraw fee (item.platformFee), otherwise the member is over/under-paid.
       setStatus('proving')
       const receivers = privacyData.members.map(m => ({
         address: m.address,
         secretHash: m.secretHash,
         encPubkey: m.encPubkey,
-        amount: BigInt(m.amount),
+        amount: BigInt(m.amount) + BigInt(m.platformFee ?? '0'),
       }))
       const proofResult = await generateDepositProof(
         receivers,
@@ -277,7 +291,19 @@ export function ExecuteConfirmDialogContent({
         { nextIndex: depositPath.nextIndex, siblings: depositPath.siblings },
       )
 
-      // ERC20 allowance check & approve (use proofResult.totalAmount — the amount the contract will transfer)
+      // The proof's public totalAmount (Σ gross) must equal the plan total (which also includes service
+      // fee). A mismatch means the per-member platformFee fed into the proof is out of sync with the
+      // backend — deposit would revert (totalAmount is a proof public input) or mis-credit members.
+      if (proofResult.totalAmount !== BigInt(transactionPlan.totalAmount)) {
+        throw new Error(
+          `Deposit total mismatch: proof totalAmount=${proofResult.totalAmount} but plan totalAmount=${transactionPlan.totalAmount}. ` +
+          `Ensure each member's platformFee is present in privacy-deposit-data.`,
+        )
+      }
+
+      // ERC20 allowance check & approve. The vault pulls exactly proofResult.totalAmount (Σ gross, which
+      // equals transactionPlan.totalAmount). totalAmount is also a public input to the ZK proof, so it must
+      // match the value committed during proving — any mismatch reverts with InvalidDepositProof.
       if (!isNative) {
         setStatus('checking')
         const allowance = await publicClient.readContract({
@@ -356,9 +382,15 @@ export function ExecuteConfirmDialogContent({
         }
       })
 
-      await apis.transaction.confirmPrivacyDeposit(transactionPlan.id, {
+      // On-chain privacy deposit succeeded — queue the backend confirm (carrying the encrypted
+      // withdraw messages) for durable retry rather than awaiting a single fragile call.
+      await confirmSync.enqueue({
+        type: 'confirm-privacy-deposit',
+        orgId: localStorage.getItem('organizationId') || '',
+        batchId: transactionPlan.id,
         depositTxHash: depositTx,
         withdrawMessages,
+        label: executingTransaction?.name || transactionPlan.id,
       })
 
       setStatus('done')

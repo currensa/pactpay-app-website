@@ -134,7 +134,7 @@ export default function TransactionDetail() {
       if (allPending) return totalAmountFormatted
       const totalRefunded = plan.items
         .filter(item => item.status === 'refunded')
-        .reduce((sum, item) => sum + BigInt(item.amount ?? '0'), BigInt(0))
+        .reduce((sum, item) => sum + BigInt(item.amount ?? '0') + BigInt(item.platformFee || '0'), BigInt(0))
       return parseFloat(formatUnits(totalRefunded, decimals)).toLocaleString()
     } catch { return '0' }
   })()

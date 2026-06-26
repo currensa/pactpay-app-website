@@ -945,6 +945,14 @@ export const messages = {
         comingSoon: 'Coming soon',
       },
     },
+    confirmSync: {
+      backgroundToast: 'Syncing "{label}" with the server in the background…',
+      syncedToast: '"{label}" synced successfully.',
+      failedTitle: 'Sync failed',
+      failedBody: 'We could not sync "{label}" with the server after several attempts. The on-chain transaction already succeeded — would you like to keep retrying?',
+      keepRetrying: 'Keep retrying',
+      later: 'Later',
+    },
   },
   'zh-CN': {
     language: {
@@ -1883,6 +1891,14 @@ export const messages = {
         cloudServices: '云服务',
         comingSoon: '即将推出',
       },
+    },
+    confirmSync: {
+      backgroundToast: '正在后台与服务器同步“{label}”…',
+      syncedToast: '“{label}”已同步成功。',
+      failedTitle: '同步失败',
+      failedBody: '多次尝试后仍无法与服务器同步“{label}”。链上交易已经成功——是否继续重试？',
+      keepRetrying: '继续重试',
+      later: '稍后',
     },
   },
 } as const
