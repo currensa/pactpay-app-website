@@ -446,7 +446,7 @@ export function CreateTransactionDialogContent({
   // ── Dialog variant table (original columns) ──────────────────────────────
   const dialogMemberTable = (
     <TableScrollArea className="flex-1 min-h-0 max-h-[52vh] overflow-y-auto">
-      <Table className="min-w-[980px]">
+      <Table className="min-w-[980px] w-full">
         <TableHeader>
           <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
             <TableHead className="w-10 pb-3">
@@ -568,7 +568,7 @@ export function CreateTransactionDialogContent({
   // ── Page variant table (Figma columns: Member, Wallet, Amount, Status) ────
   const pageMemberTable = (
     <TableScrollArea className="flex-1 min-h-0 overflow-y-auto">
-      <Table className="min-w-[900px]">
+      <Table className="min-w-[900px] w-full">
         <TableHeader>
           <TableRow className="bg-[#f5f5f5] border-b border-[rgba(0,0,0,0.12)] hover:bg-[#f5f5f5]">
             <TableHead className="w-10 py-2">

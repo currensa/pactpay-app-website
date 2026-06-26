@@ -254,10 +254,10 @@ export default function TransactionDetail() {
                 : hasPermission(Permission.EXECUTE_TRANSACTION) && (
                   <button
                     onClick={() => setExecuteOpen(true)}
-                  className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[14px] text-[13px] text-white transition-opacity hover:bg-[#5e85ee]/90"
-                >
-                  <CreditCard size={14} />
-                  {t('pages.transactionDetail.executeNow')}
+                    className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[14px] text-[13px] text-white transition-opacity hover:bg-[#5e85ee]/90"
+                  >
+                    <CreditCard size={14} />
+                    {t('pages.transactionDetail.executeNow')}
                   </button>
                 )
             }
@@ -315,7 +315,7 @@ export default function TransactionDetail() {
       {/* ── Members table ───────────────────────────────────────────────────── */}
       <div className="bg-white rounded-[32px] p-6 flex flex-col gap-[20px] flex-1">
         <TableScrollArea>
-          <Table className="min-w-[1100px]">
+          <Table className="min-w-[1100px] w-full">
             <TableHeader>
               <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
                 <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">{t('pages.transactionDetail.member')}</TableHead>

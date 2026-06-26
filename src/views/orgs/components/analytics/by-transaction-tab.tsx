@@ -18,8 +18,8 @@ import {
   formatTokenAmount,
   formatUtcDate,
   formatUtcShortDate,
-  getTranslatedRelativeExecutionDateLabel,
   getTransactionSymbol,
+  getTranslatedRelativeExecutionDateLabel,
   PERIOD_OPTIONS,
   toChartNumber,
   truncateText,
@@ -329,7 +329,7 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
 
           <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
             <TableScrollArea>
-              <Table className="min-w-[960px]">
+              <Table className="min-w-[960px] w-full">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="pl-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.transactionName')}</TableHead>

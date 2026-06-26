@@ -4,8 +4,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScr
 import { useToast } from '@/components/ui/use-toast'
 import { getStatusDisplayName, PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
-import { Permission, useHasPermission } from '@/utils/permissions'
 import { useTranslation } from '@/utils/i18n'
+import { Permission, useHasPermission } from '@/utils/permissions'
 import { TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -273,7 +273,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
     return (
       <div className="rounded-[32px] bg-white p-[24px]">
         <TableScrollArea>
-          <Table className="min-w-[960px]">
+          <Table className="min-w-[960px] w-full">
             <TableHeader>
               <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
                 <TableHead className="h-auto w-[240px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.transaction')}</TableHead>

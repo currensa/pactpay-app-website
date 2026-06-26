@@ -45,8 +45,8 @@ function getErrorMessage(error: AxiosError<any>) {
 }
 
 function shouldSkipErrorToast(error: AxiosError<any>) {
-  const config = error.config as { skipErrorToast?: boolean } | undefined
-  return config?.skipErrorToast || error.code === 'ERR_CANCELED'
+  const config = error.config as { skipErrorToast?: boolean; skipErrorToastStatusCodes?: number[] } | undefined
+  return config?.skipErrorToast || config?.skipErrorToastStatusCodes?.includes(error.response?.status ?? 0) || error.code === 'ERR_CANCELED'
 }
 
 function showErrorToast(message: string) {

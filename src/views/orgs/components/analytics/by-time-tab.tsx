@@ -393,7 +393,7 @@ export function ByTimeTab({ tabsNav }: { tabsNav: ReactNode }) {
 
           <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
             <TableScrollArea>
-              <Table className="min-w-[960px]">
+              <Table className="min-w-[960px] w-full">
                 <TableHeader>
                   <TableRow className="border-b border-[rgba(0,0,0,0.12)] hover:bg-transparent">
                     <TableHead className="w-[220px] px-0 pb-[12px] pt-0 text-[14px] font-normal text-[#8d8d93]">{t('pages.analytics.month')}</TableHead>

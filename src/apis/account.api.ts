@@ -67,7 +67,7 @@ export class AccountApi {
   }
 
   async getMetaPubStatus() {
-    const res = await this.request.get<{ submitted: boolean }>('/auth/meta-pub')
+    const res = await this.request.get<{ submitted: boolean }>('/auth/gravarc-user-info')
     return res.data
   }
 
@@ -77,7 +77,9 @@ export class AccountApi {
   }
 
   async getMySignMessage() {
-    const res = await this.request.get<{ signMessage: string ,updatedAt: Date }>('/auth/meta-pub/my-sign-message')
+    const res = await this.request.get<{ signMessage: string, updatedAt: Date }>('/auth/meta-pub/my-sign-message', {
+      skipErrorToastStatusCodes: [404],
+    } as any)
     return res.data
   }
 

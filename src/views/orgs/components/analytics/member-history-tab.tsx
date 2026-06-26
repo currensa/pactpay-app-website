@@ -373,7 +373,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
       <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
         <div className={cn('transition-opacity', listLoading && 'opacity-60')}>
           <TableScrollArea>
-            <Table className="min-w-[900px]">
+            <Table className="min-w-[900px] w-full">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-[220px] pl-0">{t('pages.analytics.members')}</TableHead>
@@ -537,7 +537,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
 
             <div className="overflow-hidden rounded-[32px] bg-white p-[24px]">
               <TableScrollArea>
-                <Table className="min-w-[720px]">
+                <Table className="min-w-[720px] w-full">
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="w-[220px] pl-0">{t('pages.analytics.date')}</TableHead>

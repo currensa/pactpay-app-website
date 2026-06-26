@@ -3,18 +3,18 @@ import type { FavoriteAddressItem } from '@/apis/favorite-address.api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
+import { LANGUAGE_OPTIONS } from '@/i18n/messages'
 import { prepareMetaPubSubmission } from '@/lib/meta-pub'
-import { formatDateTime } from '@/lib/utils'
 import useAuthStore from '@/stores/auth'
 import useChainAssetStore from '@/stores/chain-asset'
-import { LANGUAGE_OPTIONS } from '@/i18n/messages'
 import usePreferenceStore from '@/stores/preference'
 import { useTranslation } from '@/utils/i18n'
 import AddressBookDialog from '@/views/member/components/address-book-dialog'
 import ChangeEmailDialog from '@/views/member/components/change-email-dialog'
 import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
-import { IconChevronDown, IconEye, IconEyeOff, IconPencil, IconPlus, IconRefresh, IconTrash } from '@tabler/icons-react'
+import { IconChevronDown, IconCopy, IconEye, IconEyeOff, IconPencil, IconPlus, IconTrash } from '@tabler/icons-react'
+import axios from 'axios'
 import { isAddress } from 'ethers'
 import { useEffect, useState } from 'react'
 
@@ -31,12 +31,20 @@ function maskAddress(address: string) {
   return address.slice(0, 3) + '*'.repeat(Math.max(address.length - 6, 5)) + address.slice(-3)
 }
 
+function maskSecretValue(value?: string | null) {
+  if (!value) return '—'
+  if (value.length <= 30) return value
+  return `${value.slice(0, 10)}${'*'.repeat(10)}${value.slice(-10)}`
+}
+
 export default function MemberSettings() {
   const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const { toast } = useToast()
   const setMetaPub = useAuthStore(s => s.setMetaPub)
+  const setMetaPubSubmitted = useAuthStore(s => s.setMetaPubSubmitted)
+  const gravArcUserInfo = useAuthStore(s => s.gravArcUserInfo)
   const chains = useChainAssetStore(s => s.chains)
   const fetchChains = useChainAssetStore(s => s.fetchChains)
   const { t } = useTranslation()
@@ -62,6 +70,9 @@ export default function MemberSettings() {
   const [personalToken, setPersonalToken] = useState('')
   const [tokenUpdatedAt, setTokenUpdatedAt] = useState<Date | null>(null)
   const [tokenLoading, setTokenLoading] = useState(false)
+  const [privacyIdentityLoading, setPrivacyIdentityLoading] = useState(true)
+  const [privacyIdentityMissing, setPrivacyIdentityMissing] = useState(false)
+  const [privacyBindStep, setPrivacyBindStep] = useState('')
   const [favoriteAddresses, setFavoriteAddresses] = useState<FavoriteAddressItem[]>([])
   const [favoriteAddressesLoading, setFavoriteAddressesLoading] = useState(true)
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
@@ -82,11 +93,36 @@ export default function MemberSettings() {
       }
       setUid(userId)
     }).catch(console.error)
+  }, [])
 
-    api.auth.getMySignMessage().then(data => {
-      setPersonalToken(data.signMessage)
-      setTokenUpdatedAt(new Date(data.updatedAt))
-    }).catch(() => { })
+  useEffect(() => {
+    let active = true
+
+    const loadPrivacyIdentity = async () => {
+      setPrivacyIdentityLoading(true)
+      try {
+        const data = await api.auth.getMySignMessage()
+        if (!active) return
+        setPersonalToken(data.signMessage)
+        setTokenUpdatedAt(new Date(data.updatedAt))
+        setPrivacyIdentityMissing(false)
+      } catch (error) {
+        if (!active) return
+        if (axios.isAxiosError(error) && error.response?.status === 404) {
+          setPersonalToken('')
+          setTokenUpdatedAt(null)
+          setPrivacyIdentityMissing(true)
+        }
+      } finally {
+        if (active) setPrivacyIdentityLoading(false)
+      }
+    }
+
+    void loadPrivacyIdentity()
+
+    return () => {
+      active = false
+    }
   }, [])
 
   useEffect(() => {
@@ -139,30 +175,44 @@ export default function MemberSettings() {
     return null
   }
 
+  const handleCopySecretValue = async (value?: string | null) => {
+    if (!value) return
+    await navigator.clipboard.writeText(value)
+    toast({ description: t('settings.copied') })
+  }
+
   const handleGenerateToken = async () => {
     if (!isConnected || !address || !walletProvider) {
       open({ view: 'Connect', namespace: 'eip155' })
       return
     }
     setTokenLoading(true)
+    setPrivacyBindStep('')
     try {
       const { metaPub, signMessage, metaPubSignature } = await prepareMetaPubSubmission(
         walletProvider,
         address,
-        (msg) => toast({ description: msg }),
+        setPrivacyBindStep,
       )
       await api.auth.submitMetaPub({ address, metaPub, signMessage, metaPubSignature })
       setMetaPub(metaPub)
+      setMetaPubSubmitted(true)
+      setPrivacyIdentityMissing(false)
 
       // fetch updated token
       const data = await api.auth.getMySignMessage()
       setPersonalToken(data.signMessage)
       setTokenUpdatedAt(new Date(data.updatedAt))
       toast({ description: (data as any).message || t('common.updatedSuccessfully') })
-    } catch {
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        setPrivacyIdentityMissing(true)
+        return
+      }
       // request interceptor handles API errors
     } finally {
       setTokenLoading(false)
+      setPrivacyBindStep('')
     }
   }
 
@@ -317,33 +367,84 @@ export default function MemberSettings() {
             </div>
           </div>
 
-          {/* Personal Token card */}
-          <div className="my-[auto] flex w-full shrink-0 flex-col gap-[16px] rounded-[20px] bg-[rgba(94,133,238,0.08)] p-[20px] xl:w-[420px]">
-            {/* Header */}
-            <div className="flex flex-col gap-[8px]">
-              <div className="flex items-center justify-between">
-                <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26]">{t('settings.privacyIdentity')}</p>
-                {tokenUpdatedAt && (
-                  <span className="flex items-center border border-[rgba(0,0,0,0.12)] rounded-[100px] px-[10px] py-[2px] text-[12px] leading-[20px] whitespace-nowrap">
-                    <span className="text-[#8d8d93]">{t('settings.lastUpdated')} </span>
-                    <span className="text-[#1c1c26] ml-[2px]">{formatDateTime(tokenUpdatedAt)}</span>
-                  </span>
+          {/* Privacy Identity cards */}
+          <div className="my-[auto] grid w-full shrink-0 gap-[12px] md:grid-cols-1 xl:flex-[0.5] mr-4 ">
+            {/* <div className="flex flex-col gap-[16px] rounded-[20px] bg-[rgba(94,133,238,0.08)] p-[20px]">
+              <div className="flex flex-col gap-[8px]">
+                <div className="flex items-center justify-between gap-[12px]">
+                  <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26]">{t('settings.privacyIdentity')}</p>
+                  {tokenUpdatedAt && (
+                    <span className="flex items-center border border-[rgba(0,0,0,0.12)] rounded-[100px] px-[10px] py-[2px] text-[12px] leading-[20px] whitespace-nowrap">
+                      <span className="text-[#8d8d93]">{t('settings.lastUpdated')} </span>
+                      <span className="text-[#1c1c26] ml-[2px]">{formatDateTime(tokenUpdatedAt)}</span>
+                    </span>
+                  )}
+                </div>
+                <p className="text-[13px] leading-[20px] text-[#606067]">
+                  {privacyIdentityMissing ? t('settings.privacyIdentityBindPrompt') : t('settings.privacyIdentityDescription')}
+                </p>
+                {privacyBindStep && !privacyIdentityLoading && (
+                  <p className="text-[13px] leading-[20px] text-[#606067]">{privacyBindStep}</p>
                 )}
               </div>
-              <p className="text-[13px] leading-[20px] text-[#606067]">
-                {t('settings.privacyIdentityDescription')}
-              </p>
+
+              {privacyIdentityLoading ? (
+                <div className="flex min-h-[36px] items-center justify-center text-[#8d8d93]">
+                  <IconLoader2 className="h-[18px] w-[18px] animate-spin" />
+                </div>
+              ) : (
+                <button
+                  onClick={handleGenerateToken}
+                  disabled={tokenLoading}
+                  className="flex items-center justify-center gap-[6px] w-full py-[8px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] leading-[20px] hover:opacity-90 transition-opacity disabled:opacity-60"
+                  title={privacyIdentityMissing ? t('settings.bindPrivacyIdentity') : t('settings.refreshToken')}
+                >
+                  <IconRefresh className={`h-[14px] w-[14px] ${tokenLoading ? 'animate-spin' : ''}`} />
+                  {privacyIdentityMissing ? t('settings.bindPrivacyIdentity') : t('settings.refresh')}
+                </button>
+              )}
+            </div> */}
+
+            <div className="flex flex-col gap-[16px] rounded-[20px] bg-[rgba(94,133,238,0.08)] p-[20px]">
+              <div className="flex flex-col gap-[8px]">
+                <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26]">{t('settings.encryptionKeys')}</p>
+                <p className="text-[13px] leading-[20px] text-[#606067]">{t('settings.encryptionKeysDescription')}</p>
+              </div>
+              <div className="flex flex-col gap-[10px]">
+                <div className="flex flex-col gap-[4px]">
+                  <p className="text-[12px] leading-[18px] text-[#8d8d93]">encPubkey</p>
+                  <div className="flex items-center gap-[8px] rounded-[12px] bg-white px-[12px] py-[8px]">
+                    <p className="min-w-0 flex-1 font-mono text-[12px] leading-[18px] text-[#1c1c26]">
+                      {maskSecretValue(gravArcUserInfo?.encPubkey)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => { void handleCopySecretValue(gravArcUserInfo?.encPubkey) }}
+                      disabled={!gravArcUserInfo?.encPubkey}
+                      className="shrink-0 text-[#8d8d93] transition-colors hover:text-[#1c1c26] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <IconCopy className="h-[16px] w-[16px]" />
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-[4px]">
+                  <p className="text-[12px] leading-[18px] text-[#8d8d93]">encryptedSecret</p>
+                  <div className="flex items-center gap-[8px] rounded-[12px] bg-white px-[12px] py-[8px]">
+                    <p className="min-w-0 flex-1 font-mono text-[12px] leading-[18px] text-[#1c1c26]">
+                      {maskSecretValue(gravArcUserInfo?.encryptedSecret)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => { void handleCopySecretValue(gravArcUserInfo?.encryptedSecret) }}
+                      disabled={!gravArcUserInfo?.encryptedSecret}
+                      className="shrink-0 text-[#8d8d93] transition-colors hover:text-[#1c1c26] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <IconCopy className="h-[16px] w-[16px]" />
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-            {/* Refresh button */}
-            <button
-              onClick={handleGenerateToken}
-              disabled={tokenLoading}
-              className="flex items-center justify-center gap-[6px] w-full py-[8px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] leading-[20px] hover:opacity-90 transition-opacity disabled:opacity-60"
-              title={t('settings.refreshToken')}
-            >
-              <IconRefresh className={`h-[14px] w-[14px] ${tokenLoading ? 'animate-spin' : ''}`} />
-              {t('settings.refresh')}
-            </button>
           </div>
         </div>
       </section>

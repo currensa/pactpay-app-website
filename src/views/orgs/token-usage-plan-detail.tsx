@@ -579,10 +579,10 @@ export default function TokenUsagePlanDetailPage() {
 
       if (editor.mode === 'create') {
         await apis.tokenUsagePlan.createApiKey(id, payload)
-      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgUsagePlanDetail.keyCreated') })
+        toast({ title: t('pages.orgMembers.success'), description: t('pages.orgUsagePlanDetail.keyCreated') })
       } else if (editor.apiKey) {
         await apis.tokenUsagePlan.updateApiKey(id, String(editor.apiKey.id), payload)
-      toast({ title: t('pages.orgMembers.success'), description: t('pages.orgUsagePlanDetail.keyUpdated') })
+        toast({ title: t('pages.orgMembers.success'), description: t('pages.orgUsagePlanDetail.keyUpdated') })
       }
 
       closeDialog()
@@ -681,7 +681,7 @@ export default function TokenUsagePlanDetailPage() {
 
         <div className="mt-[18px]">
           <div className="mb-[8px] flex items-center justify-between text-[13px]">
-              <span className="text-[#8d8d93]">{t('pages.orgUsagePlanDetail.consumption')}</span>
+            <span className="text-[#8d8d93]">{t('pages.orgUsagePlanDetail.consumption')}</span>
             <span className="text-[#1c1c26]">
               {formatUsdDisplay(normalizeQuotaToUsdAmount(usedQuota))} / {formatUsdDisplay(normalizeQuotaToUsdAmount(totalPurchased))} ({consumedRate}%)
             </span>
@@ -718,12 +718,12 @@ export default function TokenUsagePlanDetailPage() {
             </div>
             <div>
               <p className="text-[20px] font-semibold leading-[30px] text-[#1c1c26]">
-              {activeTab === 'api-keys' ? t('pages.orgUsagePlanDetail.apiKeys') : t('pages.orgUsagePlanDetail.usageLogs')}
+                {activeTab === 'api-keys' ? t('pages.orgUsagePlanDetail.apiKeys') : t('pages.orgUsagePlanDetail.usageLogs')}
               </p>
               <p className="text-[13px] leading-[20px] text-[#8d8d93]">
                 {activeTab === 'api-keys'
-                ? t('pages.orgUsagePlanDetail.apiKeysDescription')
-                : t('pages.orgUsagePlanDetail.usageLogsDescription')}
+                  ? t('pages.orgUsagePlanDetail.apiKeysDescription')
+                  : t('pages.orgUsagePlanDetail.usageLogsDescription')}
               </p>
             </div>
           </div>
@@ -738,7 +738,7 @@ export default function TokenUsagePlanDetailPage() {
         {activeTab === 'api-keys' ? (
           <>
             <TableScrollArea>
-              <Table className="min-w-[1180px]">
+              <Table className="min-w-[1180px] w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t('pages.orgUsagePlanDetail.apiName')}</TableHead>
@@ -892,7 +892,7 @@ export default function TokenUsagePlanDetailPage() {
         ) : (
           <>
             <TableScrollArea>
-              <Table className="min-w-[980px]">
+              <Table className="min-w-[980px] w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap">{t('pages.orgUsagePlanDetail.time')}</TableHead>
