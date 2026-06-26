@@ -1,3 +1,7 @@
+import { Buffer } from 'buffer';
+// Polyfill Node's global `Buffer` for browser crypto libs (circomlibjs, snarkjs).
+if (!globalThis.Buffer) globalThis.Buffer = Buffer;
+
 import { Toaster } from '@/components/ui/toaster';
 import PreferencesBootstrap from '@/components/app/base/preferences-bootstrap';
 import ConfirmSyncBootstrap from '@/components/app/base/confirm-sync-bootstrap';
