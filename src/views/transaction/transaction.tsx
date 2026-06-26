@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScr
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import { cn } from '@/lib/utils'
+import { ENABLE_AI_API_FEATURES } from '@/constants/feature-flags'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { formatLocalDateTime } from '@/utils/date'
@@ -117,7 +118,8 @@ export default function TransactionPage() {
   } = useChainAssetStore()
 
   const activeTabParam = searchParams.get('tab')
-  const activeTab: TransactionsTab = activeTabParam === 'people' || activeTabParam === 'ai' ? activeTabParam : 'all'
+  // Only allow 'ai' tab if AI API features are enabled
+  const activeTab: TransactionsTab = (activeTabParam === 'people' || (ENABLE_AI_API_FEATURES && activeTabParam === 'ai')) ? activeTabParam : 'all'
   const transactionType: TransactionListTransactionType = activeTab === 'people'
     ? TRANSACTION_LIST_TRANSACTION_TYPES[0]
     : activeTab === 'ai'
@@ -126,6 +128,15 @@ export default function TransactionPage() {
   const isPayrollConfigConfigured = Boolean(payrollConfig?.caipChainId && payrollConfig?.token)
   const setupPayrollRequested = searchParams.get('setupPayroll') === '1'
   const redirectState = location.state as { pendingCreatePath?: string } | null
+
+  // Redirect to all tab if AI API is disabled but user is trying to access it
+  useEffect(() => {
+    if (!ENABLE_AI_API_FEATURES && searchParams.get('tab') === 'ai') {
+      const next = new URLSearchParams(searchParams)
+      next.delete('tab')
+      setSearchParams(next, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const handleSort = (field: 'payDay' | 'status') => {
     if (sortField === field) {
@@ -595,7 +606,7 @@ export default function TransactionPage() {
     setSearchParams(prev => {
       const next = new URLSearchParams(prev)
       if (tab === 'all') next.delete('tab')
-      else next.set('tab', tab)
+      else if (tab !== 'ai' || ENABLE_AI_API_FEATURES) next.set('tab', tab)
       return next
     }, { replace: true })
   }
@@ -653,7 +664,7 @@ export default function TransactionPage() {
               <Button
                 className="w-full sm:w-auto"
                 onClick={() => {
-                  const defaultType = activeTab === 'people' ? '?type=people' : activeTab === 'ai' ? '?type=ai' : ''
+                  const defaultType = activeTab === 'people' ? '?type=people' : (ENABLE_AI_API_FEATURES && activeTab === 'ai') ? '?type=ai' : ''
                   navigate(`/orgs/transaction/create${defaultType}`)
                 }}
               >

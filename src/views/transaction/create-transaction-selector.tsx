@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import type { I18nKey } from '@/i18n/messages'
+import { ENABLE_AI_API_FEATURES } from '@/constants/feature-flags'
 import useHeaderStore from '@/stores/header'
 import { useTranslation } from '@/utils/i18n'
 import { Bot, CalendarDays, Users } from 'lucide-react'
@@ -16,6 +17,7 @@ const TYPE_OPTIONS: {
   summaryItems: { labelKey: I18nKey; valueKey: I18nKey }[]
   icon: typeof Users
   iconLabelKey: I18nKey
+  enabled: boolean
 }[] = [
   {
     id: 'people',
@@ -30,6 +32,7 @@ const TYPE_OPTIONS: {
     ],
     icon: Users,
     iconLabelKey: 'pages.createTransactionSelector.peoplePayment',
+    enabled: true,
   },
   {
     id: 'ai',
@@ -44,6 +47,7 @@ const TYPE_OPTIONS: {
     ],
     icon: Bot,
     iconLabelKey: 'pages.createTransactionSelector.aiPurchase',
+    enabled: ENABLE_AI_API_FEATURES,
   },
 ]
 
@@ -54,8 +58,15 @@ export default function CreateTransactionSelector() {
   const { setHeader, clearHeader } = useHeaderStore()
   const initialType = searchParams.get('type')
   const [selectedType, setSelectedType] = useState<TransactionType | null>(
-    initialType === 'people' || initialType === 'ai' ? initialType : null,
+    (initialType === 'people' || (ENABLE_AI_API_FEATURES && initialType === 'ai')) ? initialType : null,
   )
+
+  // Redirect if AI type is selected but AI API features are disabled
+  useEffect(() => {
+    if (!ENABLE_AI_API_FEATURES && initialType === 'ai') {
+      navigate('/orgs/transaction/create', { replace: true })
+    }
+  }, [initialType, navigate])
 
   useEffect(() => {
     setHeader({
@@ -98,33 +109,47 @@ export default function CreateTransactionSelector() {
               {TYPE_OPTIONS.map(option => {
                 const Icon = option.icon
                 const selected = selectedType === option.id
+                const isDisabled = !option.enabled
 
                 return (
                   <button
                     key={option.id}
                     type="button"
-                    onClick={() => setSelectedType(option.id)}
+                    onClick={() => !isDisabled && setSelectedType(option.id)}
+                    disabled={isDisabled}
                     className={`rounded-[24px] border p-[16px] text-left transition-colors md:p-[20px] ${
-                      selected
+                      isDisabled
+                        ? 'cursor-not-allowed border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.02)]'
+                        : selected
                         ? 'border-[#5e85ee] bg-[rgba(94,133,238,0.06)]'
                         : 'border-[rgba(0,0,0,0.08)] bg-white hover:bg-[#f8f8fb]'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-[12px] md:gap-[16px]">
-                      <div className="flex h-[48px] w-[48px] items-center justify-center rounded-[16px] bg-[rgba(94,133,238,0.08)] md:h-[56px] md:w-[56px] md:rounded-[18px]">
-                        <Icon className="h-[24px] w-[24px] text-[#5e85ee]" />
+                      <div className={`flex h-[48px] w-[48px] items-center justify-center rounded-[16px] md:h-[56px] md:w-[56px] md:rounded-[18px] ${
+                        isDisabled ? 'bg-[rgba(0,0,0,0.04)]' : 'bg-[rgba(94,133,238,0.08)]'
+                      }`}>
+                        <Icon className={`h-[24px] w-[24px] ${isDisabled ? 'text-[#a4a4a8]' : 'text-[#5e85ee]'}`} />
                       </div>
                       <span
                         className={`mt-[4px] h-[24px] w-[24px] rounded-full border transition-colors ${
-                          selected ? 'border-[#5e85ee] bg-[#5e85ee]' : 'border-[rgba(0,0,0,0.12)] bg-white'
+                          isDisabled
+                            ? 'border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.02)]'
+                            : selected
+                            ? 'border-[#5e85ee] bg-[#5e85ee]'
+                            : 'border-[rgba(0,0,0,0.12)] bg-white'
                         }`}
                         aria-hidden="true"
                       />
                     </div>
 
                     <div className="mt-[28px] md:mt-[44px]">
-                      <p className="text-[16px] font-semibold text-[#1c1c26] md:text-[18px]">{t(option.titleKey)}</p>
-                      <p className="mt-[6px] text-[14px] leading-[22px] text-[#8d8d93]">{t(option.descriptionKey)}</p>
+                      <p className={`text-[16px] font-semibold md:text-[18px] ${isDisabled ? 'text-[#a4a4a8]' : 'text-[#1c1c26]'}`}>
+                        {t(option.titleKey)}
+                      </p>
+                      <p className={`mt-[6px] text-[14px] leading-[22px] ${isDisabled ? 'text-[#c0c0c5]' : 'text-[#8d8d93]'}`}>
+                        {t(option.descriptionKey)}
+                      </p>
                     </div>
                   </button>
                 )

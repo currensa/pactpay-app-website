@@ -1,6 +1,6 @@
+import type { I18nKey } from '@/i18n/messages'
 import MemberLayout from '@/layouts/member-layout'
 import OrgLayout from '@/layouts/org-layout'
-import type { I18nKey } from '@/i18n/messages'
 import {
   IconAlignBoxBottomRight,
   IconCashMove,

@@ -18,6 +18,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { getMemberStatusDisplayName, memberStatus, OrganizationMemberRole } from '@/enums/org'
 import useOrganizationStore from '@/stores/organization'
 import { useTranslation } from '@/utils/i18n'
+import { formatLocalDateTime } from '@/utils/date'
 import { getHighestRole, Permission, useHasPermission } from '@/utils/permissions'
 import { BatchImportDialog } from '@/views/orgs/components/batch-import-dialog'
 import { InviteSection } from '@/views/orgs/components/invite-section'
@@ -579,7 +580,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                     </TableCell>
                     <TableCell><StatusBadge status={member.status} /></TableCell>
                     <TableCell>
-                      {member.lastPayment ? new Date(member.lastPayment).toLocaleDateString(language).replace(/\//g, '/') : '-'}
+                      {member.lastPayment ? formatLocalDateTime(member.lastPayment) : '-'}
                     </TableCell>
                     <TableCell onClick={event => event.stopPropagation()}>
                       {member.status === 'pending_review' && hasPermission(Permission.APPROVE_MEMBER) ? (

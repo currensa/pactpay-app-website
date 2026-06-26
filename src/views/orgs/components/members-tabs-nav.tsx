@@ -1,4 +1,5 @@
 import { useTranslation } from '@/utils/i18n'
+import { ENABLE_AI_API_FEATURES } from '@/constants/feature-flags'
 
 export type MembersTab = 'people' | 'ai-api'
 
@@ -21,15 +22,25 @@ export function MembersTabsNav({ activeTab, onTabChange }: MembersTabsNavProps) 
       >
         {t('components.membersTabsNav.people')}
       </button>
-      <button
-        type="button"
-        onClick={() => onTabChange('ai-api')}
-        className={`rounded-[16px] px-[16px] py-[10px] text-[13px] font-medium transition-colors ${
-          activeTab === 'ai-api' ? 'bg-[#5e85ee] text-white' : 'text-[#5e85ee] hover:bg-white/80'
-        }`}
-      >
-        {t('components.membersTabsNav.aiApi')}
-      </button>
+      {ENABLE_AI_API_FEATURES ? (
+        <button
+          type="button"
+          onClick={() => onTabChange('ai-api')}
+          className={`rounded-[16px] px-[16px] py-[10px] text-[13px] font-medium transition-colors ${
+            activeTab === 'ai-api' ? 'bg-[#5e85ee] text-white' : 'text-[#5e85ee] hover:bg-white/80'
+          }`}
+        >
+          {t('components.membersTabsNav.aiApi')}
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled
+          className="inline-flex cursor-not-allowed items-center gap-[8px] rounded-[16px] px-[16px] py-[10px] text-[13px] font-medium text-[#9db2f1]"
+        >
+          {t('components.membersTabsNav.aiApi')}
+        </button>
+      )}
       <button
         type="button"
         disabled

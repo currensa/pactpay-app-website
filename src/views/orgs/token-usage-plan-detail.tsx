@@ -21,6 +21,7 @@ import { Pagination } from '@/components/ui/pagination'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
+import { ENABLE_AI_API_FEATURES } from '@/constants/feature-flags'
 import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
 import { t as globalT, useTranslation } from '@/utils/i18n'
@@ -226,6 +227,13 @@ export default function TokenUsagePlanDetailPage() {
   const { t } = useTranslation()
   const { setHeader, clearHeader } = useHeaderStore()
   const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
+
+  // Redirect if AI API features are disabled
+  useEffect(() => {
+    if (!ENABLE_AI_API_FEATURES) {
+      navigate('/orgs/members', { replace: true })
+    }
+  }, [navigate])
 
   const [detail, setDetail] = useState<TokenUsagePlanDetail | null>(null)
   const [apiKeys, setApiKeys] = useState<TokenUsagePlanApiKeyItem[]>([])

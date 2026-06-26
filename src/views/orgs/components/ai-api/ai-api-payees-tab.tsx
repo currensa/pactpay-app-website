@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSkeletonRows } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
+import { ENABLE_AI_API_FEATURES } from '@/constants/feature-flags'
 import { useTranslation } from '@/utils/i18n'
 import { Edit2, Plus } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
@@ -74,6 +75,13 @@ export default function AiApiPayeesTab({ tabsNav }: AiApiPayeesTabProps) {
   const { toast } = useToast()
   const { t } = useTranslation()
   const navigate = useNavigate()
+
+  // Redirect if AI API features are disabled
+  useEffect(() => {
+    if (!ENABLE_AI_API_FEATURES) {
+      navigate('/orgs/members', { replace: true })
+    }
+  }, [navigate])
 
   const [plans, setPlans] = useState<TokenUsagePlanListItem[]>([])
   const [loading, setLoading] = useState(true)
