@@ -334,13 +334,13 @@ export function CreateTransactionDialogContent({
   }, [feePreview, totalAmount, amountDecimals])
 
   const eligibleMembers = useMemo(
-    () => organizationMembers.filter(m => !!m.metaPub),
+    () => organizationMembers.filter(m => !!m.gravArcAddress),
     [organizationMembers]
   )
 
   const handleMemberToggle = (memberId: string) => {
     const member = organizationMembers.find(m => m.id === memberId)
-    if (!member?.metaPub) return
+    if (!member?.gravArcAddress) return
     const newSelected = new Set(selectedMembers)
     if (newSelected.has(memberId)) newSelected.delete(memberId)
     else newSelected.add(memberId)
@@ -393,7 +393,7 @@ export function CreateTransactionDialogContent({
           memberId: member?.memberId ?? '',
           avatarUrl: member?.avatarUrl ?? null,
           remark: member?.remark ?? null,
-          metaPub: member?.metaPub ?? '',
+          gravArcAddress: member?.gravArcAddress ?? '',
         },
         amount: memberAmounts[memberId] || '0',
       }
@@ -493,7 +493,7 @@ export function CreateTransactionDialogContent({
           ) : (
             organizationMembers.map(member => {
               const checked = isSelected(member.id)
-              const hasMetaPub = !!member.metaPub
+              const hasMetaPub = !!member.gravArcAddress
               return (
                 <TableRow
                   key={member.id}
@@ -614,7 +614,7 @@ export function CreateTransactionDialogContent({
           ) : (
             organizationMembers.map(member => {
               const checked = isSelected(member.id)
-              const hasMetaPub = !!member.metaPub
+              const hasMetaPub = !!member.gravArcAddress
               return (
                 <TableRow
                   key={member.id}
@@ -651,7 +651,7 @@ export function CreateTransactionDialogContent({
                     </div>
                   </TableCell>
                   <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[12px]">
-                    {member.metaPub ? truncateAddress(member.metaPub) : '—'}
+                    {member.gravArcAddress ? truncateAddress(member.gravArcAddress) : '—'}
                   </TableCell>
                   <TableCell className="py-[12px]" onClick={e => e.stopPropagation()}>
                     <input
@@ -702,12 +702,12 @@ export function CreateTransactionDialogContent({
             <div className={cn('flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium', currentStep === 1 ? 'bg-primary text-primary-foreground' : isCreatingFromReaction ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground')}>
               {isCreatingFromReaction && currentStep === 2 ? '✓' : '1'}
             </div>
-              <span className={cn('text-sm font-medium', currentStep === 1 || isCreatingFromReaction ? 'text-foreground' : 'text-muted-foreground')}>{t('pages.createPeopleTransaction.selectMembersSetAmounts')}</span>
+            <span className={cn('text-sm font-medium', currentStep === 1 || isCreatingFromReaction ? 'text-foreground' : 'text-muted-foreground')}>{t('pages.createPeopleTransaction.selectMembersSetAmounts')}</span>
           </div>
           <div className="bg-border h-px flex-1" />
           <div className="flex items-center gap-2">
             <div className={cn('flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium', currentStep === 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>2</div>
-              <span className={cn('text-sm font-medium', currentStep === 2 ? 'text-foreground' : 'text-muted-foreground')}>{t('pages.createPeopleTransaction.chooseDatePreview')}</span>
+            <span className={cn('text-sm font-medium', currentStep === 2 ? 'text-foreground' : 'text-muted-foreground')}>{t('pages.createPeopleTransaction.chooseDatePreview')}</span>
           </div>
         </div>
       )}
@@ -764,7 +764,7 @@ export function CreateTransactionDialogContent({
                       {t('pages.createPeopleTransaction.invertSelection')}
                     </button>
                     {currencyMismatch ? (
-                    <span className="text-[12px] text-[#d92b2b]">{t('pages.createPeopleTransaction.currencyMismatch')}</span>
+                      <span className="text-[12px] text-[#d92b2b]">{t('pages.createPeopleTransaction.currencyMismatch')}</span>
                     ) : selectedMembers.size > 0 && displayCurrency ? (
                       <span className="text-[12px] text-[#606067]">{t('pages.createPeopleTransaction.selectedMembersSummary', { count: selectedMembers.size, amount: formattedTotalAmount, currency: displayCurrency })}</span>
                     ) : null}
@@ -813,7 +813,7 @@ export function CreateTransactionDialogContent({
                   {/* Fee breakdown */}
                   <div className="flex flex-col gap-[10px]">
                     <p className="text-[16px] text-[#1c1c26]" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                    {t('pages.createPeopleTransaction.feeBreakdown')}
+                      {t('pages.createPeopleTransaction.feeBreakdown')}
                     </p>
                     <div className="bg-[#f5f5f5] rounded-[18px] p-[18px] flex flex-col gap-[10px]">
                       {feeLoading ? (
@@ -823,11 +823,11 @@ export function CreateTransactionDialogContent({
                       ) : feePreview ? (
                         <>
                           <div className="flex items-center justify-between">
-                      <span className="text-[13px] text-[#8d8d93]">{t('pages.createPeopleTransaction.payoutTotal')}</span>
+                            <span className="text-[13px] text-[#8d8d93]">{t('pages.createPeopleTransaction.payoutTotal')}</span>
                             <span className="text-[14px] text-[#1c1c26]">{formattedTotalAmount} {displayCurrency || 'USDC'}</span>
                           </div>
                           <div className="flex items-start justify-between gap-[12px]">
-                      <span className="text-[13px] text-[#8d8d93] pt-[2px]">{t('pages.createPeopleTransaction.serviceFee')}</span>
+                            <span className="text-[13px] text-[#8d8d93] pt-[2px]">{t('pages.createPeopleTransaction.serviceFee')}</span>
                             <div className="flex flex-col items-end gap-[10px] text-right">
                               {feeBreakdownDisplay && feeBreakdownDisplay.badgeLabels.length > 0 && (
                                 <div className="flex flex-wrap justify-end gap-[8px]">
@@ -868,7 +868,7 @@ export function CreateTransactionDialogContent({
                           </div>
                           {feePreview.gasFeeEstimate?.total?.costNative && (
                             <div className="flex items-center justify-between">
-                      <span className="text-[13px] text-[#8d8d93]">{t('pages.createPeopleTransaction.estGas')}</span>
+                              <span className="text-[13px] text-[#8d8d93]">{t('pages.createPeopleTransaction.estGas')}</span>
                               <span className="text-[13px] text-[#1c1c26]">
                                 ~{feePreview.gasFeeEstimate.total.costNative} {feePreview.gasFeeEstimate.nativeSymbol || ''}
                               </span>
@@ -900,8 +900,8 @@ export function CreateTransactionDialogContent({
                           <img src={imgCreditCard} alt="" className="w-[17px] h-[17px]" />
                         </div>
                         <div className="flex flex-col gap-[3px]">
-                    <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.yourWallet')}</span>
-                    <span className="text-[12px] text-[#8d8d93]">{t('pages.createPeopleTransaction.fundsSentToContract')}</span>
+                          <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.yourWallet')}</span>
+                          <span className="text-[12px] text-[#8d8d93]">{t('pages.createPeopleTransaction.fundsSentToContract')}</span>
                         </div>
                       </div>
                       <div className="flex items-center pl-[14px]">
@@ -912,8 +912,8 @@ export function CreateTransactionDialogContent({
                           <img src={imgFrameLogo} alt="" className="w-[14px] h-[17px]" />
                         </div>
                         <div className="flex flex-col gap-[3px]">
-                    <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.pactPayContract')}</span>
-                    <span className="text-[12px] text-[#8d8d93]">{t('pages.createPeopleTransaction.routesAtClaimTime')}</span>
+                          <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.pactPayContract')}</span>
+                          <span className="text-[12px] text-[#8d8d93]">{t('pages.createPeopleTransaction.routesAtClaimTime')}</span>
                         </div>
                       </div>
                       <div className="flex items-center pl-[14px]">
@@ -924,8 +924,8 @@ export function CreateTransactionDialogContent({
                           <img src={imgUserDollar} alt="" className="w-[17px] h-[17px]" />
                         </div>
                         <div className="flex flex-col gap-[3px]">
-                    <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.membersWallets')}</span>
-                    <span className="text-[12px] text-[#8d8d93]">{t('pages.createPeopleTransaction.claimableFromTime')}</span>
+                          <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.membersWallets')}</span>
+                          <span className="text-[12px] text-[#8d8d93]">{t('pages.createPeopleTransaction.claimableFromTime')}</span>
                         </div>
                       </div>
                     </div>
@@ -1109,7 +1109,7 @@ export function CreateTransactionDialogContent({
                               </span>
                             )}
                             <span className="w-full max-w-[200px] truncate text-[13px] text-[#1c1c26]">
-                              {item.member?.metaPub ? truncateAddress(item.member.metaPub) : '—'}
+                              {item.member?.gravArcAddress ? truncateAddress(item.member.gravArcAddress) : '—'}
                             </span>
                           </div>
                           <div className="flex items-center gap-[4px] sm:justify-end">
@@ -1229,7 +1229,7 @@ export function CreateTransactionDialogContent({
                   </div>
                   <div className="flex flex-col flex-1 border border-[rgba(0,0,0,0.12)] rounded-[12px] overflow-hidden">
                     <div className="bg-[#f5f5f5] px-4 py-[7px] shrink-0">
-                    <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.transactionPreview')}</span>
+                      <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.transactionPreview')}</span>
                     </div>
                     <div className="flex flex-col gap-[14px] p-4">
                       <div className="flex items-center justify-between">

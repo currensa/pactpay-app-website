@@ -16,7 +16,6 @@ interface Chain {
   createdAt: string
   updatedAt: string
   vaultAddress: string | null
-  gravarcAddress: string | null
 }
 
 interface ChainAssetState {

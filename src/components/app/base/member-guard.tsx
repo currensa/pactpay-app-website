@@ -5,15 +5,21 @@ import { useNavigate } from 'react-router-dom'
 
 /**
  * Guards member (C端) routes.
- * Ensures the user has submitted metaPub before accessing member pages.
- * If not submitted, redirects back to login to show the bind-wallet step.
+ * Access is granted if EITHER the user has gravArcUserInfo OR has submitted
+ * metaPub (二选一). If neither is satisfied, redirects to the bind-wallet step.
  */
 export default function MemberGuard({ children }: { children: React.ReactNode }) {
-  const { checkMetaPub, metaPubSubmitted } = useAuthStore()
+  const { checkMetaPub, metaPubSubmitted, gravArcUserInfo } = useAuthStore()
   const navigate = useNavigate()
   const [checking, setChecking] = useState(true)
 
   useEffect(() => {
+    // gravArcUserInfo satisfies the gate on its own — no API call needed
+    if (gravArcUserInfo !== null) {
+      setChecking(false)
+      return
+    }
+
     // Skip API call if we already know the status
     if (metaPubSubmitted !== null) {
       if (!metaPubSubmitted) {

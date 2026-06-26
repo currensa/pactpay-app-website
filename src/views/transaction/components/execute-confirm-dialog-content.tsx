@@ -210,7 +210,7 @@ export function ExecuteConfirmDialogContent({
       if (!chainEntry.vaultAddress) {
         throw new Error(`GravArc contract is not configured for chain ${transactionPlan.caipChainId}.`)
       }
-      const gravarcAddress = chainEntry.vaultAddress as Hex
+      const vaultAddress = chainEntry.vaultAddress as Hex
       const tokenAddress = (transactionPlan.tokenAddress || ETH_SENTINEL) as Hex
 
       const currentChainIdHex = await provider.request<string>({ method: 'eth_chainId' })
@@ -250,7 +250,7 @@ export function ExecuteConfirmDialogContent({
       const [depositPath, onChainNextIndex] = await Promise.all([
         apis.transaction.getDepositPath(transactionPlan.caipChainId),
         publicClient.readContract({
-          address: gravarcAddress,
+          address: vaultAddress,
           abi: GRAVARC_ABI,
           functionName: 'nextIndex',
         }),
@@ -284,7 +284,7 @@ export function ExecuteConfirmDialogContent({
           address: tokenAddress,
           abi: GRAVARC_ERC20_ABI,
           functionName: 'allowance',
-          args: [account, gravarcAddress],
+          args: [account, vaultAddress],
         })
         if (allowance < proofResult.totalAmount) {
           setStatus('approving')
@@ -292,7 +292,7 @@ export function ExecuteConfirmDialogContent({
             address: tokenAddress,
             abi: GRAVARC_ERC20_ABI,
             functionName: 'approve',
-            args: [gravarcAddress, proofResult.totalAmount],
+            args: [vaultAddress, proofResult.totalAmount],
             chain: configuredChain,
           }))
           const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx })
@@ -302,8 +302,8 @@ export function ExecuteConfirmDialogContent({
 
       // Call privacyDeposit on-chain
       setStatus('depositing')
-      const depositTx = normalizeTransactionHash(await walletClient.writeContract({
-        address: gravarcAddress,
+      const depositArgs = {
+        address: vaultAddress,
         abi: GRAVARC_ABI,
         functionName: 'deposit',
         args: [{
@@ -318,7 +318,20 @@ export function ExecuteConfirmDialogContent({
         }],
         ...(isNative ? { value: proofResult.totalAmount } : {}),
         chain: configuredChain,
-      }))
+      } as const
+
+      let depositTxHash: Hex
+      try {
+        depositTxHash = await walletClient.writeContract(depositArgs)
+      } catch (gasErr: unknown) {
+        const msg = gasErr instanceof Error ? gasErr.message : ''
+        if (msg.toLowerCase().includes('gas') && msg.toLowerCase().includes('high')) {
+          depositTxHash = await walletClient.writeContract({ ...depositArgs, gas: 3_000_000n })
+        } else {
+          throw gasErr
+        }
+      }
+      const depositTx = normalizeTransactionHash(depositTxHash)
       const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
       if (receipt.status !== 'success') throw new Error('privacyDeposit transaction reverted.')
 
