@@ -7,6 +7,28 @@ export type TransactionListTransactionType = typeof TRANSACTION_LIST_TRANSACTION
 
 // ── StealthPay 相关接口 ─────────────────────────────────────────────────────
 
+/**
+ * privacy_deposit 明细的提款数据。
+ * 仅当 transactionType === 'privacy_deposit' 且未提款时由后端返回，否则为 null。
+ */
+export interface PrivacyWithdrawData {
+  caipChainId: string
+  /** GravArc 主合约地址（前端调用 withdraw 的目标合约） */
+  gravArcAddress: string
+  /** 本批存款在全局 Merkle 树中的叶子索引 */
+  leafIndex: number | null
+  /** 树层级 8 / 16 / 32 / 64 / 128（用于选择对应 withdraw 电路） */
+  tier: number | null
+  /** 接收者认证树根（withdraw 电路私有输入，无法从 depositRoot 反推） */
+  privacyAuthRoot: string | null
+  /** 加密的提款消息（NaCl box，前端用本人私钥解密后得到 WithdrawInfo JSON） */
+  content: string | null
+  /** 本人 Secret 密文（NaCl secretbox，前端用密码解密恢复 Secret） */
+  encryptedSecret: string | null
+  /** 本人 Secret 的 Poseidon 哈希值（0x 前缀 hex，用于核验） */
+  secretHash: string | null
+}
+
 export interface StealthPayrollItem {
   id: string
   batchId: string
@@ -24,6 +46,10 @@ export interface StealthPayrollItem {
   updatedAt: string
   organizationName: string | null
   transactionName: string | null
+  /** 交易类型：stealth_deposit | privacy_deposit | token_usage_plan */
+  transactionType: string
+  /** privacy_deposit 类型且可提款时返回；其它类型为 null */
+  withdrawData: PrivacyWithdrawData | null
   member?: {
     showName: string
     status: string
@@ -61,6 +87,33 @@ export interface BatchClaimResponse {
 
 export interface SubmitMetaPubPayload {
   metaPub: string
+}
+
+/**
+ * 把 privacy_deposit 提款交给平台代执行时上送的 withdraw 证明参数。
+ * 数值字段统一为十进制字符串，结构与链上 withdraw tuple 一致。
+ */
+export interface RelayWithdrawArgs {
+  pA: [string, string]
+  pB: [[string, string], [string, string]]
+  pC: [string, string]
+  nullifierHash: string
+  recipient: string
+  claimedAmount: string
+  token: string
+  tier: number
+  depositRoot: string
+  expectedAmount: string
+  fee: string
+  relayer: string
+  nonce: string
+}
+
+export interface RelayWithdrawResponse {
+  status: string
+  txHash: string
+  recipient: string | null
+  fee: string | null
 }
 
 // ── 原有接口（保留兼容性）──────────────────────────────────────────────────
@@ -352,6 +405,32 @@ export class TransactionApi {
     return res.data
   }
 
+  // privacy_deposit 明细提款成功后回调（登录态，不需要 orgId；后端按 txHash 做链上回执校验）
+  async confirmPrivacyWithdraw(itemId: string, txHash: string) {
+    const res = await this.request.post<{
+      status: string
+      txHash: string
+      recipient: string | null
+      fee: string | null
+    }>(`/transaction/my-payroll-items/${itemId}/confirm-withdraw`, { txHash })
+    return res.data
+  }
+
+  // 获取平台 relayer 地址（生成委托 withdraw 证明时作为 relayer 公开输入）
+  async getPrivacyWithdrawRelayer() {
+    const res = await this.request.get<{ relayerAddress: string }>('/transaction/privacy-withdraw-relayer')
+    return res.data
+  }
+
+  // 把 privacy_deposit 提款交给平台代执行（节省 gas），后端用 relayer 钱包代付 gas 上链
+  async relayPrivacyWithdraw(itemId: string, args: RelayWithdrawArgs) {
+    const res = await this.request.post<RelayWithdrawResponse>(
+      `/transaction/my-payroll-items/${itemId}/relay-withdraw`,
+      args,
+    )
+    return res.data
+  }
+
   // 获取成员支付统计
   async getMemberPaymentStatistics(memberId: string) {
     const res = await this.request.get<{
@@ -458,9 +537,9 @@ export class TransactionApi {
   }
 
   // 获取 ZK 电路文件 CDN 链接
-  async getCircuitFiles(caipChainId: string, tier: number) {
+  async getCircuitFiles(caipChainId: string, tier: number, circuitType: 'deposit' | 'withdraw' = 'deposit') {
     const res = await this.request.get<CircuitFilesResponse>('/gravarc/circuit-files', {
-      params: { caipChainId, tier },
+      params: { caipChainId, tier, circuitType },
     })
     return res.data
   }

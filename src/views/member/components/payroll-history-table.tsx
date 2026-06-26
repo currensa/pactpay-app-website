@@ -114,83 +114,83 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
   return (
     <div className="flex flex-col gap-[12px]">
       <TableScrollArea>
-        <Table className="min-w-[980px]">
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('components.payrollHistoryTable.scheduledFor')}</TableHead>
-            {showOrgColumn && <TableHead>{t('components.payrollHistoryTable.organization')}</TableHead>}
-            <TableHead>{t('components.payrollHistoryTable.transaction')}</TableHead>
-            <TableHead>{t('components.payrollHistoryTable.amount')}</TableHead>
-            <TableHead>{t('components.payrollHistoryTable.network')}</TableHead>
-            <TableHead>{t('components.payrollHistoryTable.txHash')}</TableHead>
-            <TableHead>{t('components.payrollHistoryTable.status')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loading ? (
-            <TableSkeletonRows rows={5} cols={showOrgColumn ? 7 : 6} />
-          ) : rows.length === 0 ? (
+        <Table className="min-w-[980px] w-full">
+          <TableHeader>
             <TableRow>
-              <TableCell colSpan={showOrgColumn ? 7 : 6} className="py-[24px]">
-                <div className="flex flex-col items-center justify-center gap-[10px]">
-                  <img src="/empty-table.svg" alt={t('common.noRecordsAlt')} className="h-[120px] w-[120px]" />
-                  <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('components.payrollHistoryTable.noRecordsFound')}</p>
-                </div>
-              </TableCell>
+              <TableHead>{t('components.payrollHistoryTable.scheduledFor')}</TableHead>
+              {showOrgColumn && <TableHead>{t('components.payrollHistoryTable.organization')}</TableHead>}
+              <TableHead>{t('components.payrollHistoryTable.transaction')}</TableHead>
+              <TableHead>{t('components.payrollHistoryTable.amount')}</TableHead>
+              <TableHead>{t('components.payrollHistoryTable.network')}</TableHead>
+              <TableHead>{t('components.payrollHistoryTable.txHash')}</TableHead>
+              <TableHead>{t('components.payrollHistoryTable.status')}</TableHead>
             </TableRow>
-          ) : (
-            rows.map(row => {
-              const explorerUrl = getChain(row.caipChainId)?.explorerUrls?.[0]
-              const txUrl = buildExplorerTransactionUrl(explorerUrl, row.txHash)
-              return (
-                <TableRow key={row.id}>
-                  <TableCell className="font-medium">{row.date}</TableCell>
-                  {showOrgColumn && (
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableSkeletonRows rows={5} cols={showOrgColumn ? 7 : 6} />
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={showOrgColumn ? 7 : 6} className="py-[24px]">
+                  <div className="flex flex-col items-center justify-center gap-[10px]">
+                    <img src="/empty-table.svg" alt={t('common.noRecordsAlt')} className="h-[120px] w-[120px]" />
+                    <p className="text-[14px] leading-[22px] text-[#8d8d93]">{t('components.payrollHistoryTable.noRecordsFound')}</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map(row => {
+                const explorerUrl = getChain(row.caipChainId)?.explorerUrls?.[0]
+                const txUrl = buildExplorerTransactionUrl(explorerUrl, row.txHash)
+                return (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium">{row.date}</TableCell>
+                    {showOrgColumn && (
+                      <TableCell>
+                        {onOrgClick ? (
+                          <button
+                            onClick={() => onOrgClick(row.orgId, row.orgName, row.memberId)}
+                            className="text-[#5e85ee] hover:underline cursor-pointer"
+                          >
+                            {row.orgName}
+                          </button>
+                        ) : (
+                          row.orgName
+                        )}
+                      </TableCell>
+                    )}
+                    <TableCell className="text-[#606067]">
+                      {row.transactionName ?? '—'}
+                    </TableCell>
                     <TableCell>
-                      {onOrgClick ? (
-                        <button
-                          onClick={() => onOrgClick(row.orgId, row.orgName, row.memberId)}
-                          className="text-[#5e85ee] hover:underline cursor-pointer"
+                      {row.amount.toLocaleString()} {row.token}
+                    </TableCell>
+                    <TableCell className="text-[#606067]">
+                      {row.chainName}
+                    </TableCell>
+                    <TableCell>
+                      {txUrl ? (
+                        <a
+                          href={txUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-[#5e85ee] hover:underline"
+                          title={row.txHash ?? ''}
                         >
-                          {row.orgName}
-                        </button>
+                          {formatTransactionHash(row.txHash)}
+                        </a>
                       ) : (
-                        row.orgName
+                        <span className="font-mono text-[#8d8d93]">{formatTransactionHash(row.txHash)}</span>
                       )}
                     </TableCell>
-                  )}
-                  <TableCell className="text-[#606067]">
-                    {row.transactionName ?? '—'}
-                  </TableCell>
-                  <TableCell>
-                    {row.amount.toLocaleString()} {row.token}
-                  </TableCell>
-                  <TableCell className="text-[#606067]">
-                    {row.chainName}
-                  </TableCell>
-                  <TableCell>
-                    {txUrl ? (
-                      <a
-                        href={txUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-[#5e85ee] hover:underline"
-                        title={row.txHash ?? ''}
-                      >
-                        {formatTransactionHash(row.txHash)}
-                      </a>
-                    ) : (
-                      <span className="font-mono text-[#8d8d93]">{formatTransactionHash(row.txHash)}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <TransactionItemStatusBadge status={row.status} />
-                  </TableCell>
-                </TableRow>
-              )
-            })
-          )}
-        </TableBody>
+                    <TableCell>
+                      <TransactionItemStatusBadge status={row.status} />
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
         </Table>
       </TableScrollArea>
 
