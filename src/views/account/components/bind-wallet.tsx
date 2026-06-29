@@ -27,8 +27,6 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState('')
-  const [secretInput, setSecretInput] = useState('')
-  const [confirmInput, setConfirmInput] = useState('')
   const [passwordInput, setPasswordInput] = useState('')
   const [rememberLocally, setRememberLocally] = useState(false)
   const setMetaPubSubmitted = useAuthStore(s => s.setMetaPubSubmitted)
@@ -50,10 +48,7 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
 
   const handleSubmit = async () => {
     if (!address || !walletClient) return
-    if (!secretInput) { setError('Secret cannot be empty'); return }
-    if (secretInput !== confirmInput) { setError('Secrets do not match'); return }
     if (!passwordInput) { setError('Password cannot be empty'); return }
-    if (secretInput.length > 31) { setError('Secret must be 31 characters or fewer'); return }
 
     setError('')
     setLoading(true)
@@ -62,11 +57,10 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
       // One EIP-712 sign → seed used for both secretbox key and box key pair
       const keyPair = await deriveNaclKeyPair(passwordInput, walletClient as Parameters<typeof deriveNaclKeyPair>[1])
 
-      // Pad to 31 chars with random printable ASCII so the secret has full entropy
+      // Generate 31 chars of random printable ASCII for full entropy
       const charset = Array.from({ length: 95 }, (_, i) => String.fromCharCode(i + 32)).join('')
-      const suffixBytes = crypto.getRandomValues(new Uint8Array(31 - secretInput.length))
-      const randomSuffix = Array.from(suffixBytes).map(b => charset[b % charset.length]).join('')
-      const actualSecret = secretInput + randomSuffix
+      const secretBytes = crypto.getRandomValues(new Uint8Array(31))
+      const actualSecret = Array.from(secretBytes).map(b => charset[b % charset.length]).join('')
 
       setStep('Computing secret hash…')
       const field = await secretStringToField(actualSecret)
@@ -145,22 +139,6 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
         {/* Form inputs — only shown when wallet is connected */}
         {isConnected && (
           <div className="flex flex-col gap-[12px]">
-            <input
-              type="password"
-              placeholder="Secret (max 31 chars)"
-              value={secretInput}
-              onChange={e => setSecretInput(e.target.value)}
-              autoComplete="new-password"
-              className="h-[46px] rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[14px] text-[14px] leading-[22px] text-[#1c1c26] outline-none placeholder:text-[#8d8d93] focus:border-[#5e85ee]"
-            />
-            <input
-              type="password"
-              placeholder="Confirm secret"
-              value={confirmInput}
-              onChange={e => setConfirmInput(e.target.value)}
-              autoComplete="new-password"
-              className="h-[46px] rounded-[12px] border border-[rgba(0,0,0,0.12)] px-[14px] text-[14px] leading-[22px] text-[#1c1c26] outline-none placeholder:text-[#8d8d93] focus:border-[#5e85ee]"
-            />
             <input
               type="password"
               placeholder="Password (for key derivation)"
