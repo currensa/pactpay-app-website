@@ -4,30 +4,30 @@ import { useEffect, useMemo, useState } from 'react';
 type NavItem = { label: string; id: string; sub?: boolean }
 
 const contractAddresses = [
-  // {
-  //   chain: 'Base',
-  //   environment: 'Mainnet',
-  //   address: '0x16458100Aa146046067831827cdB91f6aE0535D',
-  //   href: 'https://basescan.org/address/0x16458100aa146046067831827cdb91f6aE0535D',
-  // },
-  // {
-  //   chain: 'BNB Smart Chain',
-  //   environment: 'Mainnet',
-  //   address: '0x16458100Aa146046067831827cdB91f6aE0535D',
-  //   href: 'https://bscscan.com/address/0x16458100aa146046067831827cdb91f6aE0535D',
-  // },
+  {
+    chain: 'Base',
+    environment: 'Mainnet',
+    address: '0xc32D2Da628eA49eB22DECf269880abd3A1819491',
+    href: 'https://basescan.org/address/0xc32D2Da628eA49eB22DECf269880abd3A1819491',
+  },
+  {
+    chain: 'BNB Smart Chain',
+    environment: 'Mainnet',
+    address: '0xc32D2Da628eA49eB22DECf269880abd3A1819491',
+    href: 'https://bscscan.com/address/0xc32D2Da628eA49eB22DECf269880abd3A1819491',
+  },
   {
     chain: 'Ethereum Sepolia',
     environment: 'Testnet',
-    address: '0xA8dC5Fe8890cfd76bc660220cffedFbDa06F85C3',
-    href: 'https://sepolia.etherscan.io/address/0x5F2E184B850E552f1B66f754EAD5d278475f6811',
+    address: '0x07Ef5926d1Ee87E9f7097b4F76e67C1CEEe0AD63',
+    href: 'https://sepolia.etherscan.io/address/0x07Ef5926d1Ee87E9f7097b4F76e67C1CEEe0AD63',
   },
-  {
-    chain: 'Celo Sepolia',
-    environment: 'Testnet',
-    address: '0x2DD8a5e171cf59c7be307168efEbf3De2CE7721e',
-    href: 'https://sepolia.etherscan.io/address/0x5F2E184B850E552f1B66f754EAD5d278475f6811',
-  },
+  // {
+  //   chain: 'Celo Sepolia',
+  //   environment: 'Testnet',
+  //   address: '0x2DD8a5e171cf59c7be307168efEbf3De2CE7721e',
+  //   href: 'https://sepolia.etherscan.io/address/0x5F2E184B850E552f1B66f754EAD5d278475f6811',
+  // },
 ]
 
 function SectionAnchor({ id }: { id: string }) {
@@ -527,6 +527,34 @@ authLeaf_i   = Poseidon(commitment_i, amount_i, token_i)`}
               ? '不收取月费、会员费等，按照实际发生的交易笔数每次收取固定手续费。（一笔 = 对一个收款地址发起的一笔交易，如一次性批量支付给多个地址，则算多次，有几个地址收取几份）'
               : 'No monthly fees, no membership fees. A fixed fee is charged per actual transaction, where "one transaction" means one payment to one recipient address. Batching payments to multiple addresses in a single operation counts as multiple transactions; the fee is charged per address.'}
           </p>
+          <div className="mb-6 overflow-x-auto">
+            <table className="min-w-[480px] w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-[#f5f5f5]">
+                  <th className="border border-[rgba(0,0,0,0.08)] px-3 py-3 text-left font-medium text-[#8d8d93]">{isZh ? '网络' : 'Network'}</th>
+                  <th className="border border-[rgba(0,0,0,0.08)] px-3 py-3 text-left font-medium text-[#8d8d93]">{isZh ? '标准价/与一个成员的一次交易' : 'Standard price / per transaction to one member'}</th>
+                  <th className="border border-[rgba(0,0,0,0.08)] px-3 py-3 text-left font-medium text-[#8d8d93]">{isZh ? '当前早期体验价/与一个成员的一次交易' : 'Current early access price / per transaction to one member'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="hover:bg-[rgba(0,0,0,0.01)]">
+                  <td className="border border-[rgba(0,0,0,0.08)] px-3 py-2 font-medium text-[#606067]">Ethereum</td>
+                  <td className="border border-[rgba(0,0,0,0.08)] px-3 py-2 text-[#606067]">20 USD</td>
+                  <td className="border border-[rgba(0,0,0,0.08)] px-3 py-2 text-[#5e85ee]">10 USD</td>
+                </tr>
+                <tr className="hover:bg-[rgba(0,0,0,0.01)]">
+                  <td className="border border-[rgba(0,0,0,0.08)] px-3 py-2 font-medium text-[#606067]">Base</td>
+                  <td className="border border-[rgba(0,0,0,0.08)] px-3 py-2 text-[#606067]">5 USD</td>
+                  <td className="border border-[rgba(0,0,0,0.08)] px-3 py-2 text-[#5e85ee]">2 USD</td>
+                </tr>
+                <tr className="hover:bg-[rgba(0,0,0,0.01)]">
+                  <td className="border border-[rgba(0,0,0,0.08)] px-3 py-2 font-medium text-[#606067]">BSC</td>
+                  <td className="border border-[rgba(0,0,0,0.08)] px-3 py-2 text-[#606067]">5 USD</td>
+                  <td className="border border-[rgba(0,0,0,0.08)] px-3 py-2 text-[#5e85ee]">2 USD</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           <h4 className="mb-2 mt-4 text-lg font-semibold text-[#1c1c26]">{isZh ? '服务购买' : 'Service purchase'}</h4>
           <p className="mb-6 text-base leading-relaxed text-[#606067]">

@@ -247,7 +247,7 @@ export const messages = {
         passwordPlaceholder: 'Your account password',
         rememberSession: 'Remember for this session',
         delegateToServer: 'Let the platform submit on-chain (saves gas fees)',
-        delegateToServerHelp: 'Your password unlocks the private withdrawal locally and the proof is generated on your device; the platform then submits the transaction and covers the gas, charging a small fee.',
+        delegateToServerHelp: 'Your password unlocks the private withdrawal locally and the proof is generated on your device; the platform then submits the transaction and covers the gas.',
         privacyWithdrawHelp: 'Your password unlocks the private withdrawal locally. Each withdrawal is sent on-chain from your wallet, so you may be asked to confirm multiple transactions.',
         enterPasswordToast: 'Please enter your password to withdraw.',
         claim: 'Claim',
