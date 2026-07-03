@@ -228,7 +228,7 @@ export default function TransactionDetail() {
                       {t('pages.transactionDetail.reaction')}
                     </button>
                   )}
-                  {hasPermission(Permission.EXECUTE_TRANSACTION) && plan.items.some(item => item.status !== 'claimed') && (
+                  {/* {hasPermission(Permission.EXECUTE_TRANSACTION) && plan.items.some(item => item.status !== 'claimed') && (
                     <button
                       onClick={() => setRefundOpen(true)}
                       className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(255,168,0,0.4)] bg-white px-[14px] text-[13px] text-[#c47d00] transition-colors hover:bg-[rgba(255,168,0,0.06)]"
@@ -236,7 +236,7 @@ export default function TransactionDetail() {
                       <RotateCcw size={14} />
                       {t('pages.transactionDetail.refund')}
                     </button>
-                  )}
+                  )} */}
                 </>
               )
               : isRefunded
