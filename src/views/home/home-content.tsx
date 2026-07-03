@@ -90,16 +90,12 @@ export default function HomeContent() {
             <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-16 bg-gradient-to-t from-white to-transparent" />
 
             <div style={{ animation: 'tickerScrollUp 22s linear infinite' }} className="flex flex-col gap-4">
-              {[...featureItems, ...featureItems].map((entry, i) => (
-                <div key={`${entry.title}-${i}`} className="flex items-center justify-between rounded-[20px] bg-[rgba(94,133,238,0.04)] px-4 py-4 md:rounded-[22px] md:px-6 md:py-5">
+              {[...copy.homeContent.advantageItems, ...copy.homeContent.advantageItems].map((item, i) => (
+                <div key={`${item}-${i}`} className="flex items-center justify-between rounded-[20px] bg-[rgba(94,133,238,0.04)] px-4 py-4 md:rounded-[22px] md:px-6 md:py-5">
                   <div className="flex-1 pr-4">
                     <p className="text-[17px] leading-[26px] text-[#1c1c26] md:text-[19px] md:leading-[30px]" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                      {entry.title}
+                      {item}
                     </p>
-                    <p className="mt-1 text-[13px] leading-[21px] text-[#8d8d93]">{entry.description}</p>
-                  </div>
-                  <div className="shrink-0 rounded-full bg-white p-2.5">
-                    <img src={entry.icon} alt="" className="h-[26px] w-[26px] object-contain" />
                   </div>
                 </div>
               ))}
