@@ -180,6 +180,12 @@ export interface TransactionPlan {
   createdAt: string
   deletedAt: string | null
   tokenUsagePlanId: string | null
+  /** GravArc 隐私存款树层级；privacy_deposit 与 GravArc 充值批次（token_usage_plan）均带此字段 */
+  privacyTier?: number | null
+  /** GravArc 本批存款叶子索引 */
+  privacyLeafIndex?: number | null
+  /** GravArc 接收者认证树根 */
+  privacyAuthRoot?: string | null
   items: TransactionItem[]
 }
 

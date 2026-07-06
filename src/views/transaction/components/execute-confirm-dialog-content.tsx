@@ -58,7 +58,10 @@ export function ExecuteConfirmDialogContent({
   const [status, setStatus] = useState<DepositStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const isAiTransaction = executingTransaction?.type === 'token_usage_plan'
-  const isPrivacyDeposit = transactionPlan?.transactionType === 'privacy_deposit'
+  // privacy_deposit 与带 privacyTier 的 GravArc 充值批次（token_usage_plan）都走 GravArc 存款路径。
+  const isPrivacyDeposit =
+    transactionPlan?.transactionType === 'privacy_deposit' ||
+    (transactionPlan?.privacyTier !== null && transactionPlan?.privacyTier !== undefined)
   const { t } = useTranslation()
 
   const stepLabels: Record<DepositStatus, string> = {
