@@ -1,6 +1,5 @@
 import { Button } from '@/components/ui/button'
 import type { I18nKey } from '@/i18n/messages'
-import { ENABLE_AI_API_FEATURES } from '@/constants/feature-flags'
 import useHeaderStore from '@/stores/header'
 import { useTranslation } from '@/utils/i18n'
 import { Bot, CalendarDays, Users } from 'lucide-react'
@@ -47,7 +46,7 @@ const TYPE_OPTIONS: {
     ],
     icon: Bot,
     iconLabelKey: 'pages.createTransactionSelector.aiPurchase',
-    enabled: ENABLE_AI_API_FEATURES,
+    enabled: true,
   },
 ]
 
@@ -58,15 +57,9 @@ export default function CreateTransactionSelector() {
   const { setHeader, clearHeader } = useHeaderStore()
   const initialType = searchParams.get('type')
   const [selectedType, setSelectedType] = useState<TransactionType | null>(
-    (initialType === 'people' || (ENABLE_AI_API_FEATURES && initialType === 'ai')) ? initialType : null,
+    (initialType === 'people' || initialType === 'ai') ? initialType : null,
   )
 
-  // Redirect if AI type is selected but AI API features are disabled
-  useEffect(() => {
-    if (!ENABLE_AI_API_FEATURES && initialType === 'ai') {
-      navigate('/orgs/transaction/create', { replace: true })
-    }
-  }, [initialType, navigate])
 
   useEffect(() => {
     setHeader({

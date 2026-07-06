@@ -12,7 +12,9 @@
       "Bash(xargs sed:*)",
       "Bash(npm install:*)",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:d[k] for k in ['name','version','description','scripts','dependencies','devDependencies'] if k in d}, indent=2\\)\\)\")",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:d[k] for k in ['name','version','scripts','dependencies'] if k in d}, indent=2\\)\\)\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:d[k] for k in ['name','version','scripts','dependencies'] if k in d}, indent=2\\)\\)\")",
+      "Bash(Remove-Item *)",
+      "Bash(npm run *)"
     ]
   }
 }

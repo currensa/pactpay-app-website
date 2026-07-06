@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/use-toast'
-import { ENABLE_AI_API_FEATURES } from '@/constants/feature-flags'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
@@ -136,12 +135,6 @@ export default function CreateAiTransaction() {
     getTokenSymbol,
   } = useChainAssetStore()
 
-  // Redirect if AI API features are disabled
-  useEffect(() => {
-    if (!ENABLE_AI_API_FEATURES) {
-      navigate('/orgs/transaction', { replace: true })
-    }
-  }, [navigate])
 
   const [plans, setPlans] = useState<TokenUsagePlanListItem[]>([])
   const [loading, setLoading] = useState(true)
