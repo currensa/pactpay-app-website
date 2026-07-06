@@ -31,14 +31,14 @@ const PUBLIC_COPY = {
             'A single EOA is all you need to handle registration, payments, and receiving funds. Zero identity binding required, your real-world information remains completely inaccessible, even to us.',
         },
         {
-          title: 'Invisible Identity Layer',
+          title: 'Encrypted Identity Layer',
           description:
-            'Identity is utilized solely for verification and is never exposed. Only an encrypted proxy identity resides on-chain, ensuring your real address remains completely untraceable.',
+            'Identities are processed through zero-knowledge circuits for verification only, never exposed on-chain. Your real address remains permanently untraceable.',
         },
         {
-          title: 'Dual-Address Isolation',
+          title: 'Transaction Privacy',
           description:
-            'The proxy address and receiving address are strictly isolated, and both can be dynamically rotated. This ensures strict unlinkability for every flow of funds.',
+            'Deposit and withdrawal information are isolated at the protocol level. No observer can trace a withdrawal back to its sender, transaction details stay completely private.',
         },
       ],
       advantagesTitle: ['What are the', 'advantages', 'of pactpay?'],
@@ -190,12 +190,12 @@ const PUBLIC_COPY = {
         {
           title: '隐形身份层',
           description:
-            '身份仅用于校验，从不直接暴露。链上只存在加密后的代理身份，真实地址始终不可追踪。',
+            '身份信息经 ZK 电路处理后仅用于合法性校验，不直接暴露，真实地址不可追踪。',
         },
         {
-          title: '双地址隔离',
+          title: '交易信息隐私',
           description:
-            '代理地址与收款地址严格隔离，并且都可以动态轮换，确保每一笔资金流都保持强匿名性。',
+            '存款信息与收款信息在协议层隔离，任何观察者均无法将收款行为溯源至存款方，交易信息完全隐私。',
         },
       ],
       advantagesTitle: ['PactPay 的', '优势', '是什么？'],

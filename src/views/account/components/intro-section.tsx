@@ -1,114 +1,7 @@
 import { usePublicCopy } from '@/views/public/copy'
-import type { ReactNode } from 'react'
-
-const CARDS = [
-  {
-    icon: (
-      <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
-        <circle cx="12" cy="12" r="9" stroke="#1c1c26" strokeWidth="1.5" />
-        <path d="M8 12h8" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M12 8v8" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-    title: 'Self-Custody by Default',
-    desc: 'Your rules, signed and locked. The contract only executes.',
-  },
-  {
-    icon: (
-      <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="5" width="18" height="14" rx="2" stroke="#1c1c26" strokeWidth="1.5" />
-        <path d="M7 9h10" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M7 13h6" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-    title: 'No KYC, End to End',
-    desc: 'Register, pay, and receive with just on-chain wallets. No identity checks at any step.',
-  },
-  {
-    icon: (
-      <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
-        <path
-          d="M12 3l7 4v5c0 4.4-2.8 8.4-7 9.7C7.8 20.4 5 16.4 5 12V7l7-4z"
-          stroke="#1c1c26"
-          strokeWidth="1.5"
-        />
-        <path d="M9.5 12.5l1.6 1.6 3.4-4.1" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-    title: 'Identity Stays Hidden',
-    desc: 'Your real address never touches the chain. Only a shielded identity is visible.',
-  },
-  {
-    icon: (
-      <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
-        <circle cx="8" cy="8" r="3" stroke="#1c1c26" strokeWidth="1.5" />
-        <circle cx="16" cy="16" r="3" stroke="#1c1c26" strokeWidth="1.5" />
-        <path d="M10.5 10.5l3 3" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-    title: 'Dual-Address Isolation',
-    desc: 'Shielded identity and receiving address are separate and swappable until the moment of claim.',
-  },
-  {
-    icon: (
-      <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
-        <path d="M4 12h16" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M12 4v16" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
-        <circle cx="12" cy="12" r="9" stroke="#1c1c26" strokeWidth="1.5" />
-      </svg>
-    ),
-    title: 'Self-Custody by Default',
-    desc: 'Your rules, signed and locked. The contract only executes.',
-  },
-  {
-    icon: (
-      <svg className="h-[24px] w-[24px]" viewBox="0 0 24 24" fill="none">
-        <path d="M6 8h12" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M6 12h12" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
-        <path d="M6 16h8" stroke="#1c1c26" strokeWidth="1.5" strokeLinecap="round" />
-        <rect x="3" y="4" width="18" height="16" rx="2" stroke="#1c1c26" strokeWidth="1.5" />
-      </svg>
-    ),
-    title: 'No KYC, End to End',
-    desc: 'Register, pay, and receive with just on-chain wallets. No identity checks at any step.',
-  },
-]
-
-function CardList({
-  cards,
-}: {
-  cards: Array<{ icon: ReactNode; title: string; desc: string }>
-}) {
-  return (
-    <>
-      {cards.map((card, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-[20px] rounded-[24px] bg-white px-[24px] py-[32px] shadow-[0px_2px_2px_0px_rgba(0,0,0,0.08)]"
-        >
-          <div className="flex shrink-0 items-center rounded-full bg-[#f5f5f5] p-[12px]">
-            {card.icon}
-          </div>
-          <div className="flex min-w-0 flex-col gap-[2px]">
-            <p className="text-[22px] font-bold leading-[32px] text-[#1c1c26]">{card.title}</p>
-            <p className="text-[14px] font-normal leading-[22px] text-[#606067]">{card.desc}</p>
-          </div>
-        </div>
-      ))}
-    </>
-  )
-}
 
 export default function IntroSection() {
   const { copy } = usePublicCopy()
-  const cards = [
-    { ...CARDS[0], title: copy.homeContent.features[0].title, desc: copy.homeContent.features[0].description },
-    { ...CARDS[1], title: copy.homeContent.features[1].title, desc: copy.homeContent.features[1].description },
-    { ...CARDS[2], title: copy.homeContent.features[2].title, desc: copy.homeContent.features[2].description },
-    { ...CARDS[3], title: copy.homeContent.features[3].title, desc: copy.homeContent.features[3].description },
-    { ...CARDS[4], title: copy.homeContent.features[0].title, desc: copy.homeContent.features[0].description },
-    { ...CARDS[5], title: copy.homeContent.features[1].title, desc: copy.homeContent.features[1].description },
-  ]
 
   return (
     <div className="relative hidden h-full w-full overflow-hidden rounded-[32px] border border-black/10 bg-gradient-to-b from-[#fafafa] to-[rgba(250,250,250,0.2)] lg:flex lg:w-[46%] lg:shrink-0">
@@ -132,7 +25,7 @@ export default function IntroSection() {
               <path d="M332.051 596.008V606.996C332.051 611.349 330.545 614.567 325.276 616.772L320.923 618.405C320.946 614.631 320.969 610.843 320.986 608.207C320.989 607.705 320.916 607.216 320.772 606.751L328.581 603.824L328.658 603.794L329.24 603.566C329.672 603.399 329.94 602.987 329.94 602.549C329.94 602.435 329.92 602.318 329.883 602.204C329.692 601.639 329.083 601.331 328.514 601.512L328.377 601.559L319.658 604.827C319.129 604.259 318.46 603.817 317.69 603.549L308.606 600.408C307.937 600.177 307.499 599.548 307.479 598.842C307.462 598.169 307.445 597.677 307.362 597.564C307.355 597.557 307.348 597.55 307.342 597.547C307.335 597.543 307.332 597.54 307.328 597.54H307.312C307.589 597.353 307.89 597.192 308.212 597.075L324.68 590.899C328.247 589.56 332.051 592.197 332.051 596.008Z" fill="white" />
               <path d="M319.658 604.826L309.804 608.52C307.616 609.34 305.284 607.724 305.284 605.388V601.296C305.284 601.203 305.287 601.106 305.294 601.012C305.297 600.918 305.307 600.825 305.32 600.731C305.331 600.637 305.347 600.547 305.364 600.457C305.381 600.363 305.401 600.273 305.424 600.182C305.444 600.102 305.468 600.018 305.494 599.938C305.498 599.931 305.498 599.925 305.501 599.918C305.525 599.841 305.551 599.767 305.578 599.694C305.588 599.667 305.598 599.644 305.608 599.617C305.638 599.547 305.668 599.473 305.702 599.406C305.739 599.322 305.779 599.239 305.822 599.158C305.953 598.918 306.103 598.69 306.277 598.476C306.324 598.416 306.374 598.355 306.428 598.299C306.438 598.285 306.451 598.272 306.465 598.258C306.508 598.208 306.555 598.158 306.609 598.111C306.629 598.084 306.656 598.058 306.682 598.038C306.722 597.994 306.763 597.961 306.803 597.924C306.84 597.887 306.88 597.854 306.92 597.823C306.963 597.787 307.01 597.75 307.054 597.713C307.067 597.706 307.08 597.696 307.09 597.69C307.154 597.639 307.224 597.596 307.291 597.549C307.301 597.542 307.311 597.539 307.321 597.539H307.328C307.331 597.539 307.335 597.542 307.341 597.546C307.348 597.549 307.355 597.556 307.361 597.562C307.445 597.676 307.462 598.168 307.479 598.841C307.499 599.547 307.937 600.176 308.606 600.406L317.69 603.548C318.46 603.816 319.129 604.258 319.658 604.826Z" fill="white" />
               <path d="M320.772 606.751L309.657 610.92C307.027 611.907 305.284 614.419 305.284 617.226V605.389C305.284 607.724 307.616 609.34 309.804 608.521L319.658 604.827C320.173 605.372 320.554 606.031 320.772 606.751Z" fill="white" fillOpacity="0.5" />
-              <path d="M320.986 608.206C320.969 610.842 320.946 614.63 320.922 618.404L309.56 622.667C309.218 622.771 308.917 622.884 308.656 623.005C306.538 623.995 306.876 625.538 307.308 626.2C306.502 625.742 305.886 625.019 305.555 624.169C305.381 623.714 305.284 623.222 305.284 622.714V617.226C305.284 614.419 307.027 611.906 309.657 610.919L320.772 606.75C320.916 607.216 320.989 607.704 320.986 608.206Z" fill="white" />
+              <path d="M320.986 608.206C320.969 610.842 320.946 614.63 320.922 618.404L309.56 622.667C309.218 622.771 308.917 622.884 308.656 623.005C306.538 623.995 306.876 625.538 307.308 626.2C306.502 625.742 305.886 625.019 305.555 624.169C305.381 623.714 305.284 623.222 305.284 622.714V617.226C305.284 614.419 307.027 611.906 309.657 610.919L320.772 606.75C320.916 607.216 320.989 607.705 320.986 608.206Z" fill="white" />
             </g>
             <g clipPath="url(#clip1_129_1604)">
               <path d="M460.934 604.176L450.8 628.006H445.472L449.178 619.783L442.605 604.176H448.136L451.871 614.282L455.578 604.176H460.934Z" fill="white" />
@@ -215,22 +108,23 @@ export default function IntroSection() {
             'linear-gradient(to bottom, transparent 0%, black 12%, black 88%, transparent 100%)',
         }}
       >
-        <div className="animate-scroll-cards flex flex-col gap-[24px] pt-[24px]">
-          <CardList cards={cards} />
-          <CardList cards={cards} />
+        <div style={{ animation: 'tickerScrollUp 22s linear infinite' }} className="flex flex-col gap-4 pt-6">
+          {[...copy.homeContent.advantageItems, ...copy.homeContent.advantageItems].map((item, i) => (
+            <div key={`${item}-${i}`} className="flex items-center justify-between rounded-[20px] bg-[rgba(94,133,238,0.04)] px-4 py-4 md:rounded-[22px] md:px-6 md:py-5">
+              <div className="flex-1 pr-4">
+                <p className="text-[17px] leading-[26px] text-[#1c1c26] md:text-[19px] md:leading-[30px]" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  {item}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
       <style>{`
-        @keyframes scroll-cards {
+        @keyframes tickerScrollUp {
           0% { transform: translateY(0); }
           100% { transform: translateY(-50%); }
-        }
-        .animate-scroll-cards {
-          animation: scroll-cards 20s linear infinite;
-        }
-        .animate-scroll-cards:hover {
-          animation-play-state: paused;
         }
       `}</style>
     </div>
