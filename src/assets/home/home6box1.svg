@@ -1,0 +1,61 @@
+<svg width="524" height="280" viewBox="0 0 524 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip_cli)">
+<rect width="524" height="280" rx="24" fill="white"/>
+
+<line x1="282" y1="150" x2="298" y2="150" stroke="#5E85EE" stroke-width="1.5" stroke-dasharray="2 4" stroke-opacity="0.5"/>
+<path d="M297 146L302 150L297 154" stroke="#5E85EE" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+<g filter="url(#ds_cli)">
+<rect x="40" y="74" width="240" height="148" rx="16" fill="white"/>
+<line x1="40" y1="100" x2="280" y2="100" stroke="black" stroke-opacity="0.08"/>
+<circle cx="58" cy="87" r="4" fill="#d92b2b"/>
+<circle cx="70" cy="87" r="4" fill="#ffa800"/>
+<circle cx="82" cy="87" r="4" fill="#5ddd22"/>
+<rect x="170" y="80" width="70" height="14" rx="7" fill="#5E85EE" fill-opacity="0.1"/>
+</g>
+<text x="205" y="90" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="9" fill="#5E85EE" text-anchor="middle">pactpay</text>
+
+<text x="54" y="124" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#5E85EE">$</text>
+<text x="66" y="124" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="12" fill="#1C1C26">pactpay auth login</text>
+
+<text x="66" y="144" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="11" fill="#8d8d93">↳ opening browser…</text>
+
+<text x="54" y="168" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#5E85EE">$</text>
+<text x="66" y="168" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="12" fill="#1C1C26">pactpay auth status</text>
+<path d="M212 164L215 167L221 160" stroke="#5ddd22" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+<text x="54" y="192" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="12" font-weight="700" fill="#5E85EE">$</text>
+<text x="66" y="192" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="12" fill="#1C1C26">pactpay token create</text>
+
+<g filter="url(#ds_cli)">
+<rect x="304" y="96" width="180" height="120" rx="14" fill="white"/>
+<line x1="304" y1="118" x2="484" y2="118" stroke="black" stroke-opacity="0.08"/>
+<circle cx="318" cy="107" r="3" fill="#8d8d93"/>
+<circle cx="328" cy="107" r="3" fill="#8d8d93"/>
+<circle cx="338" cy="107" r="3" fill="#8d8d93"/>
+<rect x="350" y="100" width="126" height="14" rx="7" fill="#f5f5f5"/>
+<path d="M358 108V106.4A1.6 1.6 0 01361.2 106.4V108" stroke="#8d8d93" stroke-width="1" stroke-linecap="round" fill="none"/>
+<rect x="357.2" y="108" width="4" height="3.5" rx="0.8" fill="#8d8d93"/>
+</g>
+<text x="365" y="110" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="9" fill="#8d8d93">pactpay.app</text>
+
+<rect x="384" y="130" width="20" height="20" rx="6" fill="#5E85EE"/>
+<text x="394" y="145" font-family="Poppins, Inter, sans-serif" font-size="13" font-weight="700" fill="white" text-anchor="middle">P</text>
+<text x="394" y="170" font-family="Poppins, Inter, sans-serif" font-size="11" font-weight="600" fill="#1C1C26" text-anchor="middle">Sign in to PactPay</text>
+<rect x="350" y="180" width="88" height="24" rx="8" fill="#5E85EE"/>
+<text x="394" y="196" font-family="Poppins, Inter, sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">Sign in</text>
+</g>
+<defs>
+<filter id="ds_cli" x="28" y="64" width="464" height="172" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="bg"/>
+<feColorMatrix in="SourceAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="ha"/>
+<feOffset dy="3"/>
+<feGaussianBlur stdDeviation="6"/>
+<feComposite in2="ha" operator="out"/>
+<feColorMatrix values="0 0 0 0 0.368627 0 0 0 0 0.521569 0 0 0 0 0.933333 0 0 0 0.14 0"/>
+<feBlend in2="bg" result="sh"/>
+<feBlend in="SourceGraphic" in2="sh"/>
+</filter>
+<clipPath id="clip_cli"><rect width="524" height="280" rx="24" fill="white"/></clipPath>
+</defs>
+</svg>

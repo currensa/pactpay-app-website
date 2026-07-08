@@ -41,6 +41,19 @@ const PUBLIC_COPY = {
             'Deposit and withdrawal information are isolated at the protocol level. No observer can trace a withdrawal back to its sender, transaction details stay completely private.',
         },
       ],
+      aiNativeTitle: 'For AI Native Organizations',
+      aiNativeItems: [
+        {
+          title: 'MCP Server',
+          description:
+            'Give any AI agent - Claude, ChatGPT, your own, the ability to read balances, create payments, and manage services. Install with npm i -g @pactpay/mcp-server, then connect in one command.',
+        },
+        {
+          title: 'CLI',
+          description:
+            'Script payroll runs, trigger vault top-ups, and query on-chain status from your terminal. Fits into any CI/CD pipeline or cron job. Install with npm i -g @pactpay/cli.',
+        },
+      ],
       advantagesTitle: ['What are the', 'advantages', 'of pactpay?'],
       advantageItems: [
         'Run private on-chain payroll for your entire team',
@@ -196,6 +209,19 @@ const PUBLIC_COPY = {
           title: '交易信息隐私',
           description:
             '存款信息与收款信息在协议层隔离，任何观察者均无法将收款行为溯源至存款方，交易信息完全隐私。',
+        },
+      ],
+      aiNativeTitle: '面向 AI 原生组织',
+      aiNativeItems: [
+        {
+          title: 'MCP 服务器',
+          description:
+            '赋予任何 AI 代理 —— Claude、ChatGPT 或你自己的代理 —— 读取余额、创建支付和管理服务的能力。使用 npm i -g @pactpay/mcp-server 安装，一条命令即可连接。',
+        },
+        {
+          title: 'CLI',
+          description:
+            '在终端中脚本化运行发薪、触发金库充值并查询链上状态。适配任何 CI/CD 流水线或定时任务。使用 npm i -g @pactpay/cli 安装。',
         },
       ],
       advantagesTitle: ['PactPay 的', '优势', '是什么？'],

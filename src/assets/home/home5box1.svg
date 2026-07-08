@@ -1,0 +1,54 @@
+<svg width="524" height="280" viewBox="0 0 524 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip_mcp)">
+<rect width="524" height="280" rx="24" fill="white"/>
+
+<line x1="124" y1="144" x2="200" y2="144" stroke="#5E85EE" stroke-width="1.5" stroke-dasharray="2 5" stroke-opacity="0.45"/>
+<line x1="324" y1="144" x2="400" y2="144" stroke="#5E85EE" stroke-width="1.5" stroke-dasharray="2 5" stroke-opacity="0.45"/>
+
+<g filter="url(#ds_mcp)">
+<rect x="56" y="110" width="68" height="68" rx="18" fill="white"/>
+<path d="M90 126L93.6 138.4L106 142L93.6 145.6L90 158L86.4 145.6L74 142L86.4 138.4Z" fill="#1C1C26"/>
+<circle cx="76" cy="166" r="2.2" fill="#5E85EE"/>
+<circle cx="100" cy="124" r="1.8" fill="#5E85EE" fill-opacity="0.5"/>
+</g>
+
+<g filter="url(#ds_mcp)">
+<rect x="400" y="110" width="68" height="68" rx="18" fill="white"/>
+<rect x="419" y="136" width="30" height="22" rx="7" fill="#1C1C26"/>
+<circle cx="427" cy="147" r="2.2" fill="white"/>
+<circle cx="441" cy="147" r="2.2" fill="white"/>
+<rect x="432" y="130" width="4" height="6" rx="2" fill="#1C1C26"/>
+<circle cx="434" cy="129" r="2.4" fill="#1C1C26"/>
+<rect x="423" y="161" width="22" height="3" rx="1.5" fill="#1C1C26" fill-opacity="0.25"/>
+</g>
+
+<g filter="url(#ds_mcp)">
+<rect x="200" y="96" width="124" height="96" rx="20" fill="#5E85EE"/>
+<rect x="218" y="114" width="88" height="24" rx="8" fill="white" fill-opacity="0.2"/>
+<rect x="218" y="146" width="88" height="24" rx="8" fill="white" fill-opacity="0.2"/>
+<circle cx="230" cy="126" r="2.8" fill="white"/>
+<circle cx="230" cy="158" r="2.8" fill="white"/>
+<rect x="242" y="124" width="54" height="4" rx="2" fill="white" fill-opacity="0.75"/>
+<rect x="242" y="156" width="54" height="4" rx="2" fill="white" fill-opacity="0.75"/>
+</g>
+
+<g filter="url(#ds_mcp)">
+<rect x="176" y="204" width="172" height="36" rx="12" fill="white"/>
+<text x="192" y="227" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="14" font-weight="700" fill="#5E85EE">&gt;</text>
+<text x="206" y="227" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="14" fill="#1C1C26">npx pactpay mcp</text>
+</g>
+</g>
+<defs>
+<filter id="ds_mcp" x="-12" y="-12" width="548" height="304" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="bg"/>
+<feColorMatrix in="SourceAlpha" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="ha"/>
+<feOffset dy="3"/>
+<feGaussianBlur stdDeviation="6"/>
+<feComposite in2="ha" operator="out"/>
+<feColorMatrix values="0 0 0 0 0.368627 0 0 0 0 0.521569 0 0 0 0 0.933333 0 0 0 0.14 0"/>
+<feBlend in2="bg" result="sh"/>
+<feBlend in="SourceGraphic" in2="sh"/>
+</filter>
+<clipPath id="clip_mcp"><rect width="524" height="280" rx="24" fill="white"/></clipPath>
+</defs>
+</svg>

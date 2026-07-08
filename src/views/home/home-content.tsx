@@ -5,6 +5,8 @@ import box1svg from '@/assets/home/home1box1.svg'
 import box2svg from '@/assets/home/home2box1.svg'
 import box3svg from '@/assets/home/home3box1.svg'
 import box4svg from '@/assets/home/home4box1.svg'
+import box5svg from '@/assets/home/home5box1.svg'
+import box6svg from '@/assets/home/home6box1.svg'
 import sicon2 from '@/assets/home/homessicon2.svg'
 import sicon4 from '@/assets/home/homessicon4.svg'
 import sicon5 from '@/assets/home/homessicon5.svg'
@@ -21,6 +23,10 @@ export default function HomeContent() {
     { ...copy.homeContent.features[1], icon: sicon5, image: box2svg },
     { ...copy.homeContent.features[2], icon: sicon2, image: box3svg },
     { ...copy.homeContent.features[3], icon: sicon6, image: box4svg },
+  ]
+  const aiNativeItems = [
+    { ...copy.homeContent.aiNativeItems[0], image: box5svg },
+    { ...copy.homeContent.aiNativeItems[1], image: box6svg },
   ]
 
   return (
@@ -51,23 +57,49 @@ export default function HomeContent() {
       </section>
 
       <section className="flex w-full justify-center bg-white pb-16 pt-12 md:pb-20 md:pt-16">
-        <div className="grid w-full max-w-[1100px] gap-4 px-4 md:grid-cols-2 md:gap-5 md:px-6">
-          {featureItems.map(item => (
-            <div
-              key={item.title}
-              className="flex flex-col items-center gap-4 rounded-[22px] bg-[rgba(94,133,238,0.04)] px-5 py-5 md:gap-5 md:rounded-[24px] md:px-7"
-            >
-              <div className="relative h-[200px] w-full overflow-hidden rounded-[18px] bg-white md:h-[220px] md:rounded-[20px]">
-                <img src={item.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="flex w-full max-w-[1100px] flex-col gap-10 px-4 md:gap-14 md:px-6">
+          <div className="grid gap-4 md:grid-cols-2 md:gap-5">
+            {featureItems.map(item => (
+              <div
+                key={item.title}
+                className="flex flex-col items-center gap-4 rounded-[22px] bg-[rgba(94,133,238,0.04)] px-5 py-5 md:gap-5 md:rounded-[24px] md:px-7"
+              >
+                <div className="relative h-[200px] w-full overflow-hidden rounded-[18px] bg-white md:h-[220px] md:rounded-[20px]">
+                  <img src={item.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                </div>
+                <div className="flex w-full flex-col gap-2">
+                  <p className="text-[19px] leading-[28px] text-[#1c1c26] md:text-[21px] md:leading-[32px]" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    {item.title}
+                  </p>
+                  <p className="text-[13px] leading-[21px] text-[#8d8d93]">{item.description}</p>
+                </div>
               </div>
-              <div className="flex w-full flex-col gap-2">
-                <p className="text-[19px] leading-[28px] text-[#1c1c26] md:text-[21px] md:leading-[32px]" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                  {item.title}
-                </p>
-                <p className="text-[13px] leading-[21px] text-[#8d8d93]">{item.description}</p>
-              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-4 md:gap-5">
+            <h2 className="text-[26px] leading-[34px] font-semibold tracking-[-0.5px] text-[#1c1c26] md:text-[32px] md:leading-[42px]" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              {copy.homeContent.aiNativeTitle}
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2 md:gap-5">
+              {aiNativeItems.map(item => (
+                <div
+                  key={item.title}
+                  className="flex flex-col items-center gap-4 rounded-[22px] bg-[rgba(94,133,238,0.04)] px-5 py-5 md:gap-5 md:rounded-[24px] md:px-7"
+                >
+                  <div className="relative h-[200px] w-full overflow-hidden rounded-[18px] bg-white md:h-[220px] md:rounded-[20px]">
+                    <img src={item.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                  </div>
+                  <div className="flex w-full flex-col gap-2">
+                    <p className="text-[19px] leading-[28px] text-[#1c1c26] md:text-[21px] md:leading-[32px]" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                      {item.title}
+                    </p>
+                    <p className="text-[13px] leading-[21px] text-[#8d8d93]">{item.description}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </section>
 
