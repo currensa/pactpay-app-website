@@ -1194,7 +1194,7 @@ export const messages = {
         passwordPlaceholder: '你的账户密码',
         rememberSession: '本次会话内记住',
         delegateToServer: '交给平台执行上链（可节省 gas 费）',
-        delegateToServerHelp: '密码用于在本地解锁私密提款，证明在你的设备上生成；随后由平台提交交易并代付 gas，平台会收取少量手续费。',
+        delegateToServerHelp: '密码用于在本地解锁私密提款，证明在你的设备上生成；随后由平台提交交易并代付 gas。',
         privacyWithdrawHelp: '密码用于在本地解锁私密提款。每笔提款都会从你的钱包直接上链，可能需要你确认多笔交易。',
         enterPasswordToast: '请输入密码以进行提款。',
         claim: '领取',
