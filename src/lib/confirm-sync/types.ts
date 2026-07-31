@@ -10,7 +10,11 @@ export const REQUEST_TIMEOUT_MS = 30_000 // per-attempt axios timeout
 export const INLINE_ATTEMPTS = 2 // attempts the caller awaits before the job goes background
 export const STORAGE_KEY = 'pactpay:pendingConfirmations'
 
-export type ConfirmJobType = 'confirm-deposit' | 'confirm-privacy-deposit' | 'confirm-withdraw'
+export type ConfirmJobType =
+  | 'confirm-deposit'
+  | 'confirm-privacy-deposit'
+  | 'confirm-withdraw'
+  | 'confirm-refund-gravarc'
 
 export type ConfirmJobStatus = 'pending' | 'exhausted'
 
@@ -48,6 +52,10 @@ export interface ConfirmPrivacyDepositJob extends BaseConfirmJob {
   batchId: string
   depositTxHash: string
   withdrawMessages: WithdrawMessage[]
+  /** 加密的退款载荷（仅可退款存款携带；便携化：随 confirm 上传存入 GravArcDeposition.encContent） */
+  encContent?: string
+  /** 退款载荷元信息 JSON { depositorSecretHash, encPubkey } */
+  depositInfo?: string
 }
 
 export interface ConfirmWithdrawJob extends BaseConfirmJob {
@@ -56,13 +64,26 @@ export interface ConfirmWithdrawJob extends BaseConfirmJob {
   txHash: string
 }
 
-export type ConfirmJob = ConfirmDepositJob | ConfirmPrivacyDepositJob | ConfirmWithdrawJob
+/** 自托付直发 refund 后的链上回执确认（POST confirm-refund-gravarc）。 */
+export interface ConfirmRefundGravArcJob extends BaseConfirmJob {
+  type: 'confirm-refund-gravarc'
+  orgId: string
+  batchId: string
+  refundTxHash: string
+}
+
+export type ConfirmJob =
+  | ConfirmDepositJob
+  | ConfirmPrivacyDepositJob
+  | ConfirmWithdrawJob
+  | ConfirmRefundGravArcJob
 
 /** Shape passed to `confirmSync.enqueue` — bookkeeping fields are filled in by the manager. */
 export type ConfirmJobInput =
   | Omit<ConfirmDepositJob, 'id' | 'attempts' | 'status' | 'createdAt'>
   | Omit<ConfirmPrivacyDepositJob, 'id' | 'attempts' | 'status' | 'createdAt'>
   | Omit<ConfirmWithdrawJob, 'id' | 'attempts' | 'status' | 'createdAt'>
+  | Omit<ConfirmRefundGravArcJob, 'id' | 'attempts' | 'status' | 'createdAt'>
 
 /** Result of the inline (caller-awaited) phase. Never an error — chain already succeeded. */
 export type EnqueueResult = 'synced' | 'background'
@@ -74,5 +95,7 @@ export type ConfirmSyncEvent =
 
 /** Returns the txHash a job is confirming — used to build its stable id. */
 export function jobTxHash(input: ConfirmJobInput): string {
-  return input.type === 'confirm-withdraw' ? input.txHash : input.depositTxHash
+  if (input.type === 'confirm-withdraw') return input.txHash
+  if (input.type === 'confirm-refund-gravarc') return input.refundTxHash
+  return input.depositTxHash
 }

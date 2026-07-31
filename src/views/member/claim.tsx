@@ -459,12 +459,19 @@ export default function ClaimPage() {
       if (rememberKey) cachedKeyPairRef.current = keyPair
     }
 
-    // When delegating, resolve the platform relayer address once (becomes the proof's relayer).
+    // When delegating, resolve the platform relayer address + chain-level withdrawRelayerSupported.
     let relayerAddress = relayerAddressRef.current
-    if (delegateToServer && !relayerAddress) {
-      relayerAddress = (await apis.transaction.getPrivacyWithdrawRelayer()).relayerAddress
+    let withdrawRelayerSupported = true
+    if (delegateToServer) {
+      const caipChainId = `eip155:${chainIdNum}`
+      const rel = await apis.transaction.getPrivacyWithdrawRelayer(caipChainId)
+      relayerAddress = rel.relayerAddress
+      withdrawRelayerSupported = rel.withdrawRelayerSupported
       relayerAddressRef.current = relayerAddress
+      // 链不支持平台代付 withdraw 时强制直发（后端 relay-withdraw 也会拒绝）
+      if (!withdrawRelayerSupported) setDelegateToServer(false)
     }
+    const effectiveDelegate = delegateToServer && withdrawRelayerSupported
 
     for (const item of items) {
       try {
@@ -476,8 +483,8 @@ export default function ClaimPage() {
           account: address!,
           chainIdNum,
           chainName,
-          delegate: delegateToServer,
-          relayerAddress: relayerAddress ?? undefined,
+          delegate: effectiveDelegate,
+          relayerAddress: effectiveDelegate ? relayerAddress : undefined,
           onStatus: msg => setPrivacyStatus(`${item.transactionName ?? item.id}: ${msg}`),
         })
         succeeded.push({

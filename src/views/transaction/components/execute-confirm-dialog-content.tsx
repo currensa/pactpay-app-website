@@ -19,6 +19,28 @@ import type { Transaction } from './types'
 
 const ETH_SENTINEL = '0x0000000000000000000000000000000000000000' as Hex
 
+/** 读取当前存款人（本机登录账户）的 GravArc secretHash，用于可退款存款的 depositLeaf 承诺。 */
+function readDepositorSecretHash(): string | null {
+  try {
+    const raw = localStorage.getItem('gravArcUserInfo')
+    if (!raw) return null
+    return (JSON.parse(raw) as { secretHash?: string | null })?.secretHash ?? null
+  } catch {
+    return null
+  }
+}
+
+/** 读取当前存款人的 NaCl box 公钥（encPubkey），用于加密退款载荷（便携化：存后端，任意设备解密）。 */
+function readDepositorEncPubkey(): string | null {
+  try {
+    const raw = localStorage.getItem('gravArcUserInfo')
+    if (!raw) return null
+    return (JSON.parse(raw) as { encPubkey?: string | null })?.encPubkey ?? null
+  } catch {
+    return null
+  }
+}
+
 type DepositStatus =
   | 'idle'
   | 'connecting'
@@ -280,6 +302,11 @@ export function ExecuteConfirmDialogContent({
       // so the member nets exactly their item amount. m.platformFee MUST be the same value later used as
       // the withdraw fee (item.platformFee), otherwise the member is over/under-paid.
       setStatus('proving')
+      const refundable = transactionPlan.privacyRefundable ?? true
+      const depositorSecretHash = refundable ? readDepositorSecretHash() : null
+      if (refundable && !depositorSecretHash) {
+        throw new Error('Refundable deposit requires your account secret - please bind your wallet / set up your GravArc account first.')
+      }
       const receivers = privacyData.members.map(m => ({
         address: m.address,
         secretHash: m.secretHash,
@@ -292,6 +319,8 @@ export function ExecuteConfirmDialogContent({
         circuitFiles.wasmUrl,
         circuitFiles.zkeyUrl,
         { nextIndex: depositPath.nextIndex, siblings: depositPath.siblings },
+        refundable,
+        depositorSecretHash,
       )
 
       // The proof's public totalAmount (Σ gross) must equal the plan total (which also includes service
@@ -340,7 +369,7 @@ export function ExecuteConfirmDialogContent({
           pB: proofResult.proof.pB.map(row => row.map(BigInt)) as [[bigint, bigint], [bigint, bigint]],
           pC: proofResult.proof.pC.map(BigInt) as [bigint, bigint],
           newRoot: BigInt(proofResult.newDepositRoot),
-          authRoot: BigInt(proofResult.authRoot),
+          depositLeaf: BigInt(proofResult.depositLeaf),
           totalAmount: proofResult.totalAmount,
           token: tokenAddress,
           tier: proofResult.tier,
@@ -371,6 +400,8 @@ export function ExecuteConfirmDialogContent({
           amount: r.amount,
           depositRoot: proofResult.newDepositRoot,
           leafIndex: proofResult.leafIndex,
+          authRoot: proofResult.authRoot,
+          depositorSecretHash: proofResult.depositorSecretHash,
           depositPathElements: proofResult.depositPathElements,
           depositPathIndices: proofResult.depositPathIndices,
           authPathElements: r.authPathElements,
@@ -385,14 +416,56 @@ export function ExecuteConfirmDialogContent({
         }
       })
 
-      // On-chain privacy deposit succeeded — queue the backend confirm (carrying the encrypted
-      // withdraw messages) for durable retry rather than awaiting a single fragile call.
+      // 可退款存款：构造退款载荷，用存款人 encPubkey 加密为 encContent 随 confirm 上传后端（便携化：
+      // 任意设备登录取回解密），并本地存一份作兜底（confirm 重试耗尽时原设备仍可退款）。
+      let refundEncContent: string | undefined
+      let refundDepositInfo: string | undefined
+      if (refundable && proofResult.refundSlots.length > 0) {
+        const refundPayload = {
+          batchId: transactionPlan.id,
+          leafIndex: proofResult.leafIndex,
+          token: tokenAddress,
+          tier: proofResult.tier,
+          authRoot: proofResult.authRoot,
+          depositLeaf: proofResult.depositLeaf,
+          depositorSecretHash: proofResult.depositorSecretHash,
+          slots: proofResult.refundSlots,
+        }
+        try {
+          localStorage.setItem(
+            `gravArcRefundPayload:${transactionPlan.id}`,
+            JSON.stringify(refundPayload),
+          )
+        } catch {
+          // localStorage 写入失败不阻断存款流程。
+        }
+        const depositorEncPubkey = readDepositorEncPubkey()
+        if (depositorEncPubkey) {
+          try {
+            const pubKeyHex = depositorEncPubkey.startsWith('0x')
+              ? depositorEncPubkey.slice(2)
+              : depositorEncPubkey
+            refundEncContent = naclEncrypt(JSON.stringify(refundPayload), pubKeyHex)
+            refundDepositInfo = JSON.stringify({
+              depositorSecretHash: proofResult.depositorSecretHash,
+              encPubkey: depositorEncPubkey,
+            })
+          } catch {
+            // 加密失败不阻断存款；便携化退款不可用，本机 localStorage 兜底仍可退款。
+          }
+        }
+      }
+
+      // On-chain privacy deposit succeeded - queue the backend confirm (carrying the encrypted
+      // withdraw messages + encrypted refund payload) for durable retry rather than awaiting a single fragile call.
       await confirmSync.enqueue({
         type: 'confirm-privacy-deposit',
         orgId: localStorage.getItem('organizationId') || '',
         batchId: transactionPlan.id,
         depositTxHash: depositTx,
         withdrawMessages,
+        ...(refundEncContent !== undefined ? { encContent: refundEncContent } : {}),
+        ...(refundDepositInfo !== undefined ? { depositInfo: refundDepositInfo } : {}),
         label: executingTransaction?.name || transactionPlan.id,
       })
 

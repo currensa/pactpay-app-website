@@ -23,7 +23,12 @@ export async function executeJob(job: ConfirmJob): Promise<void> {
     case 'confirm-privacy-deposit':
       await request.post(
         `/transaction/${job.orgId}/batches/${job.batchId}/confirm-deposit`,
-        { depositTxHash: job.depositTxHash, withdrawMessages: job.withdrawMessages },
+        {
+          depositTxHash: job.depositTxHash,
+          withdrawMessages: job.withdrawMessages,
+          ...(job.encContent !== undefined ? { encContent: job.encContent } : {}),
+          ...(job.depositInfo !== undefined ? { depositInfo: job.depositInfo } : {}),
+        },
         config,
       )
       return
@@ -31,6 +36,13 @@ export async function executeJob(job: ConfirmJob): Promise<void> {
       await request.post(
         `/transaction/my-payroll-items/${job.itemId}/confirm-withdraw`,
         { txHash: job.txHash },
+        config,
+      )
+      return
+    case 'confirm-refund-gravarc':
+      await request.post(
+        `/transaction/${job.orgId}/batches/${job.batchId}/confirm-refund-gravarc`,
+        { depositTxHash: job.refundTxHash },
         config,
       )
       return

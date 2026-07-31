@@ -56,6 +56,8 @@ interface DecryptedWithdrawMessage {
   nullifier: string
   amount: string
   leafIndex: number
+  authRoot: string
+  depositorSecretHash: string
   depositPathElements: string[]
   depositPathIndices: number[]
   authPathElements: string[]
@@ -83,7 +85,7 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
   if (!wd) throw new Error('This item has no withdraw data')
   if (!wd.content) throw new Error('Missing encrypted withdraw message')
   if (!wd.encryptedSecret) throw new Error('Missing encrypted secret — please bind your wallet first')
-  if (!wd.privacyAuthRoot) throw new Error('Missing authRoot for this deposit')
+  if (!wd.privacyDepositLeaf) throw new Error('Deposit not confirmed yet for this item')
   if (!wd.gravArcAddress) throw new Error('GravArc contract is not configured for this chain')
   if (wd.tier === null || wd.tier === undefined) throw new Error('Missing tier for this deposit')
 
@@ -105,12 +107,14 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
     throw new Error('Failed to decrypt your secret — wrong password?')
   }
 
-  // Assemble the circuit input. token/tier/authRoot come from outside the message.
+  // Assemble the circuit input. 新合约下 authRoot / depositorSecretHash 来自解密后的消息；
+  // token / tier 仍由 withdrawData / item 提供。
   const info: WithdrawInfo = {
     nullifier: decoded.nullifier,
     amount: decoded.amount,
     token: tokenAddress,
-    authRoot: wd.privacyAuthRoot,
+    authRoot: decoded.authRoot,
+    depositorSecretHash: decoded.depositorSecretHash,
     authPathElements: decoded.authPathElements,
     authPathIndices: decoded.authPathIndices,
     leafIndex: decoded.leafIndex ?? wd.leafIndex ?? 0,

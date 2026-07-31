@@ -37,6 +37,7 @@ export type WithdrawInfo = {
   amount: string         // withdrawAmount (total allocation) in token base units
   token: string
   authRoot: string
+  depositorSecretHash: string
   authPathElements: string[]
   authPathIndices: number[]
   leafIndex: number
@@ -89,6 +90,7 @@ export async function generateWithdrawProof(
   const nullifier = BigInt(info.nullifier)
   const withdrawAmount = BigInt(info.amount)
   const authRoot = BigInt(info.authRoot)
+  const depositorSecretHash = BigInt(info.depositorSecretHash)
   const tier = info.tier
   const authDepth = TIER_AUTH_DEPTH[tier]
   if (!authDepth) throw new Error(`Unknown tier ${tier}`)
@@ -96,8 +98,10 @@ export async function generateWithdrawProof(
   // nullifierHash = Poseidon(nullifier)
   const nullifierHash = F.toObject(poseidon([nullifier])) as bigint
 
-  // Reconstruct the historical depositRoot from the stored path.
-  let depositRoot = authRoot
+  // 新合约：存款叶子 depositLeaf = Poseidon(authRoot, depositorSecretHash)，
+  // 沿 depositPath 递推还原历史 depositRoot。
+  const depositLeaf = hash2(authRoot, depositorSecretHash)
+  let depositRoot = depositLeaf
   for (let l = 0; l < TREE_DEPTH; l++) {
     const bit = info.depositPathIndices[l]
     const sibling = BigInt(info.depositPathElements[l])
@@ -128,6 +132,7 @@ export async function generateWithdrawProof(
     nonce:          nonce.toString(),
     // private inputs
     authRoot:       authRoot.toString(),
+    depositorSecretHash: depositorSecretHash.toString(),
     nullifier:      nullifier.toString(),
     secret:         secretField.toString(),
     withdrawAmount: withdrawAmount.toString(),

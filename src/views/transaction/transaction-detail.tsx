@@ -19,6 +19,7 @@ import {
   ExecuteConfirmDialogContent,
   ExecuteSuccessDialogContent,
   RefundConfirmDialogContent,
+  GravArcRefundDialogContent,
 } from './components'
 import type { Transaction } from './components/types'
 
@@ -58,6 +59,9 @@ export default function TransactionDetail() {
 
   // Refund dialog
   const [refundOpen, setRefundOpen] = useState(false)
+
+  // GravArc 隐私退款 dialog
+  const [gravArcRefundOpen, setGravArcRefundOpen] = useState(false)
 
   // Re-action dialog
   const [reactionConfirmOpen, setReactionConfirmOpen] = useState(false)
@@ -130,11 +134,10 @@ export default function TransactionDetail() {
 
   const refundedAmountFormatted = (() => {
     try {
-      const allPending = plan.items.every(item => item.status === 'refunded')
-      if (allPending) return totalAmountFormatted
+      // 已退款金额只统计成员本金（item.amount），不含 relay 服务费（platformFee）。
       const totalRefunded = plan.items
         .filter(item => item.status === 'refunded')
-        .reduce((sum, item) => sum + BigInt(item.amount ?? '0') + BigInt(item.platformFee || '0'), BigInt(0))
+        .reduce((sum, item) => sum + BigInt(item.amount ?? '0'), BigInt(0))
       return parseFloat(formatUnits(totalRefunded, decimals)).toLocaleString()
     } catch { return '0' }
   })()
@@ -226,6 +229,16 @@ export default function TransactionDetail() {
                     >
                       <CreditCard size={14} />
                       {t('pages.transactionDetail.reaction')}
+                    </button>
+                  )}
+                  {/* GravArc 隐私退款：仅 privacy_deposit 且可退款批次显示 */}
+                  {hasPermission(Permission.EXECUTE_TRANSACTION) && plan.transactionType === 'privacy_deposit' && (plan.privacyRefundable ?? true) && (
+                    <button
+                      onClick={() => setGravArcRefundOpen(true)}
+                      className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(255,168,0,0.4)] bg-white px-[14px] text-[13px] text-[#c47d00] transition-colors hover:bg-[rgba(255,168,0,0.06)]"
+                    >
+                      <RotateCcw size={14} />
+                      {t('pages.transactionDetail.refund')}
                     </button>
                   )}
                   {/* {hasPermission(Permission.EXECUTE_TRANSACTION) && plan.items.some(item => item.status !== 'claimed') && (
@@ -507,6 +520,22 @@ export default function TransactionDetail() {
             onCancel={() => setRefundOpen(false)}
             onSuccess={async () => {
               setRefundOpen(false)
+              const updated = await apis.transaction.getTransactionPlanDetail(plan.id)
+              setPlan(updated)
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={gravArcRefundOpen} onOpenChange={setGravArcRefundOpen}>
+        <DialogContent disableOutsideClose>
+          <DialogTitle className="sr-only">{t('pages.transactions.gravArcRefund')}</DialogTitle>
+          <GravArcRefundDialogContent
+            transaction={transactionStub}
+            transactionPlan={plan}
+            onCancel={() => setGravArcRefundOpen(false)}
+            onSuccess={async () => {
+              setGravArcRefundOpen(false)
               const updated = await apis.transaction.getTransactionPlanDetail(plan.id)
               setPlan(updated)
             }}

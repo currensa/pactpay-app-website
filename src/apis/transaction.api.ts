@@ -19,8 +19,8 @@ export interface PrivacyWithdrawData {
   leafIndex: number | null
   /** 树层级 8 / 16 / 32 / 64 / 128（用于选择对应 withdraw 电路） */
   tier: number | null
-  /** 接收者认证树根（withdraw 电路私有输入，无法从 depositRoot 反推） */
-  privacyAuthRoot: string | null
+  /** 存款叶子 depositLeaf（= Poseidon(authRoot, depositorSecretHash)），存款确认后由后端写入 */
+  privacyDepositLeaf: string | null
   /** 加密的提款消息（NaCl box，前端用本人私钥解密后得到 WithdrawInfo JSON） */
   content: string | null
   /** 本人 Secret 密文（NaCl secretbox，前端用密码解密恢复 Secret） */
@@ -118,6 +118,26 @@ export interface RelayWithdrawResponse {
   fee: string | null
 }
 
+/** GravArc 隐私退款上送参数（与合约 RefundParams 一一对应）。 */
+export interface RelayGravArcRefundArgs {
+  pA: [string, string]
+  pB: [[string, string], [string, string]]
+  pC: [string, string]
+  depositRoot: string
+  nullifierHash: string[]
+  token: string
+  refundAmount: string
+  fee: string
+  relayer: string
+  refunder: string
+  tier: number
+}
+
+export interface RelayGravArcRefundResponse {
+  status: string
+  txHash: string
+}
+
 // ── 原有接口（保留兼容性）──────────────────────────────────────────────────
 
 export interface TransactionPlanMember {
@@ -184,8 +204,10 @@ export interface TransactionPlan {
   privacyTier?: number | null
   /** GravArc 本批存款叶子索引 */
   privacyLeafIndex?: number | null
-  /** GravArc 接收者认证树根 */
-  privacyAuthRoot?: string | null
+  /** GravArc 存款叶子 depositLeaf */
+  privacyDepositLeaf?: string | null
+  /** GravArc 是否支持存款人退款 */
+  privacyRefundable?: boolean | null
   items: TransactionItem[]
 }
 
@@ -305,7 +327,8 @@ export interface PrivacyDepositMemberData {
 
 export interface PrivacyDepositDataResponse {
   tier: number
-  privacyAuthRoot: string
+  privacyDepositLeaf: string | null
+  privacyRefundable: boolean | null
   totalAmount: string
   members: PrivacyDepositMemberData[]
 }
@@ -433,9 +456,12 @@ export class TransactionApi {
     return res.data
   }
 
-  // 获取平台 relayer 地址（生成委托 withdraw 证明时作为 relayer 公开输入）
-  async getPrivacyWithdrawRelayer() {
-    const res = await this.request.get<{ relayerAddress: string }>('/transaction/privacy-withdraw-relayer')
+  // 获取平台 relayer 地址 + 该链是否支持 relayer 代付（withdraw + refund 共用，链级配置约束委托/直发）
+  async getPrivacyWithdrawRelayer(caipChainId?: string) {
+    const res = await this.request.get<{ relayerAddress: string; withdrawRelayerSupported: boolean; refundRelayerSupported: boolean }>(
+      '/transaction/privacy-withdraw-relayer',
+      { params: caipChainId ? { caipChainId } : undefined },
+    )
     return res.data
   }
 
@@ -444,6 +470,32 @@ export class TransactionApi {
     const res = await this.request.post<RelayWithdrawResponse>(
       `/transaction/my-payroll-items/${itemId}/relay-withdraw`,
       args,
+    )
+    return res.data
+  }
+
+  // GravArc 隐私退款：前端生成 refund 证明后交平台 relayer 代执行（合约要求 msg.sender == relayer）
+  async relayGravArcRefund(batchId: string, args: RelayGravArcRefundArgs) {
+    const res = await this.request.post<RelayGravArcRefundResponse>(
+      `/transaction/${this.orgId}/batches/${batchId}/relay-refund`,
+      args,
+    )
+    return res.data
+  }
+
+  // GravArc 隐私退款 txHash 确认
+  async confirmGravArcRefund(batchId: string, refundTxHash: string) {
+    const res = await this.request.post<{ success: boolean }>(
+      `/transaction/${this.orgId}/batches/${batchId}/confirm-refund-gravarc`,
+      { depositTxHash: refundTxHash },
+    )
+    return res.data
+  }
+
+  // 读取可退款存款的加密退款载荷（便携化：存款人在任意设备登录后取回 encContent 解密）
+  async getRefundPayload(batchId: string) {
+    const res = await this.request.get<{ encContent: string | null; depositInfo: string | null }>(
+      `/transaction/${this.orgId}/batches/${batchId}/refund-payload`,
     )
     return res.data
   }
@@ -554,7 +606,7 @@ export class TransactionApi {
   }
 
   // 获取 ZK 电路文件 CDN 链接
-  async getCircuitFiles(caipChainId: string, tier: number, circuitType: 'deposit' | 'withdraw' = 'deposit') {
+  async getCircuitFiles(caipChainId: string, tier: number, circuitType: 'deposit' | 'withdraw' | 'refund' = 'deposit') {
     const res = await this.request.get<CircuitFilesResponse>('/gravarc/circuit-files', {
       params: { caipChainId, tier, circuitType },
     })
@@ -565,6 +617,19 @@ export class TransactionApi {
   async getDepositPath(caipChainId: string) {
     const res = await this.request.get<DepositPathResponse>('/gravarc/deposit-path', {
       params: { caipChainId },
+    })
+    return res.data
+  }
+
+  // 获取已存在存款（leafIndex）相对当前 deposit 树根的成员证明（退款证明用）
+  async getDepositMembershipPath(caipChainId: string, leafIndex: number) {
+    const res = await this.request.get<{
+      leafIndex: number
+      depositRoot: string
+      siblings: string[]
+      pathIndices: number[]
+    }>('/gravarc/deposit-membership-path', {
+      params: { caipChainId, leafIndex },
     })
     return res.data
   }

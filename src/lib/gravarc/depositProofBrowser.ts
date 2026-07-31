@@ -22,6 +22,9 @@ const TREE_DEPTH = 20
 
 const TIER_AUTH_DEPTH: Record<number, number> = { 8: 3, 16: 4, 32: 5, 64: 6, 128: 7 }
 
+/** 不可退款存款使用的占位 depositorSecretHash（与 deposit.circom 中的常量一致，使退款证明无法生成） */
+const FAKE_DEPOSITOR_SECRET_HASH = BigInt('1'.repeat(64))
+
 export function selectTier(n: number): number {
   for (const t of [8, 16, 32, 64, 128]) if (n <= t) return t
   throw new Error('Too many receivers (max 128)')
@@ -34,6 +37,14 @@ function randomNullifier(encPubkey: bigint, poseidon: Awaited<ReturnType<typeof 
   let r = 0n
   for (const b of bytes) r = (r << 8n) | BigInt(b)
   return poseidon.F.toObject(poseidon([encPubkey, r])) as bigint
+}
+
+/** 随机 BN254 域内元素（< 2^248 < p），用于可退款存款的 padded 槽位 secretHash/nullifier。 */
+function randomField(): bigint {
+  const bytes = crypto.getRandomValues(new Uint8Array(31))
+  let r = 0n
+  for (const b of bytes) r = (r << 8n) | BigInt(b)
+  return r
 }
 
 function toHex64(n: bigint): string {
@@ -81,6 +92,9 @@ export type DepositProofResult = {
   newDepositRoot: string
   oldDepositRoot: string
   authRoot: string
+  depositLeaf: string
+  depositorSecretHash: string
+  canRefund: boolean
   totalAmount: bigint
   leafIndex: number
   receivers: {
@@ -93,6 +107,8 @@ export type DepositProofResult = {
   }[]
   depositPathElements: string[]
   depositPathIndices: number[]
+  /** 可退款存款的完整 tier 槽位（真实+padded），供退款证明重建 auth 树（仅 refundable 时有意义） */
+  refundSlots: { nullifier: string; secretHash: string; withdrawAmount: string }[]
 }
 
 // ── Main function — runs entirely in the browser ───────────────────────────
@@ -103,6 +119,10 @@ export async function generateDepositProof(
   wasmUrl: string,
   zkeyUrl: string,
   depositPath: { nextIndex: number; siblings: string[] },
+  /** 是否可退款：true 用存款人真实 secretHash；false 用 FAKE_DEPOSITOR_SECRET_HASH */
+  refundable: boolean,
+  /** 存款人真实 secretHash（refundable=true 时必填；refundable=false 时可空） */
+  depositorSecretHash: string | null,
   onStatus?: (msg: string) => void,
 ): Promise<DepositProofResult> {
   const tier = selectTier(receivers.length)
@@ -133,21 +153,41 @@ export async function generateDepositProof(
   )
 
   // Pad arrays to tier size.
-  // The circuit computes authLeaf[i] = Poseidon(amounts[i], token, commitments[i]) for every
-  // slot, so padded slots (amounts=0, commitments=0) produce Poseidon(0, token, 0), not 0n.
-  // Token appears in the formula so this can't be a precomputed constant.
-  const paddedAuthLeaf = F.toObject(poseidon([0n, token, 0n])) as bigint
+  // 不可退款：padded 槽位 commitment=0 -> authLeaf=Poseidon(0, token, 0)；退款证明无法重建（不可退款无需退款）。
+  // 可退款：padded 槽位用随机 secretHash + nullifier（withdrawAmount=0），commitment=Poseidon(secretHash, nullifier)，
+  //   使退款证明能完整重建 tier 大小的 auth 树；padded 数据随退款载荷保存（refundSlots）。
   const authLeaves = [...authLeavesRaw]
   const amountsPadded = [...amounts]
   const commitmentsPadded = [...commitments]
-  while (authLeaves.length < tier) authLeaves.push(paddedAuthLeaf)
-  while (amountsPadded.length < tier) amountsPadded.push(0n)
-  while (commitmentsPadded.length < tier) commitmentsPadded.push(0n)
+  const paddedSlots: { nullifier: bigint; secretHash: bigint; withdrawAmount: bigint }[] = []
+  while (authLeaves.length < tier) {
+    const withdrawAmount = 0n
+    amountsPadded.push(withdrawAmount)
+    if (refundable) {
+      const paddedNullifier = F.toObject(poseidon([randomField()])) as bigint
+      const paddedSecretHash = F.toObject(poseidon([randomField(), 1n])) as bigint
+      const commitment = F.toObject(poseidon([paddedSecretHash, paddedNullifier])) as bigint
+      authLeaves.push(F.toObject(poseidon([withdrawAmount, token, commitment])) as bigint)
+      commitmentsPadded.push(commitment)
+      paddedSlots.push({ nullifier: paddedNullifier, secretHash: paddedSecretHash, withdrawAmount })
+    } else {
+      authLeaves.push(F.toObject(poseidon([0n, token, 0n])) as bigint)
+      commitmentsPadded.push(0n)
+    }
+  }
 
   // Build auth tree
   const authTree = buildAuthTree(authLeaves, authDepth, hash2)
   const authRoot = authTree.root
   const authPaths = receivers.map((_, i) => authTree.proof(i))
+
+  // 新合约：存款叶子 depositLeaf = Poseidon(authRoot, depositorSecretHash)
+  // 可退款用存款人真实 secretHash；不可退款用 FAKE 常量（canRefund=0 时电路强制等于 FAKE）
+  const canRefund = refundable ? 1n : 0n
+  const depositorSecretHashBig = refundable
+    ? BigInt(depositorSecretHash ?? '0')
+    : FAKE_DEPOSITOR_SECRET_HASH
+  const depositLeaf = hash2(authRoot, depositorSecretHashBig)
 
   // Deposit path provided by caller (fetched from /gravarc/deposit-path)
   const siblings = depositPath.siblings.map(BigInt)
@@ -166,9 +206,9 @@ export async function generateDepositProof(
   }
   const oldRoot = oldRootNode
 
-  // newDepositRoot after inserting authRoot (newFS is local scratch, not a circuit input)
+  // newDepositRoot after inserting depositLeaf (newFS is local scratch, not a circuit input)
   const newFS = [...siblings]
-  let node = authRoot
+  let node = depositLeaf
   for (let l = 0; l < TREE_DEPTH; l++) {
     if ((leafIndex >> l) & 1) {
       node = hash2(newFS[l], node)
@@ -199,13 +239,15 @@ export async function generateDepositProof(
   const input = {
     newDepositRoot: newDepositRoot.toString(),
     oldRoot: oldRoot.toString(),
-    authRoot: authRoot.toString(),
+    depositLeaf: depositLeaf.toString(),
     leafIndex: leafIndex.toString(),
     totalAmount: totalAmount.toString(),
     token: token.toString(),
     oldFilledSubtrees: siblings.map(x => x.toString()),
     commitments: commitmentsPadded.map(c => c.toString()),
     amounts: amountsPadded.map(a => a.toString()),
+    depositorSecretHash: depositorSecretHashBig.toString(),
+    canRefund: canRefund.toString(),
   }
 
   const t0 = performance.now()
@@ -230,6 +272,9 @@ export async function generateDepositProof(
     newDepositRoot: toHex64(newDepositRoot),
     oldDepositRoot: toHex64(oldRoot),
     authRoot: toHex64(authRoot),
+    depositLeaf: toHex64(depositLeaf),
+    depositorSecretHash: toHex64(depositorSecretHashBig),
+    canRefund: refundable,
     totalAmount,
     leafIndex,
     receivers: receivers.map((r, i) => ({
@@ -242,5 +287,17 @@ export async function generateDepositProof(
     })),
     depositPathElements: depositPathElements.map(toHex64),
     depositPathIndices,
+    refundSlots: [
+      ...receivers.map((r, i) => ({
+        nullifier: toHex64(nullifiers[i]),
+        secretHash: r.secretHash,
+        withdrawAmount: r.amount.toString(),
+      })),
+      ...paddedSlots.map(s => ({
+        nullifier: toHex64(s.nullifier),
+        secretHash: toHex64(s.secretHash),
+        withdrawAmount: s.withdrawAmount.toString(),
+      })),
+    ],
   }
 }
