@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { useTranslation } from '@/utils/i18n'
+import { ApiKeySection } from '@/views/orgs/components/api-key-section'
 import { PaymentConfigFields } from '@/views/orgs/components/payment-config-fields'
 import { BookOpen, Check, Copy, XCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -341,6 +342,8 @@ export default function OrganizationSettings() {
           </div>
         </div>
       </div>
+
+      <ApiKeySection />
     </div>
   )
 }

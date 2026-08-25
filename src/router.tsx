@@ -1,4 +1,5 @@
 import type { I18nKey } from '@/i18n/messages'
+import AccountLayout from '@/layouts/account-layout'
 import MemberLayout from '@/layouts/member-layout'
 import OrgLayout from '@/layouts/org-layout'
 import {
@@ -42,6 +43,7 @@ const PrivacyPage = lazy(() => import('@/views/home/privacy'))
 
 const Login = lazy(() => import('@/views/account/login'))
 const McpAuthPage = lazy(() => import('@/views/account/mcp-auth'))
+const AccountSettings = lazy(() => import('@/views/account/settings/account'))
 const WelcomeStep = lazy(() => import('@/views/account/steps/welcome-step'))
 const SignInStep = lazy(() => import('@/views/account/steps/sign-in-step'))
 const IdentityStep = lazy(() => import('@/views/account/steps/identity-step'))
@@ -109,6 +111,18 @@ const routes: RouteItem[] = [
   {
     path: 'join/:code',
     element: <JoinInvite />,
+  },
+  {
+    path: 'account',
+    element: <AccountLayout />,
+    children: [
+      { index: true, element: <Navigate to="/account/settings/account" replace /> },
+      {
+        path: 'settings/account',
+        element: <AccountSettings />,
+        meta: { title: 'Account & Security', titleKey: 'nav.accountSecurity', subtitle: 'Manage your account and API keys', subtitleKey: 'route.accountSettingsSubtitle' }
+      },
+    ]
   },
   {
     path: 'mcp-auth',

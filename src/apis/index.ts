@@ -1,4 +1,5 @@
 import { AccountApi } from './account.api'
+import { ApiKeyApi } from './api-key.api'
 import { ChainAssetApi } from './chain-asset.api'
 import { FavoriteAddressApi } from './favorite-address.api'
 import { NotificationApi } from './notification.api'
@@ -14,6 +15,7 @@ import request from './request'
 
 export default {
   auth: new AccountApi(request),
+  apiKey: new ApiKeyApi(request),
   organization: new OrgnizationApi(request),
   chainAsset: new ChainAssetApi(request),
   transaction: new TransactionApi(request),
