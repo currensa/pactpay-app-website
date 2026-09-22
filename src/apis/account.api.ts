@@ -1,4 +1,5 @@
 import { AxiosInstance } from 'axios'
+import type { WalletChallenge } from '@/lib/wallet-authorization'
 
 interface WalletLoginRequest {
   type: "wallet"
@@ -23,9 +24,11 @@ export interface GravArcUserInfoDto {
 
 export interface SaveGravArcUserInfoDto {
   address: string
+  family: 'evm'
   encryptedSecret: string
   secretHash: string
-  encPubkey?: string
+  encPubkey: string
+  authorization: { nonce: string; signature: string }
 }
 
 interface GoogleLoginResponse {
@@ -39,8 +42,13 @@ export class AccountApi {
 
   constructor(private readonly request: AxiosInstance) {}
 
-  async getNonce() {
-    const res = await this.request.post<{ nonce: string }>('/auth/nonce')
+  async getWalletChallenge(payload: {
+    address: string
+    family: 'evm'
+    action: 'login' | 'privacy-profile-register'
+    payloadHash: string
+  }) {
+    const res = await this.request.post<WalletChallenge>('/auth/wallet/challenge', payload)
     return res.data
   }
 

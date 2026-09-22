@@ -8,6 +8,7 @@ import { IconLoader2, IconWallet } from '@tabler/icons-react'
 import axios from 'axios'
 import { useEffect, useState } from 'react'
 import { useWalletClient } from 'wagmi'
+import { privacyProfilePayloadHash, signWalletChallenge } from '@/lib/wallet-authorization'
 
 interface BindWalletProps {
   onSuccess: () => void
@@ -70,7 +71,26 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
       const encPubkey = bytesToHex(keyPair.publicKey)
 
       setStep('Saving…')
-      await api.auth.saveGravArcUserInfo({ address, encryptedSecret, secretHash, encPubkey })
+      const payloadHash = privacyProfilePayloadHash(encryptedSecret, secretHash, encPubkey)
+      const challenge = await api.auth.getWalletChallenge({
+        address,
+        family: 'evm',
+        action: 'privacy-profile-register',
+        payloadHash,
+      })
+      const signature = await signWalletChallenge(
+        walletClient as unknown as Parameters<typeof signWalletChallenge>[0],
+        address,
+        challenge,
+      )
+      await api.auth.saveGravArcUserInfo({
+        address,
+        family: 'evm',
+        encryptedSecret,
+        secretHash,
+        encPubkey,
+        authorization: { nonce: challenge.nonce, signature },
+      })
 
       const info = {
         userId: localStorage.getItem('userId') ?? '',

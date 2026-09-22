@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { persistAuthSession } from './auth-session'
 import GoogleSignInButton from './google-sign-in-button'
+import { EMPTY_PAYLOAD_HASH, signWalletChallenge } from '@/lib/wallet-authorization'
 
 interface LoginFormProps {
   onLoginSuccess: () => void
@@ -42,16 +43,18 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   const walletLogin = async (provider: Provider, addr: string) => {
     setLoading(true)
     try {
-      const { nonce } = await api.auth.getNonce()
-      const signature = await provider.request<string>({
-        method: 'personal_sign',
-        params: [nonce, addr],
+      const challenge = await api.auth.getWalletChallenge({
+        address: addr,
+        family: 'evm',
+        action: 'login',
+        payloadHash: EMPTY_PAYLOAD_HASH,
       })
+      const signature = await signWalletChallenge(provider, addr, challenge)
       const { token, userId, gravArcUserInfo } = await api.auth.login({
         type: 'wallet',
         family: 'evm',
         address: addr,
-        nonce,
+        nonce: challenge.nonce,
         signature,
       })
       persistAuthSession('wallet', { token, userId, address: addr, gravArcUserInfo })
