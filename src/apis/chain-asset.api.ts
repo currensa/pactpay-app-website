@@ -42,6 +42,40 @@ interface Chain {
   vaultAddress: string | null
 }
 
+export interface NetworkConfigResponse {
+  caipChainId: string
+  chainId: number
+  chainName: string
+  family: 'evm'
+  isTestnet: boolean
+  confirmations: number
+  deploymentBlock: number
+  nativeCurrency: { name: string; symbol: string; decimals: number }
+  rpcUrls: string[]
+  blockExplorerUrls: string[]
+  contracts: {
+    gravArc: string
+    pureRouter: string
+    defiRouter: string
+    verifiers: Record<'deposit' | 'withdraw' | 'refund', Record<string, string>>
+  }
+  tokens: Array<{ symbol: string; name: string; address: string }>
+  protocols: Array<{
+    name: string
+    type?: string
+    outputBehavior: 'fixed' | 'variable'
+    address: string
+    'help-contracts'?: Record<string, string>
+  }>
+  capabilities: {
+    deposit: boolean
+    withdraw: boolean
+    refund: boolean
+    defi: boolean
+    relayed: false
+  }
+}
+
 /** 组织支付账户支持的 Asset/Chain 单项（用于 GET :orgId/assets-chains） */
 export interface OrgAssetChainItem {
   id: string
@@ -69,11 +103,11 @@ export interface OrgAssetChainItem {
 export class ChainAssetApi {
   constructor(private readonly request: AxiosInstance) {}
 
-    // 统一获取 organizationId（作为 getter，更简洁）
-    private get orgId(): string {
-      const orgId = localStorage.getItem('organizationId')
-      return orgId || ''
-    }
+  // 统一获取 organizationId（作为 getter，更简洁）
+  private get orgId(): string {
+    const orgId = localStorage.getItem('organizationId')
+    return orgId || ''
+  }
 
   async getChainAssets() {
     const res = await this.request.get<ChainAssetResponse>('/chain-asset')
@@ -82,6 +116,11 @@ export class ChainAssetApi {
 
   async getChains() {
     const res = await this.request.get<Chain[]>('/chain-asset/chains')
+    return res.data
+  }
+
+  async getNetworks() {
+    const res = await this.request.get<NetworkConfigResponse[]>('/chain-asset/networks')
     return res.data
   }
 

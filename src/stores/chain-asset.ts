@@ -1,5 +1,5 @@
 import apis from '@/apis'
-import type { ChainAssetResponse } from '@/apis/chain-asset.api'
+import type { ChainAssetResponse, NetworkConfigResponse } from '@/apis/chain-asset.api'
 import { create } from 'zustand'
 
 type ChainAssetItem = ChainAssetResponse['data'][number]
@@ -21,16 +21,19 @@ interface Chain {
 interface ChainAssetState {
   chainAssets: ChainAssetItem[]
   chains: Chain[]
+  networks: NetworkConfigResponse[]
   /** Fetch chain-assets if not already loaded (idempotent). */
   fetchChainAssets: () => Promise<ChainAssetItem[]>
   /** Fetch chains if not already loaded (idempotent). */
   fetchChains: () => Promise<Chain[]>
+  fetchNetworks: () => Promise<NetworkConfigResponse[]>
   /** 根据 caipChainId + token 合约地址返回货币 symbol，找不到时返回 null。 */
   getTokenSymbol: (caipChainId: string, token: string) => string | null
   /** 根据 caipChainId 返回 ChainAsset 条目（含 decimals / isNative）。 */
   getChainAssetByToken: (caipChainId: string, token: string) => ChainAssetItem | null
   /** 根据 caipChainId 返回链信息。 */
   getChain: (caipChainId: string) => Chain | null
+  getNetwork: (caipChainId: string) => NetworkConfigResponse | null
   /** 根据 caipChainId + token 合约地址返回 decimals，找不到时返回 18。 */
   getTokenDecimals: (caipChainId: string, token: string) => number
   /** 根据 caipChainId + token 合约地址返回 asset.iconUrl，找不到时返回 null。 */
@@ -41,6 +44,7 @@ interface ChainAssetState {
 const useChainAssetStore = create<ChainAssetState>((set, get) => ({
   chainAssets: [],
   chains: [],
+  networks: [],
 
   fetchChainAssets: async () => {
     const existing = get().chainAssets
@@ -59,6 +63,14 @@ const useChainAssetStore = create<ChainAssetState>((set, get) => ({
     return res ?? []
   },
 
+  fetchNetworks: async () => {
+    const existing = get().networks
+    if (existing.length > 0) return existing
+    const networks = await apis.chainAsset.getNetworks()
+    set({ networks })
+    return networks
+  },
+
   getTokenSymbol: (caipChainId: string, token: string) => {
     const match = get().chainAssets.find(
       a =>
@@ -71,17 +83,23 @@ const useChainAssetStore = create<ChainAssetState>((set, get) => ({
   },
 
   getChainAssetByToken: (caipChainId: string, token: string) => {
-    return get().chainAssets.find(
-      a =>
-        a.caipChainId === caipChainId &&
-        (a.isNative
-          ? token === '' || token === '0x0000000000000000000000000000000000000000'
-          : a.contractAddress?.toLowerCase() === token?.toLowerCase())
-    ) ?? null
+    return (
+      get().chainAssets.find(
+        a =>
+          a.caipChainId === caipChainId &&
+          (a.isNative
+            ? token === '' || token === '0x0000000000000000000000000000000000000000'
+            : a.contractAddress?.toLowerCase() === token?.toLowerCase())
+      ) ?? null
+    )
   },
 
   getChain: (caipChainId: string) => {
     return get().chains.find(c => c.caipChainId === caipChainId) ?? null
+  },
+
+  getNetwork: (caipChainId: string) => {
+    return get().networks.find(network => network.caipChainId === caipChainId) ?? null
   },
 
   getTokenDecimals: (caipChainId: string, token: string) => {
@@ -106,7 +124,7 @@ const useChainAssetStore = create<ChainAssetState>((set, get) => ({
     return match?.asset.iconUrl ?? null
   },
 
-  reset: () => set({ chainAssets: [], chains: [] }),
+  reset: () => set({ chainAssets: [], chains: [], networks: [] })
 }))
 
 export default useChainAssetStore
