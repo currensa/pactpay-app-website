@@ -1,12 +1,11 @@
 import { AxiosInstance } from 'axios'
 
 export enum InviteLogStatus {
-  INVITE_PENDING = 'InvitePending', // 管理员已邀请，用户尚未提交 metaPub
+  INVITE_PENDING = 'InvitePending',
   PENDING = 'Pending',              // 用户主动申请，等待管理员审批
   APPROVE = 'Approve',
   REJECT = 'Reject',
 }
-
 export enum InviteLogSource {
   INVITE = 'invite', // 管理员发起邀请
   APPLY = 'apply',   // 用户主动申请
@@ -55,7 +54,6 @@ export interface OrganizationMember {
   roles: MemberRole[]
   /** 成员可有多个支付意向（按 caipChainId+token 唯一），取当前组织发薪配置对应的那条 */
   payoutIntent: PayoutIntent
-  metaPub: string | null
   gravArcAddress: string | null
   inviteStatus: InviteLogStatus | null
   remark: string | null
@@ -257,12 +255,6 @@ export class OrgnizationApi {
   // 更新成员展示信息（管理员或本人）
   async updateMemberProfile(orgId: string, memberId: string, payload: { showName?: string; avatarUrl?: string; remark?: string }) {
     const res = await this.request.patch<OrganizationMember>(`/orgs/${orgId}/members/${memberId}/profile`, payload)
-    return res.data
-  }
-
-  // 员工提交 metaPub（StealthPay）
-  async submitMetaPub(payload: { address: string; metaPub: string; signature: string }) {
-    const res = await this.request.post<{ success: boolean }>(`/orgs/${this.orgId}/submit-meta-pub`, payload)
     return res.data
   }
 

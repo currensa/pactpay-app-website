@@ -86,7 +86,6 @@ interface FeePreview {
     total: { gasUnits: string; costWei: string; costNative: string } | null
   }
 }
-
 interface CreateTransactionDialogContentProps {
   variant?: 'dialog' | 'page'
   isCreatingFromReaction: boolean
@@ -493,20 +492,20 @@ export function CreateTransactionDialogContent({
           ) : (
             organizationMembers.map(member => {
               const checked = isSelected(member.id)
-              const hasMetaPub = !!member.gravArcAddress
+              const hasPrivacyProfile = !!member.gravArcAddress
               return (
                 <TableRow
                   key={member.id}
                   className={cn(
                     'border-b border-[rgba(0,0,0,0.06)]',
-                    hasMetaPub ? 'hover:bg-[#f5f5f5]/60 cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                    hasPrivacyProfile ? 'hover:bg-[#f5f5f5]/60 cursor-pointer' : 'opacity-40 cursor-not-allowed'
                   )}
                   onClick={() => handleMemberToggle(member.id)}
                 >
                   <TableCell className="py-[14px]">
                     <div className={cn(
                       'w-[14px] h-[14px] rounded-[3px] border flex items-center justify-center shrink-0',
-                      !hasMetaPub ? 'bg-[#f5f5f5] border-[rgba(0,0,0,0.1)]' : checked ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]'
+                      !hasPrivacyProfile ? 'bg-[#f5f5f5] border-[rgba(0,0,0,0.1)]' : checked ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]'
                     )}>
                       {checked && (
                         <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -535,7 +534,7 @@ export function CreateTransactionDialogContent({
                     <input
                       type="text"
                       inputMode="decimal"
-                      disabled={!hasMetaPub}
+                      disabled={!hasPrivacyProfile}
                       value={memberAmounts[member.id] ?? ''}
                       onChange={e => handleAmountChange(member.id, e.target.value)}
                       placeholder="0"
@@ -546,7 +545,7 @@ export function CreateTransactionDialogContent({
                     />
                   </TableCell>
                   <TableCell className="py-[14px]">
-                    {hasMetaPub ? (
+                    {hasPrivacyProfile ? (
                       <span className="inline-flex rounded-[8px] bg-[rgba(93,221,34,0.12)] px-[8px] py-[3px] text-[12px] font-medium text-[#3da813]">
                         {t('pages.createPeopleTransaction.ready')}
                       </span>
@@ -614,20 +613,20 @@ export function CreateTransactionDialogContent({
           ) : (
             organizationMembers.map(member => {
               const checked = isSelected(member.id)
-              const hasMetaPub = !!member.gravArcAddress
+              const hasPrivacyProfile = !!member.gravArcAddress
               return (
                 <TableRow
                   key={member.id}
                   className={cn(
                     'border-b border-[rgba(0,0,0,0.06)]',
-                    hasMetaPub ? 'hover:bg-[#f5f5f5]/60 cursor-pointer' : 'opacity-40 cursor-not-allowed'
+                    hasPrivacyProfile ? 'hover:bg-[#f5f5f5]/60 cursor-pointer' : 'opacity-40 cursor-not-allowed'
                   )}
                   onClick={() => handleMemberToggle(member.id)}
                 >
                   <TableCell className="py-[12px]">
                     <div className={cn(
                       'w-[14px] h-[14px] rounded-[3px] border flex items-center justify-center shrink-0',
-                      !hasMetaPub ? 'bg-[#f5f5f5] border-[rgba(0,0,0,0.1)]' : checked ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]'
+                      !hasPrivacyProfile ? 'bg-[#f5f5f5] border-[rgba(0,0,0,0.1)]' : checked ? 'bg-[#5e85ee] border-[#5e85ee]' : 'bg-white border-[rgba(0,0,0,0.2)]'
                     )}>
                       {checked && (
                         <svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -657,7 +656,7 @@ export function CreateTransactionDialogContent({
                     <input
                       type="text"
                       inputMode="decimal"
-                      disabled={!hasMetaPub}
+                      disabled={!hasPrivacyProfile}
                       value={memberAmounts[member.id] ?? ''}
                       onChange={e => handleAmountChange(member.id, e.target.value)}
                       placeholder="0"
@@ -668,7 +667,7 @@ export function CreateTransactionDialogContent({
                     />
                   </TableCell>
                   <TableCell className="py-[12px]">
-                    {hasMetaPub ? (
+                    {hasPrivacyProfile ? (
                       <span className="inline-flex rounded-[8px] bg-[rgba(93,221,34,0.12)] px-[8px] py-[2px] text-[12px] font-medium text-[#3da813]">
                         {t('pages.createPeopleTransaction.ready')}
                       </span>

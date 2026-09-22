@@ -4,8 +4,7 @@ import useChainAssetStore from '@/stores/chain-asset'
 import { useTranslation } from '@/utils/i18n'
 import { MemberOnboardingGuide } from '@/views/member/components/member-onboarding-guide'
 import { PayrollHistoryTable } from '@/views/member/components/payroll-history-table'
-import { useClaimAll } from '@/views/member/hooks/use-claim-all'
-import { IconChartPie, IconCurrencyDollar, IconLoader2, IconMoneybag } from '@tabler/icons-react'
+import { IconChartPie, IconCurrencyDollar, IconMoneybag } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Cell, Pie, PieChart, Tooltip } from 'recharts'
@@ -35,7 +34,6 @@ function TokenIcon({ symbol, iconUrl }: { symbol: string; iconUrl?: string | nul
     </div>
   )
 }
-
 // ─── Token row ────────────────────────────────────────────────────────────────
 
 function TokenRow({ item }: { item: TokenItem }) {
@@ -226,8 +224,6 @@ export default function MemberDashboard() {
   const { t } = useTranslation()
 
   const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, getTokenIconUrl, getChain } = useChainAssetStore()
-  const { verifying, userAction, address, walletProvider, handleClaimAll, runClaimAll } = useClaimAll()
-
   const [claimedTokens, setClaimedTokens] = useState<TokenItem[]>([])
   const [pendingTokens, setPendingTokens] = useState<TokenItem[]>([])
   const [distributionData, setDistributionData] = useState<DistributionItem[]>([])
@@ -236,13 +232,6 @@ export default function MemberDashboard() {
   useEffect(() => {
     loadSummary()
   }, [])
-
-  useEffect(() => {
-    if (!userAction.current) return
-    if (!address || !walletProvider) return
-    userAction.current = false
-    runClaimAll(walletProvider, address)
-  }, [address, walletProvider])
 
   const loadSummary = async () => {
     try {
@@ -305,12 +294,11 @@ export default function MemberDashboard() {
           loading={summaryLoading}
           claimButton={
             <button
-              onClick={handleClaimAll}
-              disabled={summaryLoading || pendingTokens.length === 0 || verifying}
+              onClick={() => navigate('/member/claim')}
+              disabled={summaryLoading || pendingTokens.length === 0}
               className="flex items-center justify-center gap-[6px] rounded-[12px] bg-[#5e85ee] px-[14px] py-[10px] text-[14px] leading-[22px] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
             >
-              {verifying && <IconLoader2 className="h-[14px] w-[14px] animate-spin" />}
-              {t('pages.memberDashboard.claimAll')}
+              {t('pages.memberDashboard.claim')}
             </button>
           }
         />

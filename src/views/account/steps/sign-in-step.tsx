@@ -14,14 +14,13 @@ import { INVITE_CODE_SESSION_KEY } from '../join-invite'
 function hasAdminRole(roles: { role: string }[]) {
   return roles.some(r => r.role !== 'Member')
 }
-
 export default function SignInStep() {
   const navigate = useNavigate()
   const [checking, setChecking] = useState(false)
   const { copy } = usePublicCopy()
   const { toast } = useToast()
   const getOrganizations = useOrganizationStore(s => s.getOrganizations)
-  const checkMetaPub = useAuthStore(s => s.checkMetaPub)
+  const checkPrivacyProfile = useAuthStore(s => s.checkPrivacyProfile)
   const hydrateAfterLogin = usePreferenceStore(s => s.hydrateAfterLogin)
 
   // 登录成功与自动登录共用的路由逻辑。用 ref 持有最新闭包,供 mount-only 的自动登录 effect 调用,
@@ -56,7 +55,7 @@ export default function SignInStep() {
     const adminOrgs = orgs.filter(item => hasAdminRole(item.member.roles))
 
     if (adminOrgs.length === 0) {
-      const submitted = await checkMetaPub()
+      const submitted = await checkPrivacyProfile()
       if (!submitted) {
         navigate('/welcome/bind-wallet', { replace: true })
       } else {

@@ -12,7 +12,6 @@ interface BindWalletReminderBannerProps {
   description?: string
   actionLabel?: string
 }
-
 export default function BindWalletReminderBanner({
   dismissStorageKey,
   redirectTo,
@@ -30,9 +29,9 @@ export default function BindWalletReminderBanner({
   useEffect(() => {
     let active = true
 
-    const checkMetaPubStatus = async () => {
+    const checkPrivacyProfile = async () => {
       try {
-        const { submitted } = await apis.auth.getMetaPubStatus()
+        const { submitted } = await apis.auth.getGravArcUserInfoStatus()
         if (!active) return
 
         if (submitted) {
@@ -47,7 +46,7 @@ export default function BindWalletReminderBanner({
       }
     }
 
-    checkMetaPubStatus()
+    checkPrivacyProfile()
 
     return () => {
       active = false

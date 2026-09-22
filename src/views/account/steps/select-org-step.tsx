@@ -10,13 +10,13 @@ import SelectOrganization from '../components/select-organization'
 export default function SelectOrgStep() {
   const navigate = useNavigate()
   const setCurrentOrg = useOrganizationStore(s => s.setCurrentOrg)
-  const checkMetaPub = useAuthStore(s => s.checkMetaPub)
+  const checkPrivacyProfile = useAuthStore(s => s.checkPrivacyProfile)
   const { copy } = usePublicCopy()
   const [checking, setChecking] = useState(false)
 
   const enterMemberSide = async () => {
     setChecking(true)
-    const submitted = await checkMetaPub()
+    const submitted = await checkPrivacyProfile()
     if (!submitted) {
       navigate('/welcome/bind-wallet', { replace: true })
     } else {

@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/components/ui/use-toast'
 import { LANGUAGE_OPTIONS } from '@/i18n/messages'
-import { prepareMetaPubSubmission } from '@/lib/meta-pub'
 import useAuthStore from '@/stores/auth'
 import useChainAssetStore from '@/stores/chain-asset'
 import usePreferenceStore from '@/stores/preference'
@@ -30,7 +29,6 @@ function maskAddress(address: string) {
   if (address.length <= 6) return address
   return address.slice(0, 3) + '*'.repeat(Math.max(address.length - 6, 5)) + address.slice(-3)
 }
-
 function maskSecretValue(value?: string | null) {
   if (!value) return '—'
   if (value.length <= 30) return value
@@ -42,8 +40,6 @@ export default function MemberSettings() {
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const { toast } = useToast()
-  const setMetaPub = useAuthStore(s => s.setMetaPub)
-  const setMetaPubSubmitted = useAuthStore(s => s.setMetaPubSubmitted)
   const gravArcUserInfo = useAuthStore(s => s.gravArcUserInfo)
   const chains = useChainAssetStore(s => s.chains)
   const fetchChains = useChainAssetStore(s => s.fetchChains)
@@ -66,13 +62,6 @@ export default function MemberSettings() {
   const [uid, setUid] = useState('')
   const [walletAddress, setWalletAddress] = useState('')
 
-  // Personal Token
-  const [personalToken, setPersonalToken] = useState('')
-  const [tokenUpdatedAt, setTokenUpdatedAt] = useState<Date | null>(null)
-  const [tokenLoading, setTokenLoading] = useState(false)
-  const [privacyIdentityLoading, setPrivacyIdentityLoading] = useState(true)
-  const [privacyIdentityMissing, setPrivacyIdentityMissing] = useState(false)
-  const [privacyBindStep, setPrivacyBindStep] = useState('')
   const [favoriteAddresses, setFavoriteAddresses] = useState<FavoriteAddressItem[]>([])
   const [favoriteAddressesLoading, setFavoriteAddressesLoading] = useState(true)
   const [addressDialogOpen, setAddressDialogOpen] = useState(false)
@@ -93,36 +82,6 @@ export default function MemberSettings() {
       }
       setUid(userId)
     }).catch(console.error)
-  }, [])
-
-  useEffect(() => {
-    let active = true
-
-    const loadPrivacyIdentity = async () => {
-      setPrivacyIdentityLoading(true)
-      try {
-        const data = await api.auth.getMySignMessage()
-        if (!active) return
-        setPersonalToken(data.signMessage)
-        setTokenUpdatedAt(new Date(data.updatedAt))
-        setPrivacyIdentityMissing(false)
-      } catch (error) {
-        if (!active) return
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
-          setPersonalToken('')
-          setTokenUpdatedAt(null)
-          setPrivacyIdentityMissing(true)
-        }
-      } finally {
-        if (active) setPrivacyIdentityLoading(false)
-      }
-    }
-
-    void loadPrivacyIdentity()
-
-    return () => {
-      active = false
-    }
   }, [])
 
   useEffect(() => {
@@ -179,41 +138,6 @@ export default function MemberSettings() {
     if (!value) return
     await navigator.clipboard.writeText(value)
     toast({ description: t('settings.copied') })
-  }
-
-  const handleGenerateToken = async () => {
-    if (!isConnected || !address || !walletProvider) {
-      open({ view: 'Connect', namespace: 'eip155' })
-      return
-    }
-    setTokenLoading(true)
-    setPrivacyBindStep('')
-    try {
-      const { metaPub, signMessage, metaPubSignature } = await prepareMetaPubSubmission(
-        walletProvider,
-        address,
-        setPrivacyBindStep,
-      )
-      await api.auth.submitMetaPub({ address, metaPub, signMessage, metaPubSignature })
-      setMetaPub(metaPub)
-      setMetaPubSubmitted(true)
-      setPrivacyIdentityMissing(false)
-
-      // fetch updated token
-      const data = await api.auth.getMySignMessage()
-      setPersonalToken(data.signMessage)
-      setTokenUpdatedAt(new Date(data.updatedAt))
-      toast({ description: (data as any).message || t('common.updatedSuccessfully') })
-    } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 404) {
-        setPrivacyIdentityMissing(true)
-        return
-      }
-      // request interceptor handles API errors
-    } finally {
-      setTokenLoading(false)
-      setPrivacyBindStep('')
-    }
   }
 
   const toggleNotification = async (key: NotificationStateKey) => {
@@ -369,42 +293,6 @@ export default function MemberSettings() {
 
           {/* Privacy Identity cards */}
           <div className="my-[auto] grid w-full shrink-0 gap-[12px] md:grid-cols-1 xl:flex-[0.5] mr-4 ">
-            {/* <div className="flex flex-col gap-[16px] rounded-[20px] bg-[rgba(94,133,238,0.08)] p-[20px]">
-              <div className="flex flex-col gap-[8px]">
-                <div className="flex items-center justify-between gap-[12px]">
-                  <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26]">{t('settings.privacyIdentity')}</p>
-                  {tokenUpdatedAt && (
-                    <span className="flex items-center border border-[rgba(0,0,0,0.12)] rounded-[100px] px-[10px] py-[2px] text-[12px] leading-[20px] whitespace-nowrap">
-                      <span className="text-[#8d8d93]">{t('settings.lastUpdated')} </span>
-                      <span className="text-[#1c1c26] ml-[2px]">{formatDateTime(tokenUpdatedAt)}</span>
-                    </span>
-                  )}
-                </div>
-                <p className="text-[13px] leading-[20px] text-[#606067]">
-                  {privacyIdentityMissing ? t('settings.privacyIdentityBindPrompt') : t('settings.privacyIdentityDescription')}
-                </p>
-                {privacyBindStep && !privacyIdentityLoading && (
-                  <p className="text-[13px] leading-[20px] text-[#606067]">{privacyBindStep}</p>
-                )}
-              </div>
-
-              {privacyIdentityLoading ? (
-                <div className="flex min-h-[36px] items-center justify-center text-[#8d8d93]">
-                  <IconLoader2 className="h-[18px] w-[18px] animate-spin" />
-                </div>
-              ) : (
-                <button
-                  onClick={handleGenerateToken}
-                  disabled={tokenLoading}
-                  className="flex items-center justify-center gap-[6px] w-full py-[8px] rounded-[12px] bg-[#5e85ee] text-white text-[13px] leading-[20px] hover:opacity-90 transition-opacity disabled:opacity-60"
-                  title={privacyIdentityMissing ? t('settings.bindPrivacyIdentity') : t('settings.refreshToken')}
-                >
-                  <IconRefresh className={`h-[14px] w-[14px] ${tokenLoading ? 'animate-spin' : ''}`} />
-                  {privacyIdentityMissing ? t('settings.bindPrivacyIdentity') : t('settings.refresh')}
-                </button>
-              )}
-            </div> */}
-
             <div className="flex flex-col gap-[16px] rounded-[20px] bg-[rgba(94,133,238,0.08)] p-[20px]">
               <div className="flex flex-col gap-[8px]">
                 <p className="text-[16px] font-bold leading-[24px] text-[#1c1c26]">{t('settings.encryptionKeys')}</p>

@@ -154,7 +154,7 @@ export const messages = {
       memberDashboard: {
         totalClaimed: 'Total Claimed',
         pending: 'Pending',
-        claimAll: 'Claim all',
+        claim: 'Claim',
         incomeDistribution: 'Income Distribution',
         last30Days: 'Last 30 days',
         noDataAvailable: 'No data available',
@@ -1149,7 +1149,7 @@ export const messages = {
       memberDashboard: {
         totalClaimed: '已领取总额',
         pending: '待领取',
-        claimAll: '全部领取',
+        claim: '领取',
         incomeDistribution: '收入分布',
         last30Days: '最近 30 天',
         noDataAvailable: '暂无数据',

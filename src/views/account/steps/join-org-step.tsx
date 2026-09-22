@@ -7,11 +7,11 @@ import { INVITE_CODE_SESSION_KEY } from '../join-invite'
 export default function JoinOrgStep() {
   const navigate = useNavigate()
   const getOrganizations = useOrganizationStore(s => s.getOrganizations)
-  const checkMetaPub = useAuthStore(s => s.checkMetaPub)
+  const checkPrivacyProfile = useAuthStore(s => s.checkPrivacyProfile)
 
   const handleJoin = async () => {
     await getOrganizations()
-    const submitted = await checkMetaPub()
+    const submitted = await checkPrivacyProfile()
     if (!submitted) {
       navigate('/welcome/bind-wallet', { replace: true })
     } else {

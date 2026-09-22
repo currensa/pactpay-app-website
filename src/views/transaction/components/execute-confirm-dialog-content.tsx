@@ -4,7 +4,6 @@ import { confirmSync } from '@/lib/confirm-sync'
 import { generateDepositProof } from '@/lib/gravarc/depositProofBrowser'
 import { GRAVARC_ABI, ERC20_ABI as GRAVARC_ERC20_ABI } from '@/lib/gravarc/gravarcAbi'
 import { naclEncrypt } from '@/lib/gravarc/naclCrypto'
-import { erc20Abi, vaultAbi } from '@/lib/vault-abi'
 import useChainAssetStore from '@/stores/chain-asset'
 import { normalizeTransactionHash } from '@/utils/evm-transaction'
 import { useTranslation } from '@/utils/i18n'
@@ -29,7 +28,6 @@ function readDepositorSecretHash(): string | null {
     return null
   }
 }
-
 /** 读取当前存款人的 NaCl box 公钥（encPubkey），用于加密退款载荷（便携化：存后端，任意设备解密）。 */
 function readDepositorEncPubkey(): string | null {
   try {
@@ -44,7 +42,6 @@ function readDepositorEncPubkey(): string | null {
 type DepositStatus =
   | 'idle'
   | 'connecting'
-  | 'authorizing'
   | 'checking'
   | 'approving'
   | 'fetching-data'
@@ -81,15 +78,11 @@ export function ExecuteConfirmDialogContent({
   const [errorMsg, setErrorMsg] = useState('')
   const isAiTransaction = executingTransaction?.type === 'token_usage_plan'
   // privacy_deposit 与带 privacyTier 的 GravArc 充值批次（token_usage_plan）都走 GravArc 存款路径。
-  const isPrivacyDeposit =
-    transactionPlan?.transactionType === 'privacy_deposit' ||
-    (transactionPlan?.privacyTier !== null && transactionPlan?.privacyTier !== undefined)
   const { t } = useTranslation()
 
   const stepLabels: Record<DepositStatus, string> = {
     idle: t('pages.transactions.connectWallet'),
     connecting: t('pages.transactions.connecting'),
-    authorizing: t('pages.transactions.authorizing'),
     checking: t('pages.transactions.checkingAllowance'),
     approving: t('pages.transactions.approving'),
     'fetching-data': 'Fetching deposit data…',
@@ -111,11 +104,7 @@ export function ExecuteConfirmDialogContent({
   useEffect(() => {
     if (status !== 'connecting') return
     if (!isConnected || !address || !walletProvider) return
-    if (isPrivacyDeposit) {
-      executePrivacyDeposit(address as Hex, walletProvider)
-    } else {
-      executeDeposit(address as Hex, walletProvider)
-    }
+    executePrivacyDeposit(address as Hex, walletProvider)
   }, [status, isConnected, address, walletProvider])
 
   async function handleDeposit() {
@@ -128,107 +117,7 @@ export function ExecuteConfirmDialogContent({
       return
     }
 
-    if (isPrivacyDeposit) {
-      await executePrivacyDeposit(address as Hex, walletProvider!)
-    } else {
-      await executeDeposit(address as Hex, walletProvider!)
-    }
-  }
-
-  // ── Stealth deposit (existing flow) ────────────────────────────────────────
-
-  async function executeDeposit(account: Hex, provider: Provider) {
-    if (!transactionPlan) return
-
-    try {
-      const chainEntry = getChain(transactionPlan.caipChainId)
-      if (!chainEntry) throw new Error(`Chain ${transactionPlan.caipChainId} is not found in chain list.`)
-      if (!chainEntry.vaultAddress) {
-        throw new Error(`Vault contract is not configured for chain ${transactionPlan.caipChainId}.`)
-      }
-
-      const numericChainId = parseInt(chainEntry.chainId, 10)
-      const vaultAddress = chainEntry.vaultAddress as Hex
-      const tokenAddress = (transactionPlan.tokenAddress || ETH_SENTINEL) as Hex
-      const merkleRoot = transactionPlan.merkleRoot as Hex
-      const currentChainIdHex = await provider.request<string>({ method: 'eth_chainId' })
-      if (parseInt(currentChainIdHex, 16) !== numericChainId) {
-        await provider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: `0x${numericChainId.toString(16)}` }],
-        })
-      }
-
-      const chainAssetEntry = getChainAssetByToken(transactionPlan.caipChainId, tokenAddress)
-      const isNative = chainAssetEntry?.isNative ?? false
-
-      if (!transactionPlan.totalAmount || BigInt(transactionPlan.totalAmount) <= 0n) {
-        throw new Error('Total payroll amount is zero.')
-      }
-      const totalAmount = BigInt(transactionPlan.totalAmount)
-      const walletClient = createWalletClient({
-        account,
-        transport: custom(provider),
-      })
-      const publicClient = getPublicClient(wagmiConfig, { chainId: numericChainId })
-      if (!publicClient) throw new Error(`Public client for chain ${numericChainId} is not configured.`)
-      const configuredChain = publicClient.chain
-      if (!configuredChain) throw new Error(`Chain metadata for chain ${numericChainId} is not configured.`)
-
-      if (!isNative) {
-        setStatus('checking')
-        const allowance = await publicClient.readContract({
-          address: tokenAddress,
-          abi: erc20Abi,
-          functionName: 'allowance',
-          args: [account, vaultAddress],
-        })
-
-        if (allowance < totalAmount) {
-          setStatus('approving')
-          const approveTx = normalizeTransactionHash(await walletClient.writeContract({
-            address: tokenAddress,
-            abi: erc20Abi,
-            functionName: 'approve',
-            args: [vaultAddress, totalAmount],
-            chain: configuredChain,
-          }))
-          const approveReceipt = await publicClient.waitForTransactionReceipt({ hash: approveTx })
-          if (approveReceipt.status !== 'success') throw new Error('approve transaction reverted.')
-        }
-      }
-
-      setStatus('authorizing')
-      const { authSignature, claimTime } = await apis.transaction.getDepositAuth(transactionPlan.id)
-
-      setStatus('depositing')
-      const depositTx = normalizeTransactionHash(await walletClient.writeContract({
-        address: vaultAddress,
-        abi: vaultAbi,
-        functionName: 'depositForPayroll',
-        args: [merkleRoot, tokenAddress, totalAmount, BigInt(claimTime), authSignature as Hex],
-        ...(isNative ? { value: totalAmount } : {}),
-        chain: configuredChain,
-      }))
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
-      if (receipt.status !== 'success') throw new Error('depositForPayroll transaction reverted.')
-      // On-chain deposit succeeded (source of truth). Hand the backend confirm to the durable
-      // retry queue so a flaky/timed-out confirm never fails the deposit; it persists + resumes.
-      await confirmSync.enqueue({
-        type: 'confirm-deposit',
-        orgId: localStorage.getItem('organizationId') || '',
-        batchId: transactionPlan.id,
-        depositTxHash: depositTx,
-        label: executingTransaction?.name || transactionPlan.id,
-      })
-
-      setStatus('done')
-      onSuccess(depositTx)
-    } catch (err: any) {
-      console.error(err)
-      setErrorMsg(err?.shortMessage || err?.message || String(err))
-      setStatus('error')
-    }
+    await executePrivacyDeposit(address as Hex, walletProvider!)
   }
 
   // ── Privacy deposit (new flow) ─────────────────────────────────────────────
@@ -478,10 +367,7 @@ export function ExecuteConfirmDialogContent({
     }
   }
 
-  // ── Progress step lists per flow ───────────────────────────────────────────
-
-  const stealthSteps: DepositStatus[] = ['authorizing', 'checking', 'approving', 'depositing']
-  const stealthLabels = ['Auth', 'Allowance', 'Approve', 'Deposit']
+  // ── Progress steps ─────────────────────────────────────────────────────────
 
   const privacySteps: DepositStatus[] = [
     'fetching-data',
@@ -494,8 +380,8 @@ export function ExecuteConfirmDialogContent({
   ]
   const privacyLabels = ['Data', 'Circuit', 'Path', 'Proof', 'Allowance', 'Approve', 'Deposit']
 
-  const activeSteps = isPrivacyDeposit ? privacySteps : stealthSteps
-  const activeLabels = isPrivacyDeposit ? privacyLabels : stealthLabels
+  const activeSteps = privacySteps
+  const activeLabels = privacyLabels
 
   return (
     <div className="flex flex-col gap-[20px]">

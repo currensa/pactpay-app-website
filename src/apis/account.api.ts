@@ -6,7 +6,6 @@ interface WalletLoginRequest {
   nonce: string
   signature: string
 }
-
 interface EmailLoginRequest {
   type: "email"
   email: string
@@ -35,13 +34,6 @@ interface GoogleLoginResponse {
   gravArcUserInfo?: GravArcUserInfoDto | null
 }
 
-export interface SubmitMetaPubRequest {
-  address: string
-  metaPub: string
-  signMessage: string
-  metaPubSignature: string
-}
-
 export class AccountApi {
 
   constructor(private readonly request: AxiosInstance) {}
@@ -66,32 +58,8 @@ export class AccountApi {
     return res.data
   }
 
-  async getMetaPubStatus() {
+  async getGravArcUserInfoStatus() {
     const res = await this.request.get<{ submitted: boolean }>('/auth/gravarc-user-info')
-    return res.data
-  }
-
-  async getmetaPubSignaturenMessage() {
-    const res = await this.request.get<{ signMessage: string }>('/auth/meta-pub/sign-message')
-    return res.data
-  }
-
-  async getMySignMessage() {
-    const res = await this.request.get<{ signMessage: string, updatedAt: Date }>('/auth/meta-pub/my-sign-message', {
-      skipErrorToastStatusCodes: [404],
-    } as any)
-    return res.data
-  }
-
-  async verifyMetaPub(payload: { address: string; nonce: string; signature: string }) {
-    const res = await this.request.post<
-      { verified: true; token: string } | { verified: false; reason: string }
-    >('/auth/meta-pub/verify', payload)
-    return res.data
-  }
-
-  async submitMetaPub(payload: SubmitMetaPubRequest) {
-    const res = await this.request.post<{ success: boolean }>('/auth/meta-pub', payload)
     return res.data
   }
 

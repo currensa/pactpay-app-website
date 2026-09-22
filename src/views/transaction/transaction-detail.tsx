@@ -18,7 +18,6 @@ import {
   DeleteConfirmDialogContent,
   ExecuteConfirmDialogContent,
   ExecuteSuccessDialogContent,
-  RefundConfirmDialogContent,
   GravArcRefundDialogContent,
 } from './components'
 import type { Transaction } from './components/types'
@@ -58,7 +57,6 @@ export default function TransactionDetail() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Refund dialog
-  const [refundOpen, setRefundOpen] = useState(false)
 
   // GravArc 隐私退款 dialog
   const [gravArcRefundOpen, setGravArcRefundOpen] = useState(false)
@@ -508,22 +506,6 @@ export default function TransactionDetail() {
               {t('pages.orgMembers.confirm')}
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
-        <DialogContent disableOutsideClose>
-          <DialogTitle className="sr-only">{t('pages.transactionDetail.refundUnclaimedFunds')}</DialogTitle>
-          <RefundConfirmDialogContent
-            transaction={transactionStub}
-            transactionPlan={plan}
-            onCancel={() => setRefundOpen(false)}
-            onSuccess={async () => {
-              setRefundOpen(false)
-              const updated = await apis.transaction.getTransactionPlanDetail(plan.id)
-              setPlan(updated)
-            }}
-          />
         </DialogContent>
       </Dialog>
 

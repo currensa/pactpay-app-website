@@ -27,7 +27,6 @@ import {
   ExecuteConfirmDialogContent,
   ExecuteSuccessDialogContent,
   PayrollSetupDialog,
-  RefundConfirmDialogContent,
 } from './components'
 import { TransactionTabsNav } from './components/transaction-tabs-nav'
 import type { Transaction } from './components/types'
@@ -89,9 +88,6 @@ export default function TransactionPage() {
   const [reactionConfirmDialogOpen, setReactionConfirmDialogOpen] = useState(false)
   const [transactionToReaction, setTransactionToReaction] = useState<Transaction | null>(null)
 
-  const [refundDialogOpen, setRefundDialogOpen] = useState(false)
-  const [refundingTransaction, setRefundingTransaction] = useState<Transaction | null>(null)
-  const [refundingTransactionPlan, setRefundingTransactionPlan] = useState<TransactionPlan | null>(null)
 
   const [payrollSetupDialogOpen, setPayrollSetupDialogOpen] = useState(false)
   const [selectedChainId, setSelectedChainId] = useState('')
@@ -457,23 +453,6 @@ export default function TransactionPage() {
     setReactionConfirmDialogOpen(false)
     setTransactionToReaction(null)
     handleStartCreateTransaction(`/orgs/transaction/create-people?fromReaction=1&transactionId=${encodeURIComponent(transactionId)}`)
-  }
-
-  const planHasUnclaimedItems = (plan: TransactionPlan) =>
-    (plan.items ?? []).some(item => item.status !== 'claimed')
-
-  const handleRefundClick = (transaction: Transaction) => {
-    const plan = rawTransactions.find(item => item.id === transaction.id) ?? null
-    setRefundingTransaction(transaction)
-    setRefundingTransactionPlan(plan)
-    setRefundDialogOpen(true)
-  }
-
-  const handleRefundSuccess = async (txHash: string) => {
-    setRefundDialogOpen(false)
-    await fetchTransactions(currentPage, statusFilter, debouncedSearch, transactionType)
-    setRefundingTransaction(null)
-    setRefundingTransactionPlan(null)
   }
 
   const startIndex = visiblePeopleTransactions.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1
@@ -843,21 +822,6 @@ export default function TransactionPage() {
                 setTransactionToDelete(null)
               }}
               onConfirm={handleConfirmDelete}
-            />
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={refundDialogOpen} onOpenChange={setRefundDialogOpen}>
-          <DialogContent>
-            <RefundConfirmDialogContent
-              transaction={refundingTransaction}
-              transactionPlan={refundingTransactionPlan}
-              onCancel={() => {
-                setRefundDialogOpen(false)
-                setRefundingTransaction(null)
-                setRefundingTransactionPlan(null)
-              }}
-              onSuccess={handleRefundSuccess}
             />
           </DialogContent>
         </Dialog>

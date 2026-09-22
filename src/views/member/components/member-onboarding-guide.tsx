@@ -2,7 +2,6 @@ import apis from '@/apis'
 import type { I18nKey } from '@/i18n/messages'
 import useOrganizationStore from '@/stores/organization'
 import { useTranslation } from '@/utils/i18n'
-import { useClaimAll } from '@/views/member/hooks/use-claim-all'
 import { Check, ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -16,7 +15,6 @@ interface StepDef {
   navigateTo: string | null
   isExternal?: boolean
 }
-
 const STEPS: StepDef[] = [
   {
     id: 1,
@@ -59,7 +57,6 @@ const STEPS: StepDef[] = [
 export function MemberOnboardingGuide() {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const { handleClaimAll, verifying } = useClaimAll()
   const [dismissed, setDismissed] = useState<boolean | null>(null) // null = loading
   const [completedSteps, setCompletedSteps] = useState<boolean[]>([false, false, false, false, false])
   const [hasPendingClaim, setHasPendingClaim] = useState(false)
@@ -128,14 +125,14 @@ export function MemberOnboardingGuide() {
   const checkSteps = async (serverCompleted: string[]) => {
     try {
       setStepsLoading(true)
-      const [metaPubStatus, summary] = await Promise.allSettled([
-        apis.auth.getMetaPubStatus(),
+      const [privacyProfileStatus, summary] = await Promise.allSettled([
+        apis.auth.getGravArcUserInfoStatus(),
         apis.transaction.getMySummary(),
       ])
 
       const step1Done = organizations.length > 0
       const Accounts = await apis.auth.getUserAuths()
-      const step2Done = metaPubStatus.status === 'fulfilled' ? (metaPubStatus.value?.submitted ?? false) : false
+      const step2Done = privacyProfileStatus.status === 'fulfilled' ? (privacyProfileStatus.value?.submitted ?? false) : false
       const step3Done = !!Accounts.find(o => o.type === 'email')
       const step5Done = summary.status === 'fulfilled' ? ((summary.value?.claimed?.length ?? 0) > 0) : false
       // Step 4 (index 3): persisted server-side only
@@ -177,8 +174,7 @@ export function MemberOnboardingGuide() {
     } else if (step.navigateTo) {
       navigate(step.navigateTo)
     } else if (step.id === 5) {
-      // "Claim your first payment" — same flow as Claim all
-      handleClaimAll()
+      navigate('/member/claim')
     } else {
       setCompletedSteps(prev => {
         const next = [...prev]
@@ -277,7 +273,7 @@ export function MemberOnboardingGuide() {
                     ) : (
                       <button
                         onClick={() => handleAction(idx)}
-                        disabled={step.id === 5 && (stepsLoading || !hasPendingClaim || verifying)}
+                        disabled={step.id === 5 && (stepsLoading || !hasPendingClaim)}
                         className="rounded-[10px] px-[10px] py-[8px] text-[13px] leading-[20px] bg-[#5e85ee] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
                       >
                         {t(step.buttonKey)}

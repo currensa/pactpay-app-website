@@ -1,7 +1,7 @@
 'use client'
 
 import apis from '@/apis'
-import type { StealthPayrollItem } from '@/apis/transaction.api'
+import type { PrivacyPayrollItem } from '@/apis/transaction.api'
 import { confirmSync } from '@/lib/confirm-sync'
 import { GRAVARC_ABI } from '@/lib/gravarc/gravarcAbi'
 import { naclDecryptWithKeyPair, secretboxDecryptWithKey } from '@/lib/gravarc/naclCrypto'
@@ -26,7 +26,7 @@ export const PRIVACY_WITHDRAW_RELAYER: Hex = ZERO_ADDRESS
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface PrivacyWithdrawParams {
-  item: StealthPayrollItem
+  item: PrivacyPayrollItem
   recipient: string
   /** NaCl box key pair derived once from the user's password (decrypts content + secret). */
   keyPair: { secretKey: Uint8Array }
@@ -43,7 +43,6 @@ export interface PrivacyWithdrawParams {
   relayerAddress?: string
   onStatus?: (msg: string) => void
 }
-
 export interface PrivacyWithdrawResult {
   itemId: string
   txHash: string

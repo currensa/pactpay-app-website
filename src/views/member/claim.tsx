@@ -1,9 +1,7 @@
 import apis from '@/apis'
 import type { FavoriteAddressItem } from '@/apis/favorite-address.api'
-import type { BatchClaimResponse, StealthPayrollItem } from '@/apis/transaction.api'
+import type { PrivacyPayrollItem, WithdrawalBatchResult } from '@/apis/transaction.api'
 import { useToast } from '@/components/ui/use-toast'
-import { vaultAbi } from '@/lib/vault-abi'
-import { recoverStealthPrivateKey } from '@/lib/stealth-key'
 import { deriveNaclKeyPair } from '@/lib/gravarc/naclCrypto'
 import { withdrawPrivacyItem } from '@/lib/gravarc/privacyWithdraw'
 import { buildExplorerTransactionUrl } from '@/utils/transaction'
@@ -18,8 +16,7 @@ import { ethers } from 'ethers'
 import { AlertTriangle, Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createPublicClient, createWalletClient, custom, type Hex } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { createWalletClient, custom, type Hex } from 'viem'
 
 // ─── Asset icon ───────────────────────────────────────────────────────────────
 
@@ -33,7 +30,6 @@ function AssetIcon({ iconUrl, label }: { iconUrl: string | null; label: string }
     </div>
   )
 }
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PendingToken {
@@ -70,22 +66,6 @@ function formatRecentUsedDate(dateValue: string | undefined) {
   })
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async function deriveMetaPrivKey(walletProvider: Provider, address: string): Promise<Uint8Array> {
-  const { signMessage } = await apis.auth.getMySignMessage()
-  const sig = await walletProvider.request<string>({
-    method: 'personal_sign',
-    params: [signMessage, address],
-  }) as string
-  const sigBytes = ethers.getBytes(sig)
-  try {
-    return ethers.getBytes(ethers.keccak256(sigBytes))
-  } finally {
-    sigBytes.fill(0)
-  }
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ClaimPage() {
@@ -99,8 +79,6 @@ export default function ClaimPage() {
   const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, getTokenIconUrl, chains } = useChainAssetStore()
   const { setHeader, clearHeader } = useHeaderStore()
 
-  const walletToken = sessionStorage.getItem('metapub-verify-token') ?? undefined
-
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [allPending, setAllPending] = useState<PendingToken[]>([])
   const [selectedChain, setSelectedChain] = useState('')
@@ -108,7 +86,7 @@ export default function ClaimPage() {
   const [recipient, setRecipient] = useState('')
   const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false)
   const [claiming, setClaiming] = useState(false)
-  const [claimResult, setClaimResult] = useState<BatchClaimResponse | null>(null)
+  const [claimResult, setClaimResult] = useState<WithdrawalBatchResult | null>(null)
   const [favoriteAddresses, setFavoriteAddresses] = useState<FavoriteAddressItem[]>([])
   const [recentRecipients, setRecentRecipients] = useState<RecentRecipientItem[]>([])
   // Privacy withdraw (privacy_deposit) — password unlocks the encrypted Secret + message
@@ -186,9 +164,6 @@ export default function ClaimPage() {
     && (recipientChain?.ecosystem?.toLowerCase() !== 'evm' || ethers.isAddress(trimmedRecipient))
 
   useEffect(() => {
-    // Note: stealth claims require `walletToken` (metapub verification), but privacy
-    // withdrawals do not — so we no longer redirect on a missing token. The token is
-    // enforced just-in-time before the stealth branch runs inside handleClaim.
     setHeader({ backUrl: '/member/dashboard' })
     Promise.all([fetchChainAssets(), fetchChains(), loadAddressSuggestions(), loadSummary()])
     return () => clearHeader()
@@ -200,14 +175,14 @@ export default function ClaimPage() {
     let cancelled = false
     if (!selectedChain) { setChainHasPrivacy(false); return }
     apis.transaction
-      .getMyPayrollItems({ status: 'claimable', caipChainId: selectedChain, walletToken, page: 1, pageSize: 100 })
+      .getMyPayrollItems({ status: 'claimable', caipChainId: selectedChain, page: 1, pageSize: 100 })
       .then(data => {
         if (cancelled) return
         setChainHasPrivacy((data.data ?? []).some(i => i.transactionType === 'privacy_deposit' && i.withdrawData))
       })
       .catch(() => { if (!cancelled) setChainHasPrivacy(false) })
     return () => { cancelled = true }
-  }, [selectedChain, walletToken])
+  }, [selectedChain])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -287,15 +262,14 @@ export default function ClaimPage() {
   }
 
   // Fetch all claimable payroll items for a chain (paginate through all pages).
-  const fetchAllClaimable = async (caipChainId: string): Promise<StealthPayrollItem[]> => {
+  const fetchAllClaimable = async (caipChainId: string): Promise<PrivacyPayrollItem[]> => {
     const PAGE_SIZE = 100
     let page = 1
-    const items: StealthPayrollItem[] = []
+    const items: PrivacyPayrollItem[] = []
     while (true) {
       const data = await apis.transaction.getMyPayrollItems({
         status: 'claimable',
         caipChainId,
-        walletToken,
         page,
         pageSize: PAGE_SIZE,
       })
@@ -306,151 +280,15 @@ export default function ClaimPage() {
     return items
   }
 
-  // ── Stealth claim branch (existing flow): derive stealth keys, EIP-712 sign, batchClaim ──
-  const runStealthClaim = async (
-    items: StealthPayrollItem[],
-    selectedChainIdNum: number,
-  ): Promise<BatchClaimResponse> => {
-    const chainList = await apis.chainAsset.getChains()
-    const caipToChain: Record<string, { chainIdNum: number; vaultAddress: string }> = {}
-    for (const chain of chainList) {
-      if (chain.vaultAddress) {
-        caipToChain[chain.caipChainId] = {
-          chainIdNum: parseInt(chain.chainId, 10),
-          vaultAddress: chain.vaultAddress,
-        }
-      }
-    }
-
-    const metaPrivKeyBytes = await deriveMetaPrivKey(walletProvider!, address!)
-    const deadline = Math.floor(Date.now() / 1000) + 3600
-
-    const signedItems: {
-      payrollItemId: string
-      recipient: string
-      deadline: number
-      nonce: string
-      signature: string
-    }[] = []
-    const skipped: string[] = []
-
-    try {
-      const selectedChainInfo = caipToChain[selectedChain]
-      if (!selectedChainInfo) {
-        throw new Error(`Vault contract is not configured for chain ${selectedChain}.`)
-      }
-
-      const publicClient = createPublicClient({
-        chain: {
-          id: selectedChainIdNum,
-          name: chains.find(chain => chain.caipChainId === selectedChain)?.name ?? selectedChain,
-          nativeCurrency: { name: 'Native Token', symbol: 'NATIVE', decimals: 18 },
-          rpcUrls: { default: { http: [] }, public: { http: [] } },
-        } as any,
-        transport: custom(walletProvider!),
-      })
-      const nextNonceByStealth = new Map<string, bigint>()
-
-      for (const item of items) {
-        let stealthPrivHex: string | null = null
-        let stealthAccount: ReturnType<typeof privateKeyToAccount> | null = null
-        try {
-          stealthPrivHex = recoverStealthPrivateKey(ethers.hexlify(metaPrivKeyBytes), item.batch.ephemeralPub)
-          stealthAccount = privateKeyToAccount(stealthPrivHex as `0x${string}`)
-
-          if (stealthAccount.address.toLowerCase() !== item.stealthAddress.toLowerCase()) {
-            skipped.push(item.id)
-            continue
-          }
-
-          const chainInfo = caipToChain[item.batch.caipChainId]
-          if (!chainInfo) { skipped.push(item.id); continue }
-
-          const stealthKey = stealthAccount.address.toLowerCase()
-          let nonce = nextNonceByStealth.get(stealthKey)
-          if (nonce === undefined) {
-            const claimedData = await publicClient.readContract({
-              address: chainInfo.vaultAddress as Hex,
-              abi: vaultAbi,
-              functionName: 'claimed',
-              args: [stealthAccount.address as Hex],
-            })
-            nonce = claimedData[1]
-          }
-
-          const domain = {
-            name: 'StealthPay',
-            version: '1',
-            chainId: chainInfo.chainIdNum,
-            verifyingContract: chainInfo.vaultAddress as `0x${string}`,
-          } as const
-
-          const types = {
-            ClaimRequest: [
-              { name: 'stealthAddress', type: 'address' },
-              { name: 'token', type: 'address' },
-              { name: 'amount', type: 'uint256' },
-              { name: 'recipient', type: 'address' },
-              { name: 'deadline', type: 'uint256' },
-              { name: 'expectedAmount', type: 'uint256' },
-              { name: 'nonce', type: 'uint256' },
-            ],
-          } as const
-
-          const message = {
-            stealthAddress: stealthAccount.address as `0x${string}`,
-            token: item.batch.tokenAddress as `0x${string}`,
-            amount: BigInt(item.amount),
-            recipient: trimmedRecipient as `0x${string}`,
-            deadline: BigInt(deadline),
-            expectedAmount: BigInt(item.amount),
-            nonce,
-          } as const
-
-          const signature = await stealthAccount.signTypedData({ domain, types, primaryType: 'ClaimRequest', message })
-          signedItems.push({
-            payrollItemId: item.id,
-            recipient: trimmedRecipient,
-            deadline,
-            nonce: nonce.toString(),
-            signature,
-          })
-          nextNonceByStealth.set(stealthKey, nonce + 1n)
-        } catch {
-          skipped.push(item.id)
-        } finally {
-          stealthPrivHex = null
-          stealthAccount = null
-        }
-      }
-    } finally {
-      metaPrivKeyBytes.fill(0)
-    }
-
-    if (signedItems.length === 0) {
-      return {
-        succeeded: [],
-        failed: skipped.map(id => ({ payrollItemId: id, reason: t('pages.memberClaim.nothingToClaimTitle') })),
-      }
-    }
-    const confirmMessage = `I confirm that the recipient address for this claim is:\n${trimmedRecipient}`
-    const recipientSignature = await walletProvider!.request<string>({
-      method: 'personal_sign',
-      params: [confirmMessage, address!],
-    }) as string
-
-    return apis.transaction.batchClaim({ items: signedItems, recipientSignature })
-  }
-
   // ── Privacy withdraw branch: decrypt → ZK proof → on-chain withdraw → confirm-withdraw ──
   const runPrivacyWithdraw = async (
-    items: StealthPayrollItem[],
+    items: PrivacyPayrollItem[],
     chainIdNum: number,
     chainName: string,
     explorerUrl: string | null,
-  ): Promise<BatchClaimResponse> => {
-    const succeeded: BatchClaimResponse['succeeded'] = []
-    const failed: BatchClaimResponse['failed'] = []
+  ): Promise<WithdrawalBatchResult> => {
+    const succeeded: WithdrawalBatchResult['succeeded'] = []
+    const failed: WithdrawalBatchResult['failed'] = []
 
     let keyPair = cachedKeyPairRef.current
     if (!keyPair) {
@@ -534,7 +372,7 @@ export default function ClaimPage() {
       }
 
       const privacyItems = items.filter(i => i.transactionType === 'privacy_deposit' && i.withdrawData)
-      const stealthItems = items.filter(i => i.transactionType !== 'privacy_deposit')
+
 
       // Privacy withdrawals need a password to unlock the encrypted Secret.
       if (privacyItems.length > 0 && !password && !cachedKeyPairRef.current) {
@@ -556,27 +394,17 @@ export default function ClaimPage() {
         })
       }
 
-      const succeeded: BatchClaimResponse['succeeded'] = []
-      const failed: BatchClaimResponse['failed'] = []
+      const succeeded: WithdrawalBatchResult['succeeded'] = []
+      const failed: WithdrawalBatchResult['failed'] = []
 
-      // Run privacy withdrawals first (direct on-chain), then stealth batch claim.
+      // Process the claimable GravArc items for this chain.
       if (privacyItems.length > 0) {
         const r = await runPrivacyWithdraw(privacyItems, chainIdNum, chainEntry.name, explorerUrl)
         succeeded.push(...r.succeeded)
         failed.push(...r.failed)
       }
 
-      if (stealthItems.length > 0) {
-        if (!walletToken) {
-          for (const it of stealthItems) {
-            failed.push({ payrollItemId: it.id, reason: t('pages.memberClaim.unauthorizedTitle') })
-          }
-        } else {
-          const r = await runStealthClaim(stealthItems, chainIdNum)
-          succeeded.push(...r.succeeded)
-          failed.push(...r.failed)
-        }
-      }
+
 
       setClaimResult({ succeeded, failed })
       await Promise.all([loadSummary(), loadAddressSuggestions()])

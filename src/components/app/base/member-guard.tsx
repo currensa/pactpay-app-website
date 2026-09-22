@@ -5,11 +5,10 @@ import { useNavigate } from 'react-router-dom'
 
 /**
  * Guards member (C端) routes.
- * Access is granted if EITHER the user has gravArcUserInfo OR has submitted
- * metaPub (二选一). If neither is satisfied, redirects to the bind-wallet step.
+ * Access requires a GravArc privacy profile.
  */
 export default function MemberGuard({ children }: { children: React.ReactNode }) {
-  const { checkMetaPub, metaPubSubmitted, gravArcUserInfo } = useAuthStore()
+  const { checkPrivacyProfile, privacyProfileSubmitted, gravArcUserInfo } = useAuthStore()
   const navigate = useNavigate()
   const [checking, setChecking] = useState(true)
 
@@ -21,8 +20,8 @@ export default function MemberGuard({ children }: { children: React.ReactNode })
     }
 
     // Skip API call if we already know the status
-    if (metaPubSubmitted !== null) {
-      if (!metaPubSubmitted) {
+    if (privacyProfileSubmitted !== null) {
+      if (!privacyProfileSubmitted) {
         navigate('/welcome/bind-wallet', { replace: true })
       } else {
         setChecking(false)
@@ -30,7 +29,7 @@ export default function MemberGuard({ children }: { children: React.ReactNode })
       return
     }
 
-    checkMetaPub()
+    checkPrivacyProfile()
       .then(submitted => {
         if (!submitted) {
           navigate('/welcome/bind-wallet', { replace: true })

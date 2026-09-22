@@ -3,19 +3,15 @@ import type { GravArcUserInfoDto } from '@/apis/account.api'
 import { create } from 'zustand'
 
 interface AuthState {
-  metaPubSubmitted: boolean | null
-  metaPub: string | null
+  privacyProfileSubmitted: boolean | null
   gravArcUserInfo: GravArcUserInfoDto | null
-  checkMetaPub: () => Promise<boolean>
-  setMetaPubSubmitted: (v: boolean) => void
-  setMetaPub: (metaPub: string) => void
+  checkPrivacyProfile: () => Promise<boolean>
   setGravArcUserInfo: (info: GravArcUserInfoDto | null) => void
   reset: () => void
 }
 
 const useAuthStore = create<AuthState>((set) => ({
-  metaPubSubmitted: null,
-  metaPub: null,
+  privacyProfileSubmitted: null,
   gravArcUserInfo: (() => {
     try {
       const raw = localStorage.getItem('gravArcUserInfo')
@@ -24,15 +20,13 @@ const useAuthStore = create<AuthState>((set) => ({
       return null
     }
   })(),
-  checkMetaPub: async () => {
-    const { submitted } = await apis.auth.getMetaPubStatus()
-    set({ metaPubSubmitted: submitted })
+  checkPrivacyProfile: async () => {
+    const { submitted } = await apis.auth.getGravArcUserInfoStatus()
+    set({ privacyProfileSubmitted: submitted })
     return submitted
   },
-  setMetaPubSubmitted: (v: boolean) => set({ metaPubSubmitted: v }),
-  setMetaPub: (metaPub: string) => set({ metaPub }),
   setGravArcUserInfo: (info) => set({ gravArcUserInfo: info }),
-  reset: () => set({ metaPubSubmitted: null, metaPub: null, gravArcUserInfo: null }),
+  reset: () => set({ privacyProfileSubmitted: null, gravArcUserInfo: null }),
 }))
 
 export default useAuthStore

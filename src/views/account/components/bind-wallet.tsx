@@ -12,7 +12,6 @@ import { useWalletClient } from 'wagmi'
 interface BindWalletProps {
   onSuccess: () => void
 }
-
 function bytesToHex(b: Uint8Array): string {
   return Array.from(b)
     .map(v => v.toString(16).padStart(2, '0'))
@@ -29,7 +28,7 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
   const [step, setStep] = useState('')
   const [passwordInput, setPasswordInput] = useState('')
   const [rememberLocally, setRememberLocally] = useState(false)
-  const setMetaPubSubmitted = useAuthStore(s => s.setMetaPubSubmitted)
+  const checkPrivacyProfile = useAuthStore(s => s.checkPrivacyProfile)
   const setGravArcUserInfo = useAuthStore(s => s.setGravArcUserInfo)
   const gravArcUserInfo = useAuthStore(s => s.gravArcUserInfo)
 
@@ -84,7 +83,7 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
         localStorage.setItem('gravArcUserInfo', JSON.stringify(info))
       }
       setGravArcUserInfo(info)
-      setMetaPubSubmitted(true)
+      await checkPrivacyProfile()
       onSuccess()
     } catch (err: any) {
       if (axios.isAxiosError(err)) return

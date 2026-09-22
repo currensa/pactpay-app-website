@@ -5,7 +5,7 @@ import { MemberRole } from './orgnization.api'
 export const TRANSACTION_LIST_TRANSACTION_TYPES = ['privacy_deposit', 'token_usage_plan', 'all'] as const
 export type TransactionListTransactionType = typeof TRANSACTION_LIST_TRANSACTION_TYPES[number]
 
-// ── StealthPay 相关接口 ─────────────────────────────────────────────────────
+// ── GravArc payroll items ───────────────────────────────────────────────────
 
 /**
  * privacy_deposit 明细的提款数据。
@@ -29,17 +29,14 @@ export interface PrivacyWithdrawData {
   secretHash: string | null
 }
 
-export interface StealthPayrollItem {
+export interface PrivacyPayrollItem {
   id: string
   batchId: string
   memberId: string
-  stealthAddress: string
   amount: string
   /** 平台服务费（token 最小单位字符串），由后端计算后附在 item 上 */
   platformFee?: string | null
   tokenAddress: string
-  proof: string[]
-  leaf: string
   recipient: string | null
   fee: string | null
   status: PayrollItemStatus
@@ -48,7 +45,7 @@ export interface StealthPayrollItem {
   updatedAt: string
   organizationName: string | null
   transactionName: string | null
-  /** 交易类型：stealth_deposit | privacy_deposit | token_usage_plan */
+  /** Transaction type: privacy_deposit | token_usage_plan */
   transactionType: string
   /** privacy_deposit 类型且可提款时返回；其它类型为 null */
   withdrawData: PrivacyWithdrawData | null
@@ -59,8 +56,6 @@ export interface StealthPayrollItem {
   batch: {
     id: string
     caipChainId: string
-    ephemeralPub: string
-    merkleRoot: string
     tokenAddress: string
     transactionStatus: string
     depositTxHash: string | null
@@ -69,26 +64,9 @@ export interface StealthPayrollItem {
 }
 
 
-export interface BatchClaimItem {
-  payrollItemId: string
-  recipient: string
-  deadline: number
-  nonce: string
-  signature: string
-}
-
-export interface BatchClaimPayload {
-  items: BatchClaimItem[]
-  recipientSignature: string
-}
-
-export interface BatchClaimResponse {
+export interface WithdrawalBatchResult {
   succeeded: { payrollItemId: string; txUrl: string; transactionName: string }[]
   failed: { payrollItemId: string; reason: string }[]
-}
-
-export interface SubmitMetaPubPayload {
-  metaPub: string
 }
 
 /**
@@ -139,18 +117,6 @@ export interface RelayGravArcRefundResponse {
 }
 
 // ── 原有接口（保留兼容性）──────────────────────────────────────────────────
-
-export interface TransactionPlanMember {
-  memberId: string
-  amount: string
-}
-
-export interface CreateTransactionPlanPayload {
-  payPeriod: string
-  transactionName: string
-  members: TransactionPlanMember[]
-  reactionFromId?: string
-}
 
 export interface TransactionItemMember {
   roles: MemberRole[]
@@ -218,10 +184,6 @@ export interface TransactionPlansResponse {
   total: number
 }
 
-export interface CreateTransactionPlanResponse {
-  batchId: string
-}
-
 export type PrivacyDepositTier = 8 | 16 | 32 | 64 | 128
 
 export interface CreatePrivacyDepositPlanMember {
@@ -250,24 +212,6 @@ export interface CreatePrivacyDepositPlanResponseDto {
   caipChainId: string
   tokenAddress: string
   members: CreatePrivacyDepositPlanResponseMember[]
-}
-
-export interface PayrollBatch {
-  id: string
-  orgId: string
-  paymentAccountId: string
-  transactionId: string
-  transactionName: string
-  transactionType: 'stealth'
-  transactionStatus: string
-  merkleRoot?: string
-  token?: string
-  ephemeralPub?: string
-  depositTxHash?: string
-  payPeriod: string
-  createdBy: string
-  createdAt: string
-  deletedAt: string | null
 }
 
 export interface TransactionListItem {
@@ -378,25 +322,11 @@ export class TransactionApi {
     return res.data
   }
 
-  // 创建交易计划（StealthPay）
-  async createTransactionPlan(plan: CreateTransactionPlanPayload) {
-    const res = await this.request.post<CreateTransactionPlanResponse>(`/transaction/${this.orgId}/plan`, plan)
-    return res.data
-  }
-
   // 创建隐私存款计划草稿
   async createPrivacyDepositPlan(payload: CreatePrivacyDepositPlanPayload) {
     const res = await this.request.post<CreatePrivacyDepositPlanResponseDto>(
       `/transaction/${this.orgId}/privacy-deposit-plan`,
       payload,
-    )
-    return res.data
-  }
-
-  // 获取 deposit 授权签名（depositAuthorizer 的 EIP-712 签名，HR 执行存款前调用）
-  async getDepositAuth(batchId: string) {
-    const res = await this.request.get<{ authSignature: string; claimTime: number }>(
-      `/transaction/${this.orgId}/batches/${batchId}/deposit-auth`,
     )
     return res.data
   }
@@ -409,39 +339,24 @@ export class TransactionApi {
     return res.data
   }
 
-  async confirmRefund(batchId: string, refundTxHash: string) {
-    const res = await this.request.post<{ success: boolean }>(
-      `/transaction/${this.orgId}/batches/${batchId}/confirm-refund`,
-      { depositTxHash: refundTxHash },
-    )
-    return res.data
-  }
-
   // 删除交易计划
   async deleteTransactionPlan(transaction_id: string) {
     const res = await this.request.delete<string>(`/transaction/${this.orgId}/batch/${transaction_id}`)
     return res.data
   }
 
-  // 员工查询自己的工资明细（StealthPay，跨所有组织）
+  // Query the current user's GravArc payroll items across organizations.
   async getMyPayrollItems(params: {
     status?: 'claimed' | 'claimable'
     page?: number
     pageSize?: number
-    walletToken?: string
     caipChainId?: string
     tokenAddress?: string
   } = {}) {
-    const res = await this.request.get<{ data: StealthPayrollItem[]; total: number }>(
+    const res = await this.request.get<{ data: PrivacyPayrollItem[]; total: number }>(
       `/transaction/my-payroll-items`,
       { params }
     )
-    return res.data
-  }
-
-  // 员工批量提交 claim（StealthPay，proof 由后端从 DB 获取）
-  async batchClaim(data: BatchClaimPayload) {
-    const res = await this.request.post<BatchClaimResponse>(`/transaction/claims/batch`, data)
     return res.data
   }
 
