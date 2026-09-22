@@ -2,6 +2,7 @@ import { AxiosInstance } from 'axios'
 
 interface WalletLoginRequest {
   type: "wallet"
+  family: "evm"
   address: string
   nonce: string
   signature: string

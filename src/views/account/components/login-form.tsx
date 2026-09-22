@@ -49,6 +49,7 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
       })
       const { token, userId, gravArcUserInfo } = await api.auth.login({
         type: 'wallet',
+        family: 'evm',
         address: addr,
         nonce,
         signature,
