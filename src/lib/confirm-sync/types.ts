@@ -32,6 +32,7 @@ interface BaseConfirmJob {
 
 /** Per-receiver encrypted withdraw message produced by the privacy-deposit flow. */
 export interface WithdrawMessage {
+  clientMessageId?: string
   address: string
   content: string
   secretHash: string
@@ -56,6 +57,7 @@ export interface ConfirmPrivacyDepositJob extends BaseConfirmJob {
   encContent?: string
   /** 退款载荷元信息 JSON { depositorSecretHash, encPubkey } */
   depositInfo?: string
+  clientRefundId?: string
 }
 
 export interface ConfirmWithdrawJob extends BaseConfirmJob {

@@ -220,10 +220,9 @@ export function CreateTransactionDialogContent({
     const timer = setTimeout(async () => {
       setFeeLoading(true)
       try {
-        const payload = organizationMembers.map(m => ({
-          memberId: m.memberId,
-          amount: selectedMembers.has(m.id) ? normalizeAmountString(memberAmounts[m.id] || '0') : '0',
-        }))
+        const payload = organizationMembers
+          .filter(m => selectedMembers.has(m.id) && Number(memberAmounts[m.id] || '0') > 0)
+          .map(m => ({ memberId: m.memberId }))
         const result = await apis.transaction.getFeePreview(payload)
         setFeePreview(result)
       } catch {

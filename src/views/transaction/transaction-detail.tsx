@@ -126,16 +126,18 @@ export default function TransactionDetail() {
   )
 
   const totalAmountFormatted = (() => {
-    try { return parseFloat(formatUnits(BigInt(plan.totalAmount ?? '0'), decimals)).toLocaleString() }
-    catch { return plan.totalAmount ?? '0' }
+    if (plan.totalAmount === null) return 'Private'
+    try { return parseFloat(formatUnits(BigInt(plan.totalAmount), decimals)).toLocaleString() }
+    catch { return plan.totalAmount }
   })()
 
   const refundedAmountFormatted = (() => {
+    if (plan.items.some(item => item.status === 'refunded' && item.amount === null)) return 'Private'
     try {
       // 已退款金额只统计成员本金（item.amount），不含 relay 服务费（platformFee）。
       const totalRefunded = plan.items
         .filter(item => item.status === 'refunded')
-        .reduce((sum, item) => sum + BigInt(item.amount ?? '0'), BigInt(0))
+        .reduce((sum, item) => sum + BigInt(item.amount!), BigInt(0))
       return parseFloat(formatUnits(totalRefunded, decimals)).toLocaleString()
     } catch { return '0' }
   })()
@@ -349,9 +351,9 @@ export default function TransactionDetail() {
                 </TableRow>
               ) : (
                 paginatedItems.map((item, idx) => {
-                  const amountFormatted = (() => {
-                    try { return parseFloat(formatUnits(BigInt(item.amount ?? '0'), decimals)).toLocaleString() }
-                    catch { return item.amount ?? '0' }
+                  const amountFormatted = item.amount === null ? 'Private' : (() => {
+                    try { return parseFloat(formatUnits(BigInt(item.amount), decimals)).toLocaleString() }
+                    catch { return item.amount }
                   })()
                   const itemTxExplorerUrl = buildExplorerTransactionUrl(explorerBaseUrl, item.txHash)
                   return (

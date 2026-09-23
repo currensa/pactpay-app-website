@@ -83,7 +83,7 @@ export function TransactionDetailDialogContent({
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {parseFloat(item.amount)}
+                        {item.amount === null ? 'Private' : parseFloat(item.amount)}
                       </TableCell>
                     </TableRow>
                   ))

@@ -4,9 +4,10 @@ import type { CreatePrivacyDepositPlanResponseDto, TransactionItem } from '@/api
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
+import { naclEncrypt } from '@/lib/gravarc/naclCrypto'
 import { useTranslation } from '@/utils/i18n'
 import { CreateTransactionDialogContent } from '@/views/transaction/components'
-import { formatUnits } from 'ethers'
+import { formatUnits, parseUnits } from 'ethers'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
@@ -63,8 +64,12 @@ export default function CreateTransaction() {
       setMembersLoading(true)
       const response = await apis.organization.getOrganizationMembers({ page: 1, pageSize: 100, status: 'active' })
       setOrganizationMembers(response.data)
-    } catch {
-      // request interceptor handles API errors
+    } catch (error) {
+      toast({
+        title: 'Payroll creation failed',
+        description: error instanceof Error ? error.message : 'Please try again',
+        variant: 'destructive',
+      })
     } finally {
       setMembersLoading(false)
     }
@@ -86,7 +91,7 @@ export default function CreateTransaction() {
         const decimals = getTokenDecimals(plan.caipChainId, plan.tokenAddress || '')
         const convertedItems: TransactionItem[] = (plan.items ?? []).map(item => ({
           ...item,
-          amount: formatUnits(BigInt(item.amount || '0'), decimals),
+          amount: item.amount === null ? null : formatUnits(BigInt(item.amount), decimals),
         }))
         setReactionSourceMembers(convertedItems)
         setReactionSourceCaipChainId(plan.caipChainId)
@@ -127,23 +132,36 @@ export default function CreateTransaction() {
       const payrollConfig = useOrganizationStore.getState().payrollConfig
       if (!payrollConfig) throw new Error('Payroll config not found')
 
-      console.log(params, organizationMembers);
-      const members = Array.from(params.selectedMembers).map(memberId => {
+      const decimals = getTokenDecimals(payrollConfig.caipChainId, payrollConfig.token)
+      const allocations = Array.from(params.selectedMembers).map(memberId => {
         const member = organizationMembers.find(m => m.id === memberId)
         if (!member) throw new Error(`Member ${memberId} not found`)
         if (!member.gravArcAddress) throw new Error(`Member ${member.showName} has no wallet address`)
         return {
           memberId: member.memberId,
-          amount: params.memberAmounts[memberId] || '0',
+          address: member.gravArcAddress,
+          amount: parseUnits(params.memberAmounts[memberId] || '0', decimals).toString(),
         }
-      })
+      }).filter(member => BigInt(member.amount) > 0n)
+      if (!allocations.length) throw new Error('Add at least one positive payroll amount')
+      const profile = localStorage.getItem('gravArcUserInfo')
+      const encPubkey = profile ? (JSON.parse(profile) as { encPubkey?: string }).encPubkey : null
+      if (!encPubkey) throw new Error('Set up your private wallet before creating payroll')
+      const encryptedPlan = naclEncrypt(JSON.stringify({
+        version: 1,
+        orgId: localStorage.getItem('organizationId'),
+        caipChainId: payrollConfig.caipChainId,
+        tokenAddress: payrollConfig.token,
+        allocations,
+      }), encPubkey.startsWith('0x') ? encPubkey.slice(2) : encPubkey)
 
       const plan = await apis.transaction.createPrivacyDepositPlan({
         caipChainId: payrollConfig.caipChainId,
         tokenAddress: payrollConfig.token,
         transactionName: params.transactionName || t('pages.transactions.newTransaction'),
         payPeriod: params.executionDate ? new Date(params.executionDate).toISOString() : undefined,
-        members,
+        members: allocations.map(({ memberId }) => ({ memberId })),
+        encryptedPlan,
       })
       setCreatedPlan(plan)
 

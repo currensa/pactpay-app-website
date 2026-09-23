@@ -136,7 +136,7 @@ export interface TransactionItemMember {
 }
 
 export interface TransactionItem {
-  amount: string
+  amount: string | null
   /** 平台服务费（token 最小单位字符串），由后端计算后附在 item 上 */
   platformFee?: string | null
   id:string
@@ -155,7 +155,7 @@ export interface TransactionPlan {
   transactionName: string
   transactionType: string
   /** 所有 item（含服务费）金额之和，token 最小单位字符串 */
-  totalAmount: string
+  totalAmount: string | null
   transactionStatus: PayrollTransactionStatus
   payPeriod: string
   merkleRoot?: string
@@ -188,7 +188,6 @@ export type PrivacyDepositTier = 8 | 16 | 32 | 64 | 128
 
 export interface CreatePrivacyDepositPlanMember {
   memberId: string
-  amount: string
 }
 
 export interface CreatePrivacyDepositPlanPayload {
@@ -197,11 +196,11 @@ export interface CreatePrivacyDepositPlanPayload {
   transactionName?: string
   payPeriod?: string
   members: CreatePrivacyDepositPlanMember[]
+  encryptedPlan: string
 }
 
 export interface CreatePrivacyDepositPlanResponseMember {
   address: string
-  amount: string
   secretHash: string
   encPubkey: string
 }
@@ -231,7 +230,7 @@ export interface TransactionListItem {
   createdAt: string
   deletedAt?: string | null
   items: TransactionItem[]
-  totalAmount: string
+  totalAmount: string | null
 }
 
 export interface TransactionListResponse {
@@ -256,11 +255,13 @@ export interface DepositPathResponse {
 }
 
 export interface PrivacyDepositMemberData {
+  memberId: string
   address: string
   secretHash: string
   encPubkey: string
+  /** Present only for system recharge, never for private payroll. */
+  amount?: string
   /** 本成员应到账金额（net，token 最小单位字符串），不含服务费 */
-  amount: string
   /**
    * 本成员服务费（token 最小单位字符串）。前端存款时把它加到 amount 上，按 gross
    * (amount + platformFee) 承诺进 deposit 树；提款时合约再扣掉同样的 platformFee 给
@@ -273,11 +274,13 @@ export interface PrivacyDepositDataResponse {
   tier: number
   privacyDepositLeaf: string | null
   privacyRefundable: boolean | null
-  totalAmount: string
+  encryptedPlan: string | null
+  totalAmount: string | null
   members: PrivacyDepositMemberData[]
 }
 
 export interface WithdrawMessage {
+  clientMessageId: string
   address: string
   content: string
   secretHash: string
@@ -459,7 +462,7 @@ export class TransactionApi {
   }
 
   // 预览服务费
-  async getFeePreview(members: { memberId: string; amount: string }[]) {
+  async getFeePreview(members: { memberId: string }[]) {
     const res = await this.request.post<{
       caipChainId: string
       token: string

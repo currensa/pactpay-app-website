@@ -157,7 +157,8 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
 
   const chartData = useMemo<TransactionChartPoint[]>(
     () =>
-      transactionNodes.map(node => {
+      transactionNodes.filter(node => node.amount !== null).map(node => {
+        if (!node.amount) throw new Error('Missing chart amount')
         const decimals = node.amount.decimals ?? 0
         const symbol = getTransactionSymbol(node)
         const name = node.transactionName || t('pages.analytics.untitledTransaction')
@@ -194,18 +195,18 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
     const rows = [
       [t('pages.analytics.transactionName'), t('pages.analytics.executionDate'), t('pages.analytics.amount'), 'Raw Amount', 'Symbol', t('pages.analytics.members'), 'Batch ID', 'caipChainId', 'tokenAddress'],
       ...recentTransactions.map(item => {
-        const decimals = item.amount.decimals ?? 0
-        const symbol = getTransactionSymbol(item)
+        const decimals = item.amount?.decimals ?? 0
+        const symbol = item.amount ? getTransactionSymbol(item) : ''
         return [
           item.transactionName || '',
           formatUtcDate(item.analyticsDate),
-          formatTokenAmount(item.amount.amount, decimals),
-          item.amount.amount,
+          item.amount ? formatTokenAmount(item.amount.amount, decimals) : 'Private',
+          item.amount?.amount ?? '',
           symbol,
           item.memberCount,
           item.batchId,
-          item.amount.caipChainId,
-          item.amount.tokenAddress,
+          item.amount?.caipChainId ?? '',
+          item.amount?.tokenAddress ?? '',
         ]
       }),
     ]
@@ -341,8 +342,8 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
                 </TableHeader>
                 <TableBody>
                   {recentTransactions.map(item => {
-                    const decimals = item.amount.decimals ?? 0
-                    const symbol = getTransactionSymbol(item)
+                    const decimals = item.amount?.decimals ?? 0
+                    const symbol = item.amount ? getTransactionSymbol(item) : ''
                     const relativeExecutionDate = getRelativeExecutionDate(item.analyticsDate)
                     const relativeExecutionDateLabel = getTranslatedRelativeExecutionDateLabel(relativeExecutionDate, t)
 
@@ -353,7 +354,7 @@ export function ByTransactionTab({ tabsNav }: { tabsNav: ReactNode }) {
                           {relativeExecutionDateLabel}
                         </TableCell>
                         <TableCell className="text-[14px] text-[#1c1c26]">
-                          {formatTokenAmount(item.amount.amount, decimals)} {symbol}
+                          {item.amount ? formatTokenAmount(item.amount.amount, decimals) : 'Private'} {symbol}
                         </TableCell>
                         <TableCell className="text-[14px] text-[#1c1c26]">{item.memberCount.toLocaleString()}</TableCell>
                         <TableCell className="pr-0">

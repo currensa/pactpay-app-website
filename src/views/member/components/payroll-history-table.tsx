@@ -18,7 +18,7 @@ interface PayrollHistoryRow {
   orgId: string
   orgName: string
   memberId: string
-  amount: number
+  amount: number | null
   token: string
   chainName: string
   status: PayrollItemStatus
@@ -80,9 +80,9 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
       setRows(
         data.data.map(tx => {
           const memberItem = tx.items.find(i => i.member?.memberId === memberId) ?? tx.items[0]
-          const rawAmount = memberItem?.amount ?? tx.totalAmount
+          const rawAmount = memberItem?.amount ?? null
           const decimals = getTokenDecimals(tx.caipChainId, tx.tokenAddress ?? '')
-          const amount = Number(rawAmount) / Math.pow(10, decimals)
+          const amount = rawAmount === null ? null : Number(rawAmount) / Math.pow(10, decimals)
           const token = getTokenSymbol(tx.caipChainId, tx.tokenAddress ?? '') ?? tx.tokenAddress?.slice(0, 6) ?? '—'
           return {
             id: tx.id,
@@ -163,7 +163,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
                       {row.transactionName ?? '—'}
                     </TableCell>
                     <TableCell>
-                      {row.amount.toLocaleString()} {row.token}
+                      {row.amount === null ? 'Private' : `${row.amount.toLocaleString()} ${row.token}`}
                     </TableCell>
                     <TableCell className="text-[#606067]">
                       {row.chainName}

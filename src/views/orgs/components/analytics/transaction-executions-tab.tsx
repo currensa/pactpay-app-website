@@ -188,7 +188,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
       const symbol = getTokenSymbol(plan.caipChainId, plan.tokenAddress || '')
         || plan.tokenAddress?.slice(0, 6).toUpperCase()
         || 'TOKEN'
-      const totalAmount = formatPlanTokenAmount(plan.totalAmount || '0', decimals)
+      const totalAmount = plan.totalAmount === null ? null : formatPlanTokenAmount(plan.totalAmount, decimals)
       const name = getTransactionPlanName(plan, t)
       const payDayTimestamp = new Date(plan.payPeriod).getTime()
 
@@ -196,7 +196,7 @@ export function TransactionExecutionsTab({ tabsNav }: { tabsNav: ReactNode }) {
         id: plan.id,
         name,
         membersCount: plan.items.length,
-        amountLabel: `${totalAmount} ${symbol}`,
+        amountLabel: totalAmount === null ? 'Private' : `${totalAmount} ${symbol}`,
         payDayLabel: formatUtcDateTime(plan.payPeriod),
         payDayTimestamp: Number.isNaN(payDayTimestamp) ? 0 : payDayTimestamp,
         status: plan.transactionStatus,

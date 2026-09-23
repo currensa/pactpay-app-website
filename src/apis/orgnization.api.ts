@@ -160,6 +160,12 @@ export interface ActivityLogsResponse {
 export class OrgnizationApi {
   constructor(private readonly request: AxiosInstance) {}
 
+  private privateAmountKey(memberId: string): string {
+    const userId = localStorage.getItem('userId')
+    if (!userId || !this.orgId) throw new Error('Sign in and select an organization before editing a local amount')
+    return `privatePayrollDefault:${userId}:${this.orgId}:${memberId}`
+  }
+
   // 统一获取 organizationId（作为 getter，更简洁）
   private get orgId(): string {
     const orgId = localStorage.getItem('organizationId')
@@ -206,7 +212,24 @@ export class OrgnizationApi {
     const res = await this.request.get<MembersResponse>(`/orgs/${this.orgId}/members`, {
       params: { page, pageSize, ...rest }
     })
-    return res.data
+    return {
+      ...res.data,
+      data: res.data.data.map(member => {
+        let amount: string | null = null
+        try { amount = localStorage.getItem(this.privateAmountKey(member.memberId)) } catch { /* no local default */ }
+        return amount === null ? member : {
+          ...member,
+          payoutIntent: {
+            id: member.payoutIntent?.id ?? member.memberId,
+            caipChainId: member.payoutIntent?.caipChainId ?? '',
+            token: member.payoutIntent?.token ?? '',
+            createdAt: member.payoutIntent?.createdAt ?? '',
+            updatedAt: member.payoutIntent?.updatedAt ?? '',
+            amount,
+          },
+        }
+      }),
+    }
   }
   async checkInviteCodeMembership(code: string) {
     const res = await this.request.get<{ isMember: boolean; orgId: string }>(`/orgs/invite-code/${code}/membership`)
@@ -225,13 +248,15 @@ export class OrgnizationApi {
   }
   // 发送邮箱邀请
   async sendEmailInvitation(payload: Record<string, string>, config?: { skipErrorToast?: boolean }) {
-    const res = await this.request.post<EmailInvitationResponse>(`/orgs/${this.orgId}/invites`, payload, config as any)
+    const res = await this.request.post<EmailInvitationResponse>(`/orgs/${this.orgId}/invites`,
+      { email: payload.email, ...(payload.showName ? { showName: payload.showName } : {}) }, config as any)
     return res.data
   }
-  // 更新成员的支付意向（仅 amount，caipChainId 与 token 由组织发薪配置决定）
+  // Salary defaults stay on this browser and never reach the backend.
   async updateMemberPayoutIntent(memberId: string, payload: { amount: string }) {
-    const res = await this.request.patch<PayoutIntent>(`/orgs/${this.orgId}/members/${memberId}/payout-intent`, payload)
-    return res.data
+    if (!/^\d+(\.\d+)?$/.test(payload.amount)) throw new Error('Invalid payroll amount')
+    localStorage.setItem(this.privateAmountKey(memberId), payload.amount)
+    return { id: memberId, amount: payload.amount, caipChainId: '', token: '', createdAt: '', updatedAt: '' }
   }
   // 删除成员
   async deleteMember(memberId: string) {

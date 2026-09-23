@@ -56,7 +56,7 @@ export interface TransactionAnalyticsNode {
   transactionName: string
   analyticsDate: string
   memberCount: number
-  amount: TransactionAnalyticsAmount
+  amount: TransactionAnalyticsAmount | null
 }
 
 export interface ByTransactionStatisticsResponse {
@@ -124,10 +124,10 @@ export interface MemberHistoryPayoutItem {
   transactionName: string
   batchId: string
   transactionStatus: string
-  amount: TransactionAnalyticsAmount & {
+  amount: (TransactionAnalyticsAmount & {
     symbol?: string
     decimals?: number
-  }
+  }) | null
 }
 
 export interface MemberHistoryActivityLogItem {

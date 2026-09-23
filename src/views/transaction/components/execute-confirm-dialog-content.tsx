@@ -3,7 +3,7 @@ import type { TransactionPlan } from '@/apis/transaction.api'
 import { confirmSync } from '@/lib/confirm-sync'
 import { generateDepositProof } from '@/lib/gravarc/depositProofBrowser'
 import { GRAVARC_ABI, ERC20_ABI as GRAVARC_ERC20_ABI } from '@/lib/gravarc/gravarcAbi'
-import { naclEncrypt } from '@/lib/gravarc/naclCrypto'
+import { naclDecrypt, naclEncrypt } from '@/lib/gravarc/naclCrypto'
 import useChainAssetStore from '@/stores/chain-asset'
 import { normalizeTransactionHash } from '@/utils/evm-transaction'
 import { useTranslation } from '@/utils/i18n'
@@ -11,7 +11,7 @@ import type { Provider } from '@reown/appkit/react'
 import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { getPublicClient } from '@wagmi/core'
 import { useEffect, useState } from 'react'
-import { createWalletClient, custom, type Hex } from 'viem'
+import { createWalletClient, custom, formatUnits, type Hex } from 'viem'
 import { useConfig } from 'wagmi'
 import { TransactionStatusBadge } from './transaction-status-badge'
 import type { Transaction } from './types'
@@ -73,9 +73,11 @@ export function ExecuteConfirmDialogContent({
   transactionPlan,
   onSuccess,
 }: ExecuteConfirmDialogContentProps) {
-  const { getChainAssetByToken, getChain } = useChainAssetStore()
+  const { getChainAssetByToken, getChain, getTokenDecimals } = useChainAssetStore()
   const [status, setStatus] = useState<DepositStatus>('idle')
   const [errorMsg, setErrorMsg] = useState('')
+  const [planPassword, setPlanPassword] = useState('')
+  const [privateTotal, setPrivateTotal] = useState<string | null>(null)
   const isAiTransaction = executingTransaction?.type === 'token_usage_plan'
   // privacy_deposit 与带 privacyTier 的 GravArc 充值批次（token_usage_plan）都走 GravArc 存款路径。
   const { t } = useTranslation()
@@ -147,10 +149,6 @@ export function ExecuteConfirmDialogContent({
       const chainAssetEntry = getChainAssetByToken(transactionPlan.caipChainId, tokenAddress)
       const isNative = chainAssetEntry?.isNative ?? false
 
-      if (!transactionPlan.totalAmount || BigInt(transactionPlan.totalAmount) <= 0n) {
-        throw new Error('Total payroll amount is zero.')
-      }
-
       const walletClient = createWalletClient({ account, transport: custom(provider) })
       const publicClient = getPublicClient(wagmiConfig, { chainId: numericChainId })
       if (!publicClient) throw new Error(`Public client for chain ${numericChainId} is not configured.`)
@@ -160,6 +158,32 @@ export function ExecuteConfirmDialogContent({
       // Fetch privacy deposit data (tier + per-member secretHash/encPubkey/amount)
       setStatus('fetching-data')
       const privacyData = await apis.transaction.getPrivacyDepositData(transactionPlan.id)
+      let privateAmounts: Map<string, bigint> | null = null
+      if (!isAiTransaction) {
+        if (!planPassword || !privacyData.encryptedPlan) throw new Error('Unlock the encrypted payroll plan before execution')
+        const decoded = JSON.parse(await naclDecrypt(privacyData.encryptedPlan, planPassword, walletClient)) as {
+          version: number
+          orgId: string
+          caipChainId: string
+          tokenAddress: string
+          allocations: Array<{ memberId: string; address: string; amount: string }>
+        }
+        if (decoded.version !== 1 || decoded.orgId !== transactionPlan.orgId ||
+          decoded.caipChainId !== transactionPlan.caipChainId ||
+          decoded.tokenAddress.toLowerCase() !== tokenAddress.toLowerCase() ||
+          !Array.isArray(decoded.allocations) || decoded.allocations.length !== privacyData.members.length) {
+          throw new Error('Encrypted payroll plan does not match this deposit')
+        }
+        privateAmounts = new Map()
+        for (const allocation of decoded.allocations) {
+          const recipient = privacyData.members.find(member => member.memberId === allocation.memberId)
+          if (!recipient || recipient.address.toLowerCase() !== allocation.address.toLowerCase() ||
+            privateAmounts.has(allocation.memberId) || !/^\d+$/.test(allocation.amount) || BigInt(allocation.amount) <= 0n) {
+            throw new Error('Encrypted payroll allocation is invalid')
+          }
+          privateAmounts.set(allocation.memberId, BigInt(allocation.amount))
+        }
+      }
 
       // Fetch ZK circuit file CDN links
       setStatus('fetching-circuit')
@@ -196,12 +220,21 @@ export function ExecuteConfirmDialogContent({
       if (refundable && !depositorSecretHash) {
         throw new Error('Refundable deposit requires your account secret - please bind your wallet / set up your GravArc account first.')
       }
-      const receivers = privacyData.members.map(m => ({
-        address: m.address,
-        secretHash: m.secretHash,
-        encPubkey: m.encPubkey,
-        amount: BigInt(m.amount) + BigInt(m.platformFee ?? '0'),
-      }))
+      const receivers = privacyData.members.map(m => {
+        const amount = privateAmounts ? privateAmounts.get(m.memberId) : BigInt(m.amount ?? '0')
+        if (amount === undefined) throw new Error('Encrypted payroll allocation is missing')
+        return {
+          address: m.address,
+          secretHash: m.secretHash,
+          encPubkey: m.encPubkey,
+          amount: amount + BigInt(m.platformFee ?? '0'),
+        }
+      })
+      if (receivers.some(receiver => receiver.amount <= 0n)) throw new Error('Payroll total must be positive')
+      if (privateAmounts) {
+        const total = receivers.reduce((sum, receiver) => sum + receiver.amount, 0n)
+        setPrivateTotal(formatUnits(total, getTokenDecimals(transactionPlan.caipChainId, tokenAddress)))
+      }
       const proofResult = await generateDepositProof(
         receivers,
         BigInt(tokenAddress),
@@ -215,7 +248,7 @@ export function ExecuteConfirmDialogContent({
       // The proof's public totalAmount (Σ gross) must equal the plan total (which also includes service
       // fee). A mismatch means the per-member platformFee fed into the proof is out of sync with the
       // backend — deposit would revert (totalAmount is a proof public input) or mis-credit members.
-      if (proofResult.totalAmount !== BigInt(transactionPlan.totalAmount)) {
+      if (isAiTransaction && proofResult.totalAmount !== BigInt(transactionPlan.totalAmount ?? '0')) {
         throw new Error(
           `Deposit total mismatch: proof totalAmount=${proofResult.totalAmount} but plan totalAmount=${transactionPlan.totalAmount}. ` +
           `Ensure each member's platformFee is present in privacy-deposit-data.`,
@@ -298,6 +331,7 @@ export function ExecuteConfirmDialogContent({
         })
         const pubKeyHex = r.encPubkey.startsWith('0x') ? r.encPubkey.slice(2) : r.encPubkey
         return {
+          clientMessageId: `${transactionPlan.id}:${depositTx}:${i}`,
           address: r.address,
           content: naclEncrypt(msgContent, pubKeyHex),
           secretHash: privacyData.members[i].secretHash,
@@ -355,13 +389,13 @@ export function ExecuteConfirmDialogContent({
         withdrawMessages,
         ...(refundEncContent !== undefined ? { encContent: refundEncContent } : {}),
         ...(refundDepositInfo !== undefined ? { depositInfo: refundDepositInfo } : {}),
+        ...(refundEncContent !== undefined ? { clientRefundId: `${transactionPlan.id}:${depositTx}` } : {}),
         label: executingTransaction?.name || transactionPlan.id,
       })
 
       setStatus('done')
       onSuccess(depositTx)
     } catch (err: any) {
-      console.error(err)
       setErrorMsg(err?.shortMessage || err?.message || String(err))
       setStatus('error')
     }
@@ -401,7 +435,7 @@ export function ExecuteConfirmDialogContent({
             <TransactionStatusBadge status={executingTransaction.status} />
           </div>
           <InfoRow label={t('pages.transactions.totalAmount')}>
-            {executingTransaction.totalAmount} {executingTransaction.currency}
+            {privateTotal ?? (isAiTransaction ? executingTransaction.totalAmount : 'Private')} {executingTransaction.currency}
           </InfoRow>
           <InfoRow label={isAiTransaction ? t('pages.transactions.payees') : t('pages.transactions.totalMembers')}>
             {isAiTransaction ? t('pages.transactions.apiService') : executingTransaction.members}
@@ -435,11 +469,22 @@ export function ExecuteConfirmDialogContent({
         </div>
       )}
 
+      {!isAiTransaction && status !== 'done' && (
+        <input
+          type="password"
+          autoComplete="off"
+          value={planPassword}
+          onChange={event => setPlanPassword(event.target.value)}
+          placeholder="Private account password"
+          className="h-[38px] rounded-[10px] border px-3 text-[13px]"
+        />
+      )}
+
       {/* Footer */}
       <div className="flex items-center justify-end">
         <button
           onClick={handleDeposit}
-          disabled={isBusy || status === 'done'}
+          disabled={isBusy || status === 'done' || (!isAiTransaction && !planPassword)}
           className="h-[38px] px-[16px] rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {stepLabels[status]}

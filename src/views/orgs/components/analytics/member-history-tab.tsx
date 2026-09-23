@@ -557,8 +557,8 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                       </TableRow>
                     ) : (
                       payoutHistory.map(item => {
-                        const decimals = item.amount.decimals ?? 0
-                        const symbol = item.amount.symbol || item.amount.tokenAddress?.slice(0, 6)?.toUpperCase() || ''
+                        const decimals = item.amount?.decimals ?? 0
+                        const symbol = item.amount?.symbol || item.amount?.tokenAddress?.slice(0, 6)?.toUpperCase() || ''
                         const transactionLabel = item.transactionName || item.batchId
 
                         return (
@@ -578,7 +578,7 @@ export function MemberHistoryTab({ tabsNav }: { tabsNav: ReactNode }) {
                               </Button>
                             </TableCell>
                             <TableCell className="pr-0 text-[14px] leading-[22px] text-[#1c1c26]">
-                              {formatTokenAmount(item.amount.amount, decimals)} {symbol}
+                              {item.amount ? formatTokenAmount(item.amount.amount, decimals) : 'Private'} {symbol}
                             </TableCell>
                           </TableRow>
                         )

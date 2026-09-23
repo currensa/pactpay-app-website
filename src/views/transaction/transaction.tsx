@@ -189,7 +189,9 @@ export default function TransactionPage() {
 
     const currency = getTokenSymbol(plan.caipChainId, plan.tokenAddress || '') || plan.tokenAddress || 'USDC'
     const decimals = getTokenDecimals(plan.caipChainId, plan.tokenAddress || '')
-    const totalAmount = formatUnits(BigInt(plan.totalAmount || '0'), decimals)
+    const totalAmount = plan.transactionType === 'privacy_deposit'
+      ? 'Private'
+      : formatUnits(BigInt(plan.totalAmount || '0'), decimals)
     const isComplete = plan.transactionStatus === PayrollTransactionStatus.COMPLETE
     const isDueToday = diffDays === 0 && !isComplete
     const status = (plan.transactionStatus as Transaction['status']) || PayrollTransactionStatus.READY

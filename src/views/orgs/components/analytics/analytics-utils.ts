@@ -225,7 +225,7 @@ export function getShortMonthLabel(month: number, language: PreferenceLanguage =
 }
 
 export function getTransactionSymbol(node: TransactionAnalyticsNode) {
-  return node.amount.symbol || node.amount.tokenAddress.slice(0, 6).toUpperCase()
+  return node.amount?.symbol || node.amount?.tokenAddress.slice(0, 6).toUpperCase() || ''
 }
 
 export function getTransactionPlanName(plan: TransactionPlan, translate?: AnalyticsTranslate) {
@@ -371,4 +371,3 @@ export function formatTranslatedStatusLabel(status: string, translate: Analytics
       return formatStatusLabel(status)
   }
 }
-

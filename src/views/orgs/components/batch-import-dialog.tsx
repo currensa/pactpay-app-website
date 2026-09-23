@@ -85,16 +85,21 @@ export function BatchImportDialog({ open, onOpenChange, onComplete }: Props) {
       toast({ title: t('common.error'), description: t('pages.orgMembers.batchImportDialog.invalidFile'), variant: 'destructive' }); return
     }
     const reader = new FileReader()
+    const showPreview = (parsed: { total: number; headers: string[]; rows: PreviewRow[] }) => {
+      if (parsed.headers.some(header => header.toLowerCase() === 'amount')) {
+        toast({ title: 'Amount import is unavailable', description: 'Payroll amounts stay on this device. Remove the amount column and enter amounts when creating payroll.', variant: 'destructive' })
+        return
+      }
+      setTotal(parsed.total); setHeaders(parsed.headers); setPreviewRows(parsed.rows); setStep('preview')
+    }
     if (isXlsx) {
       reader.onload = e => {
-        const { total: t, headers: h, rows } = parseXlsxForPreview(e.target?.result as ArrayBuffer)
-        setTotal(t); setHeaders(h); setPreviewRows(rows); setStep('preview')
+        showPreview(parseXlsxForPreview(e.target?.result as ArrayBuffer))
       }
       reader.readAsArrayBuffer(file)
     } else {
       reader.onload = e => {
-        const { total: t, headers: h, rows } = parseCsvForPreview(e.target?.result as string)
-        setTotal(t); setHeaders(h); setPreviewRows(rows); setStep('preview')
+        showPreview(parseCsvForPreview(e.target?.result as string))
       }
       reader.readAsText(file)
     }

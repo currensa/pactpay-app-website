@@ -25,9 +25,13 @@ export async function executeJob(job: ConfirmJob): Promise<void> {
         `/transaction/${job.orgId}/batches/${job.batchId}/confirm-deposit`,
         {
           depositTxHash: job.depositTxHash,
-          withdrawMessages: job.withdrawMessages,
+          withdrawMessages: job.withdrawMessages.map((message, index) => ({
+            ...message,
+            clientMessageId: message.clientMessageId ?? `${job.batchId}:${job.depositTxHash}:${index}`,
+          })),
           ...(job.encContent !== undefined ? { encContent: job.encContent } : {}),
           ...(job.depositInfo !== undefined ? { depositInfo: job.depositInfo } : {}),
+          ...(job.encContent !== undefined ? { clientRefundId: job.clientRefundId ?? `${job.batchId}:${job.depositTxHash}` } : {}),
         },
         config,
       )
