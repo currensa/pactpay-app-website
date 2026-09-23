@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test:private-payroll": "node scripts/test-private-payroll.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

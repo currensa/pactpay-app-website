@@ -222,8 +222,6 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
 
       const getMemberField = (member: typeof members[0], field: string): string => {
         switch (field.toLowerCase()) {
-          case 'amount':
-            return String(member.payoutIntent?.amount ?? '')
           case 'email':
             return String(member.email ?? '')
           case 'showname':
