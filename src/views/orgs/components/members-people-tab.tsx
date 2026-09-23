@@ -81,10 +81,10 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
   const pageSize = 10
   const hasPermission = useHasPermission()
 
-  const toApiSortBy = (field: SortField): 'showName' | 'amount' | 'status' | 'createdAt' | 'lastPayment' | undefined => {
+  const toApiSortBy = (field: SortField): 'showName' | 'status' | 'createdAt' | 'lastPayment' | undefined => {
     if (!field) return undefined
     if (field === 'name') return 'showName'
-    if (field === 'serviceFee') return 'amount'
+    if (field === 'serviceFee') return undefined
     return field as 'lastPayment'
   }
 
@@ -464,11 +464,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                 </TableHead>
                 <TableHead>{t('pages.orgMembers.email')}</TableHead>
                 <TableHead>{t('pages.orgMembers.role')}</TableHead>
-                <TableHead>
-                  <button onClick={() => handleSort('serviceFee')} className="flex items-center gap-[4px]">
-                    {t('pages.orgMembers.amount')} <SortIcon field="serviceFee" />
-                  </button>
-                </TableHead>
+                <TableHead>{t('pages.orgMembers.amount')} (this browser)</TableHead>
                 <TableHead>{t('pages.orgMembers.status')}</TableHead>
                 <TableHead>
                   <button onClick={() => handleSort('lastPayment')} className="flex items-center gap-[4px]">
@@ -563,7 +559,7 @@ export function MembersPeopleTab({ tabsNav }: MembersPeopleTabProps) {
                         ) : (
                           <>
                             <span className="whitespace-nowrap">
-                              {member.payoutIntent?.amount ?? 0}{payrollTokenSymbol ? ` ${payrollTokenSymbol}` : ''}
+                              {member.payoutIntent?.amount ?? '—'}{member.payoutIntent?.amount && payrollTokenSymbol ? ` ${payrollTokenSymbol}` : ''}
                             </span>
                             <button
                               onClick={() => {

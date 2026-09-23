@@ -216,7 +216,7 @@ export function MemberDetailContent({
             {/* Amount — editable */}
             <div className="flex items-center justify-between">
               <span className="text-[#8d8d93] text-[13px] leading-[22px]">
-                {t('pages.orgMembers.amount')}{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
+                {t('pages.orgMembers.amount')}{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''} (this browser only)
               </span>
               {editingFee ? (
                 <Input
