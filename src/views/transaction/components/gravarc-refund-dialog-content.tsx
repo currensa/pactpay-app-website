@@ -3,6 +3,7 @@ import { refundPrivacyDeposit } from '@/lib/gravarc/refundPrivacyDeposit'
 import useChainAssetStore from '@/stores/chain-asset'
 import { normalizeTransactionHash } from '@/utils/evm-transaction'
 import { openWalletModal, selectWalletNetwork } from '@/providers/app-kit-provider'
+import { usePrivacyUnlock } from '@/providers/privacy-unlock-provider'
 import { useTranslation } from '@/utils/i18n'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import type { Provider } from '@reown/appkit/react'
@@ -42,6 +43,7 @@ export function GravArcRefundDialogContent({
   const [errorMsg, setErrorMsg] = useState('')
   const [refundTxHash, setRefundTxHash] = useState('')
   const [password, setPassword] = useState('')
+  const { rememberKey, setRememberKey, cachedKeyPair, cacheKeyPair, forgetKeyPair } = usePrivacyUnlock()
   const { t } = useTranslation()
 
   const { isConnected, address } = useAppKitAccount()
@@ -55,7 +57,7 @@ export function GravArcRefundDialogContent({
   async function handleRefund() {
     if (!transactionPlan) return
     setErrorMsg('')
-    if (!password) {
+    if (!password && !cachedKeyPair) {
       setErrorMsg(t('pages.transactions.gravArcRefundPasswordRequired'))
       return
     }
@@ -105,6 +107,8 @@ export function GravArcRefundDialogContent({
         chainIdNum: numericChainId,
         chainName: publicClient.chain?.name ?? 'Unknown',
         password,
+        cachedKeyPair,
+        onUnlocked: keyPair => { if (rememberKey) cacheKeyPair(keyPair) },
         delegate: false,
         onStatus: () => {/* status text driven by stepLabels */},
       })
@@ -210,12 +214,16 @@ export function GravArcRefundDialogContent({
             <input
               type="password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={e => { setPassword(e.target.value); forgetKeyPair() }}
               disabled={isBusy}
               placeholder={t('pages.transactions.gravArcRefundPasswordPlaceholder')}
               className="h-[42px] px-3 rounded-[10px] border border-[#e6e6ea] bg-white text-[14px] text-[#1c1c26] outline-none focus:border-[#5e85ee]"
             />
           </div>
+          <label className="flex items-center gap-2 text-[13px] text-[#606067]">
+            <input type="checkbox" checked={rememberKey} onChange={event => setRememberKey(event.target.checked)} />
+            {t('pages.memberClaim.rememberSession')}
+          </label>
 
           {errorMsg && (
             <div className="bg-[rgba(237,90,90,0.06)] rounded-[10px] px-3 py-2 text-[12px] text-[#ed5a5a] leading-[20px] break-all">{errorMsg}</div>

@@ -295,7 +295,7 @@ export default function MemberDashboard() {
           claimButton={
             <button
               onClick={() => navigate('/member/claim')}
-              disabled={summaryLoading || pendingTokens.length === 0}
+              disabled={summaryLoading}
               className="flex items-center justify-center gap-[6px] rounded-[12px] bg-[#5e85ee] px-[14px] py-[10px] text-[14px] leading-[22px] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
             >
               {t('pages.memberDashboard.claim')}

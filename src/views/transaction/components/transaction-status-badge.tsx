@@ -1,7 +1,12 @@
 import { PayrollItemStatus, PayrollTransactionStatus } from '@/enums/transaction'
 
 
-export function TransactionStatusBadge({ status, pending = false }: { status: PayrollTransactionStatus; pending?: boolean }) {
+export function TransactionStatusBadge({ status, pending = false, privateStatus }: { status: PayrollTransactionStatus; pending?: boolean; privateStatus?: 'confirmed' | 'refunded' }) {
+  if (privateStatus) return (
+    <span className="inline-flex items-center rounded-[8px] bg-[rgba(0,0,0,0.06)] px-2 py-[2px] text-[12px] leading-[22px] text-[#606067] whitespace-nowrap">
+      {privateStatus === 'refunded' ? 'Refunded' : 'Deposit confirmed'}
+    </span>
+  )
   if (pending && status === PayrollTransactionStatus.READY) return (
     <span className="inline-flex items-center rounded-[8px] bg-[rgba(94,133,238,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5e85ee] whitespace-nowrap">
       Syncing delivery

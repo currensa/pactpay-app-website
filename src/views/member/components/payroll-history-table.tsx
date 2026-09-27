@@ -22,6 +22,7 @@ interface PayrollHistoryRow {
   token: string
   chainName: string
   status: PayrollItemStatus
+  isPrivate: boolean
   transactionName: string | null
   txHash: string | null
   caipChainId: string
@@ -94,6 +95,7 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
             token,
             chainName: getChain(tx.caipChainId)?.name ?? tx.caipChainId,
             status: memberItem.status,
+            isPrivate: tx.transactionType === 'privacy_deposit' && tx.transactionStatus === 'complete',
             transactionName: tx.transactionName ?? null,
             txHash: memberItem.txHash ?? null,
             caipChainId: tx.caipChainId,
@@ -184,7 +186,9 @@ export function PayrollHistoryTable({ orgId, memberId, onOrgClick }: PayrollHist
                       )}
                     </TableCell>
                     <TableCell>
-                      <TransactionItemStatusBadge status={row.status} />
+                      {row.isPrivate
+                        ? <span className="text-[12px] text-[#606067]">{t('components.payrollHistoryTable.privateCheckWallet')}</span>
+                        : <TransactionItemStatusBadge status={row.status} />}
                     </TableCell>
                   </TableRow>
                 )

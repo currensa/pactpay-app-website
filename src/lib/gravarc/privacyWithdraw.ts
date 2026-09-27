@@ -12,6 +12,7 @@ import {
   type WithdrawInfo,
 } from '@/lib/gravarc/withdrawProofBrowser'
 import { normalizeTransactionHash } from '@/utils/evm-transaction'
+import { privateWithdrawBalance, validatePrivateWithdrawAmount } from './privateWithdrawBalance'
 import type { Provider } from '@reown/appkit/react'
 import { createPublicClient, createWalletClient, custom, type Hex } from 'viem'
 
@@ -20,6 +21,7 @@ import { createPublicClient, createWalletClient, custom, type Hex } from 'viem'
 export interface PrivacyWithdrawParams {
   item: PrivacyPayrollItem
   recipient: string
+  expectedAmount: bigint
   /** NaCl box key pair derived once from the user's password (decrypts content + secret). */
   keyPair: { secretKey: Uint8Array }
   walletProvider: Provider
@@ -50,6 +52,40 @@ interface DecryptedWithdrawMessage {
   authPathIndices: number[]
 }
 
+/** Read a receiver's private balance only after decrypting its own message. */
+export async function readPrivacyWithdrawState(
+  item: PrivacyPayrollItem,
+  keyPair: { secretKey: Uint8Array },
+  walletProvider: Provider,
+) {
+  const wd = item.withdrawData
+  if (!wd?.content || !wd.gravArcAddress || wd.leafIndex == null) {
+    throw new Error('Withdrawal message is not ready')
+  }
+  let decoded: DecryptedWithdrawMessage
+  try {
+    decoded = JSON.parse(naclDecryptWithKeyPair(wd.content, keyPair)) as DecryptedWithdrawMessage
+  } catch {
+    throw new Error('Failed to decrypt withdraw message — wrong password?')
+  }
+  if (decoded.leafIndex !== wd.leafIndex) throw new Error('Encrypted withdrawal message has a different deposit leaf index')
+  const nullifierHash = await computeNullifierHash(decoded.nullifier)
+  const publicClient = createPublicClient({ transport: custom(walletProvider) })
+  const [claimed] = await publicClient.readContract({
+    address: wd.gravArcAddress as Hex,
+    abi: GRAVARC_ABI,
+    functionName: 'nullifierHashes',
+    args: [nullifierHash],
+  })
+  const refunded = await publicClient.readContract({
+    address: wd.gravArcAddress as Hex,
+    abi: GRAVARC_ABI,
+    functionName: 'refundedNullifierHashes',
+    args: [nullifierHash],
+  })
+  return privateWithdrawBalance(BigInt(decoded.amount), claimed, refunded)
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -60,7 +96,7 @@ interface DecryptedWithdrawMessage {
  * when the allocation has already been fully withdrawn so callers can skip quietly.
  */
 export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promise<PrivacyWithdrawResult> {
-  const { item, recipient, keyPair, walletProvider, account, chainIdNum, chainName, delegate, onStatus } =
+  const { item, recipient, expectedAmount, keyPair, walletProvider, account, chainIdNum, chainName, delegate, onStatus } =
     params
 
   if (delegate) throw new Error('Relayed withdrawal is not available yet')
@@ -130,6 +166,13 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
     functionName: 'nullifierHashes',
     args: [nullifierHash],
   })
+  const refunded = await publicClient.readContract({
+    address: gravArcAddress,
+    abi: GRAVARC_ABI,
+    functionName: 'refundedNullifierHashes',
+    args: [nullifierHash],
+  })
+  if (refunded) throw new Error('This allocation was refunded on-chain')
 
   onStatus?.('Refreshing deposit membership path…')
   const path = await apis.transaction.getDepositMembershipPath(wd.caipChainId, info.leafIndex)
@@ -146,8 +189,7 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
     depositPathIndices: membership.pathIndices,
   }
 
-  const total = BigInt(info.amount)
-  const remaining = total - claimed
+  const { remaining } = privateWithdrawBalance(BigInt(info.amount), claimed, false)
   if (remaining <= 0n) {
     const err = new Error('Nothing left to claim — already fully withdrawn') as Error & { code?: string }
     err.code = 'nothing-to-claim'
@@ -156,7 +198,7 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
 
   // Core direct withdrawal uses the connected transaction sender as relayer.
   // Its proof fee returns to that wallet; the sender also pays network gas.
-  const expectedAmount = remaining
+  validatePrivateWithdrawAmount(expectedAmount, remaining)
   const fee = (expectedAmount + 999n) / 1000n
   const relayer = account as Hex
 
@@ -217,9 +259,8 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash })
   if (receipt.status !== 'success') throw new Error('withdraw transaction reverted')
 
-  // 7. Notify the backend so the payroll item is marked claimed. The on-chain withdraw already
-  // succeeded, so this confirm is queued for durable retry (persisted across reloads) instead of
-  // being awaited once — a failed confirm must not mark an already-withdrawn item as failed.
+  // 7. Verify the public receipt asynchronously; this cannot establish the
+  // private allocation's partial or final claim state.
   onStatus?.('Confirming…')
   await confirmSync.enqueue({
     type: 'confirm-withdraw',

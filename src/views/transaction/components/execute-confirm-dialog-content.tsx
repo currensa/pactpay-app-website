@@ -3,6 +3,7 @@ import type { PrivacyDepositDataResponse, TransactionPlan } from '@/apis/transac
 import { confirmSync } from '@/lib/confirm-sync'
 import { assertPreparedReceipt, attachDepositHash, discardRejectedDeposit, loadPreparedDeposit, prepareDeposit, preparedConfirmJob, type PreparedDeposit } from '@/lib/confirm-sync/preparedDeposit'
 import { generateDepositProof } from '@/lib/gravarc/depositProofBrowser'
+import { createDepositorStatusPayload } from '@/lib/gravarc/depositorClaimStatus'
 import { reviewedPayrollPlanIsCurrent } from '@/lib/gravarc/reviewedPayrollPlan'
 import { GRAVARC_ABI, ERC20_ABI as GRAVARC_ERC20_ABI } from '@/lib/gravarc/gravarcAbi'
 import { naclDecrypt, naclEncrypt } from '@/lib/gravarc/naclCrypto'
@@ -312,17 +313,14 @@ export function ExecuteConfirmDialogContent({
       setStatus('proving')
       const refundable = transactionPlan.privacyRefundable === true
       let depositorSecretHash: string | null = null
-      let depositorEncPubkey: string | null = null
-      if (refundable) {
-        const profile = await apis.auth.getMyGravArcUserInfo()
-        if (!profile || profile.address.toLowerCase() !== account.toLowerCase() ||
-          !/^0x[0-9a-fA-F]{64}$/.test(profile.secretHash) ||
-          !profile.encPubkey || !/^(0x)?[0-9a-fA-F]{64}$/.test(profile.encPubkey)) {
-          throw new Error('Refundable deposit requires a matching, complete depositor privacy profile')
-        }
-        depositorSecretHash = profile.secretHash
-        depositorEncPubkey = profile.encPubkey
+      const profile = (!isAiTransaction || refundable) ? await apis.auth.getMyGravArcUserInfo() : null
+      if ((!isAiTransaction || refundable) && (!profile || profile.address.toLowerCase() !== account.toLowerCase() ||
+        !profile.encPubkey || !/^(0x)?[0-9a-fA-F]{64}$/.test(profile.encPubkey) ||
+        (refundable && !/^0x[0-9a-fA-F]{64}$/.test(profile.secretHash)))) {
+        throw new Error('Deposit requires a matching depositor privacy profile and encryption key')
       }
+      const depositorEncPubkey = profile?.encPubkey ?? null
+      if (refundable) depositorSecretHash = profile!.secretHash
       const receivers = privacyData.members.map(m => {
         const amount = privateAmounts ? privateAmounts.get(m.memberId) : BigInt(m.amount ?? '0')
         if (amount === undefined) throw new Error('Encrypted payroll allocation is missing')
@@ -419,8 +417,21 @@ export function ExecuteConfirmDialogContent({
 
       let refundEncContent: string | undefined
       let refundDepositInfo: string | undefined
-      if (refundable && proofResult.refundSlots.length > 0) {
-        const refundPayload = {
+      if (!isAiTransaction) {
+        if (!depositorEncPubkey) throw new Error('Missing depositor encryption key')
+        const depositorPayload = await createDepositorStatusPayload(
+          transactionPlan.id, privacyData.members, proofResult, tokenAddress, refundable,
+        )
+        const pubKeyHex = depositorEncPubkey.startsWith('0x')
+          ? depositorEncPubkey.slice(2)
+          : depositorEncPubkey
+        refundEncContent = naclEncrypt(JSON.stringify(depositorPayload), pubKeyHex)
+        refundDepositInfo = JSON.stringify({
+          ...(refundable ? { depositorSecretHash: proofResult.depositorSecretHash } : {}),
+          encPubkey: depositorEncPubkey,
+        })
+      } else if (refundable && depositorEncPubkey) {
+        refundEncContent = naclEncrypt(JSON.stringify({
           batchId: transactionPlan.id,
           leafIndex: proofResult.leafIndex,
           token: tokenAddress,
@@ -429,16 +440,18 @@ export function ExecuteConfirmDialogContent({
           depositLeaf: proofResult.depositLeaf,
           depositorSecretHash: proofResult.depositorSecretHash,
           slots: proofResult.refundSlots,
+        }), depositorEncPubkey.startsWith('0x') ? depositorEncPubkey.slice(2) : depositorEncPubkey)
+        refundDepositInfo = JSON.stringify({ depositorSecretHash: proofResult.depositorSecretHash, encPubkey: depositorEncPubkey })
+      }
+
+      if (!isAiTransaction) {
+        const latest = await apis.transaction.getPrivacyDepositData(transactionPlan.id)
+        if (latest.transactionStatus !== 'ready' ||
+          latest.depositorAddress.toLowerCase() !== account.toLowerCase() ||
+          latest.privacyRefundable !== transactionPlan.privacyRefundable ||
+          !reviewedPayrollPlanIsCurrent(reviewedEncryptedPlan, latest.encryptedPlan, reviewedAllocations, latest.members)) {
+          throw new Error('Payroll plan or member wallets changed before submission; review it again')
         }
-        if (!depositorEncPubkey) throw new Error('Missing depositor encryption key')
-        const pubKeyHex = depositorEncPubkey.startsWith('0x')
-          ? depositorEncPubkey.slice(2)
-          : depositorEncPubkey
-        refundEncContent = naclEncrypt(JSON.stringify(refundPayload), pubKeyHex)
-        refundDepositInfo = JSON.stringify({
-          depositorSecretHash: proofResult.depositorSecretHash,
-          encPubkey: depositorEncPubkey,
-        })
       }
 
       const preparedDeposit: PreparedDeposit = {

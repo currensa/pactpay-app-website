@@ -317,17 +317,16 @@ export class TransactionApi {
     return res.data
   }
 
-  // 获取平台 relayer 地址 + 该链是否支持 relayer 代付（withdraw + refund 共用，链级配置约束委托/直发）
-  // GravArc 隐私退款 txHash 确认
+  // Verify a direct refund receipt; this is not a final private-deposit status.
   async confirmGravArcRefund(batchId: string, refundTxHash: string) {
-    const res = await this.request.post<{ success: boolean }>(
+    const res = await this.request.post<{ status: 'receipt_verified'; txHash: string }>(
       `/transaction/${this.orgId}/batches/${batchId}/confirm-refund-gravarc`,
       { depositTxHash: refundTxHash },
     )
     return res.data
   }
 
-  // 读取可退款存款的加密退款载荷（便携化：存款人在任意设备登录后取回 encContent 解密）
+  // Read depositor-encrypted status data, including refund recovery when enabled.
   async getRefundPayload(batchId: string) {
     const res = await this.request.get<{ encContent: string | null; depositInfo: string | null }>(
       `/transaction/${this.orgId}/batches/${batchId}/refund-payload`,

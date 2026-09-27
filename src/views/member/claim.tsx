@@ -3,10 +3,12 @@ import type { FavoriteAddressItem } from '@/apis/favorite-address.api'
 import type { PrivacyPayrollItem, WithdrawalBatchResult } from '@/apis/transaction.api'
 import { useToast } from '@/components/ui/use-toast'
 import { deriveNaclKeyPair } from '@/lib/gravarc/naclCrypto'
-import { withdrawPrivacyItem } from '@/lib/gravarc/privacyWithdraw'
+import { readPrivacyWithdrawState, withdrawPrivacyItem } from '@/lib/gravarc/privacyWithdraw'
+import { validatePrivateWithdrawAmount } from '@/lib/gravarc/privateWithdrawBalance'
 import { buildExplorerTransactionUrl } from '@/utils/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
 import { openWalletModal, selectWalletNetwork } from '@/providers/app-kit-provider'
+import { usePrivacyUnlock } from '@/providers/privacy-unlock-provider'
 import useAuthStore from '@/stores/auth'
 import useHeaderStore from '@/stores/header'
 import { useTranslation } from '@/utils/i18n'
@@ -76,6 +78,7 @@ export default function ClaimPage() {
   const { t } = useTranslation()
   const { address } = useAppKitAccount()
   const profileUserId = useAuthStore(state => state.gravArcUserInfo?.userId)
+  const { rememberKey, setRememberKey, cachedKeyPair, cacheKeyPair, forgetKeyPair } = usePrivacyUnlock()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const userAction = useRef(false)
   const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, getTokenIconUrl, chains } = useChainAssetStore()
@@ -83,6 +86,11 @@ export default function ClaimPage() {
 
   const [summaryLoading, setSummaryLoading] = useState(false)
   const [allPending, setAllPending] = useState<PendingToken[]>([])
+  const [privateItems, setPrivateItems] = useState<PrivacyPayrollItem[]>([])
+  const [privateBalances, setPrivateBalances] = useState<Record<string, Awaited<ReturnType<typeof readPrivacyWithdrawState>>>>({})
+  const [selectedPrivateItemId, setSelectedPrivateItemId] = useState('')
+  const [privateAmount, setPrivateAmount] = useState('')
+  const [checkingPrivate, setCheckingPrivate] = useState(false)
   const [selectedChain, setSelectedChain] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [recipient, setRecipient] = useState('')
@@ -93,27 +101,25 @@ export default function ClaimPage() {
   const [recentRecipients, setRecentRecipients] = useState<RecentRecipientItem[]>([])
   // Privacy withdraw (privacy_deposit) — password unlocks the encrypted Secret + message
   const [password, setPassword] = useState('')
-  const [rememberKey, setRememberKey] = useState(false)
-  const [chainHasPrivacy, setChainHasPrivacy] = useState(false)
   const [privacyStatus, setPrivacyStatus] = useState('')
-  const cachedKeyPairRef = useRef<Awaited<ReturnType<typeof deriveNaclKeyPair>> | null>(null)
-  const cachedIdentityRef = useRef<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const recipientDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const identity = `${profileUserId ?? localStorage.getItem('userId') ?? ''}:${address?.toLowerCase() ?? ''}`
-    if (cachedIdentityRef.current !== identity) {
-      cachedKeyPairRef.current = null
-      setPassword('')
-      cachedIdentityRef.current = identity
-    }
+    setPassword('')
+    setPrivateBalances({})
+    setSelectedPrivateItemId('')
+    setPrivateAmount('')
   }, [address, profileUserId])
 
   // Derived
-  const availableChainIds = [...new Set(allPending.map(p => p.caipChainId))]
+  const availableChainIds = [...new Set([...allPending.map(p => p.caipChainId), ...privateItems.map(p => p.batch.caipChainId)])]
   const availableChains = chains.filter(c => availableChainIds.includes(c.caipChainId))
   const pendingForChain = selectedChain ? allPending.filter(p => p.caipChainId === selectedChain) : []
+  const privateForChain = privateItems.filter(item => item.batch.caipChainId === selectedChain)
+  const chainHasPrivacy = privateForChain.length > 0
+  const selectedPrivateItem = privateForChain.find(item => item.id === selectedPrivateItemId)
+  const selectedPrivateBalance = selectedPrivateItem ? privateBalances[selectedPrivateItem.id] : undefined
   const selectedChainName = chains.find(c => c.caipChainId === selectedChain)?.name ?? ''
   const trimmedRecipient = recipient.trim()
 
@@ -178,21 +184,6 @@ export default function ClaimPage() {
     return () => clearHeader()
   }, [])
 
-  // Detect whether the selected chain has privacy_deposit items pending — drives the
-  // password field visibility.
-  useEffect(() => {
-    let cancelled = false
-    if (!selectedChain) { setChainHasPrivacy(false); return }
-    apis.transaction
-      .getMyPayrollItems({ status: 'claimable', caipChainId: selectedChain, page: 1, pageSize: 100 })
-      .then(data => {
-        if (cancelled) return
-        setChainHasPrivacy((data.data ?? []).some(i => i.transactionType === 'privacy_deposit' && i.withdrawData))
-      })
-      .catch(() => { if (!cancelled) setChainHasPrivacy(false) })
-    return () => { cancelled = true }
-  }, [selectedChain])
-
   // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -253,7 +244,12 @@ export default function ClaimPage() {
   const loadSummary = async () => {
     try {
       setSummaryLoading(true)
-      const data = await apis.transaction.getMySummary()
+      const [data, claimable] = await Promise.all([
+        apis.transaction.getMySummary(),
+        fetchAllClaimable(),
+      ])
+      const privacy = claimable.filter(item => item.transactionType === 'privacy_deposit' && item.withdrawData)
+      setPrivateItems(privacy)
       const tokens: PendingToken[] = data.pendingClaim.map(item => ({
         tokenAddress: item.tokenAddress,
         caipChainId: item.caipChainId,
@@ -262,7 +258,7 @@ export default function ClaimPage() {
         iconUrl: getTokenIconUrl(item.caipChainId, item.tokenAddress),
       }))
       setAllPending(tokens)
-      if (tokens.length > 0 && !selectedChain) setSelectedChain(tokens[0].caipChainId)
+      if (!selectedChain) setSelectedChain(tokens[0]?.caipChainId ?? privacy[0]?.batch.caipChainId ?? '')
     } catch {
       // request interceptor handles API errors
     } finally {
@@ -271,7 +267,7 @@ export default function ClaimPage() {
   }
 
   // Fetch all claimable payroll items for a chain (paginate through all pages).
-  const fetchAllClaimable = async (caipChainId: string): Promise<PrivacyPayrollItem[]> => {
+  const fetchAllClaimable = async (caipChainId?: string): Promise<PrivacyPayrollItem[]> => {
     const PAGE_SIZE = 100
     let page = 1
     const items: PrivacyPayrollItem[] = []
@@ -289,9 +285,54 @@ export default function ClaimPage() {
     return items
   }
 
+  const checkPrivateBalances = async () => {
+    if (!selectedChain || !chainHasPrivacy) return
+    if (!address || !walletProvider) {
+      await openWalletModal(Number(selectedChain.split(':')[1]))
+      return
+    }
+    if (!password && !cachedKeyPair) {
+      toast({ description: t('pages.memberClaim.enterPasswordToast'), variant: 'destructive' })
+      return
+    }
+    try {
+      setCheckingPrivate(true)
+      const chainEntry = chains.find(chain => chain.caipChainId === selectedChain)
+      if (!chainEntry) throw new Error('Selected chain is not configured')
+      const chainIdNum = Number(chainEntry.chainId)
+      await selectWalletNetwork(chainIdNum)
+      const currentChainIdHex = await walletProvider.request<string>({ method: 'eth_chainId' })
+      if (parseInt(currentChainIdHex, 16) !== chainIdNum) throw new Error('Wallet did not switch to the claim network')
+      let keyPair = cachedKeyPair
+      if (!keyPair) {
+        const walletClient = createWalletClient({ account: address as Hex, transport: custom(walletProvider) })
+        keyPair = await deriveNaclKeyPair(password, walletClient as Parameters<typeof deriveNaclKeyPair>[1])
+      }
+      const balances: typeof privateBalances = {}
+      for (const item of privateForChain) {
+        balances[item.id] = await readPrivacyWithdrawState(item, keyPair, walletProvider)
+      }
+      if (rememberKey) cacheKeyPair(keyPair)
+      setPrivateBalances(balances)
+      const first = privateForChain.find(item => balances[item.id]?.remaining > 0n)
+      if (first) {
+        setSelectedPrivateItemId(first.id)
+        setPrivateAmount(ethers.formatUnits(balances[first.id].remaining, getTokenDecimals(selectedChain, first.tokenAddress)))
+      } else {
+        setSelectedPrivateItemId('')
+        setPrivateAmount('')
+      }
+    } catch (error) {
+      toast({ title: t('common.error'), description: error instanceof Error ? error.message : 'Could not read private balances', variant: 'destructive' })
+    } finally {
+      setCheckingPrivate(false)
+    }
+  }
+
   // ── Privacy withdraw branch: decrypt → ZK proof → on-chain withdraw → confirm-withdraw ──
   const runPrivacyWithdraw = async (
-    items: PrivacyPayrollItem[],
+    item: PrivacyPayrollItem,
+    expectedAmount: bigint,
     chainIdNum: number,
     chainName: string,
     explorerUrl: string | null,
@@ -299,38 +340,37 @@ export default function ClaimPage() {
     const succeeded: WithdrawalBatchResult['succeeded'] = []
     const failed: WithdrawalBatchResult['failed'] = []
 
-    let keyPair = cachedKeyPairRef.current
+    let keyPair = cachedKeyPair
     if (!keyPair) {
       const walletClient = createWalletClient({ account: address! as Hex, transport: custom(walletProvider!) })
       keyPair = await deriveNaclKeyPair(password, walletClient as Parameters<typeof deriveNaclKeyPair>[1])
-      if (rememberKey) cachedKeyPairRef.current = keyPair
     }
 
-    for (const item of items) {
-      try {
-        const res = await withdrawPrivacyItem({
-          item,
-          recipient: trimmedRecipient,
-          keyPair,
-          walletProvider: walletProvider!,
-          account: address!,
-          chainIdNum,
-          chainName,
-          delegate: false,
-          onStatus: msg => setPrivacyStatus(`${item.transactionName ?? item.id}: ${msg}`),
-        })
-        succeeded.push({
-          payrollItemId: item.id,
-          txUrl: buildExplorerTransactionUrl(explorerUrl, res.txHash) ?? '',
-          transactionName: item.transactionName ?? item.id,
-        })
-      } catch (err: any) {
-        if (axios.isAxiosError(err)) throw err
-        const reason = err?.code === 'nothing-to-claim'
-          ? 'Already withdrawn'
-          : (err?.shortMessage || err?.message || 'Withdraw failed')
-        failed.push({ payrollItemId: item.id, reason })
-      }
+    try {
+      const res = await withdrawPrivacyItem({
+        item,
+        recipient: trimmedRecipient,
+        expectedAmount,
+        keyPair,
+        walletProvider: walletProvider!,
+        account: address!,
+        chainIdNum,
+        chainName,
+        delegate: false,
+        onStatus: msg => setPrivacyStatus(`${item.transactionName ?? item.id}: ${msg}`),
+      })
+      if (rememberKey) cacheKeyPair(keyPair)
+      succeeded.push({
+        payrollItemId: item.id,
+        txUrl: buildExplorerTransactionUrl(explorerUrl, res.txHash) ?? '',
+        transactionName: item.transactionName ?? item.id,
+      })
+    } catch (err: any) {
+      if (axios.isAxiosError(err)) throw err
+      const reason = err?.code === 'nothing-to-claim'
+        ? 'Already withdrawn'
+        : (err?.shortMessage || err?.message || 'Withdraw failed')
+      failed.push({ payrollItemId: item.id, reason })
     }
     setPrivacyStatus('')
     return { succeeded, failed }
@@ -367,12 +407,17 @@ export default function ClaimPage() {
         toast({ description: t('pages.memberClaim.noPendingItemsNetwork') })
         return
       }
+      const item = items.find(i => i.id === selectedPrivateItemId && i.transactionType === 'privacy_deposit' && i.withdrawData)
+      if (!item) throw new Error('Select one private allocation and check its live balance first')
+      const balance = privateBalances[item.id]
+      if (!balance || balance.remaining <= 0n) throw new Error('Refresh the live balance before withdrawing')
+      const decimals = getTokenDecimals(selectedChain, item.tokenAddress)
+      let expectedAmount: bigint
+      try { expectedAmount = ethers.parseUnits(privateAmount.trim(), decimals) }
+      catch { throw new Error('Enter a valid withdrawal amount') }
+      validatePrivateWithdrawAmount(expectedAmount, balance.remaining)
 
-      const privacyItems = items.filter(i => i.transactionType === 'privacy_deposit' && i.withdrawData)
-
-
-      // Privacy withdrawals need a password to unlock the encrypted Secret.
-      if (privacyItems.length > 0 && !password && !cachedKeyPairRef.current) {
+      if (!password && !cachedKeyPair) {
         toast({ description: t('pages.memberClaim.enterPasswordToast'), variant: 'destructive' })
         return
       }
@@ -390,17 +435,15 @@ export default function ClaimPage() {
       const succeeded: WithdrawalBatchResult['succeeded'] = []
       const failed: WithdrawalBatchResult['failed'] = []
 
-      // Process the claimable GravArc items for this chain.
-      if (privacyItems.length > 0) {
-        const r = await runPrivacyWithdraw(privacyItems, chainIdNum, chainEntry.name, explorerUrl)
-        succeeded.push(...r.succeeded)
-        failed.push(...r.failed)
-      }
+      const r = await runPrivacyWithdraw(item, expectedAmount, chainIdNum, chainEntry.name, explorerUrl)
+      succeeded.push(...r.succeeded)
+      failed.push(...r.failed)
 
 
 
       setClaimResult({ succeeded, failed })
       await Promise.all([loadSummary(), loadAddressSuggestions()])
+      if (succeeded.length) await checkPrivateBalances()
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
         return
@@ -453,7 +496,13 @@ export default function ClaimPage() {
                 {availableChains.map(chain => (
                   <button
                     key={chain.caipChainId}
-                    onClick={() => { setSelectedChain(chain.caipChainId); setDropdownOpen(false) }}
+                    onClick={() => {
+                      setSelectedChain(chain.caipChainId)
+                      setSelectedPrivateItemId('')
+                      setPrivateBalances({})
+                      setPrivateAmount('')
+                      setDropdownOpen(false)
+                    }}
                     className={`w-full px-[16px] py-[10px] flex items-center gap-[8px] text-left text-[14px] leading-[22px] hover:bg-[#f5f5f5] transition-colors ${selectedChain === chain.caipChainId ? 'text-[#5e85ee] font-medium' : 'text-[#1c1c26]'
                       }`}
                   >
@@ -475,12 +524,13 @@ export default function ClaimPage() {
                 <IconLoader2 className="h-[16px] w-[16px] animate-spin" />
                 {t('common.loading')}
               </div>
-            ) : pendingForChain.length === 0 ? (
+            ) : pendingForChain.length === 0 && privateForChain.length === 0 ? (
               <p className="text-[14px] leading-[22px] text-[#8d8d93] py-[4px]">
                 {selectedChain ? t('pages.memberClaim.noPendingForNetwork') : t('pages.memberClaim.selectNetworkToView')}
               </p>
             ) : (
-              pendingForChain.map(token => (
+              <>
+              {pendingForChain.map(token => (
                 <div
                   key={token.tokenAddress}
                   className="bg-[#f5f5f5] rounded-[16px] px-[16px] py-[10px] flex items-center justify-between"
@@ -493,7 +543,35 @@ export default function ClaimPage() {
                     {token.amount.toLocaleString()}
                   </p>
                 </div>
-              ))
+              ))}
+              {privateForChain.map(item => {
+                const balance = privateBalances[item.id]
+                const decimals = getTokenDecimals(selectedChain, item.tokenAddress)
+                const symbol = getTokenSymbol(selectedChain, item.tokenAddress) ?? item.tokenAddress.slice(0, 6)
+                return (
+                  <button
+                    type="button"
+                    key={item.id}
+                    disabled={!balance || balance.remaining <= 0n}
+                    onClick={() => {
+                      setSelectedPrivateItemId(item.id)
+                      setPrivateAmount(ethers.formatUnits(balance.remaining, decimals))
+                    }}
+                    className={`w-full rounded-[16px] border px-[16px] py-[10px] text-left disabled:cursor-not-allowed ${selectedPrivateItemId === item.id ? 'border-[#5e85ee]' : 'border-transparent'} bg-[#f5f5f5]`}
+                  >
+                    <span className="text-[14px] text-[#1c1c26]">{item.transactionName ?? item.id} · {symbol}</span>
+                    <span className="block text-[13px] text-[#606067]">
+                      {!balance ? t('pages.memberClaim.privateUnlockBalance') : (
+                        <>
+                          {t('pages.memberClaim.privateTotal')}: {ethers.formatUnits(balance.total, decimals)} · {t('pages.memberClaim.privateClaimed')}: {ethers.formatUnits(balance.claimed, decimals)} · {t('pages.memberClaim.privateRemaining')}: {ethers.formatUnits(balance.remaining, decimals)}
+                          {balance.refunded ? ` · ${t('pages.memberClaim.privateRefunded')}` : ''}
+                        </>
+                      )}
+                    </span>
+                  </button>
+                )
+              })}
+              </>
             )}
           </div>
         </div>
@@ -650,7 +728,13 @@ export default function ClaimPage() {
             <input
               type="password"
               value={password}
-              onChange={e => { setPassword(e.target.value); cachedKeyPairRef.current = null }}
+              onChange={e => {
+                setPassword(e.target.value)
+                forgetKeyPair()
+                setPrivateBalances({})
+                setSelectedPrivateItemId('')
+                setPrivateAmount('')
+              }}
               placeholder={t('pages.memberClaim.passwordPlaceholder')}
               autoComplete="off"
               className="w-full rounded-[12px] bg-[#f5f5f5] px-[16px] py-[12px] text-[14px] leading-[22px] text-[#1c1c26] placeholder:text-[#bbbbbe] outline-none"
@@ -676,6 +760,26 @@ export default function ClaimPage() {
             <p className="text-[13px] leading-[20px] text-[#8d8d93]">
               {t('pages.memberClaim.privacyWithdrawHelp')}
             </p>
+            <button
+              type="button"
+              onClick={checkPrivateBalances}
+              disabled={checkingPrivate || (!password && !cachedKeyPair)}
+              className="w-fit rounded-[12px] border border-[#5e85ee] px-[14px] py-[8px] text-[13px] text-[#5e85ee] disabled:opacity-40"
+            >
+              {checkingPrivate ? 'Checking on-chain balances…' : 'Check private balances'}
+            </button>
+            {selectedPrivateItem && selectedPrivateBalance?.remaining && selectedPrivateBalance.remaining > 0n && (
+              <label className="flex flex-col gap-[6px] text-[13px] text-[#606067]">
+                Amount to withdraw ({getTokenSymbol(selectedChain, selectedPrivateItem.tokenAddress) ?? selectedPrivateItem.tokenAddress.slice(0, 6)})
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={privateAmount}
+                  onChange={event => setPrivateAmount(event.target.value)}
+                  className="rounded-[12px] bg-[#f5f5f5] px-[16px] py-[12px] text-[14px] text-[#1c1c26] outline-none"
+                />
+              </label>
+            )}
           </div>
         )}
 
@@ -687,8 +791,11 @@ export default function ClaimPage() {
               claiming
               || summaryLoading
               || !selectedChain
-              || pendingForChain.length === 0
-              || (chainHasPrivacy && !password && !cachedKeyPairRef.current)
+              || !selectedPrivateItemId
+              || !selectedPrivateBalance
+              || selectedPrivateBalance.remaining <= 0n
+              || !privateAmount.trim()
+              || (chainHasPrivacy && !password && !cachedKeyPair)
             }
             className="flex w-fit items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[14px] py-[10px] text-[14px] leading-[22px] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
           >

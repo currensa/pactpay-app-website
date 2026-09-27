@@ -9,12 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScr
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
+import useAuthStore from '@/stores/auth'
 import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
 import { useTranslation } from '@/utils/i18n'
 import { formatUnits } from 'ethers'
 import { CreditCard, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useAppKitAccount } from '@reown/appkit/react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   DeleteConfirmDialogContent,
@@ -28,6 +30,7 @@ import { formatLocalDateTime, getRelativeExecutionDate, getRelativeExecutionDate
 import { getHighestRole, Permission, useHasPermission } from '@/utils/permissions'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import { TransactionItemStatusBadge, TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
+import { PrivateDepositStatus } from './components/private-deposit-status'
 
 const ITEMS_PER_PAGE = 20
 
@@ -43,9 +46,15 @@ export default function TransactionDetail() {
   const { getTokenSymbol, getTokenDecimals, fetchChainAssets, fetchChains, getChain } = useChainAssetStore()
   const { setHeader, clearHeader } = useHeaderStore()
   const hasPermission = useHasPermission()
+  const { address } = useAppKitAccount()
+  const profileUserId = useAuthStore(state => state.gravArcUserInfo?.userId)
+  const sessionUserId = localStorage.getItem('userId')
+  const refundIdentity = address && sessionUserId && (!profileUserId || profileUserId === sessionUserId)
+    ? `${sessionUserId}:eip155:${address.toLowerCase()}` : null
   const currentMember = useOrganizationStore(s => s.currentMember)
 
   const [plan, setPlan] = useState<TransactionPlan | null>(null)
+  const [privateRefundCheck, setPrivateRefundCheck] = useState<{ planId: string; identity: string; verified: boolean } | null>(null)
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -127,6 +136,9 @@ export default function TransactionDetail() {
   const isDueToday = diffDays === 0 && plan.transactionStatus !== PayrollTransactionStatus.COMPLETE
   const isComplete = plan.transactionStatus === PayrollTransactionStatus.COMPLETE
   const isRefunded = plan.transactionStatus === PayrollTransactionStatus.REFUNDED
+  const verifiedRefund = privateRefundCheck?.planId === plan.id && privateRefundCheck.identity === refundIdentity && privateRefundCheck.verified
+  const privateStatus = plan.transactionType === 'privacy_deposit' && plan.depositTxHash && (isComplete || isRefunded)
+    ? verifiedRefund ? 'refunded' : 'confirmed' : undefined
   let preparedDeposit: { txHash?: string } | null
   try { preparedDeposit = loadPreparedDeposit(localStorage.getItem('userId') ?? '', plan.orgId, plan.id) }
   catch { preparedDeposit = {} }
@@ -220,7 +232,7 @@ export default function TransactionDetail() {
             {/* Status badge + transaction name */}
             <div className="relative flex min-w-0 flex-wrap items-center gap-[10px] pl-[12px]">
               <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-[4px] h-[22px] rounded-full ${isComplete ? 'bg-[#5ddd22]' : isRefunded ? 'bg-[#606067]' : 'bg-[#5e85ee]'}`} />
-              <TransactionStatusBadge status={plan.transactionStatus} pending={action === 'pending'} />
+              <TransactionStatusBadge status={plan.transactionStatus} privateStatus={privateStatus} pending={action === 'pending'} />
               <span className="min-w-0 break-words text-[#1c1c26] text-[16px] font-bold leading-[26px]">{plan.transactionName}</span>
             </div>
             {/* Meta row */}
@@ -248,7 +260,7 @@ export default function TransactionDetail() {
               ? (
                 <>
                   {/* GravArc 隐私退款：仅 privacy_deposit 且可退款批次显示 */}
-                  {hasPermission(Permission.EXECUTE_TRANSACTION) && plan.transactionType === 'privacy_deposit' && plan.privacyRefundable === true && (
+                  {plan.createdBy === localStorage.getItem('userId') && plan.transactionType === 'privacy_deposit' && plan.privacyRefundable === true && (
                     <button
                       onClick={() => setGravArcRefundOpen(true)}
                       className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(255,168,0,0.4)] bg-white px-[14px] text-[13px] text-[#c47d00] transition-colors hover:bg-[rgba(255,168,0,0.06)]"
@@ -334,6 +346,10 @@ export default function TransactionDetail() {
             </div>
           )}
         </div>
+        {(isComplete || isRefunded) && plan.transactionType === 'privacy_deposit' && (
+          <PrivateDepositStatus plan={plan} symbol={tokenSymbol} decimals={decimals}
+            onRefundVerified={verified => setPrivateRefundCheck(refundIdentity ? { planId: plan.id, identity: refundIdentity, verified } : null)} />
+        )}
       </div>
 
       {/* ── Members table ───────────────────────────────────────────────────── */}
@@ -400,7 +416,9 @@ export default function TransactionDetail() {
                       <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{item.member?.email ?? '-'}</TableCell>
                       <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">{getHighestRole(item.member.roles)}</TableCell>
                       <TableCell className="py-[14px]">
-                        <TransactionItemStatusBadge status={item.status} />
+                        {plan.transactionType === 'privacy_deposit' && isComplete
+                          ? <span className="text-[12px] text-[#606067]">{t('components.payrollHistoryTable.privateCheckWallet')}</span>
+                          : <TransactionItemStatusBadge status={item.status} />}
                       </TableCell>
                       <TableCell className="text-[13px] text-[#1c1c26] leading-[22px] py-[14px]">
                         {amountFormatted} {tokenSymbol}

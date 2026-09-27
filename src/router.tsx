@@ -7,6 +7,7 @@ import {
   IconCashMove,
   IconLayoutDashboard,
   IconSettings,
+  IconWallet,
   IconUsers
 } from '@tabler/icons-react'
 import { lazy } from 'react'
@@ -177,7 +178,7 @@ const routes: RouteItem[] = [
           { index: true, element: <Navigate to="member/dashboard" /> },
           { path: 'dashboard', navIcon: IconLayoutDashboard, element: <MemberDashboard />, meta: { title: 'Dashboard', titleKey: 'route.dashboard', subtitle: "Monitor your organization's key metrics and activities", subtitleKey: 'route.dashboardSubtitle' } },
           { path: 'orgdetail', element: <MemberOrgsDetail />, meta: { title: 'TechCorp Inc.', titleKey: 'route.memberOrgDetail' } },
-          { path: 'claim', element: <MemberClaim />, meta: { title: 'Claim', titleKey: 'route.claim', subtitle: 'Merge claim: all pending funds in one transaction. Gas is paid by the platform.', subtitleKey: 'route.claimSubtitle' } },
+          { path: 'claim', navIcon: IconWallet, element: <MemberClaim />, meta: { title: 'Claim', titleKey: 'route.claim', subtitle: 'Withdraw one private allocation directly from your wallet.', subtitleKey: 'route.claimSubtitle' } },
           { path: 'notifications', element: <NotificationsPage />, meta: { title: 'Notifications', titleKey: 'route.notifications', subtitle: 'Showing notifications for Engineering Team', subtitleKey: 'route.notificationsSubtitle', hideInMenu: true } },
           { path: 'settings', navIcon: IconSettings, element: <MemberSettings />, meta: { title: 'Settings', titleKey: 'route.settings', subtitle: 'Manage your account settings', subtitleKey: 'route.memberSettingsSubtitle' } }
         ]

@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useToast } from '@/components/ui/use-toast'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { LANGUAGE_OPTIONS } from '@/i18n/messages'
+import { usePrivacyUnlock } from '@/providers/privacy-unlock-provider'
 import { getRouteMeta } from '@/router'
 import useHeaderStore from '@/stores/header'
 import useNotificationStore from '@/stores/notification'
@@ -92,6 +93,7 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { disconnect } = useDisconnect()
+  const { clear: clearPrivacyUnlock } = usePrivacyUnlock()
   const { steps, breadcrumb, backUrl } = useHeaderStore()
   const { t } = useTranslation()
   const { toast } = useToast()
@@ -191,6 +193,7 @@ export default function AppHeader({ onMenuClick }: AppHeaderProps) {
   }, [location.pathname, location.state, t])
 
   async function handleLogout() {
+    clearPrivacyUnlock()
     await disconnect()
     localStorage.removeItem('token')
     localStorage.removeItem('userId')

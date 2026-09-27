@@ -12,7 +12,10 @@ import {
 } from '@/lib/gravarc/naclCrypto'
 import { poseidonHash } from '@/lib/gravarc/poseidon'
 import { generateRefundProof, type RefundSlot } from '@/lib/gravarc/refundProofBrowser'
+import { verifyRefundPayloadCommitment } from './refundPayloadCommitment'
+import type { DepositorStatusPayload } from './depositorClaimStatus'
 import type { Provider } from '@reown/appkit/react'
+import type { BoxKeyPair } from 'tweetnacl'
 import { createPublicClient, custom, type Hex, type WalletClient } from 'viem'
 
 /** 存款时本地保存的退款载荷（见 execute-confirm-dialog-content.tsx）。 */
@@ -27,11 +30,13 @@ export type RefundPayload = {
   slots: RefundSlot[]
 }
 
+type DepositorPayload = RefundPayload | DepositorStatusPayload
+
 /** Pending ciphertext is a fallback until the backend has confirmed delivery. */
-export function readRefundPayload(batchId: string, keyPair: { secretKey: Uint8Array }): RefundPayload | null {
+export function readRefundPayload(batchId: string, keyPair: { secretKey: Uint8Array }): DepositorPayload | null {
   try {
     const pending = loadPreparedDeposit(localStorage.getItem('userId') ?? '', localStorage.getItem('organizationId') ?? '', batchId)
-    if (pending?.encContent) return JSON.parse(naclDecryptWithKeyPair(pending.encContent, keyPair)) as RefundPayload
+    if (pending?.encContent) return JSON.parse(naclDecryptWithKeyPair(pending.encContent, keyPair)) as DepositorPayload
     // Read-only legacy fallback. New deposits never write plaintext refund slots.
     const raw = localStorage.getItem(`gravArcRefundPayload:${batchId}`)
     if (!raw) return null
@@ -39,6 +44,31 @@ export function readRefundPayload(batchId: string, keyPair: { secretKey: Uint8Ar
   } catch {
     return null
   }
+}
+
+export async function loadDepositorPayload(batchId: string, keyPair: { secretKey: Uint8Array }): Promise<DepositorPayload> {
+  let payload: DepositorPayload | null = null
+  try {
+    const { encContent } = await apis.transaction.getRefundPayload(batchId)
+    if (encContent) payload = JSON.parse(naclDecryptWithKeyPair(encContent, keyPair)) as DepositorPayload
+  } catch {
+    // Pending local ciphertext can be used while delivery is still syncing.
+  }
+  payload ??= readRefundPayload(batchId, keyPair)
+  if (!payload) throw new Error('Depositor recovery data is unavailable for this deposit')
+  if (payload.batchId !== batchId) {
+    throw new Error('Depositor recovery data does not match this deposit')
+  }
+  return payload
+}
+
+export async function loadDepositorRefundPayload(batchId: string, keyPair: { secretKey: Uint8Array }): Promise<RefundPayload> {
+  const payload = await loadDepositorPayload(batchId, keyPair)
+  if (!Array.isArray(payload.slots) || payload.slots.length !== payload.tier) {
+    throw new Error('Depositor recovery data does not match this deposit')
+  }
+  await verifyRefundPayloadCommitment(payload)
+  return payload as RefundPayload
 }
 
 function toHex64(n: bigint): `0x${string}` {
@@ -63,20 +93,22 @@ export async function refundPrivacyDeposit(params: {
   chainIdNum: number
   chainName: string
   password: string
+  cachedKeyPair?: BoxKeyPair | null
+  onUnlocked?: (keyPair: BoxKeyPair) => void
   /** Reserved for the disabled relayed-operation choice. */
   delegate: boolean
   onStatus?: (msg: string) => void
 }): Promise<{ txHash: string }> {
   const {
     batchId, caipChainId, gravArcAddress, account, walletClient, provider,
-    chainIdNum, chainName, password, delegate, onStatus,
+    chainIdNum, chainName, password, cachedKeyPair, onUnlocked, delegate, onStatus,
   } = params
 
   if (delegate) throw new Error('Relayed refund is not available yet')
 
   // 1. 派生 NaCl 密钥对（密码 + 钱包 EIP-712 签名，确定性，跨设备可重建）
   onStatus?.('Unlocking account…')
-  const keyPair = await deriveNaclKeyPair(password, walletClient as Parameters<typeof deriveNaclKeyPair>[1])
+  const keyPair = cachedKeyPair ?? await deriveNaclKeyPair(password, walletClient as Parameters<typeof deriveNaclKeyPair>[1])
 
   // 2. Recover the account ciphertext from the backend, as Core does.
   onStatus?.('Decrypting depositor secret…')
@@ -96,23 +128,8 @@ export async function refundPrivacyDeposit(params: {
 
   // 3. 取退款载荷：优先后端 encContent（便携化，任意设备），fallback 本机 localStorage（兜底）
   onStatus?.('Loading refund payload…')
-  let payload: RefundPayload | null = null
-  try {
-    const { encContent } = await apis.transaction.getRefundPayload(batchId)
-    if (encContent) {
-      payload = JSON.parse(naclDecryptWithKeyPair(encContent, keyPair)) as RefundPayload
-    }
-  } catch {
-    // 后端不可达时回落本机 localStorage
-  }
-  if (!payload) {
-    payload = readRefundPayload(batchId, keyPair)
-  }
-  if (!payload) {
-    throw new Error(
-      'Refund payload not found. If this deposit was created on another device, ensure the deposit has been confirmed on-chain so the encrypted refund payload is available on the server.',
-    )
-  }
+  const payload = await loadDepositorRefundPayload(batchId, keyPair)
+  onUnlocked?.(keyPair)
 
   // 4. 拉取并核验最新 deposit 成员路径，不能仅信任扫描器返回值。
   onStatus?.('Fetching deposit membership path…')

@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import ConfirmSyncBootstrap from '@/components/app/base/confirm-sync-bootstrap';
 import '@/index.css';
 import ReownAppKitProvider from '@/providers/app-kit-provider';
+import { PrivacyUnlockProvider } from '@/providers/privacy-unlock-provider';
 import { buildWalletNetworks } from '@/providers/wallet-networks';
 import apis from '@/apis';
 import { router } from '@/router';
@@ -50,10 +51,12 @@ async function renderApp() {
     const networks = buildWalletNetworks(await apis.chainAsset.getNetworks());
     root.render(
       <ReownAppKitProvider networks={networks}>
-        <DisableMobileZoom />
-        <ConfirmSyncBootstrap />
-        <RouterProvider router={router} />
-        <Toaster />
+        <PrivacyUnlockProvider>
+          <DisableMobileZoom />
+          <ConfirmSyncBootstrap />
+          <RouterProvider router={router} />
+          <Toaster />
+        </PrivacyUnlockProvider>
       </ReownAppKitProvider>
     );
   } catch {

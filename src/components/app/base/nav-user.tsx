@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar'
+import { usePrivacyUnlock } from '@/providers/privacy-unlock-provider'
 import { useDisconnect } from '@reown/appkit/react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
@@ -30,8 +31,10 @@ export function NavUser({
   const navigate = useNavigate()
   const location = useLocation()
   const { disconnect } = useDisconnect()
+  const { clear: clearPrivacyUnlock } = usePrivacyUnlock()
 
   async function handleLogout() {
+    clearPrivacyUnlock()
     await disconnect()
     localStorage.removeItem('token')
     localStorage.removeItem('userId')

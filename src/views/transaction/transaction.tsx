@@ -15,12 +15,19 @@ import { loadPreparedDeposit } from '@/lib/confirm-sync/preparedDeposit'
 import { depositAction } from '@/lib/confirm-sync/depositAction'
 import { confirmSync } from '@/lib/confirm-sync'
 import useChainAssetStore from '@/stores/chain-asset'
+import useAuthStore from '@/stores/auth'
 import useOrganizationStore from '@/stores/organization'
 import { formatLocalDateTime } from '@/utils/date'
 import { useTranslation } from '@/utils/i18n'
 import { Permission, useHasPermission } from '@/utils/permissions'
 import { getErrorMessage } from '@/views/orgs/components/ai-api/utils'
 import { TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
+import { readRefundableDepositState } from '@/lib/gravarc/refundableDepositState'
+import { deriveNaclKeyPair } from '@/lib/gravarc/naclCrypto'
+import { usePrivacyUnlock } from '@/providers/privacy-unlock-provider'
+import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import type { Provider } from '@reown/appkit/react'
+import { createWalletClient, custom, type Hex } from 'viem'
 import { formatUnits } from 'ethers'
 import { ChevronDown, ChevronUp, ChevronsUpDown, Plus, RefreshCw, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -69,6 +76,25 @@ export default function TransactionPage() {
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const hasPermission = useHasPermission()
+  const { address } = useAppKitAccount()
+  const profileUserId = useAuthStore(state => state.gravArcUserInfo?.userId)
+  const sessionUserId = localStorage.getItem('userId')
+  const refundIdentity = address && sessionUserId && (!profileUserId || profileUserId === sessionUserId)
+    ? `${sessionUserId}:eip155:${address.toLowerCase()}` : null
+  const { walletProvider } = useAppKitProvider<Provider>('eip155')
+  const { rememberKey, setRememberKey, cachedKeyPair, cacheKeyPair } = usePrivacyUnlock()
+  const [refundChecked, setRefundChecked] = useState<Record<string, { identity: string; refunded: boolean }>>({})
+  const [refundUnlockPlan, setRefundUnlockPlan] = useState<TransactionPlan | null>(null)
+  const [refundPassword, setRefundPassword] = useState('')
+  const [refundUnlockBusy, setRefundUnlockBusy] = useState(false)
+  const [refundUnlockError, setRefundUnlockError] = useState('')
+  const [refreshingRefundId, setRefreshingRefundId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setRefundPassword('')
+    setRefundUnlockPlan(null)
+    setRefundChecked({})
+  }, [address, profileUserId])
 
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -280,6 +306,73 @@ export default function TransactionPage() {
     if (!isReady) return
     void fetchTransactions(currentPage, statusFilter, debouncedSearch, transactionType)
   }, [activeTab, currentPage, debouncedSearch, isReady, statusFilter, transactionType])
+
+  useEffect(() => {
+    let cancelled = false
+    setRefundChecked({})
+    if (cachedKeyPair && address && refundIdentity) {
+      const own = rawTransactions.filter(plan => plan.transactionType === 'privacy_deposit' && plan.privacyRefundable &&
+        plan.depositTxHash && plan.createdBy === localStorage.getItem('userId'))
+      void Promise.all(own.map(async plan => {
+        try {
+          const state = await readRefundableDepositState(plan, cachedKeyPair, address)
+          if (!cancelled) setRefundChecked(current => ({ ...current, [plan.id]: { identity: refundIdentity, refunded: state.fullyRefunded } }))
+        } catch {
+          // Missing or inconsistent private state stays unverified.
+        }
+      }))
+    }
+    return () => { cancelled = true }
+  }, [rawTransactions, cachedKeyPair, address, refundIdentity])
+
+  const unlockRefundStatus = async () => {
+    if (!refundUnlockPlan || !refundPassword || !address || !walletProvider || !refundIdentity) return
+    setRefundUnlockBusy(true)
+    setRefundUnlockError('')
+    try {
+      const walletClient = createWalletClient({ account: address as Hex, transport: custom(walletProvider) })
+      const keyPair = await deriveNaclKeyPair(refundPassword, walletClient as Parameters<typeof deriveNaclKeyPair>[1])
+      const state = await readRefundableDepositState(refundUnlockPlan, keyPair, address)
+      setRefundChecked(current => ({ ...current, [refundUnlockPlan.id]: { identity: refundIdentity, refunded: state.fullyRefunded } }))
+      if (rememberKey) cacheKeyPair(keyPair)
+      setRefundPassword('')
+      setRefundUnlockPlan(null)
+    } catch (cause) {
+      setRefundUnlockError(cause instanceof Error ? cause.message : 'Could not verify refund status')
+    } finally {
+      setRefundUnlockBusy(false)
+    }
+  }
+
+  const privateBadge = (plan: TransactionPlan): 'confirmed' | 'refunded' | undefined =>
+    plan.transactionType === 'privacy_deposit' && plan.depositTxHash &&
+    [PayrollTransactionStatus.COMPLETE, PayrollTransactionStatus.REFUNDED].includes(plan.transactionStatus)
+      ? refundChecked[plan.id]?.identity === refundIdentity && refundChecked[plan.id].refunded ? 'refunded' : 'confirmed'
+      : undefined
+
+  const refreshRefundStatus = async (plan: TransactionPlan) => {
+    if (!cachedKeyPair || !address || !refundIdentity || refreshingRefundId) return
+    setRefreshingRefundId(plan.id)
+    try {
+      const state = await readRefundableDepositState(plan, cachedKeyPair, address)
+      setRefundChecked(current => ({ ...current, [plan.id]: { identity: refundIdentity, refunded: state.fullyRefunded } }))
+    } catch {
+      setRefundChecked(current => ({ ...current, [plan.id]: { identity: refundIdentity, refunded: false } }))
+    } finally {
+      setRefreshingRefundId(null)
+    }
+  }
+
+  const refundUnlockButton = (plan: TransactionPlan) =>
+    plan.transactionType === 'privacy_deposit' && plan.privacyRefundable && plan.depositTxHash &&
+    plan.transactionStatus !== PayrollTransactionStatus.READY &&
+    plan.createdBy === sessionUserId && refundIdentity &&
+    !(refundChecked[plan.id]?.identity === refundIdentity && refundChecked[plan.id].refunded)
+      ? <button type="button" className="ml-2 text-[12px] text-[#5e85ee]" disabled={refreshingRefundId === plan.id} onClick={() => {
+        if (cachedKeyPair) void refreshRefundStatus(plan)
+        else { setRefundUnlockPlan(plan); setRefundPassword(''); setRefundUnlockError('') }
+      }}>{refreshingRefundId === plan.id ? t('common.loading') : cachedKeyPair ? 'Refresh refund' : 'Check refund'}</button>
+      : null
 
   useEffect(() => confirmSync.subscribe(event => {
     if (event.kind !== 'synced' || event.job.type !== 'confirm-privacy-deposit') return
@@ -740,7 +833,8 @@ export default function TransactionPage() {
                         {transaction.totalAmount} {transaction.currency}
                       </TableCell>
                       <TableCell>
-                        <TransactionStatusBadge status={transaction.status} pending={!!plan && depositAction(plan, preparedDeposit(plan), confirmedBatchIds.has(plan.id)) === 'pending'} />
+                        <TransactionStatusBadge status={transaction.status} privateStatus={plan ? privateBadge(plan) : undefined} pending={!!plan && depositAction(plan, preparedDeposit(plan), confirmedBatchIds.has(plan.id)) === 'pending'} />
+                        {plan && refundUnlockButton(plan)}
                       </TableCell>
                       <TableCell>{transaction.executionDate}</TableCell>
                       <TableCell>
@@ -774,7 +868,8 @@ export default function TransactionPage() {
                     <TableCell>{row.payees}</TableCell>
                     <TableCell>{row.amount}</TableCell>
                     <TableCell>
-                      <TransactionStatusBadge status={row.status as PayrollTransactionStatus} pending={depositAction(row.raw, preparedDeposit(row.raw), confirmedBatchIds.has(row.id)) === 'pending'} />
+                      <TransactionStatusBadge status={row.status as PayrollTransactionStatus} privateStatus={privateBadge(row.raw)} pending={depositAction(row.raw, preparedDeposit(row.raw), confirmedBatchIds.has(row.id)) === 'pending'} />
+                      {refundUnlockButton(row.raw)}
                     </TableCell>
                     <TableCell>{row.payDay ? formatLocalDateTime(row.payDay) : '-'}</TableCell>
                     <TableCell>
@@ -826,6 +921,28 @@ export default function TransactionPage() {
               }}
               onSuccess={handleDepositSuccess}
             />
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!refundUnlockPlan} onOpenChange={open => { if (!open && !refundUnlockBusy) setRefundUnlockPlan(null) }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Check private refund status</DialogTitle>
+              <DialogDescription>Unlock as the depositor to verify this deposit against the chain.</DialogDescription>
+            </DialogHeader>
+            <input type="password" value={refundPassword} onChange={event => setRefundPassword(event.target.value)}
+              autoComplete="off" placeholder={t('pages.transactions.gravArcRefundPasswordPlaceholder')}
+              className="rounded-[12px] bg-[#f5f5f5] px-3 py-2 text-[13px] outline-none" />
+            <label className="flex items-center gap-2 text-[13px] text-[#606067]">
+              <input type="checkbox" checked={rememberKey} onChange={event => setRememberKey(event.target.checked)} />
+              {t('pages.memberClaim.rememberSession')}
+            </label>
+            {refundUnlockError && <p className="text-[13px] text-[#d92b2b]">{refundUnlockError}</p>}
+            <DialogFooter>
+              <Button type="button" onClick={() => void unlockRefundStatus()} disabled={!refundPassword || refundUnlockBusy}>
+                {refundUnlockBusy ? t('common.loading') : 'Check on-chain status'}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 
