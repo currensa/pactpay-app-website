@@ -1,9 +1,10 @@
 'use client'
 
-import apis from '@/apis'
 import type { PrivacyPayrollItem } from '@/apis/transaction.api'
 import { confirmSync } from '@/lib/confirm-sync'
 import { GRAVARC_ABI } from '@/lib/gravarc/gravarcAbi'
+import { verifyDepositMembershipPath } from '@/lib/gravarc/depositMembershipPath'
+import apis from '@/apis'
 import { naclDecryptWithKeyPair, secretboxDecryptWithKey } from '@/lib/gravarc/naclCrypto'
 import {
   computeNullifierHash,
@@ -13,15 +14,6 @@ import {
 import { normalizeTransactionHash } from '@/utils/evm-transaction'
 import type { Provider } from '@reown/appkit/react'
 import { createPublicClient, createWalletClient, custom, type Hex } from 'viem'
-
-// ── Relayer (fee recipient) ─────────────────────────────────────────────────
-// Hardcoded per product decision: the privacy-withdraw fee (0.1%) is paid to this
-// address. The recipient (who receives expectedAmount − fee) is supplied by the user.
-// NOTE: replace with the platform's official fee-collection address before production.
-// While it is the zero sentinel, the fee is routed back to the recipient so the
-// withdraw does not revert on an ERC-20 transfer to the zero address during testing.
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Hex
-export const PRIVACY_WITHDRAW_RELAYER: Hex = ZERO_ADDRESS
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,13 +26,8 @@ export interface PrivacyWithdrawParams {
   account: string
   chainIdNum: number
   chainName: string
-  /**
-   * When true, the proof is generated with `relayer = relayerAddress` and the withdraw is submitted
-   * by the platform relayer (the user pays no gas); otherwise the user's wallet submits it.
-   */
+  /** Reserved for the disabled relayed-operation choice. */
   delegate?: boolean
-  /** Platform relayer address — required when `delegate` is true (becomes the proof's relayer). */
-  relayerAddress?: string
   onStatus?: (msg: string) => void
 }
 export interface PrivacyWithdrawResult {
@@ -73,18 +60,17 @@ interface DecryptedWithdrawMessage {
  * when the allocation has already been fully withdrawn so callers can skip quietly.
  */
 export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promise<PrivacyWithdrawResult> {
-  const { item, recipient, keyPair, walletProvider, account, chainIdNum, chainName, delegate, relayerAddress, onStatus } =
+  const { item, recipient, keyPair, walletProvider, account, chainIdNum, chainName, delegate, onStatus } =
     params
 
-  if (delegate && !relayerAddress) {
-    throw new Error('Missing platform relayer address for delegated withdraw')
-  }
+  if (delegate) throw new Error('Relayed withdrawal is not available yet')
 
   const wd = item.withdrawData
   if (!wd) throw new Error('This item has no withdraw data')
   if (!wd.content) throw new Error('Missing encrypted withdraw message')
   if (!wd.encryptedSecret) throw new Error('Missing encrypted secret — please bind your wallet first')
   if (!wd.privacyDepositLeaf) throw new Error('Deposit not confirmed yet for this item')
+  if (wd.leafIndex === null || wd.leafIndex === undefined) throw new Error('Missing deposit leaf index')
   if (!wd.gravArcAddress) throw new Error('GravArc contract is not configured for this chain')
   if (wd.tier === null || wd.tier === undefined) throw new Error('Missing tier for this deposit')
 
@@ -105,6 +91,9 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
   } catch {
     throw new Error('Failed to decrypt your secret — wrong password?')
   }
+  if (decoded.leafIndex !== wd.leafIndex) {
+    throw new Error('Encrypted withdrawal message has a different deposit leaf index')
+  }
 
   // Assemble the circuit input. 新合约下 authRoot / depositorSecretHash 来自解密后的消息；
   // token / tier 仍由 withdrawData / item 提供。
@@ -116,7 +105,7 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
     depositorSecretHash: decoded.depositorSecretHash,
     authPathElements: decoded.authPathElements,
     authPathIndices: decoded.authPathIndices,
-    leafIndex: decoded.leafIndex ?? wd.leafIndex ?? 0,
+    leafIndex: wd.leafIndex,
     depositPathElements: decoded.depositPathElements,
     depositPathIndices: decoded.depositPathIndices,
     tier: wd.tier,
@@ -142,6 +131,21 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
     args: [nullifierHash],
   })
 
+  onStatus?.('Refreshing deposit membership path…')
+  const path = await apis.transaction.getDepositMembershipPath(wd.caipChainId, info.leafIndex)
+  const membership = await verifyDepositMembershipPath(
+    path,
+    info.leafIndex,
+    info.authRoot,
+    info.depositorSecretHash,
+    wd.privacyDepositLeaf,
+  )
+  const freshInfo = {
+    ...info,
+    depositPathElements: membership.pathElements,
+    depositPathIndices: membership.pathIndices,
+  }
+
   const total = BigInt(info.amount)
   const remaining = total - claimed
   if (remaining <= 0n) {
@@ -150,59 +154,25 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
     throw err
   }
 
-  // 4. Full withdrawal: use platformFee from the item when available (goes to the relayer);
-  // fall back to ceil(0.1%) for items that pre-date the platformFee field.
+  // Core direct withdrawal uses the connected transaction sender as relayer.
+  // Its proof fee returns to that wallet; the sender also pays network gas.
   const expectedAmount = remaining
-  const fee = item.platformFee ? BigInt(item.platformFee) : (expectedAmount + 999n) / 1000n
-  const relayer = delegate
-    ? (relayerAddress as Hex)
-    : PRIVACY_WITHDRAW_RELAYER === ZERO_ADDRESS
-      ? (recipient as Hex)
-      : PRIVACY_WITHDRAW_RELAYER
+  const fee = (expectedAmount + 999n) / 1000n
+  const relayer = account as Hex
 
   // 5. Fetch the withdraw circuit files and generate the proof in-browser.
   onStatus?.('Preparing ZK circuit…')
-  const circuit = await apis.transaction.getCircuitFiles(wd.caipChainId, info.tier, 'withdraw')
-
   const proof = await generateWithdrawProof(
-    info,
+    freshInfo,
     rawSecret,
     recipient,
     fee,
-    circuit.wasmUrl,
-    circuit.zkeyUrl,
     claimed,
     nextNonce,
     expectedAmount,
     relayer,
     onStatus,
   )
-
-  // 6a. Delegated path: hand the proof to the platform relayer, which submits the withdraw on-chain
-  // (the user pays no gas). The backend marks the item claimed itself, so no confirm-withdraw call.
-  if (delegate) {
-    onStatus?.('Submitting via platform…')
-    const { pA, pB, pC } = proof.proof
-    const res = await apis.transaction.relayPrivacyWithdraw(item.id, {
-      pA: [pA[0], pA[1]],
-      pB: [
-        [pB[0][0], pB[0][1]],
-        [pB[1][0], pB[1][1]],
-      ],
-      pC: [pC[0], pC[1]],
-      nullifierHash: proof.nullifierHash,
-      recipient,
-      claimedAmount: proof.claimedAmount.toString(),
-      token: proof.token,
-      tier: proof.tier,
-      depositRoot: proof.depositRoot.toString(),
-      expectedAmount: proof.expectedAmount.toString(),
-      fee: proof.fee.toString(),
-      relayer: proof.relayer,
-      nonce: proof.nonce.toString(),
-    })
-    return { itemId: item.id, txHash: res.txHash }
-  }
 
   // 6. Submit the withdraw transaction.
   onStatus?.('Sending withdraw transaction…')

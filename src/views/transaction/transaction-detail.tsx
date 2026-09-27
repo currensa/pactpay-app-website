@@ -1,7 +1,9 @@
 import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { confirmSync } from '@/lib/confirm-sync'
+import { depositAction } from '@/lib/confirm-sync/depositAction'
+import { loadPreparedDeposit } from '@/lib/confirm-sync/preparedDeposit'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Pagination } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScrollArea } from '@/components/ui/table'
 import { useToast } from '@/components/ui/use-toast'
@@ -11,7 +13,7 @@ import useHeaderStore from '@/stores/header'
 import useOrganizationStore from '@/stores/organization'
 import { useTranslation } from '@/utils/i18n'
 import { formatUnits } from 'ethers'
-import { CreditCard, RotateCcw, Trash2 } from 'lucide-react'
+import { CreditCard, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
@@ -51,6 +53,9 @@ export default function TransactionDetail() {
   const [executeOpen, setExecuteOpen] = useState(false)
   const [executeSuccessOpen, setExecuteSuccessOpen] = useState(false)
   const [lastTxHash, setLastTxHash] = useState('')
+  const [depositSyncPending, setDepositSyncPending] = useState(false)
+  const [confirmedLocally, setConfirmedLocally] = useState(false)
+  const [refreshingPlan, setRefreshingPlan] = useState(false)
 
   // Delete dialog
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -60,9 +65,6 @@ export default function TransactionDetail() {
 
   // GravArc 隐私退款 dialog
   const [gravArcRefundOpen, setGravArcRefundOpen] = useState(false)
-
-  // Re-action dialog
-  const [reactionConfirmOpen, setReactionConfirmOpen] = useState(false)
 
   useEffect(() => {
     Promise.all([fetchChainAssets(), fetchChains()]).then(() => {
@@ -85,6 +87,12 @@ export default function TransactionDetail() {
     })
     return () => clearHeader()
   }, [clearHeader, fetchChainAssets, fetchChains, id, setHeader, t])
+
+  useEffect(() => confirmSync.subscribe(event => {
+    if (event.kind !== 'synced' || event.job.type !== 'confirm-privacy-deposit' || event.job.batchId !== id) return
+    setDepositSyncPending(false)
+    void apis.transaction.getTransactionPlanDetail(id).then(setPlan)
+  }), [id])
 
   if (loading) {
     return <div className="flex items-center justify-center h-40 text-[#8d8d93] text-[13px]">{t('common.loading')}</div>
@@ -119,6 +127,10 @@ export default function TransactionDetail() {
   const isDueToday = diffDays === 0 && plan.transactionStatus !== PayrollTransactionStatus.COMPLETE
   const isComplete = plan.transactionStatus === PayrollTransactionStatus.COMPLETE
   const isRefunded = plan.transactionStatus === PayrollTransactionStatus.REFUNDED
+  let preparedDeposit: { txHash?: string } | null
+  try { preparedDeposit = loadPreparedDeposit(localStorage.getItem('userId') ?? '', plan.orgId, plan.id) }
+  catch { preparedDeposit = {} }
+  const action = depositAction(plan, preparedDeposit, confirmedLocally)
   const executionDateLabel = (
     <span className={getRelativeExecutionDateTextClassName(relativeExecutionDate.tone)}>
       {relativeExecutionDateLabel}
@@ -134,7 +146,7 @@ export default function TransactionDetail() {
   const refundedAmountFormatted = (() => {
     if (plan.items.some(item => item.status === 'refunded' && item.amount === null)) return 'Private'
     try {
-      // 已退款金额只统计成员本金（item.amount），不含 relay 服务费（platformFee）。
+      // Direct payroll allocations contain no platform fee.
       const totalRefunded = plan.items
         .filter(item => item.status === 'refunded')
         .reduce((sum, item) => sum + BigInt(item.amount!), BigInt(0))
@@ -162,13 +174,26 @@ export default function TransactionDetail() {
     isComplete: plan.transactionStatus === PayrollTransactionStatus.COMPLETE,
   }
 
-  const handleExecuteSuccess = async (txHash: string) => {
+  const handleExecuteSuccess = async (txHash: string, syncState: 'synced' | 'pending') => {
     setExecuteOpen(false)
+    setConfirmedLocally(true)
     setLastTxHash(txHash)
+    setDepositSyncPending(syncState === 'pending')
     setExecuteSuccessOpen(true)
-    await new Promise(r => setTimeout(r, 2000))
     const updated = await apis.transaction.getTransactionPlanDetail(plan.id)
     setPlan(updated)
+  }
+
+  const handleRefreshPlan = async () => {
+    if (refreshingPlan) return
+    setRefreshingPlan(true)
+    try {
+      setPlan(await apis.transaction.getTransactionPlanDetail(plan.id))
+    } catch {
+      // The request interceptor reports API errors.
+    } finally {
+      setRefreshingPlan(false)
+    }
   }
 
   const handleConfirmDelete = async () => {
@@ -195,7 +220,7 @@ export default function TransactionDetail() {
             {/* Status badge + transaction name */}
             <div className="relative flex min-w-0 flex-wrap items-center gap-[10px] pl-[12px]">
               <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-[4px] h-[22px] rounded-full ${isComplete ? 'bg-[#5ddd22]' : isRefunded ? 'bg-[#606067]' : 'bg-[#5e85ee]'}`} />
-              <TransactionStatusBadge status={plan.transactionStatus} />
+              <TransactionStatusBadge status={plan.transactionStatus} pending={action === 'pending'} />
               <span className="min-w-0 break-words text-[#1c1c26] text-[16px] font-bold leading-[26px]">{plan.transactionName}</span>
             </div>
             {/* Meta row */}
@@ -222,17 +247,8 @@ export default function TransactionDetail() {
             {isComplete
               ? (
                 <>
-                  {hasPermission(Permission.REACTION_TRANSACTION) && (
-                    <button
-                      onClick={() => setReactionConfirmOpen(true)}
-                      className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] text-[13px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
-                    >
-                      <CreditCard size={14} />
-                      {t('pages.transactionDetail.reaction')}
-                    </button>
-                  )}
                   {/* GravArc 隐私退款：仅 privacy_deposit 且可退款批次显示 */}
-                  {hasPermission(Permission.EXECUTE_TRANSACTION) && plan.transactionType === 'privacy_deposit' && (plan.privacyRefundable ?? true) && (
+                  {hasPermission(Permission.EXECUTE_TRANSACTION) && plan.transactionType === 'privacy_deposit' && plan.privacyRefundable === true && (
                     <button
                       onClick={() => setGravArcRefundOpen(true)}
                       className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(255,168,0,0.4)] bg-white px-[14px] text-[13px] text-[#c47d00] transition-colors hover:bg-[rgba(255,168,0,0.06)]"
@@ -252,29 +268,24 @@ export default function TransactionDetail() {
                   )} */}
                 </>
               )
-              : isRefunded
-                ? (
-                  hasPermission(Permission.REACTION_TRANSACTION) && (
-                    <button
-                      onClick={() => setReactionConfirmOpen(true)}
-                      className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] text-[13px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
-                    >
-                      <CreditCard size={14} />
-                      {t('pages.transactionDetail.reaction')}
-                    </button>
-                  )
-                )
-                : hasPermission(Permission.EXECUTE_TRANSACTION) && (
+              : !isRefunded && hasPermission(Permission.EXECUTE_TRANSACTION) && plan.createdBy === localStorage.getItem('userId') && (
                   <button
                     onClick={() => setExecuteOpen(true)}
-                    className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[14px] text-[13px] text-white transition-opacity hover:bg-[#5e85ee]/90"
+                    disabled={action === 'disabled' || action === 'pending'}
+                    className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] bg-[#5e85ee] px-[14px] text-[13px] text-white transition-opacity hover:bg-[#5e85ee]/90 disabled:cursor-not-allowed disabled:bg-[#d8def8] disabled:hover:bg-[#d8def8]"
                   >
                     <CreditCard size={14} />
-                    {t('pages.transactionDetail.executeNow')}
+                    {action === 'pending' ? 'Syncing delivery' : action === 'recover' ? t('pages.transactions.recoverDeposit') : t('pages.transactionDetail.executeNow')}
                   </button>
                 )
             }
-            {!isComplete && hasPermission(Permission.MODIFY_TRANSACTION) && (
+            {action === 'pending' && (
+              <button type="button" onClick={() => void handleRefreshPlan()} disabled={refreshingPlan}
+                className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] text-[13px] text-[#1c1c26] disabled:opacity-40">
+                <RefreshCw size={14} className={refreshingPlan ? 'animate-spin' : ''} /> Refresh status
+              </button>
+            )}
+            {!isComplete && action === 'execute' && hasPermission(Permission.MODIFY_TRANSACTION) && (
               <button
                 onClick={() => setDeleteOpen(true)}
                 className="flex min-h-[38px] items-center gap-[4px] rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-[14px] text-[13px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
@@ -451,6 +462,7 @@ export default function TransactionDetail() {
         <DialogContent className="max-w-2xl">
           <ExecuteSuccessDialogContent
             depositTxHash={lastTxHash}
+            syncPending={depositSyncPending}
             executingTransaction={transactionStub}
             caipChainId={plan?.caipChainId}
             onClose={() => { setExecuteSuccessOpen(false); setLastTxHash('') }}
@@ -466,48 +478,6 @@ export default function TransactionDetail() {
             onCancel={() => setDeleteOpen(false)}
             onConfirm={handleConfirmDelete}
           />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={reactionConfirmOpen} onOpenChange={setReactionConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('pages.transactionDetail.reactionTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('pages.transactionDetail.reactionDescription')}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="mt-[16px] bg-[#f5f5f5] rounded-[12px] p-[14px] flex flex-col gap-[10px]">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] text-[#606067]">{t('pages.transactionDetail.transactionName')}</span>
-              <span className="text-[13px] font-medium text-[#1c1c26]">{plan.transactionName}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] text-[#606067]">{t('pages.transactionDetail.transactionId')}</span>
-              <span className="font-mono text-[13px] font-medium text-[#1c1c26]">{plan.id}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] text-[#606067]">{t('pages.transactionDetail.members')}</span>
-              <span className="text-[13px] font-medium text-[#1c1c26]">{plan.items.length}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] text-[#606067]">{t('pages.transactionDetail.totalAmount')}</span>
-              <span className="text-[13px] font-medium text-[#1c1c26]">{totalAmountFormatted} {tokenSymbol}</span>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReactionConfirmOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            <Button onClick={() => {
-              setReactionConfirmOpen(false)
-              navigate(`/orgs/transaction/create-people?fromReaction=1&transactionId=${encodeURIComponent(plan.id)}`)
-            }}>
-              {t('pages.orgMembers.confirm')}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

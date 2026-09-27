@@ -5,10 +5,11 @@ import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { naclEncrypt } from '@/lib/gravarc/naclCrypto'
+import { payoutIntentMatchesToken } from '@/lib/gravarc/payrollTokenSelection'
 import { useTranslation } from '@/utils/i18n'
 import { CreateTransactionDialogContent } from '@/views/transaction/components'
 import { formatUnits, parseUnits } from 'ethers'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 export default function CreateTransaction() {
@@ -19,6 +20,7 @@ export default function CreateTransaction() {
   const { t } = useTranslation()
   const isCreatingFromReaction = searchParams.get('fromReaction') === '1'
   const reactionSourceTransactionId = searchParams.get('transactionId') ?? ''
+  const selectedTokenAddress = searchParams.get('tokenAddress') ?? ''
 
   const [organizationMembers, setOrganizationMembers] = useState<MembersResponse['data']>([])
   const [membersLoading, setMembersLoading] = useState(false)
@@ -29,26 +31,37 @@ export default function CreateTransaction() {
   const [reactionSourceTokenAddress, setReactionSourceTokenAddress] = useState<string>('')
   const [accessChecked, setAccessChecked] = useState(false)
   const [, setCreatedPlan] = useState<CreatePrivacyDepositPlanResponseDto | null>(null)
+  const payrollConfig = useOrganizationStore(state => state.payrollConfig)
 
-  const { getTokenDecimals, fetchChainAssets } = useChainAssetStore()
+  const { getTokenDecimals, getChainAssetByToken, fetchChainAssets } = useChainAssetStore()
+  const membersForSelectedToken = useMemo(() => organizationMembers.map(member => ({
+    ...member,
+    payoutIntent: payoutIntentMatchesToken(member.payoutIntent, payrollConfig?.caipChainId ?? '', selectedTokenAddress)
+      ? member.payoutIntent : null,
+  })), [organizationMembers, payrollConfig?.caipChainId, selectedTokenAddress])
 
   useEffect(() => {
     let cancelled = false
 
     const ensurePayrollConfig = async () => {
       try {
-        const symbol = await useOrganizationStore.getState().fetchPayrollTokenSymbol()
+        await useOrganizationStore.getState().fetchPayrollTokenSymbol()
         if (cancelled) return
         const latestPayrollConfig = useOrganizationStore.getState().payrollConfig
-        if (!symbol && !latestPayrollConfig) {
+        if (!latestPayrollConfig) {
           navigate(`/orgs/transaction?setupPayroll=1`, {
             replace: true,
             state: { pendingCreatePath: `${location.pathname}${location.search}` },
           })
           return
         }
-      } finally {
+        if (!selectedTokenAddress || !useChainAssetStore.getState().getChainAssetByToken(latestPayrollConfig.caipChainId, selectedTokenAddress)) {
+          navigate('/orgs/transaction/create?type=people', { replace: true })
+          return
+        }
         if (!cancelled) setAccessChecked(true)
+      } catch {
+        if (!cancelled) navigate('/orgs/transaction', { replace: true })
       }
     }
 
@@ -57,7 +70,7 @@ export default function CreateTransaction() {
     return () => {
       cancelled = true
     }
-  }, [location.pathname, location.search, navigate])
+  }, [location.pathname, location.search, navigate, selectedTokenAddress])
 
   const fetchOrganizationMembers = async () => {
     try {
@@ -126,13 +139,15 @@ export default function CreateTransaction() {
     memberAmounts: Record<string, string>
     transactionName: string
     executionDate: string
+    privacyRefundable: boolean
   }) => {
 
     try {
       const payrollConfig = useOrganizationStore.getState().payrollConfig
       if (!payrollConfig) throw new Error('Payroll config not found')
+      if (!getChainAssetByToken(payrollConfig.caipChainId, selectedTokenAddress)) throw new Error('Selected token is not configured for the Organization network')
 
-      const decimals = getTokenDecimals(payrollConfig.caipChainId, payrollConfig.token)
+      const decimals = getTokenDecimals(payrollConfig.caipChainId, selectedTokenAddress)
       const allocations = Array.from(params.selectedMembers).map(memberId => {
         const member = organizationMembers.find(m => m.id === memberId)
         if (!member) throw new Error(`Member ${memberId} not found`)
@@ -148,18 +163,20 @@ export default function CreateTransaction() {
       const encPubkey = profile ? (JSON.parse(profile) as { encPubkey?: string }).encPubkey : null
       if (!encPubkey) throw new Error('Set up your private wallet before creating payroll')
       const encryptedPlan = naclEncrypt(JSON.stringify({
-        version: 1,
+        version: 2,
         orgId: localStorage.getItem('organizationId'),
         caipChainId: payrollConfig.caipChainId,
-        tokenAddress: payrollConfig.token,
+        tokenAddress: selectedTokenAddress,
+        privacyRefundable: params.privacyRefundable,
         allocations,
       }), encPubkey.startsWith('0x') ? encPubkey.slice(2) : encPubkey)
 
       const plan = await apis.transaction.createPrivacyDepositPlan({
         caipChainId: payrollConfig.caipChainId,
-        tokenAddress: payrollConfig.token,
+        tokenAddress: selectedTokenAddress,
         transactionName: params.transactionName || t('pages.transactions.newTransaction'),
         payPeriod: params.executionDate ? new Date(params.executionDate).toISOString() : undefined,
+        privacyRefundable: params.privacyRefundable,
         members: allocations.map(({ memberId }) => ({ memberId })),
         encryptedPlan,
       })
@@ -182,7 +199,9 @@ export default function CreateTransaction() {
       <CreateTransactionDialogContent
         variant="page"
         isCreatingFromReaction={isCreatingFromReaction}
-        organizationMembers={organizationMembers}
+        organizationMembers={membersForSelectedToken}
+        selectedCaipChainId={payrollConfig?.caipChainId ?? ''}
+        selectedTokenAddress={selectedTokenAddress}
         membersLoading={membersLoading}
         transactionDetailMembers={reactionSourceMembers}
         initialExecutionDate={initialExecutionDate}

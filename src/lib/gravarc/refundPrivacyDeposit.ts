@@ -2,7 +2,9 @@
 
 import apis from '@/apis'
 import { confirmSync } from '@/lib/confirm-sync'
+import { loadPreparedDeposit } from '@/lib/confirm-sync/preparedDeposit'
 import { GRAVARC_ABI } from '@/lib/gravarc/gravarcAbi'
+import { verifyDepositMembershipPath } from '@/lib/gravarc/depositMembershipPath'
 import {
   deriveNaclKeyPair,
   naclDecryptWithKeyPair,
@@ -25,9 +27,12 @@ export type RefundPayload = {
   slots: RefundSlot[]
 }
 
-/** 读取本机保存的退款载荷；不在本机则返回 null。便携化后非唯一来源（后端 encContent 优先）。 */
-export function readRefundPayload(batchId: string): RefundPayload | null {
+/** Pending ciphertext is a fallback until the backend has confirmed delivery. */
+export function readRefundPayload(batchId: string, keyPair: { secretKey: Uint8Array }): RefundPayload | null {
   try {
+    const pending = loadPreparedDeposit(localStorage.getItem('userId') ?? '', localStorage.getItem('organizationId') ?? '', batchId)
+    if (pending?.encContent) return JSON.parse(naclDecryptWithKeyPair(pending.encContent, keyPair)) as RefundPayload
+    // Read-only legacy fallback. New deposits never write plaintext refund slots.
     const raw = localStorage.getItem(`gravArcRefundPayload:${batchId}`)
     if (!raw) return null
     return JSON.parse(raw) as RefundPayload
@@ -46,10 +51,7 @@ function toHex64(n: bigint): `0x${string}` {
  * 便携化：退款载荷优先从后端 deposition 的 encContent 解密取回（存款人 encPubkey 加密，
  *   任意设备登录、用同一钱包+密码派生密钥即可解密），本机 localStorage 作为兜底。
  *
- * 提交路径由 delegate 决定（受链级 refundRelayerSupported 约束）：
- *  - delegate=true（默认）：平台 relayer 代付上链（relay-refund），fee 归平台。
- *  - delegate=false：存款人钱包自托付直发（relayer=refunder=存款人，msg.sender==relayer 成立），
- *    fee 回流自己，链上成功后异步 confirm-refund-gravarc 回调落库。
+ * 存款人钱包直发（relayer=refunder=存款人）；链上成功后持久化确认。
  */
 export async function refundPrivacyDeposit(params: {
   batchId: string
@@ -61,27 +63,29 @@ export async function refundPrivacyDeposit(params: {
   chainIdNum: number
   chainName: string
   password: string
-  /** true=平台 relayer 代付；false=存款人钱包直发。链不支持代付时强制 false。 */
+  /** Reserved for the disabled relayed-operation choice. */
   delegate: boolean
-  /** 委托时的平台 relayer 地址（delegate=true 必填）。 */
-  relayerAddress?: Hex
   onStatus?: (msg: string) => void
 }): Promise<{ txHash: string }> {
   const {
     batchId, caipChainId, gravArcAddress, account, walletClient, provider,
-    chainIdNum, chainName, password, delegate, relayerAddress, onStatus,
+    chainIdNum, chainName, password, delegate, onStatus,
   } = params
+
+  if (delegate) throw new Error('Relayed refund is not available yet')
 
   // 1. 派生 NaCl 密钥对（密码 + 钱包 EIP-712 签名，确定性，跨设备可重建）
   onStatus?.('Unlocking account…')
   const keyPair = await deriveNaclKeyPair(password, walletClient as Parameters<typeof deriveNaclKeyPair>[1])
 
-  // 2. 解密存款人 depositSecret（来自后端 gravArcUserInfo.encryptedSecret，任意设备登录即有）
+  // 2. Recover the account ciphertext from the backend, as Core does.
   onStatus?.('Decrypting depositor secret…')
-  const raw = localStorage.getItem('gravArcUserInfo')
-  const info = raw ? (JSON.parse(raw) as { encryptedSecret?: string }) : null
+  const info = await apis.auth.getMyGravArcUserInfo()
   if (!info?.encryptedSecret) {
     throw new Error('Missing depositor GravArc account secret - please bind your wallet first.')
+  }
+  if (info.address.toLowerCase() !== account.toLowerCase()) {
+    throw new Error('Connected wallet does not match the bound privacy wallet')
   }
   let depositSecret: string
   try {
@@ -102,7 +106,7 @@ export async function refundPrivacyDeposit(params: {
     // 后端不可达时回落本机 localStorage
   }
   if (!payload) {
-    payload = readRefundPayload(batchId)
+    payload = readRefundPayload(batchId, keyPair)
   }
   if (!payload) {
     throw new Error(
@@ -110,9 +114,16 @@ export async function refundPrivacyDeposit(params: {
     )
   }
 
-  // 4. 拉取最新 deposit 成员路径（针对 leafIndex，相对当前 currentRoot）
+  // 4. 拉取并核验最新 deposit 成员路径，不能仅信任扫描器返回值。
   onStatus?.('Fetching deposit membership path…')
   const path = await apis.transaction.getDepositMembershipPath(caipChainId, payload.leafIndex)
+  const membership = await verifyDepositMembershipPath(
+    path,
+    payload.leafIndex,
+    payload.authRoot,
+    payload.depositorSecretHash,
+    payload.depositLeaf,
+  )
 
   // 5. 链上读各 nullifier 的 claimed 与 refunded 状态
   onStatus?.('Checking on-chain claim state…')
@@ -153,13 +164,11 @@ export async function refundPrivacyDeposit(params: {
   // 最低手续费 0.1%（ceil）
   const fee = (refundAmount + 999n) / 1000n
 
-  // 6. relayer 取值：委托=平台 relayer（fee 归平台）；直发=存款人自己（relayer=refunder=account，fee 回流自己）
-  const relayer = delegate ? (relayerAddress as Hex) : account
+  // Direct submission returns the proof fee to the same wallet paying gas.
+  const relayer = account
 
   // 7. 拉取 refund 电路并生成证明
   onStatus?.('Preparing refund circuit…')
-  const circuit = await apis.transaction.getCircuitFiles(caipChainId, payload.tier, 'refund')
-
   onStatus?.('Generating refund ZK proof in browser…')
   const proof = await generateRefundProof({
     slots: payload.slots,
@@ -167,35 +176,14 @@ export async function refundPrivacyDeposit(params: {
     token: payload.token,
     tier: payload.tier,
     leafIndex: payload.leafIndex,
-    depositPathElements: path.siblings,
-    depositPathIndices: path.pathIndices,
+    depositPathElements: membership.pathElements,
+    depositPathIndices: membership.pathIndices,
     totalClaimed,
     fee,
     relayer,
     refunder: account,
-    wasmUrl: circuit.wasmUrl,
-    zkeyUrl: circuit.zkeyUrl,
     onStatus,
   })
-
-  // 8. 提交：委托走 relay-refund；直发走钱包 writeContract + confirm-refund-gravarc 回调
-  if (delegate) {
-    onStatus?.('Submitting refund via platform…')
-    const res = await apis.transaction.relayGravArcRefund(batchId, {
-      pA: proof.proof.pA,
-      pB: proof.proof.pB,
-      pC: proof.proof.pC,
-      depositRoot: proof.depositRoot,
-      nullifierHash: proof.nullifierHash,
-      token: proof.token,
-      refundAmount: proof.refundAmount.toString(),
-      fee: proof.fee.toString(),
-      relayer: proof.relayer,
-      refunder: proof.refunder,
-      tier: proof.tier,
-    })
-    return { txHash: res.txHash }
-  }
 
   // 自托付直发：存款人钱包直接调合约 refund（msg.sender == relayer == refunder == account）
   onStatus?.('Submitting refund from your wallet…')

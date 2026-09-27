@@ -6,7 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test:private-payroll": "node scripts/test-private-payroll.mjs",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "test:private-payroll": "node test/private-payroll.test.mjs",
+    "test:circuit-cache": "node test/circuit-cache.test.mjs",
+    "test:proof-format": "node test/proof-format.test.mjs",
+    "test:confirm-sync": "node test/confirm-sync.test.mjs",
+    "test:prepared-deposit": "node test/prepared-deposit.test.mjs",
+    "test:deposit-membership-path": "node test/deposit-membership-path.test.mjs",
+    "test:wallet-networks": "node test/wallet-networks.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

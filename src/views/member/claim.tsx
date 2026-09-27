@@ -6,10 +6,12 @@ import { deriveNaclKeyPair } from '@/lib/gravarc/naclCrypto'
 import { withdrawPrivacyItem } from '@/lib/gravarc/privacyWithdraw'
 import { buildExplorerTransactionUrl } from '@/utils/transaction'
 import useChainAssetStore from '@/stores/chain-asset'
+import { openWalletModal, selectWalletNetwork } from '@/providers/app-kit-provider'
+import useAuthStore from '@/stores/auth'
 import useHeaderStore from '@/stores/header'
 import { useTranslation } from '@/utils/i18n'
 import type { Provider } from '@reown/appkit/react'
-import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { IconLoader2 } from '@tabler/icons-react'
 import axios from 'axios'
 import { ethers } from 'ethers'
@@ -72,8 +74,8 @@ export default function ClaimPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { t } = useTranslation()
-  const { open } = useAppKit()
   const { address } = useAppKitAccount()
+  const profileUserId = useAuthStore(state => state.gravArcUserInfo?.userId)
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const userAction = useRef(false)
   const { fetchChainAssets, fetchChains, getTokenSymbol, getTokenDecimals, getTokenIconUrl, chains } = useChainAssetStore()
@@ -94,12 +96,19 @@ export default function ClaimPage() {
   const [rememberKey, setRememberKey] = useState(false)
   const [chainHasPrivacy, setChainHasPrivacy] = useState(false)
   const [privacyStatus, setPrivacyStatus] = useState('')
-  // Delegate privacy withdrawals to the platform relayer (member pays no gas). Default on.
-  const [delegateToServer, setDelegateToServer] = useState(true)
   const cachedKeyPairRef = useRef<Awaited<ReturnType<typeof deriveNaclKeyPair>> | null>(null)
-  const relayerAddressRef = useRef<string | null>(null)
+  const cachedIdentityRef = useRef<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const recipientDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const identity = `${profileUserId ?? localStorage.getItem('userId') ?? ''}:${address?.toLowerCase() ?? ''}`
+    if (cachedIdentityRef.current !== identity) {
+      cachedKeyPairRef.current = null
+      setPassword('')
+      cachedIdentityRef.current = identity
+    }
+  }, [address, profileUserId])
 
   // Derived
   const availableChainIds = [...new Set(allPending.map(p => p.caipChainId))]
@@ -297,20 +306,6 @@ export default function ClaimPage() {
       if (rememberKey) cachedKeyPairRef.current = keyPair
     }
 
-    // When delegating, resolve the platform relayer address + chain-level withdrawRelayerSupported.
-    let relayerAddress = relayerAddressRef.current
-    let withdrawRelayerSupported = true
-    if (delegateToServer) {
-      const caipChainId = `eip155:${chainIdNum}`
-      const rel = await apis.transaction.getPrivacyWithdrawRelayer(caipChainId)
-      relayerAddress = rel.relayerAddress
-      withdrawRelayerSupported = rel.withdrawRelayerSupported
-      relayerAddressRef.current = relayerAddress
-      // 链不支持平台代付 withdraw 时强制直发（后端 relay-withdraw 也会拒绝）
-      if (!withdrawRelayerSupported) setDelegateToServer(false)
-    }
-    const effectiveDelegate = delegateToServer && withdrawRelayerSupported
-
     for (const item of items) {
       try {
         const res = await withdrawPrivacyItem({
@@ -321,8 +316,7 @@ export default function ClaimPage() {
           account: address!,
           chainIdNum,
           chainName,
-          delegate: effectiveDelegate,
-          relayerAddress: effectiveDelegate ? relayerAddress : undefined,
+          delegate: false,
           onStatus: msg => setPrivacyStatus(`${item.transactionName ?? item.id}: ${msg}`),
         })
         succeeded.push({
@@ -356,8 +350,11 @@ export default function ClaimPage() {
       return
     }
     if (!address || !walletProvider) {
-      open({ view: 'Connect', namespace: 'eip155' })
       userAction.current = true
+      void openWalletModal(Number(selectedChain.split(':')[1])).catch(error => {
+        userAction.current = false
+        toast({ title: t('common.error'), description: error instanceof Error ? error.message : 'Could not connect wallet', variant: 'destructive' })
+      })
       return
     }
 
@@ -386,13 +383,9 @@ export default function ClaimPage() {
       const explorerUrl = chainEntry.explorerUrls?.[0] ?? null
 
       // Switch the wallet to the target chain once, up-front, for both branches.
+      await selectWalletNetwork(chainIdNum)
       const currentChainIdHex = await walletProvider.request<string>({ method: 'eth_chainId' })
-      if (parseInt(currentChainIdHex, 16) !== chainIdNum) {
-        await walletProvider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: `0x${chainIdNum.toString(16)}` }],
-        })
-      }
+      if (parseInt(currentChainIdHex, 16) !== chainIdNum) throw new Error('Wallet did not switch to the claim network')
 
       const succeeded: WithdrawalBatchResult['succeeded'] = []
       const failed: WithdrawalBatchResult['failed'] = []
@@ -671,17 +664,17 @@ export default function ClaimPage() {
               />
               <span className="text-[13px] leading-[20px] text-[#606067]">{t('pages.memberClaim.rememberSession')}</span>
             </label>
-            <label className="flex cursor-pointer select-none items-center gap-[8px]">
+            <label className="flex select-none items-center gap-[8px] opacity-50">
               <input
                 type="checkbox"
-                checked={delegateToServer}
-                onChange={e => setDelegateToServer(e.target.checked)}
-                className="size-[16px] cursor-pointer accent-[#5e85ee]"
+                checked={false}
+                disabled
+                className="size-[16px] accent-[#5e85ee]"
               />
-              <span className="text-[13px] leading-[20px] text-[#606067]">{t('pages.memberClaim.delegateToServer')}</span>
+              <span className="text-[13px] leading-[20px] text-[#606067]">{t('pages.memberClaim.delegateToServer')} ({t('common.comingSoon')})</span>
             </label>
             <p className="text-[13px] leading-[20px] text-[#8d8d93]">
-              {delegateToServer ? t('pages.memberClaim.delegateToServerHelp') : t('pages.memberClaim.privacyWithdrawHelp')}
+              {t('pages.memberClaim.privacyWithdrawHelp')}
             </p>
           </div>
         )}

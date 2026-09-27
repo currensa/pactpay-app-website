@@ -1,10 +1,19 @@
 import { Button } from '@/components/ui/button'
 import type { I18nKey } from '@/i18n/messages'
+import { ERC20_ABI } from '@/lib/gravarc/gravarcAbi'
+import { readPayrollWalletBalance } from '@/lib/gravarc/payrollWalletBalance'
+import { openWalletModal } from '@/providers/app-kit-provider'
+import useChainAssetStore from '@/stores/chain-asset'
 import useHeaderStore from '@/stores/header'
+import useOrganizationStore from '@/stores/organization'
 import { useTranslation } from '@/utils/i18n'
 import { Bot, CalendarDays, Users } from 'lucide-react'
+import { useAppKitAccount } from '@reown/appkit/react'
+import { getPublicClient } from '@wagmi/core'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { formatUnits, type Hex } from 'viem'
+import { useConfig } from 'wagmi'
 
 type TransactionType = 'people' | 'ai'
 
@@ -26,7 +35,6 @@ const TYPE_OPTIONS: {
     summaryItems: [
       { labelKey: 'pages.createTransactionSelector.paymentTypeLabel', valueKey: 'pages.createTransactionSelector.peoplePayroll' },
       { labelKey: 'pages.createTransactionSelector.payeesLabel', valueKey: 'pages.createTransactionSelector.organizationMembers' },
-      { labelKey: 'pages.createTransactionSelector.platformFeeLabel', valueKey: 'pages.createTransactionSelector.platformFeeApplied' },
       { labelKey: 'pages.createTransactionSelector.claimTimingLabel', valueKey: 'pages.createTransactionSelector.claimTimingRequired' },
     ],
     icon: Users,
@@ -41,7 +49,6 @@ const TYPE_OPTIONS: {
     summaryItems: [
       { labelKey: 'pages.createTransactionSelector.paymentTypeLabel', valueKey: 'pages.createTransactionSelector.aiPurchase' },
       { labelKey: 'pages.createTransactionSelector.payeesLabel', valueKey: 'pages.createTransactionSelector.apiServiceUsagePlan' },
-      { labelKey: 'pages.createTransactionSelector.platformFeeLabel', valueKey: 'pages.createTransactionSelector.none' },
       { labelKey: 'pages.createTransactionSelector.refundPolicyLabel', valueKey: 'pages.createTransactionSelector.noRefunds' },
     ],
     icon: Bot,
@@ -59,6 +66,47 @@ export default function CreateTransactionSelector() {
   const [selectedType, setSelectedType] = useState<TransactionType | null>(
     (initialType === 'people' || initialType === 'ai') ? initialType : null,
   )
+  const [selectedToken, setSelectedToken] = useState('')
+  const [balance, setBalance] = useState<{ key: string; status: 'loading' | 'loaded' | 'unavailable'; amount?: bigint } | null>(null)
+  const { address, isConnected } = useAppKitAccount()
+  const wagmiConfig = useConfig()
+  const payrollConfig = useOrganizationStore(state => state.payrollConfig)
+  const chainAssets = useChainAssetStore(state => state.chainAssets)
+  const getChain = useChainAssetStore(state => state.getChain)
+  const tokens = chainAssets.filter(asset => asset.caipChainId === payrollConfig?.caipChainId)
+  const selectedAsset = tokens.find(asset => (asset.contractAddress ?? '0x0000000000000000000000000000000000000000').toLowerCase() === selectedToken.toLowerCase())
+  const balanceKey = `${payrollConfig?.caipChainId}:${selectedToken.toLowerCase()}:${address?.toLowerCase()}`
+  const currentBalance = balance?.key === balanceKey ? balance : null
+
+  useEffect(() => {
+    void useOrganizationStore.getState().fetchPayrollTokenSymbol()
+    void useChainAssetStore.getState().fetchChainAssets()
+  }, [])
+
+  useEffect(() => setSelectedToken(''), [payrollConfig?.caipChainId])
+
+  useEffect(() => {
+    if (!selectedAsset || !payrollConfig || !isConnected || !address) return
+    let cancelled = false
+    setBalance({ key: balanceKey, status: 'loading' })
+    const fetchBalance = async () => {
+      try {
+        const client = getPublicClient(wagmiConfig, { chainId: Number(payrollConfig.caipChainId.split(':')[1]) })
+        if (!client) throw new Error('Wallet network is unavailable')
+        const amount = await readPayrollWalletBalance(
+          selectedAsset,
+          address,
+          wallet => client.getBalance({ address: wallet as Hex }),
+          (token, wallet) => client.readContract({ address: token as Hex, abi: ERC20_ABI, functionName: 'balanceOf', args: [wallet as Hex] }),
+        )
+        if (!cancelled) setBalance({ key: balanceKey, status: 'loaded', amount })
+      } catch {
+        if (!cancelled) setBalance({ key: balanceKey, status: 'unavailable' })
+      }
+    }
+    void fetchBalance()
+    return () => { cancelled = true }
+  }, [address, balanceKey, isConnected, payrollConfig?.caipChainId, selectedAsset, wagmiConfig])
 
 
   useEffect(() => {
@@ -156,10 +204,12 @@ export default function CreateTransactionSelector() {
             </Button>
             <Button
               className="w-full md:w-auto"
-              disabled={!selectedOption}
+              disabled={!selectedOption || (selectedType === 'people' && (!payrollConfig || !selectedToken))}
               onClick={() => {
                 if (!selectedOption) return
-                navigate(selectedOption.continueTo)
+                navigate(selectedType === 'people'
+                  ? `${selectedOption.continueTo}?tokenAddress=${encodeURIComponent(selectedToken)}`
+                  : selectedOption.continueTo)
               }}
             >
               {t('pages.createTransactionSelector.continue')}
@@ -181,7 +231,7 @@ export default function CreateTransactionSelector() {
               </div>
 
               <div className="mt-[20px] rounded-[24px] bg-[#f5f5f5] p-[18px]">
-                <p className="text-[13px] font-medium uppercase tracking-[0.08em] text-[#8d8d93]">{t('pages.createTransactionSelector.feeBreakdown')}</p>
+                <p className="text-[13px] font-medium uppercase tracking-[0.08em] text-[#8d8d93]">{t('pages.createTransactionSelector.details')}</p>
                 <div className="mt-[16px] flex flex-col gap-[14px]">
                   {selectedOption.summaryItems.map(item => (
                     <div key={item.labelKey} className="flex items-start justify-between gap-[16px]">
@@ -191,6 +241,49 @@ export default function CreateTransactionSelector() {
                   ))}
                 </div>
               </div>
+              {selectedType === 'people' && (
+                <div className="mt-[20px] flex flex-col gap-[8px]">
+                  <span className="text-[13px] text-[#606067]">{t('pages.orgSettings.chain')}: {payrollConfig ? (getChain(payrollConfig.caipChainId)?.name ?? payrollConfig.caipChainId) : '—'}</span>
+                  {payrollConfig ? (
+                    <div className="flex flex-col gap-[6px] text-[13px] font-medium text-[#1c1c26]">
+                      <label htmlFor="payroll-token">{t('pages.transactions.tokenRequired')}</label>
+                      <select
+                        id="payroll-token"
+                        value={selectedToken}
+                        onChange={event => setSelectedToken(event.target.value)}
+                        className="w-full rounded-[12px] border border-[rgba(0,0,0,0.12)] bg-white px-3 py-[10px]"
+                      >
+                        <option value="">{t('pages.orgSettings.selectToken')}</option>
+                        {tokens.map(asset => {
+                          const address = asset.contractAddress ?? '0x0000000000000000000000000000000000000000'
+                          return <option key={address} value={address}>{asset.asset.symbol}{asset.isNative ? ` (${t('pages.orgSettings.native')})` : ''}</option>
+                        })}
+                      </select>
+                      {selectedAsset && (
+                        <span aria-live="polite" className="text-[12px] font-normal text-[#606067]">
+                          {t('pages.createTransactionSelector.walletBalance')}: {' '}
+                          {!isConnected || !address
+                            ? t('pages.createTransactionSelector.connectWalletForBalance')
+                            : currentBalance?.status === 'loaded' && currentBalance.amount !== undefined
+                              ? `${formatUnits(currentBalance.amount, selectedAsset.decimals)} ${selectedAsset.asset.symbol}`
+                              : currentBalance?.status === 'unavailable'
+                                ? t('pages.createTransactionSelector.balanceUnavailable')
+                                : t('common.loading')}
+                        </span>
+                      )}
+                      {selectedAsset && !isConnected && (
+                        <Button type="button" variant="outline" onClick={() => void openWalletModal(Number(payrollConfig.caipChainId.split(':')[1])).catch(() => setBalance({ key: balanceKey, status: 'unavailable' }))}>
+                          {t('pages.transactions.connectWallet')}
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <Button variant="outline" onClick={() => navigate('/orgs/settings')}>
+                      {t('pages.orgSettings.savePaymentSettings')}
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex h-full min-h-[240px] flex-col items-center justify-center text-center">

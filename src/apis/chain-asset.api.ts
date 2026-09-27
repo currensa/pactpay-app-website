@@ -2,15 +2,11 @@ import { AxiosInstance } from 'axios'
 
 export interface ChainAssetResponse {
   data: Array<{
-    id: string
     caipChainId: string
-    assetId: string
-    contractAddress: string
+    contractAddress: string | null
     decimals: number
     isNative: boolean
     status: string
-    createdAt: string
-    updatedAt: string
     chain: Chain
     asset: Asset
   }>
@@ -19,17 +15,13 @@ export interface ChainAssetResponse {
   total: number
 }
 interface Asset {
-  id: string
   symbol: string
   name: string
   iconUrl: string
   isStable: boolean
   status: string
-  createdAt: string
-  updatedAt: string
 }
 interface Chain {
-  id: string
   caipChainId: string
   name: string
   chainId: string
@@ -37,8 +29,6 @@ interface Chain {
   iconUrl: string
   explorerUrls: string[]
   status: string
-  createdAt: string
-  updatedAt: string
   vaultAddress: string | null
 }
 
@@ -59,7 +49,7 @@ export interface NetworkConfigResponse {
     defiRouter: string
     verifiers: Record<'deposit' | 'withdraw' | 'refund', Record<string, string>>
   }
-  tokens: Array<{ symbol: string; name: string; address: string }>
+  tokens: Array<{ symbol: string; name: string; address: string; decimals: number; isStable: boolean }>
   protocols: Array<{
     name: string
     type?: string
@@ -78,24 +68,17 @@ export interface NetworkConfigResponse {
 
 /** 组织支付账户支持的 Asset/Chain 单项（用于 GET :orgId/assets-chains） */
 export interface OrgAssetChainItem {
-  id: string
   caipChainId: string
-  assetId: string
-  contractAddress: string
+  contractAddress: string | null
   decimals: number
   isNative: boolean
   status: string
-  createdAt: string
-  updatedAt: string
   asset: {
-    id: string
     symbol: string
     name: string
     iconUrl: string
     isStable: boolean
     status: string
-    createdAt: string
-    updatedAt: string
   }
   chain: Chain
 }

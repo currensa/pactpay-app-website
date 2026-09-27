@@ -34,7 +34,7 @@ export interface PrivacyPayrollItem {
   batchId: string
   memberId: string
   amount: string
-  /** 平台服务费（token 最小单位字符串），由后端计算后附在 item 上 */
+  /** Legacy column; direct privacy deposits store zero. */
   platformFee?: string | null
   tokenAddress: string
   recipient: string | null
@@ -67,53 +67,6 @@ export interface PrivacyPayrollItem {
 export interface WithdrawalBatchResult {
   succeeded: { payrollItemId: string; txUrl: string; transactionName: string }[]
   failed: { payrollItemId: string; reason: string }[]
-}
-
-/**
- * 把 privacy_deposit 提款交给平台代执行时上送的 withdraw 证明参数。
- * 数值字段统一为十进制字符串，结构与链上 withdraw tuple 一致。
- */
-export interface RelayWithdrawArgs {
-  pA: [string, string]
-  pB: [[string, string], [string, string]]
-  pC: [string, string]
-  nullifierHash: string
-  recipient: string
-  claimedAmount: string
-  token: string
-  tier: number
-  depositRoot: string
-  expectedAmount: string
-  fee: string
-  relayer: string
-  nonce: string
-}
-
-export interface RelayWithdrawResponse {
-  status: string
-  txHash: string
-  recipient: string | null
-  fee: string | null
-}
-
-/** GravArc 隐私退款上送参数（与合约 RefundParams 一一对应）。 */
-export interface RelayGravArcRefundArgs {
-  pA: [string, string]
-  pB: [[string, string], [string, string]]
-  pC: [string, string]
-  depositRoot: string
-  nullifierHash: string[]
-  token: string
-  refundAmount: string
-  fee: string
-  relayer: string
-  refunder: string
-  tier: number
-}
-
-export interface RelayGravArcRefundResponse {
-  status: string
-  txHash: string
 }
 
 // ── 原有接口（保留兼容性）──────────────────────────────────────────────────
@@ -154,7 +107,7 @@ export interface TransactionPlan {
   caipChainId: string
   transactionName: string
   transactionType: string
-  /** 所有 item（含服务费）金额之和，token 最小单位字符串 */
+  /** System recharge total; private payroll totals are recovered client-side. */
   totalAmount: string | null
   transactionStatus: PayrollTransactionStatus
   payPeriod: string
@@ -195,6 +148,7 @@ export interface CreatePrivacyDepositPlanPayload {
   tokenAddress: string
   transactionName?: string
   payPeriod?: string
+  privacyRefundable: boolean
   members: CreatePrivacyDepositPlanMember[]
   encryptedPlan: string
 }
@@ -241,13 +195,6 @@ export interface TransactionListResponse {
 }
 
 
-export interface CircuitFilesResponse {
-  wasmUrl: string
-  zkeyUrl: string
-  wasmSha256?: string
-  zkeySha256?: string
-}
-
 export interface DepositPathResponse {
   nextIndex: number
   siblings: string[]
@@ -261,12 +208,7 @@ export interface PrivacyDepositMemberData {
   encPubkey: string
   /** Present only for system recharge, never for private payroll. */
   amount?: string
-  /** 本成员应到账金额（net，token 最小单位字符串），不含服务费 */
-  /**
-   * 本成员服务费（token 最小单位字符串）。前端存款时把它加到 amount 上，按 gross
-   * (amount + platformFee) 承诺进 deposit 树；提款时合约再扣掉同样的 platformFee 给
-   * relayer，成员最终到账正好为 amount。必须与 item.platformFee 一致。
-   */
+  /** Legacy system-recharge field; absent from direct private payroll. */
   platformFee?: string | null
 }
 
@@ -274,6 +216,7 @@ export interface PrivacyDepositDataResponse {
   tier: number
   privacyDepositLeaf: string | null
   privacyRefundable: boolean | null
+  depositorAddress: string
   encryptedPlan: string | null
   totalAmount: string | null
   members: PrivacyDepositMemberData[]
@@ -375,32 +318,6 @@ export class TransactionApi {
   }
 
   // 获取平台 relayer 地址 + 该链是否支持 relayer 代付（withdraw + refund 共用，链级配置约束委托/直发）
-  async getPrivacyWithdrawRelayer(caipChainId?: string) {
-    const res = await this.request.get<{ relayerAddress: string; withdrawRelayerSupported: boolean; refundRelayerSupported: boolean }>(
-      '/transaction/privacy-withdraw-relayer',
-      { params: caipChainId ? { caipChainId } : undefined },
-    )
-    return res.data
-  }
-
-  // 把 privacy_deposit 提款交给平台代执行（节省 gas），后端用 relayer 钱包代付 gas 上链
-  async relayPrivacyWithdraw(itemId: string, args: RelayWithdrawArgs) {
-    const res = await this.request.post<RelayWithdrawResponse>(
-      `/transaction/my-payroll-items/${itemId}/relay-withdraw`,
-      args,
-    )
-    return res.data
-  }
-
-  // GravArc 隐私退款：前端生成 refund 证明后交平台 relayer 代执行（合约要求 msg.sender == relayer）
-  async relayGravArcRefund(batchId: string, args: RelayGravArcRefundArgs) {
-    const res = await this.request.post<RelayGravArcRefundResponse>(
-      `/transaction/${this.orgId}/batches/${batchId}/relay-refund`,
-      args,
-    )
-    return res.data
-  }
-
   // GravArc 隐私退款 txHash 确认
   async confirmGravArcRefund(batchId: string, refundTxHash: string) {
     const res = await this.request.post<{ success: boolean }>(
@@ -458,76 +375,6 @@ export class TransactionApi {
       pendingClaim: { tokenAddress: string; caipChainId: string; totalAmount: string }[]
       incomeDistribution: { orgId: string; orgName: string; totalAmount: string; caipChainId: string; tokenAddress: string }[]
     }>('/transaction/my-summary')
-    return res.data
-  }
-
-  // 预览服务费
-  async getFeePreview(members: { memberId: string }[]) {
-    const res = await this.request.post<{
-      caipChainId: string
-      token: string
-      summary: {
-        billableMemberCount: number
-        totalMemberCount: number
-        originalUnitPrice: string
-        finalUnitPrice: string
-        originalFee: string
-        finalFee: string
-        appliedDiscountCount: number
-        unitDiscountAmount: string
-        totalDiscountAmount: string
-      }
-      pricingDisplay: {
-        billableMemberCount: number
-        originalUnitPrice: string
-        originalUnitSubtotal: string
-        finalUnitPrice: string
-        finalUnitSubtotal: string
-      }
-      matchedRules: {
-        ruleCode: string
-        name: string
-        description: string
-        ruleType: string
-        targetType: string
-        targetValue: string | null
-        pricePerMember: string | null
-        discountRateBps: number | null
-        discountLabel: string | null
-        beforeUnitPrice: string | null
-        effectiveUnitPrice: string | null
-        unitDiscountAmount: string | null
-        beforeFee: string | null
-        effectiveFee: string | null
-        feeDiscountAmount: string | null
-      }[]
-      referralBenefit: {
-        applied: boolean
-        eligible: boolean
-        state: string
-        referralCode: string | null
-        discountRateBps: number | null
-      }
-      gasFeeEstimate: {
-        gasPrice: string | null
-        maxFeePerGas: string | null
-        maxPriorityFeePerGas: string | null
-        effectiveGasPrice: string | null
-        nativeSymbol: string | null
-        nativeDecimals: number | null
-        approve: { gasUnits: string; costWei: string; costNative: string } | null
-        deposit: { gasUnits: string; costWei: string; costNative: string } | null
-        total: { gasUnits: string; costWei: string; costNative: string } | null
-      }
-    }>(`/transaction/${this.orgId}/plan/fee-preview`, members)
-    return res.data
-  }
-
-  // 获取 ZK 电路文件 CDN 链接
-  async getCircuitFiles(caipChainId: string, tier: number, circuitType: 'deposit' | 'withdraw' | 'refund' = 'deposit') {
-    const res = await this.request.get<CircuitFilesResponse>('/gravarc/circuit-files', {
-      params: { caipChainId, tier, circuitType },
-    })
     return res.data
   }
 

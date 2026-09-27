@@ -3,7 +3,8 @@ import { deriveNaclKeyPair, secretboxEncryptWithKey } from '@/lib/gravarc/naclCr
 import { poseidonHash, secretStringToField } from '@/lib/gravarc/poseidon'
 import useAuthStore from '@/stores/auth'
 import { usePublicCopy } from '@/views/public/copy'
-import { useAppKit, useAppKitAccount } from '@reown/appkit/react'
+import { useAppKitAccount } from '@reown/appkit/react'
+import { openWalletModal } from '@/providers/app-kit-provider'
 import { IconLoader2, IconWallet } from '@tabler/icons-react'
 import axios from 'axios'
 import { useEffect, useState } from 'react'
@@ -21,7 +22,6 @@ function bytesToHex(b: Uint8Array): string {
 
 export default function BindWallet({ onSuccess }: BindWalletProps) {
   const { copy } = usePublicCopy()
-  const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
   const { data: walletClient } = useWalletClient()
   const [loading, setLoading] = useState(false)
@@ -43,12 +43,16 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
   const shortAddress = address ? address.slice(0, 6) + '...' + address.slice(-4) : ''
 
   const handleConnect = () => {
-    open({ view: 'Connect', namespace: 'eip155' })
+    void openWalletModal().catch(error => setError(error instanceof Error ? error.message : copy.bindWallet.submitFailed))
   }
 
   const handleSubmit = async () => {
     if (!address || !walletClient) return
     if (!passwordInput) { setError('Password cannot be empty'); return }
+    if (walletClient.account.address.toLowerCase() !== address.toLowerCase()) {
+      setError('Wallet account changed. Reconnect and try again.')
+      return
+    }
 
     setError('')
     setLoading(true)
@@ -106,7 +110,11 @@ export default function BindWallet({ onSuccess }: BindWalletProps) {
       await checkPrivacyProfile()
       onSuccess()
     } catch (err: any) {
-      if (axios.isAxiosError(err)) return
+      if (axios.isAxiosError(err)) {
+        const message = err.response?.data?.message
+        setError(typeof message === 'string' ? message : copy.bindWallet.submitFailed)
+        return
+      }
       setError(err?.message || copy.bindWallet.submitFailed)
     } finally {
       setLoading(false)

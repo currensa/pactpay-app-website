@@ -1,20 +1,8 @@
 'use client'
 
 import { buildPoseidon } from 'circomlibjs'
-
-// ── Circuit file cache (in-memory, avoids repeated CDN downloads) ──────────
-
-const _circuitCache = new Map<string, ArrayBuffer>()
-
-async function fetchCircuit(url: string, onStatus?: (msg: string) => void): Promise<ArrayBuffer> {
-  if (_circuitCache.has(url)) return _circuitCache.get(url)!
-  onStatus?.('Downloading circuit files (first time only — this may take a while)…')
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Failed to fetch circuit file: ${url}`)
-  const buf = await res.arrayBuffer()
-  _circuitCache.set(url, buf)
-  return buf
-}
+import { fetchCircuitBundle } from './circuitCache'
+import { toContractProof } from './proofFormat'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -116,8 +104,6 @@ export type DepositProofResult = {
 export async function generateDepositProof(
   receivers: ReceiverInput[],
   token: bigint,
-  wasmUrl: string,
-  zkeyUrl: string,
   depositPath: { nextIndex: number; siblings: string[] },
   /** 是否可退款：true 用存款人真实 secretHash；false 用 FAKE_DEPOSITOR_SECRET_HASH */
   refundable: boolean,
@@ -230,10 +216,7 @@ export async function generateDepositProof(
 
   // Generate ZK proof via snarkjs — dynamic import keeps it out of the initial bundle
   const { groth16 } = await import('snarkjs')
-  const [wasmBuf, zkeyBuf] = await Promise.all([
-    fetchCircuit(wasmUrl, onStatus),
-    fetchCircuit(zkeyUrl, onStatus),
-  ])
+  const { wasm: wasmBuf, zkey: zkeyBuf } = await fetchCircuitBundle('deposit', tier, onStatus)
   onStatus?.('Generating ZK proof in browser… (private inputs never leave your device)')
 
   const input = {
@@ -258,16 +241,8 @@ export async function generateDepositProof(
   )
   console.log(`[deposit proof] fullProve took ${((performance.now() - t0) / 1000).toFixed(2)}s`)
 
-  const pA = proof.pi_a.slice(0, 2) as [string, string]
-  const pB = proof.pi_b.slice(0, 2) as [[string, string], [string, string]]
-  const pC = proof.pi_c.slice(0, 2) as [string, string]
-
   return {
-    proof: {
-      pA,
-      pB: [[pB[0][1], pB[0][0]], [pB[1][1], pB[1][0]]],
-      pC,
-    },
+    proof: toContractProof(proof),
     tier,
     newDepositRoot: toHex64(newDepositRoot),
     oldDepositRoot: toHex64(oldRoot),

@@ -72,6 +72,13 @@ export class AccountApi {
     return res.data
   }
 
+  async getMyGravArcUserInfo() {
+    const res = await this.request.get<(Pick<GravArcUserInfoDto, 'address' | 'encryptedSecret' | 'secretHash'> & { encPubkey: string | null }) | null>(
+      '/auth/gravarc-user-info/detail',
+    )
+    return res.data
+  }
+
   async saveGravArcUserInfo(payload: SaveGravArcUserInfoDto) {
     const res = await this.request.post<{ success: boolean }>('/auth/gravarc-user-info', payload)
     return res.data

@@ -1,4 +1,5 @@
 import request from '@/apis/request'
+import { finishPreparedDeposit } from './preparedDeposit'
 import { REQUEST_TIMEOUT_MS, type ConfirmJob } from './types'
 
 // Maps a queued job to its HTTP call. Uses the raw axios instance directly (rather than the
@@ -35,6 +36,7 @@ export async function executeJob(job: ConfirmJob): Promise<void> {
         },
         config,
       )
+      finishPreparedDeposit(job.orgId, job.batchId, job.depositTxHash)
       return
     case 'confirm-withdraw':
       await request.post(

@@ -2,7 +2,8 @@ import api from '@/apis'
 import useAuthStore from '@/stores/auth'
 import { usePublicCopy } from '@/views/public/copy'
 import type { Provider } from '@reown/appkit/react'
-import { useAppKit, useAppKitAccount, useAppKitProvider, useDisconnect } from '@reown/appkit/react'
+import { useAppKitAccount, useAppKitProvider, useDisconnect } from '@reown/appkit/react'
+import { openWalletModal } from '@/providers/app-kit-provider'
 import { IconLoader2, IconMail, IconWallet } from '@tabler/icons-react'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -16,7 +17,6 @@ interface LoginFormProps {
 }
 
 function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
-  const { open } = useAppKit()
   const { disconnect } = useDisconnect()
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
@@ -30,14 +30,18 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
   }, [address])
 
   const handleWalletConnect = () => {
-    open({ view: 'Connect', namespace: 'eip155' })
     userAction.current = true
+    void openWalletModal().catch(() => { userAction.current = false })
   }
 
   const handleSwitchWallet = async () => {
-    await disconnect()
-    open({ view: 'Connect', namespace: 'eip155' })
-    userAction.current = true
+    try {
+      await disconnect()
+      userAction.current = true
+      await openWalletModal()
+    } catch {
+      userAction.current = false
+    }
   }
 
   const walletLogin = async (provider: Provider, addr: string) => {
@@ -69,6 +73,7 @@ function WalletButton({ onLoginSuccess }: { onLoginSuccess: () => void }) {
 
   useEffect(() => {
     if (!userAction.current || !address || !walletProvider) return
+    userAction.current = false
     void walletLogin(walletProvider, address)
   }, [address, walletProvider])
 

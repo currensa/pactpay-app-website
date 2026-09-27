@@ -4,6 +4,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import { ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
 type ChainAssetItem = ChainAssetResponse['data'][number]
+const NATIVE_TOKEN = '0x0000000000000000000000000000000000000000'
 
 interface PaymentConfigFieldsProps {
   chainAssets: ChainAssetItem[]
@@ -53,20 +54,15 @@ export function PaymentConfigFields({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const stableAssets = useMemo(
-    () => chainAssets.filter(item => item.asset.isStable),
+  const chains = useMemo(
+    () => Array.from(new Map(chainAssets.map(item => [item.chain.caipChainId, item.chain])).values()),
     [chainAssets]
   )
 
-  const chains = useMemo(
-    () => Array.from(new Map(stableAssets.map(item => [item.chain.caipChainId, item.chain])).values()),
-    [stableAssets]
-  )
-
   const selectedChain = chains.find(chain => chain.caipChainId === selectedChainId)
-  const assetsForChain = stableAssets.filter(item => item.chain.caipChainId === selectedChainId)
+  const assetsForChain = chainAssets.filter(item => item.chain.caipChainId === selectedChainId)
   const selectedAsset = assetsForChain.find(
-    asset => (asset.contractAddress || asset.asset.symbol) === selectedToken
+    asset => (asset.contractAddress ?? NATIVE_TOKEN) === selectedToken
   )
 
   const dropdownPositionClass = dropdownPlacement === 'top'
@@ -151,10 +147,10 @@ export function PaymentConfigFields({
           {tokenDropdownOpen && assetsForChain.length > 0 && (
             <div className={`absolute left-0 z-20 w-full overflow-hidden rounded-[16px] border border-[rgba(0,0,0,0.12)] bg-white shadow-lg ${dropdownPositionClass}`}>
               {assetsForChain.map(item => {
-                const tokenValue = item.contractAddress || item.asset.symbol
+                const tokenValue = item.contractAddress ?? NATIVE_TOKEN
                 return (
                   <button
-                    key={item.id}
+                    key={`${item.caipChainId}:${item.contractAddress ?? 'native'}`}
                     onClick={() => { onSelectedTokenChange(tokenValue); setTokenDropdownOpen(false) }}
                     className="flex w-full items-center justify-between px-[14px] py-[10px] text-[13px] leading-[20px] text-[#1c1c26] transition-colors hover:bg-[#f5f5f5]"
                   >

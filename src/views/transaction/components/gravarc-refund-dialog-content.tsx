@@ -1,12 +1,12 @@
-import apis from '@/apis'
 import type { TransactionPlan } from '@/apis/transaction.api'
 import { refundPrivacyDeposit } from '@/lib/gravarc/refundPrivacyDeposit'
 import useChainAssetStore from '@/stores/chain-asset'
 import { normalizeTransactionHash } from '@/utils/evm-transaction'
+import { openWalletModal, selectWalletNetwork } from '@/providers/app-kit-provider'
 import { useTranslation } from '@/utils/i18n'
 import { buildExplorerTransactionUrl, formatTransactionHash } from '@/utils/transaction'
 import type { Provider } from '@reown/appkit/react'
-import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { getPublicClient } from '@wagmi/core'
 import { useEffect, useState } from 'react'
 import { createWalletClient, custom, type Hex } from 'viem'
@@ -42,12 +42,8 @@ export function GravArcRefundDialogContent({
   const [errorMsg, setErrorMsg] = useState('')
   const [refundTxHash, setRefundTxHash] = useState('')
   const [password, setPassword] = useState('')
-  const [delegateToServer, setDelegateToServer] = useState(false)
-  const [refundRelayerSupported, setRefundRelayerSupported] = useState(false)
-  const [relayerAddress, setRelayerAddress] = useState<string | null>(null)
   const { t } = useTranslation()
 
-  const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const wagmiConfig = useConfig()
@@ -65,7 +61,12 @@ export function GravArcRefundDialogContent({
     }
     if (!isConnected) {
       setStatus('connecting')
-      open({ view: 'Connect', namespace: 'eip155' })
+      try {
+        await openWalletModal(Number(transactionPlan.caipChainId.split(':')[1]))
+      } catch (error) {
+        setErrorMsg(error instanceof Error ? error.message : 'Could not connect wallet')
+        setStatus('error')
+      }
       return
     }
     await executeRefund(address as Hex, walletProvider!)
@@ -78,26 +79,6 @@ export function GravArcRefundDialogContent({
     executeRefund(address as Hex, walletProvider)
   }, [status, isConnected, address, walletProvider])
 
-  // 读取链级 refund 代付配置：是否支持平台代付 refund + 平台 relayer 地址
-  useEffect(() => {
-    if (!transactionPlan) return
-    let cancelled = false
-    apis.transaction
-      .getPrivacyWithdrawRelayer(transactionPlan.caipChainId)
-      .then(res => {
-        if (cancelled) return
-        setRefundRelayerSupported(res.refundRelayerSupported)
-        setRelayerAddress(res.relayerAddress)
-        if (!res.refundRelayerSupported) setDelegateToServer(false)
-      })
-      .catch(() => {
-        /* 取失败默认支持代付，不阻塞 */
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [transactionPlan])
-
   async function executeRefund(account: Hex, provider: Provider) {
     if (!transactionPlan) return
     try {
@@ -106,13 +87,9 @@ export function GravArcRefundDialogContent({
       if (!chainEntry.vaultAddress) throw new Error(`GravArc contract is not configured for chain ${transactionPlan.caipChainId}.`)
 
       const numericChainId = parseInt(chainEntry.chainId, 10)
+      await selectWalletNetwork(numericChainId)
       const currentChainIdHex = await provider.request<string>({ method: 'eth_chainId' })
-      if (parseInt(currentChainIdHex, 16) !== numericChainId) {
-        await provider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: `0x${numericChainId.toString(16)}` }],
-        })
-      }
+      if (parseInt(currentChainIdHex, 16) !== numericChainId) throw new Error('Wallet did not switch to the refund network')
       const walletClient = createWalletClient({ account, transport: custom(provider) })
       const publicClient = getPublicClient(wagmiConfig, { chainId: numericChainId })
       if (!publicClient) throw new Error(`Public client for chain ${numericChainId} is not configured.`)
@@ -128,8 +105,7 @@ export function GravArcRefundDialogContent({
         chainIdNum: numericChainId,
         chainName: publicClient.chain?.name ?? 'Unknown',
         password,
-        delegate: delegateToServer,
-        relayerAddress: relayerAddress ?? undefined,
+        delegate: false,
         onStatus: () => {/* status text driven by stepLabels */},
       })
 
@@ -200,32 +176,22 @@ export function GravArcRefundDialogContent({
           </div>
           <p className="text-[13px] text-[#606067] leading-[22px]">{t('pages.transactions.gravArcRefundDescription')}</p>
 
-          {refundRelayerSupported && (
-            <div className="flex flex-col gap-[6px]">
-              <label className="flex cursor-pointer select-none items-center gap-[8px]">
+          <div className="flex flex-col gap-[6px]">
+              <label className="flex select-none items-center gap-[8px] opacity-50">
                 <input
                   type="checkbox"
-                  checked={delegateToServer}
-                  onChange={e => setDelegateToServer(e.target.checked)}
-                  disabled={isBusy}
+                  checked={false}
+                  disabled
                   className="accent-[#5e85ee]"
                 />
                 <span className="text-[13px] text-[#1c1c26] leading-[22px]">
-                  {t('pages.transactions.gravArcRefundDelegate')}
+                  {t('pages.transactions.gravArcRefundDelegate')} ({t('common.comingSoon')})
                 </span>
               </label>
               <p className="text-[12px] text-[#606067] leading-[20px]">
-                {delegateToServer
-                  ? t('pages.transactions.gravArcRefundDelegateHelp')
-                  : t('pages.transactions.gravArcRefundSelfRelayHelp')}
+                {t('pages.transactions.gravArcRefundSelfRelayHelp')}
               </p>
-            </div>
-          )}
-          {!refundRelayerSupported && (
-            <div className="bg-[rgba(237,168,32,0.06)] rounded-[12px] px-4 py-3 text-[12px] text-[#9a6b00] leading-[20px]">
-              {t('pages.transactions.gravArcRefundSelfRelayOnly')}
-            </div>
-          )}
+          </div>
 
           <div className="bg-[rgba(237,168,32,0.06)] rounded-[12px] px-4 py-3 text-[12px] text-[#9a6b00] leading-[20px]">
             {t('pages.transactions.gravArcRefundWarning')}

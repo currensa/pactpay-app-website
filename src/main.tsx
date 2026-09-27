@@ -6,6 +6,8 @@ import { Toaster } from '@/components/ui/toaster';
 import ConfirmSyncBootstrap from '@/components/app/base/confirm-sync-bootstrap';
 import '@/index.css';
 import ReownAppKitProvider from '@/providers/app-kit-provider';
+import { buildWalletNetworks } from '@/providers/wallet-networks';
+import apis from '@/apis';
 import { router } from '@/router';
 import { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -40,12 +42,28 @@ function DisableMobileZoom() {
   return null;
 }
 
-createRoot(document.getElementById('root')!).render(
-  <ReownAppKitProvider>
-    <DisableMobileZoom />
-    <ConfirmSyncBootstrap />
-    <RouterProvider router={router} />
-    <Toaster />
-  </ReownAppKitProvider>
-);
+const root = createRoot(document.getElementById('root')!);
 
+async function renderApp() {
+  root.render(<div role="status">Loading wallet networks...</div>);
+  try {
+    const networks = buildWalletNetworks(await apis.chainAsset.getNetworks());
+    root.render(
+      <ReownAppKitProvider networks={networks}>
+        <DisableMobileZoom />
+        <ConfirmSyncBootstrap />
+        <RouterProvider router={router} />
+        <Toaster />
+      </ReownAppKitProvider>
+    );
+  } catch {
+    root.render(
+      <div role="alert">
+        Unable to load wallet networks from the server.{' '}
+        <button type="button" onClick={() => void renderApp()}>Retry</button>
+      </div>
+    );
+  }
+}
+
+void renderApp();

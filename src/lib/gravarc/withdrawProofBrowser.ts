@@ -2,20 +2,8 @@
 
 import { buildPoseidon } from 'circomlibjs'
 import { secretStringToField } from '@/lib/gravarc/poseidon'
-
-// ── Circuit file cache (in-memory, avoids repeated CDN downloads) ──────────
-
-const _circuitCache = new Map<string, ArrayBuffer>()
-
-async function fetchCircuit(url: string, onStatus?: (msg: string) => void): Promise<ArrayBuffer> {
-  if (_circuitCache.has(url)) return _circuitCache.get(url)!
-  onStatus?.('Downloading circuit files (first time only — this may take a while)…')
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Failed to fetch circuit file: ${url}`)
-  const buf = await res.arrayBuffer()
-  _circuitCache.set(url, buf)
-  return buf
-}
+import { fetchCircuitBundle } from './circuitCache'
+import { toContractProof } from './proofFormat'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -75,8 +63,6 @@ export async function generateWithdrawProof(
   rawSecret: string,
   recipient: string,
   fee: bigint,
-  wasmUrl: string,
-  zkeyUrl: string,
   claimedAmount: bigint = 0n,
   nonce: bigint = 0n,
   expectedAmountOverride?: bigint,
@@ -144,10 +130,7 @@ export async function generateWithdrawProof(
 
   // Generate ZK proof via snarkjs — dynamic import keeps it out of the initial bundle
   const { groth16 } = await import('snarkjs')
-  const [wasmBuf, zkeyBuf] = await Promise.all([
-    fetchCircuit(wasmUrl, onStatus),
-    fetchCircuit(zkeyUrl, onStatus),
-  ])
+  const { wasm: wasmBuf, zkey: zkeyBuf } = await fetchCircuitBundle('withdraw', tier, onStatus)
   onStatus?.('Generating ZK proof in browser… (private inputs never leave your device)')
 
   const t0 = performance.now()
@@ -158,16 +141,8 @@ export async function generateWithdrawProof(
   )
   console.log(`[withdraw proof] fullProve took ${((performance.now() - t0) / 1000).toFixed(2)}s`)
 
-  const pA = proof.pi_a.slice(0, 2) as [string, string]
-  const pB = proof.pi_b.slice(0, 2) as [[string, string], [string, string]]
-  const pC = proof.pi_c.slice(0, 2) as [string, string]
-
   return {
-    proof: {
-      pA,
-      pB: [[pB[0][1], pB[0][0]], [pB[1][1], pB[1][0]]],
-      pC,
-    },
+    proof: toContractProof(proof),
     nullifierHash:  toHex64(nullifierHash) as `0x${string}`,
     depositRoot,
     claimedAmount,

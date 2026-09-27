@@ -5,7 +5,6 @@ import { create } from 'zustand'
 type ChainAssetItem = ChainAssetResponse['data'][number]
 
 interface Chain {
-  id: string
   caipChainId: string
   name: string
   chainId: string
@@ -13,8 +12,6 @@ interface Chain {
   iconUrl: string
   explorerUrls: string[]
   status: string
-  createdAt: string
-  updatedAt: string
   vaultAddress: string | null
 }
 
@@ -34,7 +31,7 @@ interface ChainAssetState {
   /** 根据 caipChainId 返回链信息。 */
   getChain: (caipChainId: string) => Chain | null
   getNetwork: (caipChainId: string) => NetworkConfigResponse | null
-  /** 根据 caipChainId + token 合约地址返回 decimals，找不到时返回 18。 */
+  /** Resolve precision only for configured tokens; never guess ERC-20 decimals. */
   getTokenDecimals: (caipChainId: string, token: string) => number
   /** 根据 caipChainId + token 合约地址返回 asset.iconUrl，找不到时返回 null。 */
   getTokenIconUrl: (caipChainId: string, token: string) => string | null
@@ -110,7 +107,8 @@ const useChainAssetStore = create<ChainAssetState>((set, get) => ({
           ? token === '' || token === '0x0000000000000000000000000000000000000000'
           : a.contractAddress?.toLowerCase() === token?.toLowerCase())
     )
-    return match?.decimals ?? 18
+    if (!match) throw new Error(`Token is not configured on ${caipChainId}`)
+    return match.decimals
   },
 
   getTokenIconUrl: (caipChainId: string, token: string) => {

@@ -12,7 +12,6 @@ import useOrganizationStore from '@/stores/organization'
 import { getRelativeExecutionDate, getRelativeExecutionDateTextClassName } from '@/utils/date'
 import { useTranslation } from '@/utils/i18n'
 import {
-  addTokenAmounts,
   areTokenAmountsEqual,
   formatPreviewAmount,
   isPositiveTokenAmount,
@@ -29,63 +28,6 @@ const imgUserDollar = '/creat-transaction-tip-3.svg'
 const imgTimeForward = '/creat-transaction-tip-4.svg'
 const imgTimePast = '/creat-transaction-tip-5.svg'
 
-interface FeePreview {
-  summary: {
-    billableMemberCount: number
-    totalMemberCount: number
-    originalUnitPrice: string
-    finalUnitPrice: string
-    originalFee: string
-    finalFee: string
-    appliedDiscountCount: number
-    unitDiscountAmount: string
-    totalDiscountAmount: string
-  }
-  pricingDisplay: {
-    billableMemberCount: number
-    originalUnitPrice: string
-    originalUnitSubtotal: string
-    finalUnitPrice: string
-    finalUnitSubtotal: string
-  }
-  matchedRules: {
-    ruleCode: string
-    name: string
-    description: string
-    ruleType: string
-    targetType: string
-    targetValue: string | null
-    pricePerMember: string | null
-    discountRateBps: number | null
-    discountLabel: string | null
-    beforeUnitPrice: string | null
-    effectiveUnitPrice: string | null
-    unitDiscountAmount: string | null
-    beforeFee: string | null
-    effectiveFee: string | null
-    feeDiscountAmount: string | null
-  }[]
-  referralBenefit: {
-    applied: boolean
-    eligible: boolean
-    state: string
-    referralCode: string | null
-    discountRateBps: number | null
-  }
-  caipChainId?: string
-  token?: string
-  gasFeeEstimate?: {
-    gasPrice: string | null
-    maxFeePerGas: string | null
-    maxPriorityFeePerGas: string | null
-    effectiveGasPrice: string | null
-    nativeSymbol: string | null
-    nativeDecimals: number | null
-    approve: { gasUnits: string; costWei: string; costNative: string } | null
-    deposit: { gasUnits: string; costWei: string; costNative: string } | null
-    total: { gasUnits: string; costWei: string; costNative: string } | null
-  }
-}
 interface CreateTransactionDialogContentProps {
   variant?: 'dialog' | 'page'
   isCreatingFromReaction: boolean
@@ -96,11 +38,14 @@ interface CreateTransactionDialogContentProps {
   reactionSourceLoading?: boolean
   reactionSourceCaipChainId?: string
   reactionSourceTokenAddress?: string
+  selectedCaipChainId: string
+  selectedTokenAddress: string
   onCreateTransaction: (params: {
     selectedMembers: Set<string>
     memberAmounts: Record<string, string>
     transactionName: string
     executionDate: string
+    privacyRefundable: boolean
   }) => void
   onCancel: () => void
 }
@@ -137,6 +82,8 @@ export function CreateTransactionDialogContent({
   reactionSourceLoading = false,
   reactionSourceCaipChainId,
   reactionSourceTokenAddress,
+  selectedCaipChainId,
+  selectedTokenAddress,
   onCancel,
   onCreateTransaction,
 }: CreateTransactionDialogContentProps) {
@@ -147,26 +94,18 @@ export function CreateTransactionDialogContent({
   const [memberAmounts, setMemberAmounts] = useState<Record<string, string>>({})
   const [transactionName, setTransactionName] = useState('')
   const [executionDate, setExecutionDate] = useState('')
+  const [privacyRefundable, setPrivacyRefundable] = useState(false)
   const [selectedTimezone, setSelectedTimezone] = useState<string>(() => {
     const local = -new Date().getTimezoneOffset() / 60
     return timezoneOptions.reduce((prev, cur) =>
       Math.abs(cur.offset - local) < Math.abs(prev.offset - local) ? cur : prev
     ).value
   })
-  const [feePreview, setFeePreview] = useState<FeePreview | null>(null)
-  const [feeLoading, setFeeLoading] = useState(false)
-  const payrollTokenSymbol = useOrganizationStore(s => s.payrollTokenSymbol)
-  const payrollConfig = useOrganizationStore(s => s.payrollConfig)
   const currentMember = useOrganizationStore(s => s.currentMember)
-  const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
   const fetchChains = useChainAssetStore(s => s.fetchChains)
   const getChain = useChainAssetStore(s => s.getChain)
   const getTokenSymbol = useChainAssetStore(s => s.getTokenSymbol)
   const getTokenDecimals = useChainAssetStore(s => s.getTokenDecimals)
-
-  useEffect(() => {
-    fetchPayrollTokenSymbol()
-  }, [])
 
   useEffect(() => {
     void fetchChains()
@@ -215,25 +154,6 @@ export function CreateTransactionDialogContent({
     if (initialExecutionDate) setExecutionDate(initialExecutionDate)
   }, [transactionDetailMembers, organizationMembers, isCreatingFromReaction, initialExecutionDate])
 
-  useEffect(() => {
-    if (organizationMembers.length === 0) return
-    const timer = setTimeout(async () => {
-      setFeeLoading(true)
-      try {
-        const payload = organizationMembers
-          .filter(m => selectedMembers.has(m.id) && Number(memberAmounts[m.id] || '0') > 0)
-          .map(m => ({ memberId: m.memberId }))
-        const result = await apis.transaction.getFeePreview(payload)
-        setFeePreview(result)
-      } catch {
-        // silently ignore fee preview errors
-      } finally {
-        setFeeLoading(false)
-      }
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [selectedMembers, memberAmounts, organizationMembers])
-
   const reactionTokenSymbol = useMemo(() => {
     if (!isCreatingFromReaction || !reactionSourceCaipChainId || !reactionSourceTokenAddress) return ''
     return getTokenSymbol(reactionSourceCaipChainId, reactionSourceTokenAddress) ?? reactionSourceTokenAddress.slice(0, 6)
@@ -262,21 +182,17 @@ export function CreateTransactionDialogContent({
     }
   }, [selectedMembers, organizationMembers, getTokenSymbol])
 
-  const orgConfigCurrency = payrollConfig
-    ? (getTokenSymbol(payrollConfig.caipChainId, payrollConfig.token) ?? payrollConfig.token.slice(0, 6))
-    : (payrollTokenSymbol ?? '')
-  const orgConfigCaipChainId = payrollConfig?.caipChainId ?? ''
-  const orgConfigTokenAddress = payrollConfig?.token ?? ''
+  const selectedCurrency = getTokenSymbol(selectedCaipChainId, selectedTokenAddress) ?? selectedTokenAddress.slice(0, 6)
 
   const displayCurrency = isCreatingFromReaction
     ? (reactionTokenSymbol || derivedCurrency)
-    : (orgConfigCurrency || derivedCurrency)
+    : selectedCurrency
   const displayCaipChainId = isCreatingFromReaction
     ? (reactionSourceCaipChainId || derivedCaipChainId)
-    : (orgConfigCaipChainId || derivedCaipChainId)
+    : selectedCaipChainId
   const displayTokenAddress = isCreatingFromReaction
     ? (reactionSourceTokenAddress || derivedTokenAddress)
-    : (orgConfigTokenAddress || derivedTokenAddress)
+    : selectedTokenAddress
   const amountDecimals = useMemo(() => {
     if (!displayCaipChainId) return 18
     return getTokenDecimals(displayCaipChainId, displayTokenAddress || '')
@@ -296,40 +212,6 @@ export function CreateTransactionDialogContent({
     () => formatPreviewAmount(totalAmount),
     [totalAmount]
   )
-
-  const feeCurrency = displayCurrency || payrollTokenSymbol || 'USDC'
-
-  const feeBreakdownDisplay = useMemo(() => {
-    if (!feePreview) return null
-
-    const badgeLabels = feePreview.matchedRules
-      .map(rule => rule.discountLabel)
-      .filter((label): label is string => !!label)
-
-    const unitPriceSteps: string[] = []
-    const pushStep = (value: string | null) => {
-      if (!value) return
-      if (unitPriceSteps[unitPriceSteps.length - 1] !== value) unitPriceSteps.push(value)
-    }
-
-    feePreview.matchedRules.forEach(rule => {
-      pushStep(rule.beforeUnitPrice)
-      pushStep(rule.effectiveUnitPrice)
-    })
-
-    if (unitPriceSteps.length === 0) {
-      pushStep(feePreview.pricingDisplay.originalUnitPrice)
-    }
-    pushStep(feePreview.pricingDisplay.finalUnitPrice)
-
-    return {
-      badgeLabels,
-      unitPriceSteps,
-      billableMemberCount: feePreview.pricingDisplay.billableMemberCount,
-      totalServiceFee: feePreview.summary.finalFee,
-      totalFromWallet: addTokenAmounts(totalAmount, feePreview.summary.finalFee, amountDecimals),
-    }
-  }, [feePreview, totalAmount, amountDecimals])
 
   const eligibleMembers = useMemo(
     () => organizationMembers.filter(m => !!m.gravArcAddress),
@@ -378,6 +260,7 @@ export function CreateTransactionDialogContent({
       ),
       transactionName,
       executionDate: utcDate,
+      privacyRefundable,
     })
   }
 
@@ -441,6 +324,21 @@ export function CreateTransactionDialogContent({
         })
   const claimTimePassed = relativeExecutionDate.tone === 'past'
 
+  const refundChoice = (
+    <label className="flex cursor-pointer items-start gap-[10px] rounded-[12px] border border-[rgba(0,0,0,0.12)] p-4">
+      <input
+        type="checkbox"
+        checked={privacyRefundable}
+        onChange={event => setPrivacyRefundable(event.target.checked)}
+        className="mt-[3px] accent-[#5e85ee]"
+      />
+      <span className="flex flex-col gap-[3px]">
+        <span className="text-[13px] font-semibold text-[#1c1c26]">{t('pages.createPeopleTransaction.supportDepositorRefund')}</span>
+        <span className="text-[12px] text-[#606067]">{t('pages.createPeopleTransaction.supportDepositorRefundDescription')}</span>
+      </span>
+    </label>
+  )
+
   // ── Dialog variant table (original columns) ──────────────────────────────
   const dialogMemberTable = (
     <TableScrollArea className="flex-1 min-h-0 max-h-[52vh] overflow-y-auto">
@@ -464,7 +362,7 @@ export function CreateTransactionDialogContent({
             <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[220px]">{t('pages.createPeopleTransaction.email')}</TableHead>
             <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[180px]">{t('pages.createPeopleTransaction.role')}</TableHead>
             <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3">
-              {t('pages.createPeopleTransaction.amount')}{payrollTokenSymbol ? ` (${payrollTokenSymbol})` : ''}
+              {t('pages.createPeopleTransaction.amount')} ({displayCurrency})
             </TableHead>
             <TableHead className="text-[#8d8d93] text-[13px] font-normal pb-3 w-[150px] inline-block">{t('pages.createPeopleTransaction.status')}</TableHead>
           </TableRow>
@@ -585,7 +483,7 @@ export function CreateTransactionDialogContent({
             <TableHead className="text-[#8d8d93] text-[13px] font-normal py-2 w-[200px]">{t('pages.createPeopleTransaction.member')}</TableHead>
             <TableHead className="text-[#8d8d93] text-[13px] font-normal py-2 w-[200px]">{t('pages.createPeopleTransaction.wallet')}</TableHead>
             <TableHead className="text-[#8d8d93] text-[13px] font-normal py-2 w-[160px]">
-              {displayCurrency || payrollTokenSymbol || 'USDC'}
+              {displayCurrency}
             </TableHead>
             <TableHead className="text-[#8d8d93] text-[13px] font-normal py-2">{t('pages.createPeopleTransaction.status')}</TableHead>
           </TableRow>
@@ -733,7 +631,7 @@ export function CreateTransactionDialogContent({
                 <div className="flex flex-col flex-1 gap-[6px] overflow-hidden min-h-0">
                   <div className="flex shrink-0 flex-col gap-[4px] lg:flex-row lg:items-center lg:gap-[6px]">
                     <span className="text-[13px] font-semibold leading-[22px] text-[#1c1c26] lg:whitespace-nowrap">
-                      {t('pages.createPeopleTransaction.memberCurrency', { currency: displayCurrency || payrollTokenSymbol || 'USDC' })}
+                      {t('pages.createPeopleTransaction.memberCurrency', { currency: displayCurrency })}
                     </span>
                     <span className="text-[12px] leading-[20px] text-[#8d8d93]">
                       Members without a connected wallet cannot receive payments. Ask them to bind their wallet in Account settings first.
@@ -805,85 +703,18 @@ export function CreateTransactionDialogContent({
                 </div>
               </div>
 
-              {/* Right: fee panel */}
+              {/* Direct-wallet payout summary; network gas is paid by the submitter. */}
               <div className="flex w-full shrink-0 flex-col justify-between gap-[18px] rounded-[24px] bg-white p-[16px] md:rounded-[32px] md:p-[20px] xl:w-[360px]">
                 <div className="flex flex-col gap-[18px]">
-                  {/* Fee breakdown */}
                   <div className="flex flex-col gap-[10px]">
                     <p className="text-[16px] text-[#1c1c26]" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                      {t('pages.createPeopleTransaction.feeBreakdown')}
+                      {t('pages.createPeopleTransaction.payoutTotal')}
                     </p>
                     <div className="bg-[#f5f5f5] rounded-[18px] p-[18px] flex flex-col gap-[10px]">
-                      {feeLoading ? (
-                        <div className="flex items-center justify-center py-4">
-                          <IconLoader2 className="size-5 animate-spin text-[#8d8d93]" />
-                        </div>
-                      ) : feePreview ? (
-                        <>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[13px] text-[#8d8d93]">{t('pages.createPeopleTransaction.payoutTotal')}</span>
-                            <span className="text-[14px] text-[#1c1c26]">{formattedTotalAmount} {displayCurrency || 'USDC'}</span>
-                          </div>
-                          <div className="flex items-start justify-between gap-[12px]">
-                            <span className="text-[13px] text-[#8d8d93] pt-[2px]">{t('pages.createPeopleTransaction.serviceFee')}</span>
-                            <div className="flex flex-col items-end gap-[10px] text-right">
-                              {feeBreakdownDisplay && feeBreakdownDisplay.badgeLabels.length > 0 && (
-                                <div className="flex flex-wrap justify-end gap-[8px]">
-                                  {feeBreakdownDisplay.badgeLabels.map((label, index) => (
-                                    <span
-                                      key={`${label}-${index}`}
-                                      className={cn(
-                                        'rounded-full px-[14px] py-[6px] text-[11px] font-semibold',
-                                        index % 2 === 0 ? 'bg-[#fff7e8] text-[#f5a623]' : 'bg-[#e9f9f0] text-[#48c774]'
-                                      )}
-                                    >
-                                      {label}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                              <div className="flex flex-wrap items-end justify-end gap-x-[10px] gap-y-[4px]">
-                                {feeBreakdownDisplay?.unitPriceSteps.map((price, index) => {
-                                  const isLast = index === feeBreakdownDisplay.unitPriceSteps.length - 1
-                                  return isLast ? (
-                                    <span key={`${price}-${index}`} className="text-[18px] font-semibold leading-[24px] text-[#48c774]">
-                                      {formatPreviewAmount(price)} {feeCurrency} x{feeBreakdownDisplay.billableMemberCount}
-                                    </span>
-                                  ) : (
-                                    <span
-                                      key={`${price}-${index}`}
-                                      className={cn(
-                                        'text-[13px] leading-[22px] line-through',
-                                        index === feeBreakdownDisplay.unitPriceSteps.length - 2 ? 'text-[#5e85ee]' : 'text-[#8d8d93]'
-                                      )}
-                                    >
-                                      {formatPreviewAmount(price)}U
-                                    </span>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                          {feePreview.gasFeeEstimate?.total?.costNative && (
-                            <div className="flex items-center justify-between">
-                              <span className="text-[13px] text-[#8d8d93]">{t('pages.createPeopleTransaction.estGas')}</span>
-                              <span className="text-[13px] text-[#1c1c26]">
-                                ~{feePreview.gasFeeEstimate.total.costNative} {feePreview.gasFeeEstimate.nativeSymbol || ''}
-                              </span>
-                            </div>
-                          )}
-                          <div className="border-t border-[rgba(0,0,0,0.12)] flex items-center justify-between pt-[14px] pb-[6px]">
-                            <span className="text-[13px] text-[#1c1c26]">{t('pages.createPeopleTransaction.totalFromWallet')}</span>
-                            <span className="text-[13px] text-[#1c1c26]">
-                              {formatPreviewAmount(feeBreakdownDisplay?.totalFromWallet || totalAmount)} {feeCurrency}
-                            </span>
-                          </div>
-                        </>
-                      ) : (
-                        <p className="text-[12px] text-[#8d8d93] text-center py-4">
-                          {t('pages.createPeopleTransaction.selectMembersToPreviewFee')}
-                        </p>
-                      )}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[13px] text-[#8d8d93]">{t('pages.createPeopleTransaction.payoutTotal')}</span>
+                        <span className="text-[14px] text-[#1c1c26]">{formattedTotalAmount} {displayCurrency}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -1027,26 +858,10 @@ export function CreateTransactionDialogContent({
                       <span className="text-[13px] text-[#8d8d93]">{t('pages.createPeopleTransaction.payout')}</span>
                       <span className="text-[14px] text-[#1c1c26]">{formattedTotalAmount} {displayCurrency || 'USDC'}</span>
                     </div>
-                    {feePreview && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] text-[#8d8d93]">{t('pages.createPeopleTransaction.serviceFee')}</span>
-                        <span className="text-[14px] text-[#1c1c26]">
-                          {formatPreviewAmount(feeBreakdownDisplay?.totalServiceFee)} {feeCurrency}
-                        </span>
-                      </div>
-                    )}
-                    {feePreview?.gasFeeEstimate?.total?.costNative && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-[13px] text-[#8d8d93]">{t('pages.createPeopleTransaction.estGas')}</span>
-                        <span className="text-[14px] text-[#1c1c26]">
-                          {feePreview.gasFeeEstimate.total.costNative} {feePreview.gasFeeEstimate.nativeSymbol || ''}
-                        </span>
-                      </div>
-                    )}
                     <div className="flex items-center justify-between">
                       <span className="text-[13px] text-[#1c1c26]">{t('pages.createPeopleTransaction.totalFromWallet')}</span>
                       <span className="text-[14px] font-bold text-[#1c1c26]">
-                        {formatPreviewAmount(feeBreakdownDisplay?.totalFromWallet || totalAmount)} {feeCurrency}
+                        {formattedTotalAmount} {displayCurrency}
                       </span>
                     </div>
                   </div>
@@ -1080,6 +895,7 @@ export function CreateTransactionDialogContent({
                 </div>
 
                 {/* Recipients */}
+                {refundChoice}
                 <div className="border border-[rgba(0,0,0,0.12)] rounded-[12px] overflow-hidden flex flex-col min-h-0">
                   <div className="bg-[#f5f5f5] px-4 py-[7px] shrink-0">
                     <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.recipients')}</span>
@@ -1225,6 +1041,7 @@ export function CreateTransactionDialogContent({
                       </div>
                     </div>
                   </div>
+                  {refundChoice}
                   <div className="flex flex-col flex-1 border border-[rgba(0,0,0,0.12)] rounded-[12px] overflow-hidden">
                     <div className="bg-[#f5f5f5] px-4 py-[7px] shrink-0">
                       <span className="text-[13px] font-semibold text-[#1c1c26] leading-[22px]">{t('pages.createPeopleTransaction.transactionPreview')}</span>
@@ -1248,14 +1065,6 @@ export function CreateTransactionDialogContent({
                         <span className="text-[13px] text-[#8d8d93] leading-[22px]">{t('pages.transactionDetail.totalAmount')}</span>
                         <span className="text-[13px] text-[#1c1c26] leading-[22px]">{formattedTotalAmount} {displayCurrency || '-'}</span>
                       </div>
-                      {feePreview && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-[13px] text-[#8d8d93] leading-[22px]">{t('pages.createPeopleTransaction.serviceFee')}</span>
-                          <span className="text-[13px] text-[#1c1c26] leading-[22px]">
-                            {formatPreviewAmount(feeBreakdownDisplay?.totalServiceFee)} {feeCurrency}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>

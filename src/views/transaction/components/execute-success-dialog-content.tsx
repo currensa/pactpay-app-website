@@ -7,6 +7,7 @@ interface ExecuteSuccessDialogContentProps {
   depositTxHash: string
   executingTransaction: Transaction | null
   caipChainId?: string | null
+  syncPending?: boolean
   onClose: () => void
 }
 
@@ -23,6 +24,7 @@ export function ExecuteSuccessDialogContent({
   depositTxHash,
   executingTransaction,
   caipChainId,
+  syncPending = false,
   onClose,
 }: ExecuteSuccessDialogContentProps) {
   const { t } = useTranslation()
@@ -34,7 +36,7 @@ export function ExecuteSuccessDialogContent({
     <div className="flex flex-col gap-[20px]">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">{t('pages.transactions.transactionConfirmed')}</span>
+        <span className="text-[#1c1c26] text-[16px] font-bold leading-[26px]">{syncPending ? 'On-chain deposit confirmed' : t('pages.transactions.transactionConfirmed')}</span>
       </div>
 
       {/* Success indicator */}
@@ -46,10 +48,10 @@ export function ExecuteSuccessDialogContent({
         </div>
         <div>
           <p className="text-[13px] font-medium text-[#1c1c26] leading-[22px]">
-            {isAiTransaction ? t('pages.transactions.paymentConfirmed') : t('pages.transactions.depositConfirmed')}
+            {syncPending ? 'Encrypted delivery syncing' : isAiTransaction ? t('pages.transactions.paymentConfirmed') : t('pages.transactions.depositConfirmed')}
           </p>
           <p className="text-[12px] text-[#606067] leading-[20px]">
-            {isAiTransaction
+            {syncPending ? 'The transaction is on-chain. Receiver and refund data will be available after backend sync.' : isAiTransaction
               ? t('pages.transactions.usagePlanFundedAfterConfirm')
               : t('pages.transactions.membersCanClaimAtClaimTime')}
           </p>

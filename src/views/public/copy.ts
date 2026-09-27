@@ -158,7 +158,7 @@ const PUBLIC_COPY = {
       connectWallet: 'Connect Wallet',
       confirm: 'Confirm',
       submitFailed: 'Failed to submit. Please try again.',
-      rememberLocally: 'Save secret & password in browser',
+      rememberLocally: 'Keep encrypted privacy profile in browser',
     },
     mcpAuth: {
       invalidCallback: 'Missing or invalid callback URL.',
@@ -327,7 +327,7 @@ const PUBLIC_COPY = {
       connectWallet: '连接钱包',
       confirm: '确认',
       submitFailed: '提交失败，请重试。',
-      rememberLocally: '将 Secret 和密码保存到浏览器中',
+      rememberLocally: '在浏览器中保留加密的隐私资料',
     },
     mcpAuth: {
       invalidCallback: '缺少回调地址或回调地址无效。',

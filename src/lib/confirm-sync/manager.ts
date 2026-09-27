@@ -50,6 +50,20 @@ class ConfirmSyncManager {
     } as ConfirmJob
   }
 
+  /** Persist a submitted transaction before waiting for its receipt. */
+  stage(input: ConfirmJobInput): void {
+    const job = this.build(input)
+    upsertJob(job)
+    if (!loadJobs().some(saved => saved.id === job.id)) {
+      throw new Error('Could not save the pending chain confirmation in this browser')
+    }
+  }
+
+  /** Drop a staged job when its transaction is known to have reverted. */
+  discard(input: ConfirmJobInput): void {
+    removeJob(`${input.type}:${jobTxHash(input)}`)
+  }
+
   /**
    * Persist + start retrying a confirm. The returned promise resolves once the inline phase ends —
    * `'synced'` if confirmed within the first INLINE_ATTEMPTS tries, else `'background'` (retries

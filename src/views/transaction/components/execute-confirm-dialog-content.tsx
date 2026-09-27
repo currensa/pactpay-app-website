@@ -1,14 +1,17 @@
 import apis from '@/apis'
-import type { TransactionPlan } from '@/apis/transaction.api'
+import type { PrivacyDepositDataResponse, TransactionPlan } from '@/apis/transaction.api'
 import { confirmSync } from '@/lib/confirm-sync'
+import { assertPreparedReceipt, attachDepositHash, discardRejectedDeposit, loadPreparedDeposit, prepareDeposit, preparedConfirmJob, type PreparedDeposit } from '@/lib/confirm-sync/preparedDeposit'
 import { generateDepositProof } from '@/lib/gravarc/depositProofBrowser'
+import { reviewedPayrollPlanIsCurrent } from '@/lib/gravarc/reviewedPayrollPlan'
 import { GRAVARC_ABI, ERC20_ABI as GRAVARC_ERC20_ABI } from '@/lib/gravarc/gravarcAbi'
 import { naclDecrypt, naclEncrypt } from '@/lib/gravarc/naclCrypto'
 import useChainAssetStore from '@/stores/chain-asset'
 import { normalizeTransactionHash } from '@/utils/evm-transaction'
+import { openWalletModal, selectWalletNetwork } from '@/providers/app-kit-provider'
 import { useTranslation } from '@/utils/i18n'
 import type { Provider } from '@reown/appkit/react'
-import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
+import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { getPublicClient } from '@wagmi/core'
 import { useEffect, useState } from 'react'
 import { createWalletClient, custom, formatUnits, type Hex } from 'viem'
@@ -17,27 +20,6 @@ import { TransactionStatusBadge } from './transaction-status-badge'
 import type { Transaction } from './types'
 
 const ETH_SENTINEL = '0x0000000000000000000000000000000000000000' as Hex
-
-/** 读取当前存款人（本机登录账户）的 GravArc secretHash，用于可退款存款的 depositLeaf 承诺。 */
-function readDepositorSecretHash(): string | null {
-  try {
-    const raw = localStorage.getItem('gravArcUserInfo')
-    if (!raw) return null
-    return (JSON.parse(raw) as { secretHash?: string | null })?.secretHash ?? null
-  } catch {
-    return null
-  }
-}
-/** 读取当前存款人的 NaCl box 公钥（encPubkey），用于加密退款载荷（便携化：存后端，任意设备解密）。 */
-function readDepositorEncPubkey(): string | null {
-  try {
-    const raw = localStorage.getItem('gravArcUserInfo')
-    if (!raw) return null
-    return (JSON.parse(raw) as { encPubkey?: string | null })?.encPubkey ?? null
-  } catch {
-    return null
-  }
-}
 
 type DepositStatus =
   | 'idle'
@@ -56,7 +38,7 @@ interface ExecuteConfirmDialogContentProps {
   executingTransaction: Transaction | null
   transactionPlan: TransactionPlan | null
   onCancel: () => void
-  onSuccess: (txHash: string) => void
+  onSuccess: (txHash: string, syncState: 'synced' | 'pending') => void
 }
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -78,9 +60,36 @@ export function ExecuteConfirmDialogContent({
   const [errorMsg, setErrorMsg] = useState('')
   const [planPassword, setPlanPassword] = useState('')
   const [privateTotal, setPrivateTotal] = useState<string | null>(null)
+  const [reviewedTotal, setReviewedTotal] = useState<bigint | null>(null)
+  const [reviewedAllocations, setReviewedAllocations] = useState<Array<{ memberId: string; address: string; amount: bigint }> | null>(null)
+  const [reviewedEncryptedPlan, setReviewedEncryptedPlan] = useState<string | null>(null)
+  const [prepared, setPrepared] = useState<PreparedDeposit | null>(null)
+  const [recoveryHash, setRecoveryHash] = useState('')
+  const [recoveryInvalid, setRecoveryInvalid] = useState(false)
   const isAiTransaction = executingTransaction?.type === 'token_usage_plan'
   // privacy_deposit 与带 privacyTier 的 GravArc 充值批次（token_usage_plan）都走 GravArc 存款路径。
   const { t } = useTranslation()
+
+  useEffect(() => {
+    if (!transactionPlan) return
+    try {
+      const saved = loadPreparedDeposit(localStorage.getItem('userId') ?? '', transactionPlan.orgId, transactionPlan.id)
+      setPrepared(saved)
+      setRecoveryHash(saved?.txHash ?? '')
+      setRecoveryInvalid(false)
+    } catch (error) {
+      setRecoveryInvalid(true)
+      setErrorMsg(error instanceof Error ? error.message : 'Invalid saved deposit recovery data')
+      setStatus('error')
+    }
+  }, [transactionPlan?.id, transactionPlan?.orgId])
+
+  useEffect(() => confirmSync.subscribe(event => {
+    if (event.kind !== 'synced' || event.job.type !== 'confirm-privacy-deposit' ||
+      event.job.orgId !== transactionPlan?.orgId || event.job.batchId !== transactionPlan.id) return
+    setPrepared(null)
+    setStatus('done')
+  }), [transactionPlan?.id, transactionPlan?.orgId])
 
   const stepLabels: Record<DepositStatus, string> = {
     idle: t('pages.transactions.connectWallet'),
@@ -96,38 +105,143 @@ export function ExecuteConfirmDialogContent({
     error: t('pages.transactions.retry'),
   }
 
-  const { open } = useAppKit()
   const { isConnected, address } = useAppKitAccount()
   const { walletProvider } = useAppKitProvider<Provider>('eip155')
   const wagmiConfig = useConfig()
+
+  useEffect(() => {
+    setPlanPassword('')
+    setPrivateTotal(null)
+    setReviewedTotal(null)
+    setReviewedAllocations(null)
+    setReviewedEncryptedPlan(null)
+  }, [address, transactionPlan?.id, transactionPlan?.orgId])
 
   const isBusy = status !== 'idle' && status !== 'done' && status !== 'error'
 
   useEffect(() => {
     if (status !== 'connecting') return
     if (!isConnected || !address || !walletProvider) return
-    executePrivacyDeposit(address as Hex, walletProvider)
+    if (isAiTransaction) executePrivacyDeposit(address as Hex, walletProvider)
+    else prepareReview(address as Hex, walletProvider)
   }, [status, isConnected, address, walletProvider])
 
   async function handleDeposit() {
     if (!transactionPlan) return
+    if (prepared || recoveryInvalid) return
     setErrorMsg('')
 
     if (!isConnected) {
       setStatus('connecting')
-      open({ view: 'Connect', namespace: 'eip155' })
+      try {
+        await openWalletModal(Number(transactionPlan.caipChainId.split(':')[1]))
+      } catch (error) {
+        setErrorMsg(error instanceof Error ? error.message : 'Could not connect wallet')
+        setStatus('error')
+      }
       return
     }
 
-    await executePrivacyDeposit(address as Hex, walletProvider!)
+    if (!isAiTransaction && !reviewedAllocations) await prepareReview(address as Hex, walletProvider!)
+    else await executePrivacyDeposit(address as Hex, walletProvider!)
+  }
+
+  async function handleRecover() {
+    if (!prepared) return
+    try {
+      if (!prepared.txHash && (!address || address.toLowerCase() !== prepared.depositorAddress.toLowerCase())) {
+        throw new Error('Connect the original depositor wallet to recover this deposit')
+      }
+      const chain = getChain(prepared.caipChainId)
+      if (!chain?.vaultAddress) throw new Error('GravArc contract is not configured for this deposit')
+      const publicClient = getPublicClient(wagmiConfig, { chainId: Number(chain.chainId) })
+      if (!publicClient) throw new Error('Deposit chain is unavailable')
+      if (!/^0x[0-9a-fA-F]{64}$/.test(recoveryHash)) throw new Error('Enter a valid deposit transaction hash')
+      const receipt = await publicClient.getTransactionReceipt({ hash: recoveryHash as Hex })
+      assertPreparedReceipt(prepared, chain.vaultAddress, receipt)
+      const saved = attachDepositHash(prepared, recoveryHash)
+      setPrepared(saved)
+      setErrorMsg('')
+      const result = await confirmSync.enqueue(preparedConfirmJob(saved))
+      if (result === 'synced') {
+        setPrepared(null)
+        setStatus('done')
+        onSuccess(saved.txHash!, 'synced')
+      } else {
+        setErrorMsg('')
+        onSuccess(saved.txHash!, 'pending')
+      }
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Could not recover deposit')
+    }
   }
 
   // ── Privacy deposit (new flow) ─────────────────────────────────────────────
+
+  async function decryptPrivatePlan(data: PrivacyDepositDataResponse, walletClient: Parameters<typeof naclDecrypt>[2]) {
+    if (!transactionPlan || !planPassword || !data.encryptedPlan) throw new Error('Unlock the encrypted payroll plan before execution')
+    const decoded = JSON.parse(await naclDecrypt(data.encryptedPlan, planPassword, walletClient)) as {
+      version: number
+      orgId: string
+      caipChainId: string
+      tokenAddress: string
+      privacyRefundable?: boolean
+      allocations: Array<{ memberId: string; address: string; amount: string }>
+    }
+    if (![1, 2].includes(decoded.version) ||
+      (decoded.version === 1 && transactionPlan.privacyRefundable !== true) ||
+      (decoded.version === 2 && decoded.privacyRefundable !== transactionPlan.privacyRefundable) ||
+      data.privacyRefundable !== transactionPlan.privacyRefundable ||
+      decoded.orgId !== transactionPlan.orgId ||
+      decoded.caipChainId !== transactionPlan.caipChainId ||
+      decoded.tokenAddress.toLowerCase() !== transactionPlan.tokenAddress?.toLowerCase() ||
+      !Array.isArray(decoded.allocations) || decoded.allocations.length !== data.members.length) {
+      throw new Error('Encrypted payroll plan does not match this deposit')
+    }
+    const seen = new Set<string>()
+    return decoded.allocations.map(allocation => {
+      const recipient = data.members.find(member => member.memberId === allocation.memberId)
+      if (!recipient || recipient.address.toLowerCase() !== allocation.address.toLowerCase() ||
+        seen.has(allocation.memberId) || !/^\d+$/.test(allocation.amount) || BigInt(allocation.amount) <= 0n) {
+        throw new Error('Encrypted payroll allocation is invalid')
+      }
+      seen.add(allocation.memberId)
+      return { ...allocation, amount: BigInt(allocation.amount) }
+    })
+  }
+
+  async function prepareReview(account: Hex, provider: Provider) {
+    if (!transactionPlan) return
+    try {
+      setStatus('fetching-data')
+      const data = await apis.transaction.getPrivacyDepositData(transactionPlan.id)
+      if (data.depositorAddress.toLowerCase() !== account.toLowerCase()) {
+        throw new Error('Connect the plan creator’s bound wallet to execute this deposit')
+      }
+      const walletClient = createWalletClient({ account, transport: custom(provider) })
+      const allocations = await decryptPrivatePlan(data, walletClient)
+      const total = allocations.reduce((sum, allocation) => sum + allocation.amount, 0n)
+      setPrivateTotal(formatUnits(total, getTokenDecimals(transactionPlan.caipChainId, transactionPlan.tokenAddress || ETH_SENTINEL)))
+      setReviewedTotal(total)
+      setReviewedAllocations(allocations)
+      setReviewedEncryptedPlan(data.encryptedPlan)
+      setPlanPassword('')
+      setStatus('idle')
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Could not review this payroll plan')
+      setStatus('error')
+    }
+  }
 
   async function executePrivacyDeposit(account: Hex, provider: Provider) {
     if (!transactionPlan) return
 
     try {
+      const userId = localStorage.getItem('userId') ?? ''
+      if (!userId) throw new Error('Log in before preparing a deposit')
+      if (loadPreparedDeposit(userId, transactionPlan.orgId, transactionPlan.id)) {
+        throw new Error('This deposit has saved recovery data; confirm it before submitting another transaction')
+      }
       const chainEntry = getChain(transactionPlan.caipChainId)
       if (!chainEntry) throw new Error(`Chain ${transactionPlan.caipChainId} is not found in chain list.`)
 
@@ -138,13 +252,9 @@ export function ExecuteConfirmDialogContent({
       const vaultAddress = chainEntry.vaultAddress as Hex
       const tokenAddress = (transactionPlan.tokenAddress || ETH_SENTINEL) as Hex
 
+      await selectWalletNetwork(numericChainId)
       const currentChainIdHex = await provider.request<string>({ method: 'eth_chainId' })
-      if (parseInt(currentChainIdHex, 16) !== numericChainId) {
-        await provider.request({
-          method: 'wallet_switchEthereumChain',
-          params: [{ chainId: `0x${numericChainId.toString(16)}` }],
-        })
-      }
+      if (parseInt(currentChainIdHex, 16) !== numericChainId) throw new Error('Wallet did not switch to the deposit network')
 
       const chainAssetEntry = getChainAssetByToken(transactionPlan.caipChainId, tokenAddress)
       const isNative = chainAssetEntry?.isNative ?? false
@@ -155,42 +265,31 @@ export function ExecuteConfirmDialogContent({
       const configuredChain = publicClient.chain
       if (!configuredChain) throw new Error(`Chain metadata for chain ${numericChainId} is not configured.`)
 
-      // Fetch privacy deposit data (tier + per-member secretHash/encPubkey/amount)
+      // Fetch receiver metadata; private amounts are recovered only from the encrypted plan.
       setStatus('fetching-data')
       const privacyData = await apis.transaction.getPrivacyDepositData(transactionPlan.id)
+      if (privacyData.depositorAddress.toLowerCase() !== account.toLowerCase()) {
+        throw new Error('Connect the plan creator’s bound wallet to execute this deposit')
+      }
+      if (privacyData.privacyRefundable !== transactionPlan.privacyRefundable) {
+        throw new Error('Payroll refund setting changed after review; review the plan again')
+      }
       let privateAmounts: Map<string, bigint> | null = null
       if (!isAiTransaction) {
-        if (!planPassword || !privacyData.encryptedPlan) throw new Error('Unlock the encrypted payroll plan before execution')
-        const decoded = JSON.parse(await naclDecrypt(privacyData.encryptedPlan, planPassword, walletClient)) as {
-          version: number
-          orgId: string
-          caipChainId: string
-          tokenAddress: string
-          allocations: Array<{ memberId: string; address: string; amount: string }>
+        if (!reviewedPayrollPlanIsCurrent(
+          reviewedEncryptedPlan, privacyData.encryptedPlan, reviewedAllocations, privacyData.members,
+        )) {
+          setReviewedAllocations(null)
+          setReviewedEncryptedPlan(null)
+          setReviewedTotal(null)
+          setPrivateTotal(null)
+          throw new Error('Payroll plan or recipients changed after review; review it again')
         }
-        if (decoded.version !== 1 || decoded.orgId !== transactionPlan.orgId ||
-          decoded.caipChainId !== transactionPlan.caipChainId ||
-          decoded.tokenAddress.toLowerCase() !== tokenAddress.toLowerCase() ||
-          !Array.isArray(decoded.allocations) || decoded.allocations.length !== privacyData.members.length) {
-          throw new Error('Encrypted payroll plan does not match this deposit')
-        }
-        privateAmounts = new Map()
-        for (const allocation of decoded.allocations) {
-          const recipient = privacyData.members.find(member => member.memberId === allocation.memberId)
-          if (!recipient || recipient.address.toLowerCase() !== allocation.address.toLowerCase() ||
-            privateAmounts.has(allocation.memberId) || !/^\d+$/.test(allocation.amount) || BigInt(allocation.amount) <= 0n) {
-            throw new Error('Encrypted payroll allocation is invalid')
-          }
-          privateAmounts.set(allocation.memberId, BigInt(allocation.amount))
-        }
+        privateAmounts = new Map(reviewedAllocations!.map(allocation => [allocation.memberId, allocation.amount]))
       }
 
-      // Fetch ZK circuit file CDN links
+      // Verified circuit artifacts are loaded by the proof generator.
       setStatus('fetching-circuit')
-      const circuitFiles = await apis.transaction.getCircuitFiles(
-        transactionPlan.caipChainId,
-        privacyData.tier,
-      )
 
       // Fetch Merkle deposit path and validate it matches the on-chain state
       setStatus('fetching-path')
@@ -209,16 +308,20 @@ export function ExecuteConfirmDialogContent({
       }
 
       // Generate ZK proof entirely in browser.
-      // Each receiver's committed amount is GROSS = item amount + platformFee. The fee is added here,
-      // per member, so the deposit tree commits the gross amount. At withdraw the contract pays the
-      // recipient (gross − platformFee) and routes platformFee to the relayer (see privacyWithdraw.ts),
-      // so the member nets exactly their item amount. m.platformFee MUST be the same value later used as
-      // the withdraw fee (item.platformFee), otherwise the member is over/under-paid.
+      // Direct deposit commits exactly the recipient allocations, as in Core.
       setStatus('proving')
-      const refundable = transactionPlan.privacyRefundable ?? true
-      const depositorSecretHash = refundable ? readDepositorSecretHash() : null
-      if (refundable && !depositorSecretHash) {
-        throw new Error('Refundable deposit requires your account secret - please bind your wallet / set up your GravArc account first.')
+      const refundable = transactionPlan.privacyRefundable === true
+      let depositorSecretHash: string | null = null
+      let depositorEncPubkey: string | null = null
+      if (refundable) {
+        const profile = await apis.auth.getMyGravArcUserInfo()
+        if (!profile || profile.address.toLowerCase() !== account.toLowerCase() ||
+          !/^0x[0-9a-fA-F]{64}$/.test(profile.secretHash) ||
+          !profile.encPubkey || !/^(0x)?[0-9a-fA-F]{64}$/.test(profile.encPubkey)) {
+          throw new Error('Refundable deposit requires a matching, complete depositor privacy profile')
+        }
+        depositorSecretHash = profile.secretHash
+        depositorEncPubkey = profile.encPubkey
       }
       const receivers = privacyData.members.map(m => {
         const amount = privateAmounts ? privateAmounts.get(m.memberId) : BigInt(m.amount ?? '0')
@@ -227,7 +330,7 @@ export function ExecuteConfirmDialogContent({
           address: m.address,
           secretHash: m.secretHash,
           encPubkey: m.encPubkey,
-          amount: amount + BigInt(m.platformFee ?? '0'),
+          amount: isAiTransaction ? amount + BigInt(m.platformFee ?? '0') : amount,
         }
       })
       if (receivers.some(receiver => receiver.amount <= 0n)) throw new Error('Payroll total must be positive')
@@ -238,22 +341,32 @@ export function ExecuteConfirmDialogContent({
       const proofResult = await generateDepositProof(
         receivers,
         BigInt(tokenAddress),
-        circuitFiles.wasmUrl,
-        circuitFiles.zkeyUrl,
         { nextIndex: depositPath.nextIndex, siblings: depositPath.siblings },
         refundable,
         depositorSecretHash,
       )
 
-      // The proof's public totalAmount (Σ gross) must equal the plan total (which also includes service
-      // fee). A mismatch means the per-member platformFee fed into the proof is out of sync with the
-      // backend — deposit would revert (totalAmount is a proof public input) or mis-credit members.
+      if (!isAiTransaction && (reviewedTotal === null || proofResult.totalAmount !== reviewedTotal)) {
+        throw new Error('Public deposit total does not match the reviewed payroll total')
+      }
+
+      // Legacy system recharges still compare their stored public total.
       if (isAiTransaction && proofResult.totalAmount !== BigInt(transactionPlan.totalAmount ?? '0')) {
         throw new Error(
           `Deposit total mismatch: proof totalAmount=${proofResult.totalAmount} but plan totalAmount=${transactionPlan.totalAmount}. ` +
-          `Ensure each member's platformFee is present in privacy-deposit-data.`,
+          `Check the system recharge amounts before submitting.`,
         )
       }
+
+      const tokenBalance = isNative
+        ? await publicClient.getBalance({ address: account })
+        : await publicClient.readContract({
+            address: tokenAddress,
+            abi: GRAVARC_ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [account],
+          })
+      if (tokenBalance < proofResult.totalAmount) throw new Error('Insufficient balance for the reviewed deposit total')
 
       // ERC20 allowance check & approve. The vault pulls exactly proofResult.totalAmount (Σ gross, which
       // equals transactionPlan.totalAmount). totalAmount is also a public input to the ZK proof, so it must
@@ -279,6 +392,69 @@ export function ExecuteConfirmDialogContent({
           if (approveReceipt.status !== 'success') throw new Error('approve transaction reverted.')
         }
       }
+
+      // Prepare encrypted confirmation data before submitting the transaction, so a
+      // returned hash can be persisted immediately, without another encryption step.
+      const withdrawMessages = proofResult.receivers.map((r, i) => {
+        const msgContent = JSON.stringify({
+          nullifier: r.nullifier,
+          amount: r.amount,
+          depositRoot: proofResult.newDepositRoot,
+          leafIndex: proofResult.leafIndex,
+          authRoot: proofResult.authRoot,
+          depositorSecretHash: proofResult.depositorSecretHash,
+          depositPathElements: proofResult.depositPathElements,
+          depositPathIndices: proofResult.depositPathIndices,
+          authPathElements: r.authPathElements,
+          authPathIndices: r.authPathIndices,
+        })
+        const pubKeyHex = r.encPubkey.startsWith('0x') ? r.encPubkey.slice(2) : r.encPubkey
+        return {
+          address: r.address,
+          content: naclEncrypt(msgContent, pubKeyHex),
+          secretHash: privacyData.members[i].secretHash,
+          encPubkey: r.encPubkey,
+        }
+      })
+
+      let refundEncContent: string | undefined
+      let refundDepositInfo: string | undefined
+      if (refundable && proofResult.refundSlots.length > 0) {
+        const refundPayload = {
+          batchId: transactionPlan.id,
+          leafIndex: proofResult.leafIndex,
+          token: tokenAddress,
+          tier: proofResult.tier,
+          authRoot: proofResult.authRoot,
+          depositLeaf: proofResult.depositLeaf,
+          depositorSecretHash: proofResult.depositorSecretHash,
+          slots: proofResult.refundSlots,
+        }
+        if (!depositorEncPubkey) throw new Error('Missing depositor encryption key')
+        const pubKeyHex = depositorEncPubkey.startsWith('0x')
+          ? depositorEncPubkey.slice(2)
+          : depositorEncPubkey
+        refundEncContent = naclEncrypt(JSON.stringify(refundPayload), pubKeyHex)
+        refundDepositInfo = JSON.stringify({
+          depositorSecretHash: proofResult.depositorSecretHash,
+          encPubkey: depositorEncPubkey,
+        })
+      }
+
+      const preparedDeposit: PreparedDeposit = {
+        version: 1,
+        userId,
+        orgId: transactionPlan.orgId,
+        batchId: transactionPlan.id,
+        caipChainId: transactionPlan.caipChainId,
+        depositorAddress: account,
+        depositLeaf: proofResult.depositLeaf,
+        label: executingTransaction?.name || transactionPlan.id,
+        withdrawMessages,
+        ...(refundEncContent ? { encContent: refundEncContent, depositInfo: refundDepositInfo } : {}),
+      }
+      prepareDeposit(preparedDeposit)
+      setPrepared(preparedDeposit)
 
       // Call privacyDeposit on-chain
       setStatus('depositing')
@@ -306,95 +482,50 @@ export function ExecuteConfirmDialogContent({
       } catch (gasErr: unknown) {
         const msg = gasErr instanceof Error ? gasErr.message : ''
         if (msg.toLowerCase().includes('gas') && msg.toLowerCase().includes('high')) {
-          depositTxHash = await walletClient.writeContract({ ...depositArgs, gas: 3_000_000n })
+          try {
+            depositTxHash = await walletClient.writeContract({ ...depositArgs, gas: 3_000_000n })
+          } catch (retryError) {
+            if ((retryError as { name?: string; code?: number })?.name === 'UserRejectedRequestError' ||
+              (retryError as { code?: number })?.code === 4001) {
+              discardRejectedDeposit(preparedDeposit)
+              setPrepared(null)
+            }
+            throw retryError
+          }
         } else {
+          if ((gasErr as { name?: string; code?: number })?.name === 'UserRejectedRequestError' ||
+            (gasErr as { code?: number })?.code === 4001) {
+            discardRejectedDeposit(preparedDeposit)
+            setPrepared(null)
+          }
           throw gasErr
         }
       }
       const depositTx = normalizeTransactionHash(depositTxHash)
-      const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
-      if (receipt.status !== 'success') throw new Error('privacyDeposit transaction reverted.')
-
-      // Encrypt per-receiver withdraw messages and confirm deposit
-      const withdrawMessages = proofResult.receivers.map((r, i) => {
-        const msgContent = JSON.stringify({
-          nullifier: r.nullifier,
-          amount: r.amount,
-          depositRoot: proofResult.newDepositRoot,
-          leafIndex: proofResult.leafIndex,
-          authRoot: proofResult.authRoot,
-          depositorSecretHash: proofResult.depositorSecretHash,
-          depositPathElements: proofResult.depositPathElements,
-          depositPathIndices: proofResult.depositPathIndices,
-          authPathElements: r.authPathElements,
-          authPathIndices: r.authPathIndices,
-        })
-        const pubKeyHex = r.encPubkey.startsWith('0x') ? r.encPubkey.slice(2) : r.encPubkey
-        return {
-          clientMessageId: `${transactionPlan.id}:${depositTx}:${i}`,
-          address: r.address,
-          content: naclEncrypt(msgContent, pubKeyHex),
-          secretHash: privacyData.members[i].secretHash,
-          encPubkey: r.encPubkey,
-        }
-      })
-
-      // 可退款存款：构造退款载荷，用存款人 encPubkey 加密为 encContent 随 confirm 上传后端（便携化：
-      // 任意设备登录取回解密），并本地存一份作兜底（confirm 重试耗尽时原设备仍可退款）。
-      let refundEncContent: string | undefined
-      let refundDepositInfo: string | undefined
-      if (refundable && proofResult.refundSlots.length > 0) {
-        const refundPayload = {
-          batchId: transactionPlan.id,
-          leafIndex: proofResult.leafIndex,
-          token: tokenAddress,
-          tier: proofResult.tier,
-          authRoot: proofResult.authRoot,
-          depositLeaf: proofResult.depositLeaf,
-          depositorSecretHash: proofResult.depositorSecretHash,
-          slots: proofResult.refundSlots,
-        }
-        try {
-          localStorage.setItem(
-            `gravArcRefundPayload:${transactionPlan.id}`,
-            JSON.stringify(refundPayload),
-          )
-        } catch {
-          // localStorage 写入失败不阻断存款流程。
-        }
-        const depositorEncPubkey = readDepositorEncPubkey()
-        if (depositorEncPubkey) {
-          try {
-            const pubKeyHex = depositorEncPubkey.startsWith('0x')
-              ? depositorEncPubkey.slice(2)
-              : depositorEncPubkey
-            refundEncContent = naclEncrypt(JSON.stringify(refundPayload), pubKeyHex)
-            refundDepositInfo = JSON.stringify({
-              depositorSecretHash: proofResult.depositorSecretHash,
-              encPubkey: depositorEncPubkey,
-            })
-          } catch {
-            // 加密失败不阻断存款；便携化退款不可用，本机 localStorage 兜底仍可退款。
-          }
-        }
+      const savedDeposit = attachDepositHash(preparedDeposit, depositTx)
+      setPrepared(savedDeposit)
+      const confirmJob = preparedConfirmJob(savedDeposit)
+      try {
+        confirmSync.stage(confirmJob)
+      } catch {
+        throw new Error(`Deposit submitted (${depositTx}), but this browser could not save its confirmation. Keep this transaction hash for recovery.`)
       }
-
-      // On-chain privacy deposit succeeded - queue the backend confirm (carrying the encrypted
-      // withdraw messages + encrypted refund payload) for durable retry rather than awaiting a single fragile call.
-      await confirmSync.enqueue({
-        type: 'confirm-privacy-deposit',
-        orgId: localStorage.getItem('organizationId') || '',
-        batchId: transactionPlan.id,
-        depositTxHash: depositTx,
-        withdrawMessages,
-        ...(refundEncContent !== undefined ? { encContent: refundEncContent } : {}),
-        ...(refundDepositInfo !== undefined ? { depositInfo: refundDepositInfo } : {}),
-        ...(refundEncContent !== undefined ? { clientRefundId: `${transactionPlan.id}:${depositTx}` } : {}),
-        label: executingTransaction?.name || transactionPlan.id,
-      })
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: depositTx })
+      if (receipt.status !== 'success') {
+        confirmSync.discard(confirmJob)
+        throw new Error('privacyDeposit transaction reverted.')
+      }
+      try {
+        assertPreparedReceipt(savedDeposit, vaultAddress, receipt)
+      } catch (receiptError) {
+        confirmSync.discard(confirmJob)
+        throw receiptError
+      }
+      const syncResult = await confirmSync.enqueue(confirmJob)
+      if (syncResult === 'synced') setPrepared(null)
 
       setStatus('done')
-      onSuccess(depositTx)
+      onSuccess(depositTx, syncResult === 'synced' ? 'synced' : 'pending')
     } catch (err: any) {
       setErrorMsg(err?.shortMessage || err?.message || String(err))
       setStatus('error')
@@ -434,7 +565,7 @@ export function ExecuteConfirmDialogContent({
             <span className="text-[14px] leading-[22px] text-[#606067]">{t('pages.transactions.status')}</span>
             <TransactionStatusBadge status={executingTransaction.status} />
           </div>
-          <InfoRow label={t('pages.transactions.totalAmount')}>
+          <InfoRow label={isAiTransaction ? t('pages.transactions.totalAmount') : 'Expected public deposit total'}>
             {privateTotal ?? (isAiTransaction ? executingTransaction.totalAmount : 'Private')} {executingTransaction.currency}
           </InfoRow>
           <InfoRow label={isAiTransaction ? t('pages.transactions.payees') : t('pages.transactions.totalMembers')}>
@@ -469,25 +600,61 @@ export function ExecuteConfirmDialogContent({
         </div>
       )}
 
-      {!isAiTransaction && status !== 'done' && (
+
+      {!isAiTransaction && !reviewedAllocations && status !== 'done' && !prepared && (
         <input
           type="password"
           autoComplete="off"
           value={planPassword}
-          onChange={event => setPlanPassword(event.target.value)}
+          onChange={event => { setPlanPassword(event.target.value); setReviewedAllocations(null); setReviewedEncryptedPlan(null); setReviewedTotal(null); setPrivateTotal(null) }}
           placeholder="Private account password"
           className="h-[38px] rounded-[10px] border px-3 text-[13px]"
         />
+      )}
+
+      {reviewedAllocations && status !== 'done' && (
+        <div className="rounded-[12px] border p-4 text-[13px]">
+          <p className="mb-2 font-medium">Review private payroll allocations before submitting one deposit:</p>
+          <p className="mb-2 text-[#606067]">Depositor refund: {transactionPlan?.privacyRefundable === true ? 'enabled' : 'disabled'}</p>
+          {reviewedAllocations.map(allocation => (
+            <div key={allocation.memberId} className="flex justify-between gap-3 py-1">
+              <span>{transactionPlan?.items.find(item => item.member?.memberId === allocation.memberId)?.member?.showName || allocation.memberId}</span>
+              <span>{formatUnits(allocation.amount, getTokenDecimals(transactionPlan!.caipChainId, transactionPlan!.tokenAddress || ETH_SENTINEL))} {executingTransaction?.currency}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {prepared && status !== 'done' && (
+        <div className="rounded-[12px] border border-[#e5bd61] bg-[#fffaf0] p-4 text-[13px]">
+          <p className="font-medium">This deposit has saved encrypted recovery data. Do not submit it again.</p>
+          <p className="mt-2">{prepared.txHash ? 'The on-chain deposit is confirmed. Encrypted delivery is syncing; no new deposit is needed.' : 'If your wallet submitted the deposit, enter its transaction hash to resend the encrypted receiver and refund messages.'}</p>
+          <input
+            type="text"
+            aria-label="Deposit transaction hash"
+            value={recoveryHash}
+            readOnly={!!prepared.txHash}
+            onChange={event => setRecoveryHash(event.target.value.trim())}
+            placeholder="0x… deposit transaction hash"
+            className="mt-3 h-[38px] w-full rounded-[10px] border px-3"
+          />
+          <button type="button" onClick={handleRecover} disabled={!/^0x[0-9a-fA-F]{64}$/.test(recoveryHash)}
+            className="mt-3 h-[38px] rounded-[12px] bg-[#5e85ee] px-4 text-white disabled:opacity-40">
+            {prepared.txHash ? 'Retry delivery sync' : 'Resend encrypted delivery'}
+          </button>
+          {errorMsg && <p className="mt-2 text-[#d92b2b]">{errorMsg}</p>}
+        </div>
       )}
 
       {/* Footer */}
       <div className="flex items-center justify-end">
         <button
           onClick={handleDeposit}
-          disabled={isBusy || status === 'done' || (!isAiTransaction && !planPassword)}
+          disabled={isBusy || status === 'done' || !!prepared || recoveryInvalid ||
+            (!isAiTransaction && !reviewedAllocations && !planPassword)}
           className="h-[38px] px-[16px] rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {stepLabels[status]}
+          {!isAiTransaction && status === 'idle' ? (reviewedAllocations ? 'Confirm and execute' : 'Review payroll') : stepLabels[status]}
         </button>
       </div>
     </div>

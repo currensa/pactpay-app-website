@@ -1,7 +1,12 @@
 import { PayrollItemStatus, PayrollTransactionStatus } from '@/enums/transaction'
 
 
-export function TransactionStatusBadge({ status }: { status: PayrollTransactionStatus }) {
+export function TransactionStatusBadge({ status, pending = false }: { status: PayrollTransactionStatus; pending?: boolean }) {
+  if (pending && status === PayrollTransactionStatus.READY) return (
+    <span className="inline-flex items-center rounded-[8px] bg-[rgba(94,133,238,0.12)] px-2 py-[2px] text-[12px] leading-[22px] text-[#5e85ee] whitespace-nowrap">
+      Syncing delivery
+    </span>
+  )
   switch (status) {
     case PayrollTransactionStatus.READY:
       return (

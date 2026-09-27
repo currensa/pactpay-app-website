@@ -11,6 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableScr
 import { useToast } from '@/components/ui/use-toast'
 import { PayrollTransactionStatus } from '@/enums/transaction'
 import { cn } from '@/lib/utils'
+import { loadPreparedDeposit } from '@/lib/confirm-sync/preparedDeposit'
+import { depositAction } from '@/lib/confirm-sync/depositAction'
+import { confirmSync } from '@/lib/confirm-sync'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { formatLocalDateTime } from '@/utils/date'
@@ -19,7 +22,7 @@ import { Permission, useHasPermission } from '@/utils/permissions'
 import { getErrorMessage } from '@/views/orgs/components/ai-api/utils'
 import { TransactionStatusBadge } from '@/views/transaction/components/transaction-status-badge'
 import { formatUnits } from 'ethers'
-import { ChevronDown, ChevronUp, ChevronsUpDown, Plus, Search } from 'lucide-react'
+import { ChevronDown, ChevronUp, ChevronsUpDown, Plus, RefreshCw, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
@@ -80,14 +83,13 @@ export default function TransactionPage() {
   const [depositingTransactionPlan, setDepositingTransactionPlan] = useState<TransactionPlan | null>(null)
   const [depositSuccessDialogOpen, setDepositSuccessDialogOpen] = useState(false)
   const [lastDepositTxHash, setLastDepositTxHash] = useState('')
+  const [depositSyncPending, setDepositSyncPending] = useState(false)
+  const [confirmedBatchIds, setConfirmedBatchIds] = useState<Set<string>>(new Set())
+  const [refreshingPlanIds, setRefreshingPlanIds] = useState<Set<string>>(new Set())
 
   const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false)
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-
-  const [reactionConfirmDialogOpen, setReactionConfirmDialogOpen] = useState(false)
-  const [transactionToReaction, setTransactionToReaction] = useState<Transaction | null>(null)
-
 
   const [payrollSetupDialogOpen, setPayrollSetupDialogOpen] = useState(false)
   const [selectedChainId, setSelectedChainId] = useState('')
@@ -279,6 +281,12 @@ export default function TransactionPage() {
     void fetchTransactions(currentPage, statusFilter, debouncedSearch, transactionType)
   }, [activeTab, currentPage, debouncedSearch, isReady, statusFilter, transactionType])
 
+  useEffect(() => confirmSync.subscribe(event => {
+    if (event.kind !== 'synced' || event.job.type !== 'confirm-privacy-deposit') return
+    if (event.job.batchId === depositingTransactionPlan?.id) setDepositSyncPending(false)
+    void fetchTransactions(currentPage, statusFilter, debouncedSearch, transactionType)
+  }), [currentPage, statusFilter, debouncedSearch, transactionType, depositingTransactionPlan?.id])
+
   useEffect(() => {
     if (!isReady) return
     if (setupPayrollRequested && !isPayrollConfigConfigured) {
@@ -396,19 +404,47 @@ export default function TransactionPage() {
     })
   }, [aiTransactions, peopleTransactions, rawTransactions, sortDirection, sortField])
 
+  const preparedDeposit = (plan: TransactionPlan) => {
+    try {
+      return loadPreparedDeposit(localStorage.getItem('userId') ?? '', plan.orgId, plan.id)
+    } catch {
+      return {} // Invalid recovery data must not permit another deposit.
+    }
+  }
+
+  const refreshPlan = async (planId: string) => {
+    if (refreshingPlanIds.has(planId)) return
+    setRefreshingPlanIds(previous => new Set(previous).add(planId))
+    try {
+      const updated = await apis.transaction.getTransactionPlanDetail(planId)
+      setRawTransactions(previous => previous.map(plan => plan.id === planId ? updated : plan))
+    } catch {
+      // The request interceptor reports API errors.
+    } finally {
+      setRefreshingPlanIds(previous => {
+        const next = new Set(previous)
+        next.delete(planId)
+        return next
+      })
+    }
+  }
+
   const handleDepositClick = (transaction: Transaction) => {
     const plan = rawTransactions.find(item => item.id === transaction.id) ?? null
+    if (!plan || plan.createdBy !== localStorage.getItem('userId') || !hasPermission(Permission.EXECUTE_TRANSACTION)) return
+    if (['disabled', 'pending'].includes(depositAction(plan, preparedDeposit(plan), confirmedBatchIds.has(plan.id)))) return
     setDepositingTransaction(transaction)
     setDepositingTransactionPlan(plan)
     setDepositConfirmDialogOpen(true)
   }
 
-  const handleDepositSuccess = async (txHash: string) => {
-    if (!depositingTransaction) return
+  const handleDepositSuccess = async (txHash: string, syncState: 'synced' | 'pending') => {
+    if (!depositingTransaction || !depositingTransactionPlan) return
+    setConfirmedBatchIds(previous => new Set(previous).add(depositingTransactionPlan.id))
     setDepositConfirmDialogOpen(false)
     setLastDepositTxHash(txHash)
+    setDepositSyncPending(syncState === 'pending')
     setDepositSuccessDialogOpen(true)
-    await new Promise(r => setTimeout(r, 2000))
     await fetchTransactions(currentPage, statusFilter, debouncedSearch, transactionType)
   }
 
@@ -442,19 +478,6 @@ export default function TransactionPage() {
     } finally {
       setIsDeleting(false)
     }
-  }
-
-  const handleReactionClick = (transaction: Transaction) => {
-    setTransactionToReaction(transaction)
-    setReactionConfirmDialogOpen(true)
-  }
-
-  const handleConfirmReaction = () => {
-    if (!transactionToReaction) return
-    const transactionId = transactionToReaction.id
-    setReactionConfirmDialogOpen(false)
-    setTransactionToReaction(null)
-    handleStartCreateTransaction(`/orgs/transaction/create-people?fromReaction=1&transactionId=${encodeURIComponent(transactionId)}`)
   }
 
   const startIndex = visiblePeopleTransactions.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1
@@ -501,11 +524,12 @@ export default function TransactionPage() {
 
   const renderPeopleActions = (transaction: Transaction, plan?: TransactionPlan | null) => {
     const isComplete = transaction.isComplete
-    const canExecute = hasPermission(Permission.EXECUTE_TRANSACTION) && !isComplete && transaction.status !== PayrollTransactionStatus.REFUNDED
-    const canDelete = hasPermission(Permission.MODIFY_TRANSACTION) && !isComplete
-    const canReaction = hasPermission(Permission.REACTION_TRANSACTION)
-      && (transaction.status === PayrollTransactionStatus.COMPLETE || transaction.status === PayrollTransactionStatus.REFUNDED)
-
+    const prepared = plan ? preparedDeposit(plan) : null
+    const confirmed = !!plan && (confirmedBatchIds.has(plan.id) || !!plan.depositTxHash)
+    const action = plan ? depositAction(plan, prepared, confirmedBatchIds.has(plan.id)) : 'disabled'
+    const canExecute = hasPermission(Permission.EXECUTE_TRANSACTION) && plan?.createdBy === localStorage.getItem('userId') &&
+      action !== 'disabled' && action !== 'pending'
+    const canDelete = hasPermission(Permission.MODIFY_TRANSACTION) && !isComplete && !prepared && !confirmed
     return (
       <div className={actionGroupClassName}>
         <button
@@ -513,22 +537,19 @@ export default function TransactionPage() {
           onClick={() => handleDepositClick(transaction)}
           disabled={!canExecute}
         >
-          {t('pages.transactions.execute')}
+          {action === 'recover' ? t('pages.transactions.recoverDeposit') : action === 'pending' ? 'Syncing delivery' : confirmed ? t('pages.transactions.depositConfirmed') : t('pages.transactions.execute')}
         </button>
+        {action === 'pending' && plan && (
+          <button type="button" className={actionTextButtonClassName} onClick={() => void refreshPlan(plan.id)} disabled={refreshingPlanIds.has(plan.id)} aria-label="Refresh deposit status">
+            <RefreshCw size={14} className={refreshingPlanIds.has(plan.id) ? 'animate-spin' : ''} /> Refresh
+          </button>
+        )}
         <button
           className={actionTextButtonClassName}
           onClick={() => handleViewDetails(transaction)}
         >
           {t('pages.transactions.viewDetails')}
         </button>
-        {canReaction && (
-          <button
-            className={actionTextButtonClassName}
-            onClick={() => handleReactionClick(transaction)}
-          >
-            {t('pages.transactions.reaction')}
-          </button>
-        )}
         <button
           className={actionDangerButtonClassName}
           onClick={() => handleDeleteClick(transaction)}
@@ -544,8 +565,12 @@ export default function TransactionPage() {
     const rechargeId = transaction.raw.tokenUsagePlanId
     if (!rechargeId) return null
     const isComplete = transaction.status === PayrollTransactionStatus.COMPLETE
-    const canExecute = hasPermission(Permission.EXECUTE_TRANSACTION) && !isComplete && transaction.status !== PayrollTransactionStatus.REFUNDED
-    const canDelete = hasPermission(Permission.MODIFY_TRANSACTION) && !isComplete
+    const prepared = preparedDeposit(transaction.raw)
+    const confirmed = confirmedBatchIds.has(transaction.id) || !!transaction.raw.depositTxHash
+    const action = depositAction(transaction.raw, prepared, confirmedBatchIds.has(transaction.id))
+    const canExecute = hasPermission(Permission.EXECUTE_TRANSACTION) && transaction.raw.createdBy === localStorage.getItem('userId') &&
+      action !== 'disabled' && action !== 'pending'
+    const canDelete = hasPermission(Permission.MODIFY_TRANSACTION) && !isComplete && !prepared && !confirmed
 
     return (
       <div className={actionGroupClassName}>
@@ -554,8 +579,13 @@ export default function TransactionPage() {
           onClick={() => handleDepositClick(buildAiActionTransaction(transaction))}
           disabled={!canExecute}
         >
-          {t('pages.transactions.execute')}
+          {action === 'recover' ? t('pages.transactions.recoverDeposit') : action === 'pending' ? 'Syncing delivery' : confirmed ? t('pages.transactions.depositConfirmed') : t('pages.transactions.execute')}
         </button>
+        {action === 'pending' && (
+          <button type="button" className={actionTextButtonClassName} onClick={() => void refreshPlan(transaction.id)} disabled={refreshingPlanIds.has(transaction.id)} aria-label="Refresh deposit status">
+            <RefreshCw size={14} className={refreshingPlanIds.has(transaction.id) ? 'animate-spin' : ''} /> Refresh
+          </button>
+        )}
         <button
           className={actionTextButtonClassName}
           onClick={() => navigate(`/orgs/members/usage-plans/${encodeURIComponent(rechargeId)}`)}
@@ -710,7 +740,7 @@ export default function TransactionPage() {
                         {transaction.totalAmount} {transaction.currency}
                       </TableCell>
                       <TableCell>
-                        <TransactionStatusBadge status={transaction.status} />
+                        <TransactionStatusBadge status={transaction.status} pending={!!plan && depositAction(plan, preparedDeposit(plan), confirmedBatchIds.has(plan.id)) === 'pending'} />
                       </TableCell>
                       <TableCell>{transaction.executionDate}</TableCell>
                       <TableCell>
@@ -727,7 +757,7 @@ export default function TransactionPage() {
                     <TableCell>{transaction.payees}</TableCell>
                     <TableCell>{transaction.amount}</TableCell>
                     <TableCell>
-                      <TransactionStatusBadge status={transaction.status as PayrollTransactionStatus} />
+                      <TransactionStatusBadge status={transaction.status as PayrollTransactionStatus} pending={depositAction(transaction.raw, preparedDeposit(transaction.raw), confirmedBatchIds.has(transaction.id)) === 'pending'} />
                     </TableCell>
                     <TableCell>{transaction.payDay ? formatLocalDateTime(transaction.payDay) : '-'}</TableCell>
                     <TableCell>
@@ -744,7 +774,7 @@ export default function TransactionPage() {
                     <TableCell>{row.payees}</TableCell>
                     <TableCell>{row.amount}</TableCell>
                     <TableCell>
-                      <TransactionStatusBadge status={row.status as PayrollTransactionStatus} />
+                      <TransactionStatusBadge status={row.status as PayrollTransactionStatus} pending={depositAction(row.raw, preparedDeposit(row.raw), confirmedBatchIds.has(row.id)) === 'pending'} />
                     </TableCell>
                     <TableCell>{row.payDay ? formatLocalDateTime(row.payDay) : '-'}</TableCell>
                     <TableCell>
@@ -803,6 +833,7 @@ export default function TransactionPage() {
           <DialogContent className="max-w-2xl">
             <ExecuteSuccessDialogContent
               depositTxHash={lastDepositTxHash}
+              syncPending={depositSyncPending}
               executingTransaction={depositingTransaction}
               caipChainId={depositingTransactionPlan?.caipChainId}
               onClose={() => {
@@ -825,53 +856,6 @@ export default function TransactionPage() {
               }}
               onConfirm={handleConfirmDelete}
             />
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={reactionConfirmDialogOpen} onOpenChange={setReactionConfirmDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('pages.transactions.reactionTitle')}</DialogTitle>
-              <DialogDescription>
-                {t('pages.transactions.reactionDescription')}
-              </DialogDescription>
-            </DialogHeader>
-
-            {transactionToReaction && (
-              <div className="mt-[16px] flex flex-col gap-[10px] rounded-[12px] bg-[#f5f5f5] p-[14px]">
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#606067]">{t('pages.transactions.transactionName')}</span>
-                  <span className="text-[13px] font-medium text-[#1c1c26]">{transactionToReaction.name}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#606067]">{t('pages.transactions.transactionId')}</span>
-                  <span className="font-mono text-[13px] font-medium text-[#1c1c26]">{transactionToReaction.id}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#606067]">{t('pages.transactions.payees')}</span>
-                  <span className="text-[13px] font-medium text-[#1c1c26]">{transactionToReaction.members}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[13px] text-[#606067]">{t('pages.transactions.totalAmount')}</span>
-                  <span className="text-[13px] font-medium text-[#1c1c26]">
-                    ${transactionToReaction.totalAmount} {transactionToReaction.currency}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setReactionConfirmDialogOpen(false)
-                  setTransactionToReaction(null)
-                }}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button onClick={handleConfirmReaction}>{t('pages.orgMembers.confirm')}</Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
 

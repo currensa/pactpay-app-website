@@ -2,20 +2,8 @@
 
 import { buildPoseidon } from 'circomlibjs'
 import { secretStringToField } from '@/lib/gravarc/poseidon'
-
-// ── Circuit file cache (in-memory, avoids repeated CDN downloads) ──────────
-
-const _circuitCache = new Map<string, ArrayBuffer>()
-
-async function fetchCircuit(url: string, onStatus?: (msg: string) => void): Promise<ArrayBuffer> {
-  if (_circuitCache.has(url)) return _circuitCache.get(url)!
-  onStatus?.('Downloading refund circuit files (first time only - this may take a while)…')
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Failed to fetch circuit file: ${url}`)
-  const buf = await res.arrayBuffer()
-  _circuitCache.set(url, buf)
-  return buf
-}
+import { fetchCircuitBundle } from './circuitCache'
+import { toContractProof } from './proofFormat'
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -64,12 +52,10 @@ export type RefundProofInput = {
   totalClaimed: bigint
   /** 退款手续费（须 >= 退款金额 0.1%） */
   fee: bigint
-  /** 平台 relayer 地址（msg.sender == relayer） */
+  /** Direct submitting wallet (msg.sender == relayer). */
   relayer: string
   /** 存款人收款地址（= refunder） */
   refunder: string
-  wasmUrl: string
-  zkeyUrl: string
   onStatus?: (msg: string) => void
 }
 
@@ -158,10 +144,7 @@ export async function generateRefundProof(input: RefundProofInput): Promise<Refu
   }
 
   const { groth16 } = await import('snarkjs')
-  const [wasmBuf, zkeyBuf] = await Promise.all([
-    fetchCircuit(input.wasmUrl, input.onStatus),
-    fetchCircuit(input.zkeyUrl, input.onStatus),
-  ])
+  const { wasm: wasmBuf, zkey: zkeyBuf } = await fetchCircuitBundle('refund', tier, input.onStatus)
   input.onStatus?.('Generating refund ZK proof in browser… (private inputs never leave your device)')
 
   const t0 = performance.now()
@@ -172,16 +155,8 @@ export async function generateRefundProof(input: RefundProofInput): Promise<Refu
   )
   console.log(`[refund proof] fullProve took ${((performance.now() - t0) / 1000).toFixed(2)}s`)
 
-  const pA = proof.pi_a.slice(0, 2) as [string, string]
-  const pB = proof.pi_b.slice(0, 2) as [[string, string], [string, string]]
-  const pC = proof.pi_c.slice(0, 2) as [string, string]
-
   return {
-    proof: {
-      pA,
-      pB: [[pB[0][1], pB[0][0]], [pB[1][1], pB[1][0]]],
-      pC,
-    },
+    proof: toContractProof(proof),
     // depositRoot 为 uint256，后端 DTO 要求十进制字符串（@IsNumberString），与电路 public signal 一致；
     // nullifierHash 为 bytes32，需 0x hex（后端 @Matches 0x{64}）。
     depositRoot: depositRoot.toString(),
