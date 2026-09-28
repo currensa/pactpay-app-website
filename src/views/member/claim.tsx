@@ -3,6 +3,7 @@ import type { FavoriteAddressItem } from '@/apis/favorite-address.api'
 import type { PrivacyPayrollItem, WithdrawalBatchResult } from '@/apis/transaction.api'
 import { useToast } from '@/components/ui/use-toast'
 import { deriveNaclKeyPair } from '@/lib/gravarc/naclCrypto'
+import { defiAllocationItem } from '@/lib/gravarc/defi/allocationItem'
 import { readPrivacyWithdrawState, withdrawPrivacyItem } from '@/lib/gravarc/privacyWithdraw'
 import { validatePrivateWithdrawAmount } from '@/lib/gravarc/privateWithdrawBalance'
 import { buildExplorerTransactionUrl } from '@/utils/transaction'
@@ -281,6 +282,14 @@ export default function ClaimPage() {
       items.push(...(data.data ?? []))
       if (items.length >= (data.total ?? 0)) break
       page++
+    }
+    const [allocations, networks] = await Promise.all([
+      apis.transaction.getMyDefiAllocations(), apis.chainAsset.getNetworks(),
+    ])
+    for (const allocation of allocations) {
+      if (caipChainId && allocation.caipChainId !== caipChainId) continue
+      const network = networks.find(entry => entry.caipChainId === allocation.caipChainId)
+      if (network) items.push(defiAllocationItem(allocation, network))
     }
     return items
   }

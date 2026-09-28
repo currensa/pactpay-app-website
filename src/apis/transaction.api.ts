@@ -30,6 +30,8 @@ export interface PrivacyWithdrawData {
 }
 
 export interface PrivacyPayrollItem {
+  /** Synthetic client allocation backed by scanner-confirmed DeFi ciphertext, not payroll. */
+  source?: 'defi'
   id: string
   batchId: string
   memberId: string
@@ -61,6 +63,24 @@ export interface PrivacyPayrollItem {
     depositTxHash: string | null
     payPeriod: string
   }
+}
+
+export interface DefiAllocation {
+  caipChainId: string
+  leafIndex: number
+  depositor: string
+  recipient: string
+  depositLeaf: string
+  token: string
+  tier: number
+  content: string
+  encryptedSecret: string
+}
+
+export interface DefiRecipientProfile {
+  address: string
+  secretHash: string
+  encPubkey: string
 }
 
 
@@ -237,6 +257,29 @@ export interface ConfirmPrivacyDepositPayload {
 
 export class TransactionApi {
   constructor(private readonly request: AxiosInstance) {}
+
+  async getDefiRecipientProfiles(addresses: string[]): Promise<DefiRecipientProfile[]> {
+    const res = await this.request.get<DefiRecipientProfile[]>('/transaction/defi/recipient-profiles', {
+      params: { addresses: addresses.join(',') },
+    })
+    return res.data
+  }
+
+  async getMyDefiAllocations(): Promise<DefiAllocation[]> {
+    const res = await this.request.get<DefiAllocation[]>('/transaction/my-defi-allocations')
+    return res.data
+  }
+
+  async confirmDefiDeposit(payload: {
+    caipChainId: string
+    txHash: string
+    leafIndex: number
+    depositLeaf: string
+    withdrawMessages: WithdrawMessage[]
+  }): Promise<void> {
+    await this.request.post('/transaction/defi-deposits/confirm', payload,
+      { skipErrorToastStatusCodes: [409] })
+  }
 
   private get orgId(): string {
     return localStorage.getItem('organizationId') || ''

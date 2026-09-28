@@ -1,13 +1,14 @@
 import AppSidebar from '@/components/app/base/app-sidebar'
 import type { OrgNavItem } from '@/router'
 import useOrganizationStore from '@/stores/organization'
-import { IconBuilding, IconLayoutDashboard, IconSettings, IconWallet } from '@tabler/icons-react'
+import { IconBuilding, IconCashMove, IconLayoutDashboard, IconSettings, IconWallet } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 
 const TOP_ITEMS: OrgNavItem[] = [
   { title: 'Dashboard', titleKey: 'route.dashboard', key: 'dashboard', url: '/member/dashboard', icon: IconLayoutDashboard },
   { title: 'Claim', titleKey: 'route.claim', key: 'claim', url: '/member/claim', icon: IconWallet },
+  { title: 'Private DeFi', key: 'defi', url: '/member/defi', icon: IconCashMove },
 ]
 
 const BOTTOM_ITEMS: OrgNavItem[] = [

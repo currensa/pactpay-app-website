@@ -80,6 +80,9 @@ export async function generateWithdrawProof(
   const tier = info.tier
   const authDepth = TIER_AUTH_DEPTH[tier]
   if (!authDepth) throw new Error(`Unknown tier ${tier}`)
+  if (info.depositPathElements?.length !== TREE_DEPTH || info.depositPathIndices?.length !== TREE_DEPTH) {
+    throw new Error('A fresh deposit membership path is required')
+  }
 
   // nullifierHash = Poseidon(nullifier)
   const nullifierHash = F.toObject(poseidon([nullifier])) as bigint

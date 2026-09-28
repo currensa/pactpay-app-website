@@ -57,6 +57,7 @@ const JoinInvite = lazy(() => import('@/views/account/join-invite'))
 const MemberDashboard = lazy(() => import('@/views/member/dashboard'))
 const MemberOrgsDetail = lazy(() => import('@/views/member/orgsdetail'))
 const MemberClaim = lazy(() => import('@/views/member/claim'))
+const MemberDefi = lazy(() => import('@/views/member/defi'))
 const MemberSettings = lazy(() => import('@/views/member/settings'))
 const NotificationsPage = lazy(() => import('@/views/notifications'))
 
@@ -179,6 +180,7 @@ const routes: RouteItem[] = [
           { path: 'dashboard', navIcon: IconLayoutDashboard, element: <MemberDashboard />, meta: { title: 'Dashboard', titleKey: 'route.dashboard', subtitle: "Monitor your organization's key metrics and activities", subtitleKey: 'route.dashboardSubtitle' } },
           { path: 'orgdetail', element: <MemberOrgsDetail />, meta: { title: 'TechCorp Inc.', titleKey: 'route.memberOrgDetail' } },
           { path: 'claim', navIcon: IconWallet, element: <MemberClaim />, meta: { title: 'Claim', titleKey: 'route.claim', subtitle: 'Withdraw one private allocation directly from your wallet.', subtitleKey: 'route.claimSubtitle' } },
+          { path: 'defi', navIcon: IconCashMove, element: <MemberDefi />, meta: { title: 'Private DeFi', subtitle: 'Swap one owned allocation directly.' } },
           { path: 'notifications', element: <NotificationsPage />, meta: { title: 'Notifications', titleKey: 'route.notifications', subtitle: 'Showing notifications for Engineering Team', subtitleKey: 'route.notificationsSubtitle', hideInMenu: true } },
           { path: 'settings', navIcon: IconSettings, element: <MemberSettings />, meta: { title: 'Settings', titleKey: 'route.settings', subtitle: 'Manage your account settings', subtitleKey: 'route.memberSettingsSubtitle' } }
         ]

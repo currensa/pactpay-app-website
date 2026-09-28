@@ -84,6 +84,9 @@ export async function generateRefundProof(input: RefundProofInput): Promise<Refu
   const authDepth = TIER_AUTH_DEPTH[tier]
   if (!authDepth) throw new Error(`Unknown tier ${tier}`)
   if (slots.length !== tier) throw new Error(`Expected ${tier} refund slots, got ${slots.length}`)
+  if (depositPathElements?.length !== TREE_DEPTH || depositPathIndices?.length !== TREE_DEPTH) {
+    throw new Error('Invalid deposit path length')
+  }
 
   const poseidon = await buildPoseidon()
   const F = poseidon.F

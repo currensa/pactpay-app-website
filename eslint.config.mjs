@@ -18,6 +18,9 @@ export default tseslint.config(
       'react-refresh': reactRefresh,
       tailwindcss: tailwind
     },
+    settings: {
+      tailwindcss: { cssConfigPath: './src/index.css' }
+    },
     rules: {
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       ...reactHooks.configs.recommended.rules,

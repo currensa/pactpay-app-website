@@ -52,6 +52,44 @@ interface DecryptedWithdrawMessage {
   authPathIndices: number[]
 }
 
+/** One owned payroll allocation; DeFi and direct withdrawal use the same witness. */
+export function unlockPrivacyPayrollItem(
+  item: PrivacyPayrollItem,
+  keyPair: { secretKey: Uint8Array },
+  account: string,
+): { info: WithdrawInfo; rawSecret: string } {
+  const wd = item.withdrawData
+  if (!wd?.content || !wd.encryptedSecret || !wd.privacyDepositLeaf || wd.leafIndex == null || wd.tier == null) {
+    throw new Error('Confirmed encrypted allocation is unavailable')
+  }
+  if (!item.recipient || item.recipient.toLowerCase() !== account.toLowerCase()) {
+    throw new Error('Connect the wallet that owns this allocation')
+  }
+  let decoded: DecryptedWithdrawMessage
+  try { decoded = JSON.parse(naclDecryptWithKeyPair(wd.content, keyPair)) as DecryptedWithdrawMessage }
+  catch { throw new Error('Failed to decrypt withdraw message — wrong password?') }
+  if (decoded.leafIndex !== wd.leafIndex) throw new Error('Encrypted allocation has a different deposit leaf index')
+  let rawSecret: string
+  try { rawSecret = secretboxDecryptWithKey(wd.encryptedSecret, keyPair.secretKey) }
+  catch { throw new Error('Failed to decrypt your secret — wrong password?') }
+  return {
+    rawSecret,
+    info: {
+      nullifier: decoded.nullifier,
+      amount: decoded.amount,
+      token: item.tokenAddress || item.batch.tokenAddress,
+      authRoot: decoded.authRoot,
+      depositorSecretHash: decoded.depositorSecretHash,
+      authPathElements: decoded.authPathElements,
+      authPathIndices: decoded.authPathIndices,
+      leafIndex: wd.leafIndex,
+      depositPathElements: decoded.depositPathElements,
+      depositPathIndices: decoded.depositPathIndices,
+      tier: wd.tier,
+    },
+  }
+}
+
 /** Read a receiver's private balance only after decrypting its own message. */
 export async function readPrivacyWithdrawState(
   item: PrivacyPayrollItem,
@@ -111,41 +149,8 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
   if (wd.tier === null || wd.tier === undefined) throw new Error('Missing tier for this deposit')
 
   const gravArcAddress = wd.gravArcAddress as Hex
-  const tokenAddress = (item.tokenAddress || item.batch.tokenAddress) as string
-
-  // 1. Decrypt the withdraw message (NaCl box) and the user's own Secret (NaCl secretbox).
   onStatus?.('Decrypting withdraw message…')
-  let decoded: DecryptedWithdrawMessage
-  try {
-    decoded = JSON.parse(naclDecryptWithKeyPair(wd.content, keyPair)) as DecryptedWithdrawMessage
-  } catch {
-    throw new Error('Failed to decrypt withdraw message — wrong password?')
-  }
-  let rawSecret: string
-  try {
-    rawSecret = secretboxDecryptWithKey(wd.encryptedSecret, keyPair.secretKey)
-  } catch {
-    throw new Error('Failed to decrypt your secret — wrong password?')
-  }
-  if (decoded.leafIndex !== wd.leafIndex) {
-    throw new Error('Encrypted withdrawal message has a different deposit leaf index')
-  }
-
-  // Assemble the circuit input. 新合约下 authRoot / depositorSecretHash 来自解密后的消息；
-  // token / tier 仍由 withdrawData / item 提供。
-  const info: WithdrawInfo = {
-    nullifier: decoded.nullifier,
-    amount: decoded.amount,
-    token: tokenAddress,
-    authRoot: decoded.authRoot,
-    depositorSecretHash: decoded.depositorSecretHash,
-    authPathElements: decoded.authPathElements,
-    authPathIndices: decoded.authPathIndices,
-    leafIndex: wd.leafIndex,
-    depositPathElements: decoded.depositPathElements,
-    depositPathIndices: decoded.depositPathIndices,
-    tier: wd.tier,
-  }
+  const { info, rawSecret } = unlockPrivacyPayrollItem(item, keyPair, account)
 
   // 2. Build viem clients over the connected wallet provider.
   const chain = {
@@ -262,12 +267,14 @@ export async function withdrawPrivacyItem(params: PrivacyWithdrawParams): Promis
   // 7. Verify the public receipt asynchronously; this cannot establish the
   // private allocation's partial or final claim state.
   onStatus?.('Confirming…')
-  await confirmSync.enqueue({
-    type: 'confirm-withdraw',
-    itemId: item.id,
-    txHash,
-    label: item.transactionName ?? item.id,
-  })
+  if (item.source !== 'defi') {
+    await confirmSync.enqueue({
+      type: 'confirm-withdraw',
+      itemId: item.id,
+      txHash,
+      label: item.transactionName ?? item.id,
+    })
+  }
 
   return { itemId: item.id, txHash }
 }

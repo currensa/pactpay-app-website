@@ -54,6 +54,20 @@ assert.equal(JSON.parse(values.get('pactpay:pendingConfirmations')).length, 0)
 reloaded.confirmSync.stage(job)
 reloaded.confirmSync.discard(job)
 assert.equal(JSON.parse(values.get('pactpay:pendingConfirmations')).length, 0)
+const delivered = []
+globalThis.confirmRequest = async current => { delivered.push(current.type) }
+for (const privateJob of [
+  { type: 'confirm-withdraw', itemId: 'item-1', txHash: '0x5678', label: 'test withdrawal' },
+  { type: 'confirm-refund-gravarc', orgId: 'org', batchId: 'batch', refundTxHash: '0x9abc', label: 'test refund' },
+]) {
+  reloaded.confirmSync.stage(privateJob)
+  const staged = JSON.parse(values.get('pactpay:pendingConfirmations'))
+  assert.equal(staged.length, 1)
+  assert.equal(staged[0].type, privateJob.type)
+  assert.equal(await reloaded.confirmSync.enqueue(privateJob), 'synced')
+  assert.equal(JSON.parse(values.get('pactpay:pendingConfirmations')).length, 0)
+}
+assert.deepEqual(delivered, ['confirm-withdraw', 'confirm-refund-gravarc'])
 globalThis.localStorage.setItem = () => { throw new Error('storage unavailable') }
 assert.throws(() => reloaded.confirmSync.stage(job), /Could not save/)
 console.log('Confirmation recovery tests passed')
