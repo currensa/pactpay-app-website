@@ -28,22 +28,40 @@ jobs:
       - name: Validate deployment target
         env:
           DEPLOY_ENV: ${{ inputs.environment }}
-          CVM_HOST: ${{ secrets.CVM_HOST }}
-          CVM_USERNAME: ${{ secrets.CVM_USERNAME }}
-          CVM_SSH_KEY: ${{ secrets.CVM_SSH_KEY }}
+          CVM_HOST_TEST: ${{ secrets.CVM_HOST_TEST }}
+          CVM_USERNAME_TEST: ${{ secrets.CVM_USERNAME_TEST }}
+          CVM_SSH_KEY_TEST: ${{ secrets.CVM_SSH_KEY_TEST }}
+          CVM_HOST_PRODUCTION: ${{ secrets.CVM_HOST }}
+          CVM_USERNAME_PRODUCTION: ${{ secrets.CVM_USERNAME }}
+          CVM_SSH_KEY_PRODUCTION: ${{ secrets.CVM_SSH_KEY }}
           TCR_USERNAME: ${{ secrets.TCR_USERNAME }}
           TCR_PASSWORD: ${{ secrets.TCR_PASSWORD }}
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
         run: |
-          for name in CVM_HOST CVM_USERNAME CVM_SSH_KEY TCR_USERNAME TCR_PASSWORD VITE_GOOGLE_CLIENT_ID; do
+          for name in TCR_USERNAME TCR_PASSWORD VITE_GOOGLE_CLIENT_ID; do
             if [ -z "${!name}" ]; then
               echo "Missing required deployment value: $name"
               exit 1
             fi
           done
-          if [ "$DEPLOY_ENV" = test ] && [ "$CVM_HOST" != 150.109.25.172 ]; then
-            echo 'Test deployment host does not match the reviewed host'
-            exit 1
+          if [ "$DEPLOY_ENV" = test ]; then
+            for name in CVM_HOST_TEST CVM_USERNAME_TEST CVM_SSH_KEY_TEST; do
+              if [ -z "${!name}" ]; then
+                echo "Missing required deployment value: $name"
+                exit 1
+              fi
+            done
+            if [ "$CVM_HOST_TEST" != 150.109.25.172 ]; then
+              echo 'Test deployment host does not match the reviewed host'
+              exit 1
+            fi
+          else
+            for name in CVM_HOST_PRODUCTION CVM_USERNAME_PRODUCTION CVM_SSH_KEY_PRODUCTION; do
+              if [ -z "${!name}" ]; then
+                echo "Missing required deployment value: $name"
+                exit 1
+              fi
+            done
           fi
 
       - name: Generate timestamp tag
@@ -76,9 +94,9 @@ jobs:
           TCR_USERNAME: ${{ secrets.TCR_USERNAME }}
           TCR_PASSWORD: ${{ secrets.TCR_PASSWORD }}
         with:
-          host: ${{ secrets.CVM_HOST }}
-          username: ${{ secrets.CVM_USERNAME }}
-          key: ${{ secrets.CVM_SSH_KEY }}
+          host: ${{ inputs.environment == 'test' && secrets.CVM_HOST_TEST || secrets.CVM_HOST }}
+          username: ${{ inputs.environment == 'test' && secrets.CVM_USERNAME_TEST || secrets.CVM_USERNAME }}
+          key: ${{ inputs.environment == 'test' && secrets.CVM_SSH_KEY_TEST || secrets.CVM_SSH_KEY }}
           envs: IMAGE,TCR_USERNAME,TCR_PASSWORD
           script: |
             set -eu
