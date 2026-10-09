@@ -6,25 +6,45 @@ on:
       environment:
         description: Deploy target environment
         required: true
-        default: production
+        default: test
         type: choice
         options:
-          - production
           - test
+          - production
 
 jobs:
   build-and-deploy:
     name: Build, Push, and Deploy
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
     env:
       IMAGE_ENV_PREFIX: ${{ inputs.environment == 'production' && 'PROD' || 'TEST' }}
-      CVM_HOST: ${{ inputs.environment == 'production' && secrets.CVM_HOST || secrets.CVM_HOST_TEST }}
-      CVM_USERNAME: ${{ inputs.environment == 'production' && secrets.CVM_USERNAME || secrets.CVM_USERNAME_TEST }}
-      CVM_SSH_KEY: ${{ inputs.environment == 'production' && secrets.CVM_SSH_KEY || secrets.CVM_SSH_KEY_TEST }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Validate deployment target
+        env:
+          DEPLOY_ENV: ${{ inputs.environment }}
+          CVM_HOST: ${{ secrets.CVM_HOST }}
+          CVM_USERNAME: ${{ secrets.CVM_USERNAME }}
+          CVM_SSH_KEY: ${{ secrets.CVM_SSH_KEY }}
+          TCR_USERNAME: ${{ secrets.TCR_USERNAME }}
+          TCR_PASSWORD: ${{ secrets.TCR_PASSWORD }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          for name in CVM_HOST CVM_USERNAME CVM_SSH_KEY TCR_USERNAME TCR_PASSWORD VITE_GOOGLE_CLIENT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "Missing required deployment value: $name"
+              exit 1
+            fi
+          done
+          if [ "$DEPLOY_ENV" = test ] && [ "$CVM_HOST" != 150.109.25.172 ]; then
+            echo 'Test deployment host does not match the reviewed host'
+            exit 1
+          fi
 
       - name: Generate timestamp tag
         id: tag
@@ -51,16 +71,21 @@ jobs:
 
       - name: Deploy to CVM via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE: sgccr.ccs.tencentyun.com/pactpay/pactpay-app-website:${{ env.IMAGE_ENV_PREFIX }}_${{ steps.tag.outputs.IMAGE_TAG }}
+          TCR_USERNAME: ${{ secrets.TCR_USERNAME }}
+          TCR_PASSWORD: ${{ secrets.TCR_PASSWORD }}
         with:
-          host: ${{ env.CVM_HOST }}
-          username: ${{ env.CVM_USERNAME }}
-          key: ${{ env.CVM_SSH_KEY }}
+          host: ${{ secrets.CVM_HOST }}
+          username: ${{ secrets.CVM_USERNAME }}
+          key: ${{ secrets.CVM_SSH_KEY }}
+          envs: IMAGE,TCR_USERNAME,TCR_PASSWORD
           script: |
-            IMAGE="sgccr.ccs.tencentyun.com/pactpay/pactpay-app-website:${{ env.IMAGE_ENV_PREFIX }}_${{ steps.tag.outputs.IMAGE_TAG }}"
+            set -eu
             CONTAINER="pactpay-app-website"
 
-            echo "${{ secrets.TCR_PASSWORD }}" | docker login sgccr.ccs.tencentyun.com \
-              --username "${{ secrets.TCR_USERNAME }}" \
+            echo "$TCR_PASSWORD" | docker login sgccr.ccs.tencentyun.com \
+              --username "$TCR_USERNAME" \
               --password-stdin
 
             docker pull "$IMAGE"
@@ -73,3 +98,16 @@ jobs:
               --restart unless-stopped \
               -p 3001:80 \
               "$IMAGE"
+
+            HEALTHY=false
+            for attempt in 1 2 3 4 5 6 7 8 9 10; do
+              if docker exec "$CONTAINER" wget -q -O /dev/null http://127.0.0.1/; then
+                HEALTHY=true
+                break
+              fi
+              sleep 2
+            done
+            if [ "$HEALTHY" != true ]; then
+              echo "Frontend health check failed"
+              exit 1
+            fi
