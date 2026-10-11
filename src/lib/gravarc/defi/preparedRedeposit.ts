@@ -151,6 +151,7 @@ export async function deliverRedeposit(record: PreparedRedeposit, leafIndex: num
   if (!record.txHash) throw new Error('Attach the confirmed DeFi transaction hash first')
   const { default: apis } = await import('@/apis')
   await apis.transaction.confirmDefiDeposit({
+    submission: 'direct',
     caipChainId: record.caipChainId,
     txHash: record.txHash,
     leafIndex,

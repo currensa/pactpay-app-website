@@ -271,6 +271,7 @@ export class TransactionApi {
   }
 
   async confirmDefiDeposit(payload: {
+    submission: 'direct'
     caipChainId: string
     txHash: string
     leafIndex: number

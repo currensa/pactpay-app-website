@@ -62,7 +62,6 @@ export interface NetworkConfigResponse {
     withdraw: boolean
     refund: boolean
     defi: boolean
-    relayed: false
   }
 }
 
