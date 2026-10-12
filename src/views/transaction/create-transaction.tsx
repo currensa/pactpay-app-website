@@ -3,12 +3,14 @@ import { MembersResponse } from '@/apis/orgnization.api'
 import type { CreatePrivacyDepositPlanResponseDto, TransactionItem } from '@/apis/transaction.api'
 import { useToast } from '@/components/ui/use-toast'
 import useChainAssetStore from '@/stores/chain-asset'
+import useAuthStore from '@/stores/auth'
 import useOrganizationStore from '@/stores/organization'
 import { naclEncrypt } from '@/lib/gravarc/naclCrypto'
 import { payoutIntentMatchesToken } from '@/lib/gravarc/payrollTokenSelection'
 import { useTranslation } from '@/utils/i18n'
 import { CreateTransactionDialogContent } from '@/views/transaction/components'
 import { formatUnits, parseUnits } from 'ethers'
+import axios from 'axios'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
@@ -30,6 +32,7 @@ export default function CreateTransaction() {
   const [reactionSourceCaipChainId, setReactionSourceCaipChainId] = useState<string>('')
   const [reactionSourceTokenAddress, setReactionSourceTokenAddress] = useState<string>('')
   const [accessChecked, setAccessChecked] = useState(false)
+  const [creating, setCreating] = useState(false)
   const [, setCreatedPlan] = useState<CreatePrivacyDepositPlanResponseDto | null>(null)
   const payrollConfig = useOrganizationStore(state => state.payrollConfig)
 
@@ -141,7 +144,8 @@ export default function CreateTransaction() {
     executionDate: string
     privacyRefundable: boolean
   }) => {
-
+    if (creating) return
+    setCreating(true)
     try {
       const payrollConfig = useOrganizationStore.getState().payrollConfig
       if (!payrollConfig) throw new Error('Payroll config not found')
@@ -159,9 +163,20 @@ export default function CreateTransaction() {
         }
       }).filter(member => BigInt(member.amount) > 0n)
       if (!allocations.length) throw new Error('Add at least one positive payroll amount')
-      const profile = localStorage.getItem('gravArcUserInfo')
-      const encPubkey = profile ? (JSON.parse(profile) as { encPubkey?: string }).encPubkey : null
+      let profile = useAuthStore.getState().gravArcUserInfo
+      if (!profile?.encPubkey) {
+        const remoteProfile = await apis.auth.getMyGravArcUserInfo()
+        if (remoteProfile) {
+          profile = {
+            userId: localStorage.getItem('userId') ?? '',
+            ...remoteProfile,
+          }
+          useAuthStore.getState().setGravArcUserInfo(profile)
+        }
+      }
+      const encPubkey = profile?.encPubkey?.replace(/^0x/, '')
       if (!encPubkey) throw new Error('Set up your private wallet before creating payroll')
+      if (!/^[0-9a-fA-F]{64}$/.test(encPubkey)) throw new Error('Your private-wallet encryption key is invalid. Sign in again and retry.')
       const encryptedPlan = naclEncrypt(JSON.stringify({
         version: 2,
         orgId: localStorage.getItem('organizationId'),
@@ -169,7 +184,7 @@ export default function CreateTransaction() {
         tokenAddress: selectedTokenAddress,
         privacyRefundable: params.privacyRefundable,
         allocations,
-      }), encPubkey.startsWith('0x') ? encPubkey.slice(2) : encPubkey)
+      }), encPubkey)
 
       const plan = await apis.transaction.createPrivacyDepositPlan({
         caipChainId: payrollConfig.caipChainId,
@@ -189,8 +204,18 @@ export default function CreateTransaction() {
           : t('pages.transactions.transactionCreated')
       })
       navigate('/orgs/transaction')
-    } catch {
-      // request interceptor handles API errors
+    } catch (error) {
+      // API failures are shown by the request interceptor. Local preparation
+      // failures happen before any request and must be surfaced here.
+      if (!axios.isAxiosError(error)) {
+        toast({
+          title: 'Payroll creation failed',
+          description: error instanceof Error ? error.message : 'Please try again',
+          variant: 'destructive',
+        })
+      }
+    } finally {
+      setCreating(false)
     }
   }
 
@@ -208,6 +233,7 @@ export default function CreateTransaction() {
         reactionSourceLoading={reactionSourceLoading}
         reactionSourceCaipChainId={reactionSourceCaipChainId}
         reactionSourceTokenAddress={reactionSourceTokenAddress}
+        isCreating={creating}
         onCancel={handleCancel}
         onCreateTransaction={handleCreateTransaction}
       />

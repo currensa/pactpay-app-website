@@ -38,6 +38,7 @@ interface CreateTransactionDialogContentProps {
   reactionSourceLoading?: boolean
   reactionSourceCaipChainId?: string
   reactionSourceTokenAddress?: string
+  isCreating?: boolean
   selectedCaipChainId: string
   selectedTokenAddress: string
   onCreateTransaction: (params: {
@@ -46,7 +47,7 @@ interface CreateTransactionDialogContentProps {
     transactionName: string
     executionDate: string
     privacyRefundable: boolean
-  }) => void
+  }) => void | Promise<void>
   onCancel: () => void
 }
 
@@ -82,6 +83,7 @@ export function CreateTransactionDialogContent({
   reactionSourceLoading = false,
   reactionSourceCaipChainId,
   reactionSourceTokenAddress,
+  isCreating = false,
   selectedCaipChainId,
   selectedTokenAddress,
   onCancel,
@@ -251,9 +253,9 @@ export function CreateTransactionDialogContent({
   const selectedTimezoneData = timezoneOptions.find(tz => tz.value === selectedTimezone) ?? timezoneOptions[13]
 
   const handleCreateTransaction = () => {
-    if (!canProceedToStep2) return
+    if (!canProceedToStep2 || isCreating) return
     const utcDate = executionDate ? toUtcIso(executionDate, selectedTimezoneData.offset) : executionDate
-    onCreateTransaction({
+    void onCreateTransaction({
       selectedMembers,
       memberAmounts: Object.fromEntries(
         Object.entries(memberAmounts).map(([memberId, amount]) => [memberId, normalizeAmountString(amount || '0')])
@@ -985,9 +987,10 @@ export function CreateTransactionDialogContent({
                   </button>
                   <button
                     onClick={handleCreateTransaction}
-                    disabled={!canProceedToStep2}
+                    disabled={!canProceedToStep2 || isCreating}
                     className="h-[38px] w-full rounded-[12px] bg-[#5e85ee] text-[13px] text-white transition-opacity hover:bg-[#5e85ee]/90 disabled:cursor-not-allowed disabled:opacity-25 sm:flex-1"
                   >
+                    {isCreating && <IconLoader2 className="mr-2 inline h-4 w-4 animate-spin" />}
                     {t('pages.orgMembers.confirm')}
                   </button>
                 </div>
@@ -1127,9 +1130,10 @@ export function CreateTransactionDialogContent({
                   </button>
                   <button
                     onClick={handleCreateTransaction}
-                    disabled={!canProceedToStep2}
+                    disabled={!canProceedToStep2 || isCreating}
                     className="h-[38px] px-4 rounded-[12px] bg-[#5e85ee] text-[13px] text-white hover:bg-[#5e85ee]/90 transition-opacity disabled:opacity-25 disabled:cursor-not-allowed"
                   >
+                    {isCreating && <IconLoader2 className="mr-2 inline h-4 w-4 animate-spin" />}
                     {t('pages.createPeopleTransaction.createTransaction')}
                   </button>
                 </div>
