@@ -1,18 +1,26 @@
 import api from '@/apis'
 import { ImageCropUpload } from '@/components/app/image-crop-upload'
 import { INVITE_CODE_SESSION_KEY } from '@/views/account/join-invite'
+import useAuthStore from '@/stores/auth'
+import useOrganizationStore from '@/stores/organization'
 import { usePublicCopy } from '@/views/public/copy'
+import { useToast } from '@/components/ui/use-toast'
 import { IconArrowLeft, IconLoader2 } from '@tabler/icons-react'
+import axios from 'axios'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { clearPersistedAuthSession } from './auth-session'
 
 interface JoinOrganizationProps {
   onBack: () => void
-  onJoin: () => void
+  onJoin: () => void | Promise<void>
   initialCode?: string
 }
 
 export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOrganizationProps) {
   const { copy } = usePublicCopy()
+  const { toast } = useToast()
+  const navigate = useNavigate()
   const [orgCode, setOrgCode] = useState(initialCode ?? '')
   const [showName, setShowName] = useState('')
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
@@ -20,7 +28,16 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
   const [joinLoading, setJoinLoading] = useState(false)
 
   const handleJoin = async () => {
-    if (!orgCode.trim() || !showName.trim()) return
+    if (!orgCode.trim() || !showName.trim()) {
+      toast({
+        title: copy.joinOrganization.missingFieldsTitle,
+        description: !showName.trim()
+          ? copy.joinOrganization.displayNameRequired
+          : copy.joinOrganization.codeRequired,
+        variant: 'destructive',
+      })
+      return
+    }
     setJoinLoading(true)
     try {
       let avatarUrl: string | undefined
@@ -34,9 +51,20 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
 
       await api.organization.joinOrganization({ code: orgCode.trim(), showName: showName.trim(), avatarUrl })
       sessionStorage.removeItem(INVITE_CODE_SESSION_KEY)
-      onJoin()
-    } catch {
-      // request interceptor handles API errors
+      await onJoin()
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearPersistedAuthSession()
+        useAuthStore.getState().reset()
+        useOrganizationStore.getState().reset()
+        toast({
+          title: copy.login.sessionExpiredTitle,
+          description: copy.login.sessionExpiredDescription,
+          variant: 'destructive',
+        })
+        navigate('/welcome/sign-in', { replace: true })
+      }
+      // Other API failures are shown by the request interceptor.
     } finally {
       setJoinLoading(false)
     }
@@ -111,7 +139,7 @@ export default function JoinOrganization({ onBack, onJoin, initialCode }: JoinOr
           </button>
           <button
             type="button"
-            disabled={!orgCode.trim() || !showName.trim() || joinLoading}
+            disabled={joinLoading}
             onClick={handleJoin}
             className="flex min-h-[44px] w-full flex-1 items-center justify-center gap-[8px] rounded-[14px] bg-[#5e85ee] px-4 py-2.5 font-['Inter',sans-serif] text-[14px] font-bold leading-[20px] text-white transition-opacity hover:opacity-90 disabled:opacity-50 sm:min-h-0 sm:rounded-[16px] sm:px-[24px] sm:py-[16px] sm:text-[16px] sm:leading-[24px]"
           >

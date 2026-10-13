@@ -23,3 +23,12 @@ export const persistAuthSession = (
     localStorage.setItem('gravArcUserInfo', JSON.stringify(payload.gravArcUserInfo))
   }
 }
+
+export const clearPersistedAuthSession = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('userId')
+  localStorage.removeItem('authType')
+  localStorage.removeItem('authAddress')
+  localStorage.removeItem('authEmail')
+  localStorage.removeItem('gravArcUserInfo')
+}

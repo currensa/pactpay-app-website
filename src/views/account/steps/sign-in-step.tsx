@@ -8,6 +8,7 @@ import { IconLoader2 } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { clearPersistedAuthSession } from '../components/auth-session'
 import LoginForm from '../components/login-form'
 import { INVITE_CODE_SESSION_KEY } from '../join-invite'
 
@@ -29,17 +30,12 @@ export default function SignInStep() {
   routeAfterAuthRef.current = async () => {
     const pendingCode = sessionStorage.getItem(INVITE_CODE_SESSION_KEY)
     if (pendingCode) {
-      try {
-        const { isMember } = await apis.organization.checkInviteCodeMembership(pendingCode)
-        if (isMember) {
-          sessionStorage.removeItem(INVITE_CODE_SESSION_KEY)
-          toast({ title: copy.login.alreadyMemberTitle, description: copy.login.alreadyMemberDescription })
-          // fall through to normal org routing below
-        } else {
-          navigate('/welcome/join-org', { replace: true })
-          return
-        }
-      } catch {
+      const { isMember } = await apis.organization.checkInviteCodeMembership(pendingCode)
+      if (isMember) {
+        sessionStorage.removeItem(INVITE_CODE_SESSION_KEY)
+        toast({ title: copy.login.alreadyMemberTitle, description: copy.login.alreadyMemberDescription })
+        // fall through to normal org routing below
+      } else {
         navigate('/welcome/join-org', { replace: true })
         return
       }
@@ -77,8 +73,12 @@ export default function SignInStep() {
 
     try {
       await routeAfterAuthRef.current()
-    } catch {
-      navigate('/welcome/identity', { replace: true })
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearPersistedAuthSession()
+        useAuthStore.getState().reset()
+        useOrganizationStore.getState().reset()
+      }
     } finally {
       setChecking(false)
     }
@@ -101,7 +101,9 @@ export default function SignInStep() {
         await routeAfterAuthRef.current()
       } catch (err) {
         if (axios.isAxiosError(err) && err.response?.status === 401) {
-          localStorage.removeItem('token')
+          clearPersistedAuthSession()
+          useAuthStore.getState().reset()
+          useOrganizationStore.getState().reset()
         }
         // 其余错误也不强制跳转,回落到登录表单
       } finally {
