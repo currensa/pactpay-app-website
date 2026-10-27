@@ -8,6 +8,7 @@ import {
   assertRedepositReceipt,
   attachRedepositHash,
   deliverRedeposit,
+  discardUnsubmittedRedeposit,
   loadPreparedRedeposits,
   waitForIndexedDelivery,
   type PreparedRedeposit
@@ -225,6 +226,23 @@ export default function MemberDefi() {
   function setRecipientAmount(memberId: string, value: string) {
     if (value !== '' && !/^\d*(\.\d*)?$/.test(value)) return
     setRecipientAmounts(current => ({ ...current, [memberId]: value }))
+  }
+
+  function cancelPendingDelivery(record: PreparedRedeposit) {
+    if (record.txHash) return
+    if (
+      !window.confirm(
+        'Cancel only if the wallet never submitted this transaction. Removing this recovery data cannot be undone.'
+      )
+    ) return
+    discardUnsubmittedRedeposit(record)
+    setPending(loadPreparedRedeposits(record.sender))
+    setRecoveryHashes(current => {
+      const next = { ...current }
+      delete next[record.id]
+      return next
+    })
+    setStatus('Unsubmitted encrypted delivery removed')
   }
 
   async function retryDelivery(record: PreparedRedeposit) {
@@ -542,21 +560,37 @@ export default function MemberDefi() {
                   placeholder="Paste the submitted DeFi transaction hash"
                 />
               )}
-              <button
-                className="rounded border px-3 py-1"
-                disabled={busy}
-                onClick={() => {
-                  setBusy(true)
-                  setError('')
-                  setStatus('Confirming encrypted delivery…')
-                  void retryDelivery(record)
-                    .then(() => setStatus('Encrypted delivery confirmed'))
-                    .catch(err => setError(err instanceof Error ? err.message : 'Delivery retry failed'))
-                    .finally(() => setBusy(false))
-                }}
-              >
-                Retry delivery
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="rounded border px-3 py-1"
+                  disabled={busy}
+                  onClick={() => {
+                    setBusy(true)
+                    setError('')
+                    setStatus('Confirming encrypted delivery…')
+                    void retryDelivery(record)
+                      .then(() => setStatus('Encrypted delivery confirmed'))
+                      .catch(err => setError(err instanceof Error ? err.message : 'Delivery retry failed'))
+                      .finally(() => setBusy(false))
+                  }}
+                >
+                  Retry delivery
+                </button>
+                {!record.txHash && (
+                  <button
+                    className="rounded border border-red-300 px-3 py-1 text-red-600"
+                    disabled={busy}
+                    onClick={() => cancelPendingDelivery(record)}
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+              {record.txHash && (
+                <p className="text-xs text-muted-foreground">
+                  A submitted re-deposit cannot be cancelled. Complete encrypted delivery so receivers can access it.
+                </p>
+              )}
             </div>
           ))}
         </section>

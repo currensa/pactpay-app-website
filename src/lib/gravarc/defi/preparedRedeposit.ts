@@ -16,6 +16,18 @@ export interface PreparedRedeposit {
 
 const storageKey = (sender: string) => `pactpay:preparedRedeposits:${sender.toLowerCase()}`
 
+export function isWalletRejection(error: unknown): boolean {
+  const seen = new Set<unknown>()
+  let current = error
+  while (current && typeof current === 'object' && !seen.has(current)) {
+    seen.add(current)
+    const value = current as { name?: string; code?: number; cause?: unknown }
+    if (value.name === 'UserRejectedRequestError' || value.code === 4001) return true
+    current = value.cause
+  }
+  return false
+}
+
 export function loadPreparedRedeposits(sender: string): PreparedRedeposit[] {
   const raw = localStorage.getItem(storageKey(sender))
   if (!raw) return []
@@ -104,8 +116,8 @@ export function attachRedepositHash(record: PreparedRedeposit, hash: string): Pr
   return updated
 }
 
-/** Only after an explicit wallet rejection, when no transaction hash can exist. */
-export function discardRejectedRedeposit(record: PreparedRedeposit): void {
+/** Remove recovery only while no submitted transaction hash is attached. */
+export function discardUnsubmittedRedeposit(record: PreparedRedeposit): void {
   const current = loadPreparedRedeposits(record.sender).find(candidate => candidate.id === record.id)
   if (!current || current.txHash) return
   const remaining = loadPreparedRedeposits(record.sender).filter(candidate => candidate.id !== record.id)

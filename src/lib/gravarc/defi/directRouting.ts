@@ -14,7 +14,8 @@ import {
   assertRedepositReceipt,
   attachRedepositHash,
   deliverRedeposit,
-  discardRejectedRedeposit,
+  discardUnsubmittedRedeposit,
+  isWalletRejection,
   prepareRedeposit,
   waitForIndexedDelivery,
   type PreparedRedeposit
@@ -330,11 +331,7 @@ export async function routePrivateAllocation(params: DirectDefiParams): Promise<
       chain
     })
   } catch (error) {
-    if (
-      prepared &&
-      ((error as { name?: string }).name === 'UserRejectedRequestError' || (error as { code?: number }).code === 4001)
-    )
-      discardRejectedRedeposit(prepared)
+    if (prepared && isWalletRejection(error)) discardUnsubmittedRedeposit(prepared)
     throw error
   }
   if (prepared) prepared = attachRedepositHash(prepared, txHash)

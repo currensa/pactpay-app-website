@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { encodeAbiParameters, encodeEventTopics } from 'viem'
 import { GRAVARC_ABI } from '../src/lib/gravarc/gravarcAbi.ts'
-import { assertRedepositReceipt, attachRedepositHash, discardRejectedRedeposit, loadPreparedRedeposits,
+import { assertRedepositReceipt, attachRedepositHash, discardUnsubmittedRedeposit, isWalletRejection, loadPreparedRedeposits,
   prepareRedeposit, waitForIndexedDelivery } from '../src/lib/gravarc/defi/preparedRedeposit.ts'
 
 const values = new Map()
@@ -22,6 +22,9 @@ const proof = {
   receivers: [{ address: recipient, encPubkey: input.encPubkey, nullifier: '42',
     amount: '100', authPathElements: [], authPathIndices: [] }],
 }
+assert.equal(isWalletRejection({ code: 4001 }), true)
+assert.equal(isWalletRejection({ cause: { name: 'UserRejectedRequestError' } }), true)
+assert.equal(isWalletRejection(new Error('RPC failed')), false)
 assert.throws(() => prepareRedeposit(sender, 'eip155:11155111', { ...proof, canRefund: true }, [input]), /non-refundable/)
 const record = prepareRedeposit(sender, 'eip155:11155111', proof, [input])
 assert.equal(loadPreparedRedeposits(sender).length, 1)
@@ -29,11 +32,11 @@ assert.equal(record.withdrawMessages[0].address, recipient)
 assert.ok(record.withdrawMessages[0].content.includes(':'))
 const attached = attachRedepositHash(record, `0x${'aa'.repeat(32)}`)
 assert.equal(loadPreparedRedeposits(sender)[0].txHash, attached.txHash)
-discardRejectedRedeposit(record)
+discardUnsubmittedRedeposit(record)
 assert.equal(loadPreparedRedeposits(sender).length, 1)
 assert.throws(() => attachRedepositHash(record, `0x${'bb'.repeat(32)}`), /different transaction/)
 const rejected = prepareRedeposit(sender, 'eip155:11155111', proof, [input])
-discardRejectedRedeposit(rejected)
+discardUnsubmittedRedeposit(rejected)
 assert.equal(loadPreparedRedeposits(sender).length, 1)
 
 const depositEvent = GRAVARC_ABI.find(item => item.name === 'Deposit')
