@@ -1,5 +1,5 @@
 import apis from '@/apis'
-import type { PrivacyPayrollItem } from '@/apis/transaction.api'
+import type { DefiRecipientOption, PrivacyPayrollItem } from '@/apis/transaction.api'
 import type { NetworkConfigResponse } from '@/apis/chain-asset.api'
 import { getDefiAdapter } from '@/lib/gravarc/defi/registry'
 import type { DefiQuote } from '@/lib/gravarc/defi/types'
@@ -50,7 +50,10 @@ export default function MemberDefi() {
   const [amount, setAmount] = useState('')
   const [destination, setDestination] = useState('')
   const [redeposit, setRedeposit] = useState(false)
-  const [receiversText, setReceiversText] = useState('')
+  const [recipientOptions, setRecipientOptions] = useState<DefiRecipientOption[]>([])
+  const [recipientsLoading, setRecipientsLoading] = useState(true)
+  const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set())
+  const [recipientAmounts, setRecipientAmounts] = useState<Record<string, string>>({})
   const [excessRecipient, setExcessRecipient] = useState('')
   const [pending, setPending] = useState<PreparedRedeposit[]>([])
   const [recoveryHashes, setRecoveryHashes] = useState<Record<string, string>>({})
@@ -73,6 +76,19 @@ export default function MemberDefi() {
       .catch(err => setError(err instanceof Error ? err.message : 'Could not load DeFi allocations'))
   }, [])
   useEffect(() => {
+    const orgId = localStorage.getItem('organizationId')
+    if (!orgId) {
+      setRecipientsLoading(false)
+      setError('Select an organization before choosing re-deposit receivers')
+      return
+    }
+    void apis.transaction
+      .getDefiRecipientOptions(orgId)
+      .then(setRecipientOptions)
+      .catch(err => setError(err instanceof Error ? err.message : 'Could not load re-deposit receivers'))
+      .finally(() => setRecipientsLoading(false))
+  }, [])
+  useEffect(() => {
     setBalance(null)
     setQuote(null)
     setPassword('')
@@ -92,7 +108,7 @@ export default function MemberDefi() {
   }, [itemId])
   useEffect(() => {
     setQuote(null)
-  }, [protocolAddress, outputToken, amount, slippage, destination, redeposit, receiversText, excessRecipient])
+  }, [protocolAddress, outputToken, amount, slippage, destination, redeposit, selectedRecipients, recipientAmounts, excessRecipient])
 
   const item = items.find(row => row.id === itemId)
   const network = networks.find(row => row.caipChainId === item?.batch.caipChainId)
@@ -176,23 +192,18 @@ export default function MemberDefi() {
 
   async function privateReceivers(): Promise<ReceiverInput[]> {
     if (!output) throw new Error('Select an output token')
-    const lines = receiversText
-      .trim()
-      .split('\n')
-      .map(line => line.trim())
-      .filter(Boolean)
-    if (lines.length < 1 || lines.length > 128) throw new Error('Enter 1–128 re-deposit receivers')
-    const parsed = lines.map(line => {
-      const parts = line.split(',').map(value => value.trim())
-      if (parts.length !== 2) throw new Error('Enter each receiver as address,amount')
-      const address = getAddress(parts[0])
-      const amount = parseUnits(parts[1], output.decimals)
-      if (amount <= 0n) throw new Error('Each receiver needs a positive amount')
-      return { address, amount }
-    })
-    if (new Set(parsed.map(row => row.address.toLowerCase())).size !== parsed.length) {
-      throw new Error('A receiver address may appear only once')
+    if (selectedRecipients.size < 1 || selectedRecipients.size > 128) {
+      throw new Error('Select 1–128 re-deposit receivers')
     }
+    const parsed = Array.from(selectedRecipients).map(memberId => {
+      const recipient = recipientOptions.find(option => option.memberId === memberId)
+      if (!recipient) throw new Error('A selected receiver is no longer available')
+      const amountText = recipientAmounts[memberId] ?? ''
+      if (!amountText) throw new Error(`Enter an amount for ${recipient.showName}`)
+      const amount = parseUnits(amountText, output.decimals)
+      if (amount <= 0n) throw new Error('Each receiver needs a positive amount')
+      return { address: getAddress(recipient.address), amount }
+    })
     const profiles = await apis.transaction.getDefiRecipientProfiles(parsed.map(row => row.address))
     const byAddress = new Map(profiles.map(profile => [profile.address.toLowerCase(), profile]))
     return parsed.map(row => {
@@ -200,6 +211,20 @@ export default function MemberDefi() {
       if (!profile) throw new Error(`Receiver ${row.address} has no current EVM privacy profile`)
       return { address: row.address, amount: row.amount, secretHash: profile.secretHash, encPubkey: profile.encPubkey }
     })
+  }
+
+  function toggleRecipient(memberId: string) {
+    setSelectedRecipients(current => {
+      const next = new Set(current)
+      if (next.has(memberId)) next.delete(memberId)
+      else next.add(memberId)
+      return next
+    })
+  }
+
+  function setRecipientAmount(memberId: string, value: string) {
+    if (value !== '' && !/^\d*(\.\d*)?$/.test(value)) return
+    setRecipientAmounts(current => ({ ...current, [memberId]: value }))
   }
 
   async function retryDelivery(record: PreparedRedeposit) {
@@ -401,16 +426,45 @@ export default function MemberDefi() {
           </label>
           {redeposit ? (
             <>
-              <label className="block">
-                Receivers and private amounts (one address,amount per line)
-                <textarea
-                  className="block min-h-28 w-full rounded border p-2"
-                  value={receiversText}
-                  disabled={busy}
-                  onChange={event => setReceiversText(event.target.value)}
-                  placeholder="0x…,1.25"
-                />
-              </label>
+              <fieldset className="space-y-2 rounded border p-3" disabled={busy || recipientsLoading}>
+                <legend className="px-1">Organization receivers and private amounts</legend>
+                {recipientsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading eligible receivers…</p>
+                ) : recipientOptions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No active organization member has a current EVM privacy profile.
+                  </p>
+                ) : (
+                  recipientOptions.map(recipient => {
+                    const selected = selectedRecipients.has(recipient.memberId)
+                    return (
+                      <div key={recipient.memberId} className="flex flex-col gap-2 rounded border p-2 sm:flex-row sm:items-center">
+                        <label className="flex min-w-0 flex-1 items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() => toggleRecipient(recipient.memberId)}
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-medium">{recipient.showName}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{recipient.address}</span>
+                          </span>
+                        </label>
+                        {selected && (
+                          <input
+                            className="rounded border p-2 sm:w-40"
+                            value={recipientAmounts[recipient.memberId] ?? ''}
+                            onChange={event => setRecipientAmount(recipient.memberId, event.target.value)}
+                            inputMode="decimal"
+                            placeholder={`Amount in ${output.symbol}`}
+                            aria-label={`Amount for ${recipient.showName}`}
+                          />
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </fieldset>
               {protocol?.outputBehavior === 'variable' && (
                 <label className="block">
                   Send excess output to

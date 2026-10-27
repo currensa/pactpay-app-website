@@ -83,6 +83,11 @@ export interface DefiRecipientProfile {
   encPubkey: string
 }
 
+export interface DefiRecipientOption extends DefiRecipientProfile {
+  memberId: string
+  showName: string
+}
+
 
 export interface WithdrawalBatchResult {
   succeeded: { payrollItemId: string; txUrl: string; transactionName: string }[]
@@ -257,6 +262,13 @@ export interface ConfirmPrivacyDepositPayload {
 
 export class TransactionApi {
   constructor(private readonly request: AxiosInstance) {}
+
+  async getDefiRecipientOptions(orgId: string): Promise<DefiRecipientOption[]> {
+    const res = await this.request.get<DefiRecipientOption[]>(
+      `/transaction/defi/${encodeURIComponent(orgId)}/recipients`,
+    )
+    return res.data
+  }
 
   async getDefiRecipientProfiles(addresses: string[]): Promise<DefiRecipientProfile[]> {
     const res = await this.request.get<DefiRecipientProfile[]>('/transaction/defi/recipient-profiles', {
