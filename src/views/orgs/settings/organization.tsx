@@ -3,14 +3,23 @@ import { Organization } from '@/apis/orgnization.api'
 import { ImageCropUpload } from '@/components/app/image-crop-upload'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
+import { ERC20_ABI } from '@/lib/gravarc/gravarcAbi'
+import { readPayrollWalletBalance } from '@/lib/gravarc/payrollWalletBalance'
+import { openWalletModal } from '@/providers/app-kit-provider'
 import useChainAssetStore from '@/stores/chain-asset'
 import useOrganizationStore from '@/stores/organization'
 import { useTranslation } from '@/utils/i18n'
 import { ApiKeySection } from '@/views/orgs/components/api-key-section'
 import { PaymentConfigFields } from '@/views/orgs/components/payment-config-fields'
 import { BookOpen, Check, Copy, XCircle } from 'lucide-react'
+import { useAppKitAccount } from '@reown/appkit/react'
+import { getPublicClient } from '@wagmi/core'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { formatUnits, type Hex } from 'viem'
+import { useConfig } from 'wagmi'
+
+const NATIVE_TOKEN = '0x0000000000000000000000000000000000000000'
 
 export default function OrganizationSettings() {
   const navigate = useNavigate()
@@ -19,6 +28,8 @@ export default function OrganizationSettings() {
   const fetchChainAssets = useChainAssetStore(s => s.fetchChainAssets)
   const chainAssets = useChainAssetStore(s => s.chainAssets)
   const fetchPayrollTokenSymbol = useOrganizationStore(s => s.fetchPayrollTokenSymbol)
+  const { address, isConnected } = useAppKitAccount()
+  const wagmiConfig = useConfig()
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -37,9 +48,27 @@ export default function OrganizationSettings() {
 
   const [selectedChainId, setSelectedChainId] = useState('')
   const [selectedToken, setSelectedToken] = useState('')
+  const [balanceChainId, setBalanceChainId] = useState('')
+  const [balanceToken, setBalanceToken] = useState('')
+  const [walletBalance, setWalletBalance] = useState<{
+    key: string
+    status: 'loading' | 'loaded' | 'unavailable'
+    amount?: bigint
+  } | null>(null)
+
+  const selectedBalanceAsset = chainAssets.find(asset =>
+    asset.caipChainId === balanceChainId &&
+    (asset.contractAddress ?? NATIVE_TOKEN).toLowerCase() === balanceToken.toLowerCase()
+  )
+  const balanceKey = `${balanceChainId}:${balanceToken.toLowerCase()}:${address?.toLowerCase() ?? ''}`
+  const currentWalletBalance = walletBalance?.key === balanceKey ? walletBalance : null
 
   const organizationId = localStorage.getItem('organizationId')
-  const mcpInstallCommand = 'npm i -g @pactpay/mcp-server'
+  const mcpRepositoryUrl = 'https://github.com/currensa/pact-privacy-mcp/tree/zk-prod'
+  const mcpInstallCommand = `git clone --branch zk-prod --single-branch https://github.com/currensa/pact-privacy-mcp.git
+cd pact-privacy-mcp
+npm install
+npm run build`
 
   useEffect(() => {
     if (!organizationId) {
@@ -48,6 +77,36 @@ export default function OrganizationSettings() {
     }
     loadData()
   }, [organizationId])
+
+  useEffect(() => {
+    if (!selectedBalanceAsset || !balanceChainId || !isConnected || !address) return
+    let cancelled = false
+    setWalletBalance({ key: balanceKey, status: 'loading' })
+
+    const fetchBalance = async () => {
+      try {
+        const client = getPublicClient(wagmiConfig, { chainId: Number(balanceChainId.split(':')[1]) })
+        if (!client) throw new Error('Wallet network is unavailable')
+        const amount = await readPayrollWalletBalance(
+          selectedBalanceAsset,
+          address,
+          wallet => client.getBalance({ address: wallet as Hex }),
+          (token, wallet) => client.readContract({
+            address: token as Hex,
+            abi: ERC20_ABI,
+            functionName: 'balanceOf',
+            args: [wallet as Hex],
+          }),
+        )
+        if (!cancelled) setWalletBalance({ key: balanceKey, status: 'loaded', amount })
+      } catch {
+        if (!cancelled) setWalletBalance({ key: balanceKey, status: 'unavailable' })
+      }
+    }
+
+    void fetchBalance()
+    return () => { cancelled = true }
+  }, [address, balanceChainId, balanceKey, isConnected, selectedBalanceAsset, wagmiConfig])
 
   const loadData = async () => {
     try {
@@ -298,6 +357,54 @@ export default function OrganizationSettings() {
 
       <div className="flex flex-col gap-[12px]">
         <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[26px] text-[#1c1c26]">
+          {t('pages.orgSettings.walletBalances')}
+        </p>
+
+        <div className="flex flex-col gap-[16px] rounded-[32px] bg-white p-[20px]">
+          <p className="max-w-[620px] text-[13px] leading-[20px] text-[#8d8d93]">
+            {t('pages.orgSettings.walletBalancesDescription')}
+          </p>
+          <PaymentConfigFields
+            chainAssets={chainAssets}
+            selectedChainId={balanceChainId}
+            selectedToken={balanceToken}
+            onSelectedChainIdChange={setBalanceChainId}
+            onSelectedTokenChange={setBalanceToken}
+            tokenLabel={t('pages.orgSettings.balanceToken')}
+            dropdownPlacement="top"
+            className="max-w-[620px]"
+          />
+
+          {selectedBalanceAsset && (
+            <div className="flex max-w-[620px] flex-col gap-[10px] rounded-[16px] bg-[#f5f5f5] px-[16px] py-[14px]">
+              <span aria-live="polite" className="text-[13px] text-[#1c1c26]">
+                {t('pages.createTransactionSelector.walletBalance')}: {' '}
+                {!isConnected || !address
+                  ? t('pages.createTransactionSelector.connectWalletForBalance')
+                  : currentWalletBalance?.status === 'loaded' && currentWalletBalance.amount !== undefined
+                    ? `${formatUnits(currentWalletBalance.amount, selectedBalanceAsset.decimals)} ${selectedBalanceAsset.asset.symbol}`
+                    : currentWalletBalance?.status === 'unavailable'
+                      ? t('pages.createTransactionSelector.balanceUnavailable')
+                      : t('common.loading')}
+              </span>
+              {!isConnected && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void openWalletModal(Number(balanceChainId.split(':')[1])).catch(() => {
+                    setWalletBalance({ key: balanceKey, status: 'unavailable' })
+                  })}
+                >
+                  {t('pages.transactions.connectWallet')}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-[12px]">
+        <p className="font-['Poppins',sans-serif] font-medium text-[16px] leading-[26px] text-[#1c1c26]">
           {t('pages.orgSettings.mcp')}
         </p>
 
@@ -307,15 +414,23 @@ export default function OrganizationSettings() {
             <p className="text-[13px] leading-[20px] text-[#8d8d93]">
               {t('pages.orgSettings.mcpConnectDescription')}
             </p>
+            <a
+              href={mcpRepositoryUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="break-all text-[13px] leading-[20px] text-[#5e85ee] hover:underline"
+            >
+              {mcpRepositoryUrl}
+            </a>
           </div>
 
           <div className="flex flex-col gap-[8px] max-w-[620px]">
             <p className="text-[13px] font-semibold leading-[20px] text-[#1c1c26]">{t('pages.orgSettings.mcpInstallCommand')}</p>
             <div className="flex flex-col overflow-hidden rounded-[12px] border border-[rgba(0,0,0,0.08)] bg-[#f5f5f5] md:flex-row">
               <div className="min-w-0 flex-1 px-[14px] py-[10px]">
-                <code className="block overflow-x-auto whitespace-nowrap text-[13px] leading-[20px] text-[#1c1c26]">
-                {mcpInstallCommand}
-                </code>
+                <pre className="overflow-x-auto whitespace-pre text-[13px] leading-[20px] text-[#1c1c26]">
+                  <code>{mcpInstallCommand}</code>
+                </pre>
               </div>
               <div className="border-t border-[rgba(0,0,0,0.08)] md:border-l md:border-t-0">
                 <Button
@@ -331,14 +446,15 @@ export default function OrganizationSettings() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate('/document#api-services')}
+            <a
+              href={mcpRepositoryUrl}
+              target="_blank"
+              rel="noreferrer"
               className="inline-flex items-center gap-[8px] text-[13px] leading-[20px] text-[#5e85ee] hover:underline"
             >
               <BookOpen className="h-[16px] w-[16px]" />
               {t('pages.orgSettings.readDocumentation')}
-            </button>
+            </a>
           </div>
         </div>
       </div>
