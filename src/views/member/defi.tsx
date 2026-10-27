@@ -456,7 +456,7 @@ export default function MemberDefi() {
                             value={recipientAmounts[recipient.memberId] ?? ''}
                             onChange={event => setRecipientAmount(recipient.memberId, event.target.value)}
                             inputMode="decimal"
-                            placeholder={`Amount in ${output.symbol}`}
+                            placeholder={output ? `Amount in ${output.symbol}` : 'Amount'}
                             aria-label={`Amount for ${recipient.showName}`}
                           />
                         )}
