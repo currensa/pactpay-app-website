@@ -427,12 +427,12 @@ export default function MemberDefi() {
           {redeposit ? (
             <>
               <fieldset className="space-y-2 rounded border p-3" disabled={busy || recipientsLoading}>
-                <legend className="px-1">Organization receivers and private amounts</legend>
+                <legend className="px-1">WhiteList receivers and private amounts</legend>
                 {recipientsLoading ? (
                   <p className="text-sm text-muted-foreground">Loading eligible receivers…</p>
                 ) : recipientOptions.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No active organization member has a current EVM privacy profile.
+                    No active WhiteList member has a current EVM privacy profile.
                   </p>
                 ) : (
                   recipientOptions.map(recipient => {
@@ -489,6 +489,9 @@ export default function MemberDefi() {
                 onChange={event => setDestination(event.target.value)}
                 placeholder="0x…"
               />
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  For better privacy, do not use the deposit address or another address publicly associated with you.
+                </span>
             </label>
           )}
           <label className="block">
