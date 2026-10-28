@@ -24,6 +24,8 @@ import { useAppKitAccount, useAppKitProvider } from '@reown/appkit/react'
 import { useEffect, useMemo, useState } from 'react'
 import { formatUnits, getAddress, parseUnits, createPublicClient, createWalletClient, custom, type Hex } from 'viem'
 
+const DEFAULT_EXCESS_RECIPIENT = '0x1111111111111111111111111111111111111111'
+
 async function allClaimableItems(networks: NetworkConfigResponse[]): Promise<PrivacyPayrollItem[]> {
   const items: PrivacyPayrollItem[] = []
   for (let page = 1; ; page++) {
@@ -55,13 +57,14 @@ export default function MemberDefi() {
   const [recipientsLoading, setRecipientsLoading] = useState(true)
   const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set())
   const [recipientAmounts, setRecipientAmounts] = useState<Record<string, string>>({})
-  const [excessRecipient, setExcessRecipient] = useState('')
   const [pending, setPending] = useState<PreparedRedeposit[]>([])
   const [recoveryHashes, setRecoveryHashes] = useState<Record<string, string>>({})
   const [password, setPassword] = useState('')
   const [slippage, setSlippage] = useState('0.5')
   const [balance, setBalance] = useState<Awaited<ReturnType<typeof readPrivacyWithdrawState>> | null>(null)
   const [quote, setQuote] = useState<DefiQuote | null>(null)
+  const [quoteLoading, setQuoteLoading] = useState(false)
+  const [quoteError, setQuoteError] = useState('')
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
@@ -107,10 +110,6 @@ export default function MemberDefi() {
     setOutputToken('')
     setAmount('')
   }, [itemId])
-  useEffect(() => {
-    setQuote(null)
-  }, [protocolAddress, outputToken, amount, slippage, destination, redeposit, selectedRecipients, recipientAmounts, excessRecipient])
-
   const item = items.find(row => row.id === itemId)
   const network = networks.find(row => row.caipChainId === item?.batch.caipChainId)
   const protocol = network?.protocols.find(row => row.address === protocolAddress)
@@ -129,6 +128,78 @@ export default function MemberDefi() {
       }) ?? [],
     [network]
   )
+
+  useEffect(() => {
+    if (!network || !protocol || !item || !output || !inputToken || !walletProvider || !amount) {
+      setQuote(null)
+      setQuoteError('')
+      setQuoteLoading(false)
+      return
+    }
+
+    let amountIn: bigint
+    let slippageBips: bigint
+    try {
+      amountIn = parseUnits(amount, inputToken.decimals)
+      slippageBips = parseUnits(slippage, 2)
+      if (amountIn <= 0n || slippageBips < 0n || slippageBips >= 10_000n) throw new Error('Invalid amount or slippage')
+      if (balance && amountIn > balance.remaining) throw new Error('Amount exceeds the available private balance')
+    } catch (err) {
+      setQuote(null)
+      setQuoteError(err instanceof Error ? err.message : 'Enter a valid amount')
+      setQuoteLoading(false)
+      return
+    }
+
+    const adapter = getDefiAdapter(protocol as Parameters<typeof getDefiAdapter>[0])
+    if (
+      !adapter.supportsNativeAssets &&
+      (inputToken.address.toLowerCase() === '0x0000000000000000000000000000000000000000' ||
+        output.address.toLowerCase() === '0x0000000000000000000000000000000000000000')
+    ) {
+      setQuote(null)
+      setQuoteError('This route supports ERC-20 tokens only')
+      setQuoteLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setQuote(null)
+    setQuoteError('')
+    setQuoteLoading(true)
+    const timer = window.setTimeout(() => {
+      void adapter
+        .quote({
+          chainId: network.chainId,
+          family: 'evm',
+          walletProvider,
+          protocol: protocol as Parameters<typeof getDefiAdapter>[0],
+          inputToken: getAddress(item.tokenAddress || item.batch.tokenAddress),
+          outputToken: getAddress(output.address),
+          amountIn,
+          inputDecimals: inputToken.decimals,
+          outputDecimals: output.decimals,
+          slippageBips
+        })
+        .then(value => {
+          if (!cancelled) setQuote(value)
+        })
+        .catch(err => {
+          if (!cancelled) {
+            setQuote(null)
+            setQuoteError(err instanceof Error ? err.message : 'Quote failed')
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setQuoteLoading(false)
+        })
+    }, 400)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [amount, balance, inputToken, item, network, output, protocol, slippage, walletProvider])
 
   async function unlock() {
     if (!item || !network || !address || !walletProvider)
@@ -157,38 +228,6 @@ export default function MemberDefi() {
     if (!balance || amountIn > balance.remaining)
       throw new Error('Check the live balance and select no more than the remainder')
     return { amountIn, slippageBips }
-  }
-
-  async function preview() {
-    if (!network || !protocol || !item || !output || !walletProvider)
-      throw new Error('Select an allocation, route, output token, and wallet')
-    await selectWalletNetwork(network.chainId)
-    const walletChain = await walletProvider.request<string>({ method: 'eth_chainId' })
-    if (Number.parseInt(walletChain, 16) !== network.chainId)
-      throw new Error('Wallet did not switch to the selected network')
-    const { amountIn, slippageBips } = requestedAmount()
-    const adapter = getDefiAdapter(protocol as Parameters<typeof getDefiAdapter>[0])
-    if (
-      !adapter.supportsNativeAssets &&
-      (inputToken?.address.toLowerCase() === '0x0000000000000000000000000000000000000000' ||
-        output.address.toLowerCase() === '0x0000000000000000000000000000000000000000')
-    ) {
-      throw new Error('This route supports ERC-20 tokens only')
-    }
-    setQuote(
-      await adapter.quote({
-        chainId: network.chainId,
-        family: 'evm',
-        walletProvider,
-        protocol: protocol as Parameters<typeof getDefiAdapter>[0],
-        inputToken: getAddress(item.tokenAddress || item.batch.tokenAddress),
-        outputToken: getAddress(output.address),
-        amountIn,
-        inputDecimals: inputToken!.decimals,
-        outputDecimals: output.decimals,
-        slippageBips
-      })
-    )
   }
 
   async function privateReceivers(): Promise<ReceiverInput[]> {
@@ -273,7 +312,7 @@ export default function MemberDefi() {
     setItems(await allClaimableItems(networks))
   }
 
-  async function run(action: 'balance' | 'quote' | 'execute') {
+  async function run(action: 'balance' | 'execute') {
     setBusy(true)
     setError('')
     setStatus('')
@@ -283,13 +322,8 @@ export default function MemberDefi() {
         await unlock()
         return
       }
-      if (action === 'quote') {
-        await preview()
-        return
-      }
       if (!item || !network || !protocol || !output || !quote || !walletProvider || !address)
-        throw new Error('Preview a fresh route first')
-      if (quote.expiresAt <= Date.now()) throw new Error('Quote expired; preview again')
+        throw new Error('Wait for a swap quote first')
       const { amountIn, slippageBips } = requestedAmount()
       const keyPair = await unlock()
       const receivers = redeposit ? await privateReceivers() : undefined
@@ -305,7 +339,7 @@ export default function MemberDefi() {
         keyPair,
         walletProvider,
         account: getAddress(address),
-        redeposit: receivers ? { receivers, excessRecipient: getAddress(excessRecipient || address) } : undefined,
+        redeposit: receivers ? { receivers, excessRecipient: getAddress(DEFAULT_EXCESS_RECIPIENT) } : undefined,
         confirmQuoteChange: fresh =>
           window.confirm(
             `Quote changed. New minimum: ${formatUnits(fresh.minimumOutput, output.decimals)} ${output.symbol}. Continue?`
@@ -432,6 +466,19 @@ export default function MemberDefi() {
               onChange={event => setAmount(event.target.value)}
               inputMode="decimal"
             />
+            {quoteLoading && <span className="mt-1 block text-xs text-muted-foreground">Fetching quote…</span>}
+            {quoteError && <span className="mt-1 block text-xs text-red-500">{quoteError}</span>}
+            {quote && (
+              <span className="mt-2 block space-y-1 text-sm">
+                <span className="block">
+                  Estimated output: {formatUnits(quote.estimatedOutput, output?.decimals ?? 18)} {output?.symbol}
+                </span>
+                <span className="block">
+                  Recommended minimum: {formatUnits(quote.minimumOutput, output?.decimals ?? 18)} {output?.symbol}
+                </span>
+                {quote.routeLabel && <span className="block text-xs text-muted-foreground">Route: {quote.routeLabel}</span>}
+              </span>
+            )}
           </label>
           <label className="flex gap-2">
             <input
@@ -483,18 +530,6 @@ export default function MemberDefi() {
                   })
                 )}
               </fieldset>
-              {protocol?.outputBehavior === 'variable' && (
-                <label className="block">
-                  Send excess output to
-                  <input
-                    className="block w-full rounded border p-2"
-                    value={excessRecipient}
-                    disabled={busy}
-                    onChange={event => setExcessRecipient(event.target.value)}
-                    placeholder={address ?? '0x…'}
-                  />
-                </label>
-              )}
               <p>Re-deposits are non-refundable. Encrypted recovery is saved in this browser before wallet signing.</p>
             </>
           ) : (
@@ -523,21 +558,8 @@ export default function MemberDefi() {
             />
           </label>
           <button
-            className="rounded border px-4 py-2"
-            disabled={busy || !balance || !protocol || !output}
-            onClick={() => void run('quote')}
-          >
-            Refresh quote
-          </button>
-          {quote && (
-            <p>
-              Expected: {formatUnits(quote.estimatedOutput, output?.decimals ?? 18)} {output?.symbol}; minimum:{' '}
-              {formatUnits(quote.minimumOutput, output?.decimals ?? 18)}. {quote.routeLabel}
-            </p>
-          )}
-          <button
             className="bg-primary text-primary-foreground rounded px-4 py-2"
-            disabled={busy || !quote || quote.expiresAt <= Date.now()}
+            disabled={busy || quoteLoading || !quote || !balance}
             onClick={() => void run('execute')}
           >
             {redeposit ? 'Swap and re-deposit' : 'Swap directly'}
